@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,340;0,9..144,500;0,9..144,600;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --desk:#28362E;
+    --desk-dark:#1B2620;
+    --paper:#F1EAD9;
+    --paper-dim:#E7DDC5;
+    --ink:#2A2318;
+    --ink-soft:#7A6E58;
+    --brass:#A9782F;
+    --brass-light:#C99A4E;
+    --family:#3C5A45;
+    --projects:#3E4A6B;
+    --estate:#9C4530;
+    --personal:#A9782F;
+    --misc:#5B6560;
+    --line: rgba(42,35,24,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background: radial-gradient(ellipse at 50% -10%, var(--desk) 0%, var(--desk-dark) 75%);
+    font-family:'IBM Plex Sans', sans-serif;
+    color: var(--ink);
+    padding: 36px 14px 70px;
+  }
+  .shell{ max-width: 720px; margin: 0 auto; }
+  .masthead{ text-align:center; margin-bottom: 22px; position:relative; }
+  .masthead h1{
+    font-family:'Fraunces', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 2.3rem;
+    color: var(--paper);
+    margin: 0 0 4px;
+    letter-spacing: 0.01em;
+  }
+  .masthead .tagline{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(241,234,217,0.55);
+  }
+  .locbadge{
+    position:absolute; top:-6px; right: 0;
+    width:52px; height:52px; border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, var(--brass-light), var(--brass) 70%);
+    color: var(--ink);
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:500; font-size:0.68rem;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    line-height:1.1; cursor:pointer; border:none;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.4);
+    transition: transform .15s ease;
+  }
+  .locbadge:hover{ transform: scale(1.06); }
+  .status-line{
+    text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
+    color: rgba(241,234,217,0.7); margin-bottom: 18px;
+  }
+  .tabs{ display:flex; gap:4px; padding: 0 10px; position:relative; z-index:1; flex-wrap:wrap; }
+  .tab{
+    font-family:'IBM Plex Mono', monospace; font-size:0.7rem; letter-spacing:0.06em;
+    text-transform:uppercase; padding: 9px 14px 11px; border-radius: 7px 7px 0 0;
+    cursor:pointer; border:none; background: rgba(241,234,217,0.14); color: rgba(241,234,217,0.65);
+    margin-bottom:-1px; transition: all .15s ease; display:flex; align-items:center; gap:6px;
+  }
+  .tab .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
+  .tab.active{ background: var(--paper); color: var(--ink); font-weight:500; }
+  .tab .count{ opacity:0.6; font-size:0.65rem; }
+  .card{
+    background: var(--paper); border-radius: 2px 10px 10px 10px;
+    box-shadow: 0 24px 55px rgba(0,0,0,0.4);
+    padding: 22px 22px 14px;
+  }
+  .quickadd{ display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+  .quickadd input[type=text]{
+    flex:1; min-width: 160px; border:none; border-bottom: 1.5px solid var(--ink-soft);
+    background:transparent; font-family:'Fraunces', serif; font-style:italic; font-size:1.02rem;
+    padding: 6px 2px; color: var(--ink); outline:none;
+  }
+  .quickadd input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
+  .quickadd select{
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
+    background: var(--paper-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
+  }
+  .flagbtn{
+    border:1px solid var(--line); background:var(--paper-dim); border-radius:5px; width:32px; height:32px;
+    cursor:pointer; font-size:0.85rem; color: var(--ink-soft); flex-shrink:0;
+  }
+  .flagbtn.on{ background: var(--estate); color:white; border-color: var(--estate); }
+  .addbtn{
+    width:34px; height:34px; border-radius:50%; border:none; flex-shrink:0;
+    background: radial-gradient(circle at 35% 30%, var(--brass-light), var(--brass) 70%);
+    color: var(--ink); font-size:1.1rem; cursor:pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
+  }
+  ul.tasks{ list-style:none; margin:0; padding:0; }
+  li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
+  .row{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
+  .check{
+    width:18px; height:18px; border:1.5px solid var(--ink-soft); border-radius:4px; flex-shrink:0;
+    margin-top:2px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .check.done{ background: var(--ink); border-color: var(--ink); }
+  .check.done::after{ content:'✓'; color: var(--paper); font-size:12px; }
+  .cdot{ width:7px; height:7px; border-radius:50%; margin-top:7px; flex-shrink:0; }
+  .title{ flex:1; font-size:0.97rem; line-height:1.4; }
+  .title.done{ text-decoration: line-through; color: var(--ink-soft); }
+  .meta{ display:flex; gap:6px; align-items:center; flex-shrink:0; }
+  .badge{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; padding:2px 6px; border-radius:4px; letter-spacing:0.04em; }
+  .badge.overdue{ background: var(--estate); color:white; }
+  .badge.due{ background: var(--paper-dim); color: var(--ink-soft); border:1px solid var(--line); }
+  .expand{ margin: 10px 0 2px 28px; display:none; }
+  .expand.open{ display:block; }
+  .expand textarea{
+    width:100%; min-height:52px; font-family:'IBM Plex Sans',sans-serif; font-size:0.85rem;
+    border:1px solid var(--line); border-radius:6px; background: var(--paper-dim); padding:8px; resize:vertical; color:var(--ink);
+  }
+  .expand-row{ display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  .expand input[type=date]{
+    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line);
+    border-radius:5px; padding:5px 6px; background: var(--paper-dim); color:var(--ink);
+  }
+  .remove{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; color: var(--estate); background:none; border:none; cursor:pointer; letter-spacing:0.05em; margin-left:auto; }
+  .titleedit{
+    width:100%; border:none; border-bottom: 1.5px solid var(--ink-soft); background:transparent;
+    font-family:'Fraunces', serif; font-style:italic; font-size:1rem; padding:4px 2px 8px; color:var(--ink); outline:none; margin-bottom:6px;
+  }
+  .catselect{
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
+    background: var(--paper-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);
+  }
+  .empty{ font-family:'Fraunces', serif; font-style:italic; color: var(--ink-soft); text-align:center; padding: 26px 10px; font-size:1rem; }
+  .footer-row{ display:flex; justify-content:center; padding: 12px 0 4px; }
+  .footer-row button{ background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; color: var(--ink-soft); cursor:pointer; letter-spacing:0.05em; }
+  .subwrap{ margin-top:10px; }
+  .sublabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin-bottom:6px; }
+  .subrow{ display:flex; align-items:center; gap:8px; padding:3px 0; }
+  .subcheck{
+    width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .subcheck.done{ background: var(--ink); border-color: var(--ink); }
+  .subcheck.done::after{ content:'✓'; color: var(--paper); font-size:9px; }
+  .subtext{ flex:1; font-size:0.84rem; }
+  .subtext.done{ text-decoration:line-through; color: var(--ink-soft); }
+  .subdel{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
+  .subadd{
+    width:100%; border:none; border-bottom:1px dashed var(--line); background:transparent;
+    font-family:'IBM Plex Sans',sans-serif; font-size:0.84rem; padding:6px 2px; color:var(--ink); outline:none; margin-top:2px;
+  }
+  .subadd::placeholder{ color: var(--ink-soft); opacity:0.7; }
+  .badge.subcount{ background: var(--paper-dim); color: var(--ink-soft); border:1px solid var(--line); }
+  .savestatus{
+    text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.62rem;
+    color: rgba(241,234,217,0.5); margin-top:12px; letter-spacing:0.06em; text-transform:uppercase; height:14px;
+  }
+  .fieldlabel{ font-family:'IBM Plex Mono',monospace; font-size:0.68rem; color:var(--ink-soft); }
+  .subedit{
+    flex:1; border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
+    font-family:'IBM Plex Sans',sans-serif; font-size:0.84rem; padding:0 0 2px; color:var(--ink); outline:none;
+  }
+  .addday{
+    width:100%; text-align:left; font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
+    letter-spacing:0.05em; padding:11px 14px; border-radius:8px; border:1px dashed var(--brass);
+    background: rgba(169,120,47,0.08); color: var(--brass); cursor:pointer; margin-bottom:16px;
+  }
+  .adddayrow{ display:flex; gap:8px; margin-bottom:16px; }
+  .adddayrow .addday{ flex:1; width:auto; margin-bottom:0; }
+  .pickdatebtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em;
+    background:transparent; border:1px dashed var(--line); color:var(--ink-soft); border-radius:8px; padding:11px 12px; cursor:pointer; flex-shrink:0;
+  }
+  .pickerwrap{ display:flex; gap:8px; align-items:center; margin:10px 0 16px; flex-wrap:wrap; }
+  .pickerwrap input[type=date]{
+    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line); border-radius:5px; padding:6px; background:var(--paper-dim); color:var(--ink);
+  }
+  .reschedule{ display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .reschedule input[type=date]{
+    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line); border-radius:5px; padding:6px; background:var(--paper-dim); color:var(--ink);
+  }
+  .reschedulemsg{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; color:var(--estate); }
+  .lockednote{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'IBM Plex Mono', monospace; font-size:0.68rem;
+    color: var(--ink-soft); background: var(--paper-dim); border-radius:6px; padding:10px 12px; margin-bottom:14px; letter-spacing:0.03em;
+  }
+  .daylistlabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin: 4px 0 6px; }
+  .dayitem{
+    width:100%; display:flex; justify-content:space-between; align-items:center; text-align:left;
+    border:none; background:none; border-bottom:1px dashed var(--line); padding:11px 4px; cursor:pointer;
+    font-family:'IBM Plex Sans',sans-serif; font-size:0.92rem; color:var(--ink);
+  }
+  .todaytag{
+    font-family:'IBM Plex Mono', monospace; font-size:0.58rem; text-transform:uppercase; background:var(--brass);
+    color:white; padding:2px 6px; border-radius:4px; margin-left:8px; letter-spacing:0.04em;
+  }
+  .monthgroup{ margin-bottom:4px; }
+  .monthhead{
+    width:100%; display:flex; justify-content:space-between; align-items:center; text-align:left;
+    border:none; background: var(--paper-dim); border-radius:6px; padding:10px 12px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink); margin-bottom:4px;
+  }
+  .monthhead .count{ color: var(--ink-soft); opacity:1; }
+  .monthbody{ padding-left:6px; margin-bottom:6px; }
+  .backbtn{
+    background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
+    color: var(--ink-soft); cursor:pointer; letter-spacing:0.05em; padding:0; margin-bottom:14px;
+  }
+  .daydetailhead{ margin-bottom:14px; }
+  .daydetailhead h2{ font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.35rem; margin:0 0 4px; color:var(--ink); }
+  .dayprogress{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); }
+  .pulladd{ display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .pulladd select{
+    flex:1; min-width:160px; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
+    background: var(--paper-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
+  }
+  .pullbtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em;
+    background:transparent; border:1px solid var(--brass); color:var(--brass); border-radius:5px; padding:7px 12px; cursor:pointer; flex-shrink:0;
+  }
+  @media (max-width:480px){
+    .masthead h1{ font-size:1.9rem; }
+    .card{ padding: 18px 14px 10px; }
+    .locbadge{ width:44px; height:44px; top:-2px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="masthead">
+    <h1>The Ledger</h1>
+    <div class="tagline">family &nbsp;·&nbsp; projects &nbsp;·&nbsp; estate</div>
+    <button class="locbadge" id="locBadge" onclick="toggleLocation()"></button>
+  </div>
+  <div class="status-line" id="statusLine"></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="card">
+    <div id="categoryView">
+      <div class="quickadd">
+        <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
+        <select id="quickCategory"></select>
+        <button class="flagbtn" id="urgentToggle" onclick="toggleUrgentDraft()" title="Mark urgent">⚑</button>
+        <button class="addbtn" onclick="addTask()">+</button>
+      </div>
+      <ul class="tasks" id="taskList"></ul>
+      <div class="footer-row"><button id="showDoneBtn" onclick="toggleShowDone()"></button></div>
+    </div>
+    <div id="dailyView" style="display:none;"></div>
+  </div>
+  <div class="savestatus" id="saveStatus"></div>
+</div>
+
+<script>
+const CATEGORIES = {
+  family:   { label: 'Family Business', color: 'var(--family)',   hex:'#3C5A45', locations: ['MA','Argentina'] },
+  projects: { label: 'Game & Software', color: 'var(--projects)', hex:'#3E4A6B', locations: ['MA','Argentina'] },
+  estate:   { label: 'Estate Upkeep',   color: 'var(--estate)',   hex:'#9C4530', locations: ['MA'] },
+  personal: { label: 'Personal',        color: 'var(--personal)', hex:'#A9782F', locations: ['MA','Argentina'] },
+  misc:     { label: 'Misc',            color: 'var(--misc)',     hex:'#5B6560', locations: ['MA','Argentina'] },
+};
+const TAB_ORDER = ['all','family','projects','estate','personal','daily'];
+const EMPTY_MSG = {
+  all: "The ledger's empty. Start logging what needs doing.",
+  family: "No family business items on the books. Add one above.",
+  projects: "Nothing queued for the workshop. What are you building?",
+  estate: "The house is quiet, for now. Log anything that needs fixing.",
+  personal: "Nothing personal pending. Good place to add that wedding gift.",
+};
+
+let state = { location: 'MA', tasks: [], days: [] };
+let activeTab = 'all';
+let showDone = false;
+let urgentDraft = false;
+let selectedDay = null;
+let expandedMonths = new Set();
+
+// Storage adapter — uses the real Claude.ai artifact storage (window.storage)
+// whenever it's present, which is always the case when this runs inside a
+// claude.ai conversation. If it's missing (e.g. you're previewing this file
+// locally in a plain browser while editing it with Claude Code), it falls
+// back to localStorage so local testing doesn't just throw errors. This
+// fallback never runs inside claude.ai itself — nothing about the primary
+// storage path changes.
+const storage = window.storage ? window.storage : {
+  async get(key){
+    const raw = localStorage.getItem('ledger-local:' + key);
+    if(raw === null){ const err = new Error('not found'); throw err; }
+    return { key, value: raw, shared: false };
+  },
+  async set(key, value){
+    localStorage.setItem('ledger-local:' + key, value);
+    return { key, value, shared: false };
+  }
+};
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+function defaultState(){
+  return {
+    location: 'MA',
+    days: [],
+    tasks: [
+      {
+        id: 'seed-wedding-gift',
+        title: "Buy wedding gift for friend's September wedding",
+        category: 'personal',
+        status: 'open',
+        urgent: true,
+        dueDate: '',
+        notes: "Wedding is in September, check for a registry before it sneaks up.",
+        subtasks: [],
+        plannedDate: '',
+        createdAt: todayStr()
+      }
+    ]
+  };
+}
+
+function normalizeState(){
+  if(!Array.isArray(state.days)) state.days = [];
+  state.tasks.forEach(t=>{
+    if(t.subtasks===undefined) t.subtasks = [];
+    if(t.plannedDate===undefined) t.plannedDate = '';
+  });
+}
+
+async function loadState(){
+  // Retry once before giving up — a single failed request (e.g. a network
+  // blip) should never be mistaken for "no saved data" and wipe the ledger.
+  for(let attempt=0; attempt<2; attempt++){
+    try{
+      const res = await storage.get('tracker-state', false);
+      if(res && res.value){ state = JSON.parse(res.value); normalizeState(); return; }
+      break; // request succeeded and genuinely found nothing saved yet
+    }catch(e){
+      if(attempt===0){ await new Promise(r=>setTimeout(r,500)); continue; }
+      console.error('Could not load saved ledger after retry, starting fresh locally', e);
+    }
+  }
+  // Use the default in memory, but do NOT write it to storage here — only
+  // save once you actually interact, so a load failure can never overwrite
+  // real saved data with a blank slate.
+  state = defaultState();
+  normalizeState();
+}
+
+async function saveState(){
+  const statusEl = document.getElementById('saveStatus');
+  if(statusEl) statusEl.textContent = 'Saving…';
+  try{
+    await storage.set('tracker-state', JSON.stringify(state), false);
+    if(statusEl){
+      statusEl.textContent = 'Saved';
+      setTimeout(()=>{ if(statusEl.textContent==='Saved') statusEl.textContent=''; }, 1500);
+    }
+  }catch(e){
+    console.error('Storage save failed', e);
+    if(statusEl) statusEl.textContent = 'Save failed — check your connection';
+  }
+}
+
+function isOverdue(t){
+  return t.dueDate && t.status !== 'done' && new Date(t.dueDate) < new Date(todayStr());
+}
+
+function fmtDate(d){
+  if(!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+}
+
+function sortTasks(list){
+  return list.slice().sort((a,b)=>{
+    if((a.status==='done') !== (b.status==='done')) return a.status==='done' ? 1 : -1;
+    if(a.urgent !== b.urgent) return a.urgent ? -1 : 1;
+    const ad = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+    const bd = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+    if(ad !== bd) return ad - bd;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+}
+
+function visibleTabs(){
+  return TAB_ORDER.filter(key => key==='all' || key==='daily' || CATEGORIES[key].locations.includes(state.location));
+}
+
+function renderLocBadge(){
+  const el = document.getElementById('locBadge');
+  el.textContent = state.location === 'MA' ? 'MA' : 'B.A.';
+  const hidden = TAB_ORDER.filter(k => k!=='all' && k!=='daily' && !CATEGORIES[k].locations.includes(state.location));
+  const hiddenNote = hidden.length ? ` · ${hidden.map(k=>CATEGORIES[k].label).join(', ')} tucked under All` : '';
+  document.getElementById('statusLine').textContent =
+    (state.location === 'MA' ? 'Based in Massachusetts right now' : 'Based in Buenos Aires right now') + hiddenNote;
+}
+
+function renderTabs(){
+  const wrap = document.getElementById('tabs');
+  wrap.innerHTML = visibleTabs().map(key=>{
+    const openCount = key==='daily'
+      ? state.tasks.filter(t=>t.plannedDate===todayStr() && t.status!=='done').length
+      : state.tasks.filter(t => (key==='all'||t.category===key) && t.status!=='done').length;
+    const dot = (key==='all'||key==='daily') ? '' : `<span class="dot" style="background:${CATEGORIES[key].hex}"></span>`;
+    const label = key==='all' ? 'All' : key==='daily' ? 'Daily' : CATEGORIES[key].label;
+    return `<button class="tab ${activeTab===key?'active':''}" onclick="switchTab('${key}')">${dot}${label} <span class="count">${openCount}</span></button>`;
+  }).join('');
+}
+
+function renderQuickCategory(){
+  const sel = document.getElementById('quickCategory');
+  if(activeTab !== 'all'){
+    sel.style.display = 'none';
+    sel.value = activeTab;
+  } else {
+    sel.style.display = '';
+    sel.innerHTML = Object.entries(CATEGORIES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
+  }
+  document.getElementById('quickInput').placeholder =
+    activeTab==='estate' ? 'Log a house issue…' :
+    activeTab==='projects' ? 'Add a project task…' :
+    activeTab==='family' ? 'Add a family business item…' :
+    activeTab==='personal' ? 'Add a personal to-do…' : 'What needs doing?';
+}
+
+function taskRowHtml(t, showDot, inDaily){
+  const cat = CATEGORIES[t.category] || CATEGORIES.misc;
+  const canRemoveHere = !inDaily || t.category==='misc';
+  const overdue = isOverdue(t);
+  let badge = '';
+  if(overdue) badge = `<span class="badge overdue">Overdue</span>`;
+  else if(t.dueDate) badge = `<span class="badge due">${fmtDate(t.dueDate)}</span>`;
+  const dotHtml = showDot ? `<span class="cdot" style="background:${cat.hex}"></span>` : '';
+  const subs = t.subtasks || [];
+  const subDoneCount = subs.filter(s=>s.done).length;
+  const subBadge = subs.length ? `<span class="badge subcount">${subDoneCount}/${subs.length}</span>` : '';
+  return `
+  <li class="task">
+    <div class="row" onclick="toggleExpand(event,'${t.id}')">
+      <div class="check ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
+      ${dotHtml}
+      <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.urgent && t.status!=='done' ? ' ⚑' : ''}</div>
+      <div class="meta">${subBadge}${badge}</div>
+    </div>
+    <div class="expand" id="exp-${t.id}">
+      <input type="text" class="titleedit" value="${escapeHtml(t.title)}"
+        onblur="updateTitle('${t.id}', this.value)"
+        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+      <div class="expand-row">
+        <select class="catselect" onchange="updateCategory('${t.id}', this.value)">
+          ${Object.entries(CATEGORIES).map(([k,v])=>`<option value="${k}" ${t.category===k?'selected':''}>${v.label}</option>`).join('')}
+        </select>
+        <label class="fieldlabel">DUE</label>
+        <input type="date" value="${t.dueDate||''}" onchange="updateDueDate('${t.id}', this.value)">
+        <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
+        ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
+      </div>
+      <div class="expand-row">
+        <label class="fieldlabel">PLAN FOR DAY</label>
+        <input type="date" value="${t.plannedDate||''}" onchange="updatePlannedDate('${t.id}', this.value)">
+        ${t.plannedDate ? `<button class="remove" onclick="updatePlannedDate('${t.id}','')">Unplan</button>` : ''}
+      </div>
+      <div class="subwrap">
+        <div class="sublabel">Steps</div>
+        ${subs.map(s=>`
+          <div class="subrow">
+            <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
+            <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
+            <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
+          </div>`).join('')}
+        <input type="text" class="subadd" placeholder="+ add a step, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); this.value=''; }">
+      </div>
+      <textarea placeholder="Notes…" onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>
+    </div>
+  </li>`;
+}
+
+function renderList(){
+  const list = state.tasks.filter(t => activeTab==='all' || t.category===activeTab);
+  const visible = sortTasks(list).filter(t => showDone || t.status!=='done');
+  const doneCount = list.filter(t=>t.status==='done').length;
+
+  const el = document.getElementById('taskList');
+  if(visible.length===0){
+    el.innerHTML = `<div class="empty">${EMPTY_MSG[activeTab] || 'Nothing here yet.'}</div>`;
+  } else {
+    el.innerHTML = visible.map(t=>taskRowHtml(t, activeTab==='all', false)).join('');
+  }
+
+  const btn = document.getElementById('showDoneBtn');
+  btn.textContent = showDone ? `Hide completed (${doneCount})` : `Show completed (${doneCount})`;
+  btn.style.display = doneCount>0 ? '' : 'none';
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function render(){
+  renderLocBadge();
+  renderTabs();
+  const isDaily = activeTab==='daily';
+  const catView = document.getElementById('categoryView');
+  const dayView = document.getElementById('dailyView');
+  catView.style.display = isDaily ? 'none' : '';
+  dayView.style.display = isDaily ? '' : 'none';
+  if(isDaily){
+    renderDaily();
+    document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
+  } else {
+    renderQuickCategory();
+    renderList();
+    dayView.innerHTML = ''; // avoid stale duplicate ids
+  }
+}
+
+function switchTab(key){ activeTab = key; render(); }
+
+function toggleShowDone(){ showDone = !showDone; render(); }
+
+function toggleUrgentDraft(){
+  urgentDraft = !urgentDraft;
+  document.getElementById('urgentToggle').classList.toggle('on', urgentDraft);
+}
+
+// ---------- Daily tab ----------
+
+function monthKey(dateStr){ return dateStr.slice(0,7); }
+
+function newId(prefix){ return prefix + '-' + Date.now() + '-' + Math.random().toString(36).slice(2,8); }
+
+function addDaysToDateStr(dateStr, n){
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate()+n);
+  return d.toISOString().slice(0,10);
+}
+
+let pickerOpen = false;
+
+function monthLabel(key){
+  const [y,m] = key.split('-').map(Number);
+  return new Date(y, m-1, 1).toLocaleDateString('en-US', { month:'long', year:'numeric' });
+}
+
+function dayLabel(dateStr){
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' });
+}
+
+function tasksForDay(dateStr){
+  return state.tasks.filter(t=>t.plannedDate===dateStr);
+}
+
+async function ensureDay(dateStr){
+  if(!state.days.includes(dateStr)){
+    state.days.unshift(dateStr);
+    await saveState();
+  }
+}
+
+async function addDay(){
+  // Default is today — but if today (and however many days after it) already
+  // exist, roll forward to the next day that isn't taken yet, rather than
+  // trying to create a duplicate "Today".
+  let dateStr = todayStr();
+  while(state.days.includes(dateStr)){
+    dateStr = addDaysToDateStr(dateStr, 1);
+  }
+  await ensureDay(dateStr);
+  selectedDay = dateStr;
+  render();
+}
+
+function togglePicker(){ pickerOpen = !pickerOpen; renderDaily(); }
+
+async function confirmPickDate(){
+  const input = document.getElementById('pickDateInput');
+  const val = input ? input.value : '';
+  if(!val) return;
+  pickerOpen = false;
+  await ensureDay(val); // no-op if that day already exists — never duplicates
+  selectedDay = val;
+  render();
+}
+
+async function rescheduleDay(oldDate, newDate){
+  const msgEl = document.getElementById('rescheduleMsg');
+  if(!newDate || newDate===oldDate) return;
+  if(newDate < todayStr()){
+    if(msgEl) msgEl.textContent = "Can't move a day into the past.";
+    return;
+  }
+  if(state.days.includes(newDate)){
+    if(msgEl) msgEl.textContent = 'That day already exists.';
+    return;
+  }
+  state.tasks.forEach(t=>{ if(t.plannedDate===oldDate) t.plannedDate = newDate; });
+  state.days = state.days.filter(d=>d!==oldDate);
+  state.days.unshift(newDate);
+  await saveState();
+  selectedDay = newDate;
+  render();
+}
+
+async function cascadeUnfinished(dateStr){
+  const nextDate = addDaysToDateStr(dateStr, 1);
+  const unfinished = state.tasks.filter(t=>t.plannedDate===dateStr && t.status!=='done');
+  if(unfinished.length===0) return;
+  await ensureDay(nextDate);
+  unfinished.forEach(t=>{
+    state.tasks.unshift({
+      id: newId('task'),
+      title: t.title,
+      category: t.category,
+      status: 'open',
+      urgent: t.urgent,
+      dueDate: t.dueDate,
+      notes: t.notes,
+      subtasks: (t.subtasks||[]).map(s=>({ id:newId('sub'), text:s.text, done:s.done })),
+      plannedDate: nextDate,
+      createdAt: todayStr()
+    });
+  });
+  await saveState();
+  selectedDay = nextDate;
+  render();
+}
+
+function openDay(dateStr){ selectedDay = dateStr; render(); }
+function closeDay(){ selectedDay = null; render(); }
+
+function toggleMonthGroup(key){
+  if(expandedMonths.has(key)) expandedMonths.delete(key); else expandedMonths.add(key);
+  renderDaily();
+}
+
+function renderDaily(){
+  const el = document.getElementById('dailyView');
+  el.innerHTML = selectedDay ? renderDayDetail(selectedDay) : renderDayList();
+}
+
+function renderDayList(){
+  const days = state.days.slice().sort((a,b)=> b.localeCompare(a));
+  let html = `
+    <div class="adddayrow">
+      <button class="addday" onclick="addDay()">+ Add a Day</button>
+      <button class="pickdatebtn" onclick="togglePicker()">${pickerOpen ? 'Cancel' : 'Pick a date…'}</button>
+    </div>
+    ${pickerOpen ? `
+    <div class="pickerwrap">
+      <input type="date" id="pickDateInput" value="${todayStr()}">
+      <button class="pullbtn" onclick="confirmPickDate()">Add this day</button>
+    </div>` : ''}
+  `;
+
+  if(days.length===0){
+    html += `<div class="empty">No days logged yet. Add today and start a priority list.</div>`;
+    return html;
+  }
+
+  const curKey = monthKey(todayStr());
+  const currentDays = days.filter(d=>monthKey(d)===curKey);
+  const pastDays = days.filter(d=>monthKey(d)!==curKey);
+  const pastGroups = {};
+  pastDays.forEach(d=>{ const k=monthKey(d); (pastGroups[k]=pastGroups[k]||[]).push(d); });
+  const pastKeys = Object.keys(pastGroups).sort((a,b)=>b.localeCompare(a));
+
+  html += `<div class="daylistlabel">This Month</div>`;
+  html += currentDays.length
+    ? currentDays.map(dayItemHtml).join('')
+    : `<div class="empty" style="padding:14px 4px;">Nothing logged yet this month.</div>`;
+
+  pastKeys.forEach(k=>{
+    const open = expandedMonths.has(k);
+    html += `
+      <div class="monthgroup">
+        <button class="monthhead" onclick="toggleMonthGroup('${k}')">
+          <span>${monthLabel(k)}</span>
+          <span class="count">${pastGroups[k].length} day${pastGroups[k].length===1?'':'s'} ${open?'▾':'▸'}</span>
+        </button>
+        ${open ? `<div class="monthbody">${pastGroups[k].map(dayItemHtml).join('')}</div>` : ''}
+      </div>`;
+  });
+
+  return html;
+}
+
+function dayItemHtml(dateStr){
+  const tasks = tasksForDay(dateStr);
+  const doneCount = tasks.filter(t=>t.status==='done').length;
+  const ratio = tasks.length ? `<span class="badge subcount">${doneCount}/${tasks.length}</span>` : `<span class="badge due">Empty</span>`;
+  const isToday = dateStr === todayStr();
+  return `
+    <button class="dayitem" onclick="openDay('${dateStr}')">
+      <span class="daydate">${dayLabel(dateStr)}${isToday ? '<span class="todaytag">Today</span>' : ''}</span>
+      ${ratio}
+    </button>`;
+}
+
+function renderDayDetail(dateStr){
+  const allTasks = tasksForDay(dateStr);
+  const sorted = sortTasks(allTasks);
+  const doneCount = allTasks.filter(t=>t.status==='done').length;
+  const unfinishedCount = allTasks.length - doneCount;
+  const unplanned = state.tasks.filter(t=>t.plannedDate!==dateStr && t.status!=='done');
+  const isPast = dateStr < todayStr();
+  const nextDate = addDaysToDateStr(dateStr, 1);
+
+  // Every task shows, including completed ones — completed just render
+  // crossed out, so you can see the whole day's shape at a glance.
+  const list = sorted.length
+    ? sorted.map(t=>taskRowHtml(t, true, true)).join('')
+    : `<div class="empty">Nothing planned for this day yet.</div>`;
+
+  return `
+    <button class="backbtn" onclick="closeDay()">‹ All Days</button>
+    <div class="daydetailhead">
+      <h2>${dayLabel(dateStr)}</h2>
+      <div class="dayprogress">${allTasks.length ? `${doneCount} of ${allTasks.length} done` : 'Nothing planned yet'}</div>
+    </div>
+    ${isPast ? `
+    <div class="lockednote">
+      <span>🔒 This day has passed — locked</span>
+      ${unfinishedCount>0 ? `<button class="pullbtn" onclick="cascadeUnfinished('${dateStr}')">Copy ${unfinishedCount} unfinished → ${fmtDate(nextDate)}</button>` : ''}
+    </div>` : `
+    <div class="reschedule">
+      <label class="fieldlabel">MOVE THIS DAY TO</label>
+      <input type="date" id="rescheduleInput" min="${todayStr()}" value="${dateStr}">
+      <button class="pullbtn" onclick="rescheduleDay('${dateStr}', document.getElementById('rescheduleInput').value)">Move</button>
+      <span class="reschedulemsg" id="rescheduleMsg"></span>
+    </div>`}
+    <div class="quickadd">
+      <input type="text" id="dayQuickInput" placeholder="Add a priority for this day…" onkeydown="if(event.key==='Enter') addDayTask('${dateStr}')">
+      <select id="dayQuickCategory">
+        ${Object.entries(CATEGORIES).map(([k,v])=>`<option value="${k}" ${k==='misc'?'selected':''}>${v.label}</option>`).join('')}
+      </select>
+      <button class="addbtn" onclick="addDayTask('${dateStr}')">+</button>
+    </div>
+    ${unplanned.length ? `
+    <div class="pulladd">
+      <select id="pullTaskSelect">
+        <option value="">Pull in an existing task…</option>
+        ${unplanned.map(t=>`<option value="${t.id}">${escapeHtml((CATEGORIES[t.category]||CATEGORIES.misc).label)} — ${escapeHtml(t.title)}</option>`).join('')}
+      </select>
+      <button class="pullbtn" onclick="pullTaskToDay('${dateStr}')">Add</button>
+    </div>` : ''}
+    <ul class="tasks">${list}</ul>
+  `;
+}
+
+async function addDayTask(dateStr){
+  const input = document.getElementById('dayQuickInput');
+  const title = input.value.trim();
+  if(!title) return;
+  const category = document.getElementById('dayQuickCategory').value;
+  await ensureDay(dateStr);
+  state.tasks.unshift({
+    id: newId('task'),
+    title, category, status:'open', urgent:false, dueDate:'', notes:'', subtasks:[], plannedDate: dateStr, createdAt: todayStr()
+  });
+  await saveState();
+  render();
+}
+
+async function pullTaskToDay(dateStr){
+  const sel = document.getElementById('pullTaskSelect');
+  const id = sel.value;
+  if(!id) return;
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  t.plannedDate = dateStr;
+  await ensureDay(dateStr);
+  await saveState();
+  render();
+}
+
+async function updatePlannedDate(id, val){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  t.plannedDate = val;
+  if(val) await ensureDay(val);
+  await saveState();
+  render();
+  reopen(id);
+}
+
+function startEditSubtask(el, taskId, subId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  const s = t && (t.subtasks||[]).find(s=>s.id===subId);
+  if(!s) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'subedit';
+  input.value = s.text;
+  el.replaceWith(input);
+  input.focus();
+  input.select();
+  let committed = false;
+  const commit = async () => {
+    if(committed) return;
+    committed = true;
+    const val = input.value.trim();
+    if(val) s.text = val;
+    await saveState();
+    render();
+    reopen(taskId);
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); input.blur(); } });
+}
+
+async function addTask(){
+  const input = document.getElementById('quickInput');
+  const title = input.value.trim();
+  if(!title) return;
+  const category = activeTab==='all' ? document.getElementById('quickCategory').value : activeTab;
+  state.tasks.unshift({
+    id: newId('task'),
+    title, category, status:'open', urgent: urgentDraft, dueDate:'', notes:'', subtasks: [], plannedDate: '', createdAt: todayStr()
+  });
+  input.value = '';
+  urgentDraft = false;
+  document.getElementById('urgentToggle').classList.remove('on');
+  await saveState();
+  render();
+}
+
+async function toggleStatus(id){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  t.status = t.status==='done' ? 'open' : 'done';
+  await saveState();
+  render();
+}
+
+async function toggleUrgent(id){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  t.urgent = !t.urgent;
+  await saveState();
+  render();
+  reopen(id);
+}
+
+async function updateDueDate(id, val){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  t.dueDate = val;
+  await saveState();
+  render();
+  reopen(id);
+}
+
+function reopen(id){
+  const exp = document.getElementById('exp-' + id);
+  if(exp) exp.classList.add('open');
+}
+
+async function updateTitle(id, val){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  const newVal = val.trim();
+  if(newVal) t.title = newVal;
+  await saveState();
+  render();
+  reopen(id);
+}
+
+async function updateCategory(id, val){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  t.category = val;
+  await saveState();
+  render();
+  reopen(id);
+}
+
+async function addSubtask(taskId, text){
+  const val = (text||'').trim();
+  if(!val) return;
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  if(!t.subtasks) t.subtasks = [];
+  t.subtasks.push({ id: newId('sub'), text: val, done:false });
+  await saveState();
+  render();
+  reopen(taskId);
+}
+
+async function toggleSubtask(taskId, subId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  const s = (t.subtasks||[]).find(s=>s.id===subId);
+  if(!s) return;
+  s.done = !s.done;
+  await saveState();
+  render();
+  reopen(taskId);
+}
+
+async function deleteSubtask(taskId, subId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  t.subtasks = (t.subtasks||[]).filter(s=>s.id!==subId);
+  await saveState();
+  render();
+  reopen(taskId);
+}
+
+async function updateNotes(id, val){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  t.notes = val;
+  await saveState();
+}
+
+async function deleteTask(id){
+  state.tasks = state.tasks.filter(t=>t.id!==id);
+  await saveState();
+  render();
+}
+
+function toggleExpand(evt, id){
+  const exp = document.getElementById('exp-' + id);
+  exp.classList.toggle('open');
+}
+
+async function toggleLocation(){
+  state.location = state.location==='MA' ? 'Argentina' : 'MA';
+  await saveState();
+  if(!visibleTabs().includes(activeTab)) activeTab = 'all';
+  render();
+}
+
+(async function init(){
+  await loadState();
+  render();
+})();
+</script>
+</body>
+</html>
