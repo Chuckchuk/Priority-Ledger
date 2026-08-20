@@ -263,6 +263,12 @@
   }
   .catdeleteconfirm{ border-color: var(--estate); color: var(--estate); }
   .catdelete:disabled{ opacity:0.4; cursor:not-allowed; }
+  .catmove{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
+  .catmovebtn{
+    width:20px; height:15px; padding:0; border:1px solid var(--line); border-radius:3px;
+    background: var(--paper-dim); color: var(--ink-soft); font-size:0.55rem; line-height:1; cursor:pointer;
+  }
+  .catmovebtn:disabled{ opacity:0.3; cursor:not-allowed; }
   .catlocs{ flex-basis:100%; display:flex; gap:16px; margin-top:2px; }
   .catlocchk{
     display:flex; align-items:center; gap:5px; cursor:pointer;
@@ -554,6 +560,19 @@ async function saveState(){
   }
 }
 
+// Mutations render immediately against in-memory state and queue the actual
+// network save behind whatever's still in flight, rather than making the
+// tap wait on a Supabase round-trip to feel responsive. Chaining onto
+// saveChain (instead of firing saveState() directly) keeps saves in the
+// order they were made — without it, two rapid edits could race and the
+// slower request could land second and overwrite the newer one with stale
+// data.
+let saveChain = Promise.resolve();
+function queueSave(){
+  saveChain = saveChain.then(() => saveState());
+  return saveChain;
+}
+
 function isOverdue(t){
   return t.dueDate && t.status !== 'done' && new Date(t.dueDate) < new Date(todayStr());
 }
@@ -746,7 +765,7 @@ function toggleSettings(){
 
 function renderSettings(){
   const el = document.getElementById('settingsView');
-  const rows = state.categories.map(c=>{
+  const rows = state.categories.map((c, idx)=>{
     const count = state.tasks.filter(t=>t.category===c.id).length;
     const confirming = pendingDeleteCategoryId === c.id;
     const deleteControls = confirming
@@ -764,6 +783,10 @@ function renderSettings(){
       </div>` : '';
     return `
     <div class="catrow">
+      <div class="catmove">
+        <button class="catmovebtn" ${idx===0?'disabled':''} onclick="moveCategory('${c.id}', -1)" title="Move up">▲</button>
+        <button class="catmovebtn" ${idx===state.categories.length-1?'disabled':''} onclick="moveCategory('${c.id}', 1)" title="Move down">▼</button>
+      </div>
       <span class="cdot" style="background:${c.hex}"></span>
       <input type="text" class="catedit" value="${escapeHtml(c.label)}"
         onblur="renameCategory('${c.id}', this.value)"
@@ -805,8 +828,8 @@ async function renameCategory(id, val){
   const newVal = val.trim();
   if(newVal) c.label = newVal;
   rebuildCategoriesIndex();
-  await saveState();
   render();
+  queueSave();
 }
 
 function askDeleteCategory(id){
@@ -830,8 +853,8 @@ async function deleteCategory(id){
   pendingDeleteCategoryId = null;
   rebuildCategoriesIndex();
   if(activeTab === id) activeTab = 'all';
-  await saveState();
   render();
+  queueSave();
 }
 
 async function addCategory(text){
@@ -840,8 +863,19 @@ async function addCategory(text){
   const hex = CATEGORY_PALETTE[state.categories.length % CATEGORY_PALETTE.length];
   state.categories.push({ id: newId('cat'), label, hex, locations: state.locations.map(l=>l.id) });
   rebuildCategoriesIndex();
-  await saveState();
   render();
+  queueSave();
+}
+
+function moveCategory(id, direction){
+  const idx = state.categories.findIndex(c=>c.id===id);
+  const newIdx = idx + direction;
+  if(idx===-1 || newIdx<0 || newIdx>=state.categories.length) return;
+  const [c] = state.categories.splice(idx, 1);
+  state.categories.splice(newIdx, 0, c);
+  rebuildCategoriesIndex();
+  render();
+  queueSave();
 }
 
 async function toggleCategoryLocation(catId, locId, checked){
@@ -853,14 +887,14 @@ async function toggleCategoryLocation(catId, locId, checked){
     c.locations = c.locations.filter(id=>id!==locId);
   }
   rebuildCategoriesIndex();
-  await saveState();
   render();
+  queueSave();
 }
 
 async function toggleLocationFeature(checked){
   state.locationEnabled = checked;
-  await saveState();
   render();
+  queueSave();
 }
 
 async function renameLocation(id, val){
@@ -868,8 +902,8 @@ async function renameLocation(id, val){
   if(!l) return;
   const newVal = val.trim();
   if(newVal) l.label = newVal;
-  await saveState();
   render();
+  queueSave();
 }
 
 // ---------- Daily tab ----------
@@ -902,7 +936,7 @@ function tasksForDay(dateStr){
 async function ensureDay(dateStr){
   if(!state.days.includes(dateStr)){
     state.days.unshift(dateStr);
-    await saveState();
+    queueSave();
   }
 }
 
@@ -945,9 +979,9 @@ async function rescheduleDay(oldDate, newDate){
   state.tasks.forEach(t=>{ if(t.plannedDate===oldDate) t.plannedDate = newDate; });
   state.days = state.days.filter(d=>d!==oldDate);
   state.days.unshift(newDate);
-  await saveState();
   selectedDay = newDate;
   render();
+  queueSave();
 }
 
 async function cascadeUnfinished(dateStr){
@@ -969,9 +1003,9 @@ async function cascadeUnfinished(dateStr){
       createdAt: todayStr()
     });
   });
-  await saveState();
   selectedDay = nextDate;
   render();
+  queueSave();
 }
 
 function openDay(dateStr){ selectedDay = dateStr; render(); }
@@ -1106,8 +1140,8 @@ async function addDayTask(dateStr){
     id: newId('task'),
     title, category, status:'open', urgent:false, dueDate:'', notes:'', subtasks:[], plannedDate: dateStr, createdAt: todayStr()
   });
-  await saveState();
   render();
+  queueSave();
 }
 
 async function pullTaskToDay(dateStr){
@@ -1118,8 +1152,8 @@ async function pullTaskToDay(dateStr){
   if(!t) return;
   t.plannedDate = dateStr;
   await ensureDay(dateStr);
-  await saveState();
   render();
+  queueSave();
 }
 
 async function updatePlannedDate(id, val){
@@ -1127,9 +1161,9 @@ async function updatePlannedDate(id, val){
   if(!t) return;
   t.plannedDate = val;
   if(val) await ensureDay(val);
-  await saveState();
   render();
   reopen(id);
+  queueSave();
 }
 
 function startEditSubtask(el, taskId, subId){
@@ -1149,9 +1183,9 @@ function startEditSubtask(el, taskId, subId){
     committed = true;
     const val = input.value.trim();
     if(val) s.text = val;
-    await saveState();
     render();
     reopen(taskId);
+    queueSave();
   };
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); input.blur(); } });
@@ -1169,34 +1203,34 @@ async function addTask(){
   input.value = '';
   urgentDraft = false;
   document.getElementById('urgentToggle').classList.remove('on');
-  await saveState();
   render();
+  queueSave();
 }
 
 async function toggleStatus(id){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
   t.status = t.status==='done' ? 'open' : 'done';
-  await saveState();
   render();
+  queueSave();
 }
 
 async function toggleUrgent(id){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
   t.urgent = !t.urgent;
-  await saveState();
   render();
   reopen(id);
+  queueSave();
 }
 
 async function updateDueDate(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
   t.dueDate = val;
-  await saveState();
   render();
   reopen(id);
+  queueSave();
 }
 
 function reopen(id){
@@ -1209,18 +1243,18 @@ async function updateTitle(id, val){
   if(!t) return;
   const newVal = val.trim();
   if(newVal) t.title = newVal;
-  await saveState();
   render();
   reopen(id);
+  queueSave();
 }
 
 async function updateCategory(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
   t.category = val;
-  await saveState();
   render();
   reopen(id);
+  queueSave();
 }
 
 async function addSubtask(taskId, text){
@@ -1230,9 +1264,9 @@ async function addSubtask(taskId, text){
   if(!t) return;
   if(!t.subtasks) t.subtasks = [];
   t.subtasks.push({ id: newId('sub'), text: val, done:false });
-  await saveState();
   render();
   reopen(taskId);
+  queueSave();
 }
 
 async function toggleSubtask(taskId, subId){
@@ -1241,31 +1275,31 @@ async function toggleSubtask(taskId, subId){
   const s = (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
   s.done = !s.done;
-  await saveState();
   render();
   reopen(taskId);
+  queueSave();
 }
 
 async function deleteSubtask(taskId, subId){
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
   t.subtasks = (t.subtasks||[]).filter(s=>s.id!==subId);
-  await saveState();
   render();
   reopen(taskId);
+  queueSave();
 }
 
 async function updateNotes(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
   t.notes = val;
-  await saveState();
+  queueSave();
 }
 
 async function deleteTask(id){
   state.tasks = state.tasks.filter(t=>t.id!==id);
-  await saveState();
   render();
+  queueSave();
 }
 
 function toggleExpand(evt, id){
@@ -1277,9 +1311,9 @@ async function toggleLocation(){
   if(!state.locationEnabled || state.locations.length < 2) return;
   const idx = state.locations.findIndex(l=>l.id===state.location);
   state.location = state.locations[(idx + 1) % state.locations.length].id;
-  await saveState();
   if(!visibleTabs().includes(activeTab)) activeTab = 'all';
   render();
+  queueSave();
 }
 
 function toggleAuthMode(){
