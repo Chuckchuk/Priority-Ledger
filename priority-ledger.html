@@ -251,12 +251,18 @@
   ul.tasks{ list-style:none; margin:0; padding:0; }
   li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
   .row{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
+  .checkwrap{ display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; margin-top:2px; }
   .check{
     width:18px; height:18px; border:1.5px solid var(--ink-soft); border-radius:4px; flex-shrink:0;
-    margin-top:2px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
   }
   .check.done{ background: var(--ink); border-color: var(--ink); }
   .check.done::after{ content:'✓'; color: var(--card-bg); font-size:12px; }
+  .substack{ width:18px; height:5px; display:flex; gap:1.5px; flex-shrink:0; }
+  .subpip{ flex:1; min-width:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px; opacity:0.55; }
+  .subpip.filled{ background: var(--ink); border-color: var(--ink); opacity:1; }
+  .substack.bar{ gap:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:2px; overflow:hidden; }
+  .substack.bar .subfill{ height:100%; background: var(--ink); }
   .cdot{ width:7px; height:7px; border-radius:50%; margin-top:7px; flex-shrink:0; }
   .title{ flex:1; font-size:0.97rem; line-height:1.4; }
   .title.done{ text-decoration: line-through; color: var(--ink-soft); }
@@ -478,7 +484,6 @@
   <div class="masthead">
     <button class="settingsbtn" id="settingsBtn" onclick="toggleSettings()" title="Settings">⚙</button>
     <h1>The Ledger</h1>
-    <div class="tagline">family &nbsp;·&nbsp; projects &nbsp;·&nbsp; estate</div>
     <button class="locbadge" id="locBadge" onclick="toggleLocation()"></button>
   </div>
   <div class="status-line" id="statusLine"></div>
@@ -937,8 +942,9 @@ function renderLocBadge(){
   const loc = currentLocation();
   badge.textContent = loc.label;
   const hidden = tabOrder().filter(k => k!=='all' && k!=='daily' && !CATEGORIES[k].locations.includes(state.location));
-  const hiddenNote = hidden.length ? ` · ${hidden.map(k=>CATEGORIES[k].label).join(', ')} tucked under All` : '';
-  statusEl.textContent = `Based in ${loc.label} right now` + hiddenNote;
+  statusEl.textContent = hidden.length
+    ? `Not shown here: ${hidden.map(k=>CATEGORIES[k].label).join(', ')}`
+    : '';
 }
 
 function renderTabs(){
@@ -969,6 +975,18 @@ function renderQuickCategory(){
     activeTab==='personal' ? 'Add a personal to-do…' : 'What needs doing?';
 }
 
+function subProgressHtml(subs){
+  if(!subs.length) return '';
+  const done = subs.filter(s=>s.done).length;
+  const total = subs.length;
+  if(total <= 6){
+    const pips = subs.map(s=>`<span class="subpip ${s.done?'filled':''}"></span>`).join('');
+    return `<div class="substack" title="${done}/${total} steps done">${pips}</div>`;
+  }
+  const pct = Math.round(done/total*100);
+  return `<div class="substack bar" title="${done}/${total} steps done"><div class="subfill" style="width:${pct}%"></div></div>`;
+}
+
 function taskRowHtml(t, showDot, inDaily){
   const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const canRemoveHere = !inDaily || t.category==='misc';
@@ -978,15 +996,16 @@ function taskRowHtml(t, showDot, inDaily){
   else if(t.dueDate) badge = `<span class="badge due">${fmtDate(t.dueDate)}</span>`;
   const dotHtml = showDot ? `<span class="cdot" style="background:${cat.hex}"></span>` : '';
   const subs = t.subtasks || [];
-  const subDoneCount = subs.filter(s=>s.done).length;
-  const subBadge = subs.length ? `<span class="badge subcount">${subDoneCount}/${subs.length}</span>` : '';
   return `
   <li class="task">
     <div class="row" onclick="toggleExpand(event,'${t.id}')">
-      <div class="check ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
+      <div class="checkwrap">
+        <div class="check ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
+        ${subProgressHtml(subs)}
+      </div>
       ${dotHtml}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.urgent && t.status!=='done' ? ' ⚑' : ''}</div>
-      <div class="meta">${subBadge}${badge}</div>
+      <div class="meta">${badge}</div>
     </div>
     <div class="expand" id="exp-${t.id}">
       <input type="text" class="titleedit" value="${escapeHtml(t.title)}"
