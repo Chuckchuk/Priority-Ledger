@@ -228,6 +228,20 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em;
     background:transparent; border:1px solid var(--brass); color:var(--brass); border-radius:5px; padding:7px 12px; cursor:pointer; flex-shrink:0;
   }
+  .authform{ display:flex; flex-direction:column; gap:12px; margin-bottom:6px; }
+  .authform input{
+    border:1px solid var(--line); border-radius:6px; background: var(--paper-dim);
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.92rem; padding:10px 12px; color:var(--ink); outline:none;
+  }
+  .autherror{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; color: var(--estate); min-height:14px; margin-top:8px; }
+  .authsubmit{
+    width:100%; font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;
+    padding:12px 14px; border-radius:8px; border:none; background: var(--brass); color:white; cursor:pointer; margin-top:4px;
+  }
+  .signoutbtn{
+    background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase;
+    color: rgba(241,234,217,0.55); cursor:pointer; letter-spacing:0.05em;
+  }
   @media (max-width:480px){
     .masthead h1{ font-size:1.9rem; }
     .card{ padding: 18px 14px 10px; }
@@ -236,13 +250,30 @@
 </style>
 </head>
 <body>
-<div class="shell">
+<div class="shell" id="authShell" style="display:none;">
+  <div class="masthead">
+    <h1>The Ledger</h1>
+    <div class="tagline">sign in to your ledger</div>
+  </div>
+  <div class="card">
+    <div class="authform">
+      <input type="email" id="authEmail" placeholder="Email">
+      <input type="password" id="authPassword" placeholder="Password" onkeydown="if(event.key==='Enter') submitAuth()">
+    </div>
+    <div class="autherror" id="authError"></div>
+    <button class="authsubmit" id="authSubmitBtn" onclick="submitAuth()">Sign In</button>
+    <div class="footer-row"><button onclick="toggleAuthMode()" id="authModeToggle">Need an account? Create one</button></div>
+    <div class="footer-row"><button onclick="continueLocally()">Continue without an account (this device only)</button></div>
+  </div>
+</div>
+<div class="shell" id="appShell" style="display:none;">
   <div class="masthead">
     <h1>The Ledger</h1>
     <div class="tagline">family &nbsp;·&nbsp; projects &nbsp;·&nbsp; estate</div>
     <button class="locbadge" id="locBadge" onclick="toggleLocation()"></button>
   </div>
   <div class="status-line" id="statusLine"></div>
+  <div class="status-line" id="signOutRow" style="display:none;"><button class="signoutbtn" onclick="signOut()">Sign out (<span id="authEmailLabel"></span>)</button></div>
   <div class="tabs" id="tabs"></div>
   <div class="card">
     <div id="categoryView">
@@ -269,6 +300,9 @@ const CATEGORIES = {
   misc:     { label: 'Misc',            color: 'var(--misc)',     hex:'#5B6560', locations: ['MA','Argentina'] },
 };
 const TAB_ORDER = ['all','family','projects','estate','personal','daily'];
+// Filled in once the project exists — see CLAUDE.md for setup steps.
+const SUPABASE_URL = 'https://kyswrzkgiphsniepahje.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5c3dyemtnaXBoc25pZXBhaGplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMzk1NTAsImV4cCI6MjEwMjgxNTU1MH0.mvDp9f1KcqAol3Tq4Libi32tODMCrVv8HdD3C9-x30c';
 const EMPTY_MSG = {
   all: "The ledger's empty. Start logging what needs doing.",
   family: "No family business items on the books. Add one above.",
@@ -283,22 +317,111 @@ let showDone = false;
 let urgentDraft = false;
 let selectedDay = null;
 let expandedMonths = new Set();
+let session = null; // { access_token, refresh_token, expires_at, user_id, email }
+let localOnlyMode = false; // explicit opt-out of an account, chosen on the auth screen
+let authMode = 'signin';
 
-// Storage adapter — uses the real Claude.ai artifact storage (window.storage)
-// whenever it's present, which is always the case when this runs inside a
-// claude.ai conversation. If it's missing (e.g. you're previewing this file
-// locally in a plain browser while editing it with Claude Code), it falls
-// back to localStorage so local testing doesn't just throw errors. This
-// fallback never runs inside claude.ai itself — nothing about the primary
-// storage path changes.
-const storage = window.storage ? window.storage : {
+function loadSession(){
+  const raw = localStorage.getItem('ledger-auth');
+  if(!raw) return null;
+  try{ return JSON.parse(raw); }catch(e){ return null; }
+}
+
+function saveSession(s){
+  session = s;
+  if(s) localStorage.setItem('ledger-auth', JSON.stringify(s));
+  else localStorage.removeItem('ledger-auth');
+}
+
+// Refreshes the Supabase session if the access token is expired or about to
+// be — auth tokens are short-lived, so this runs before every storage call
+// while logged in. Returns null (and clears the stored session) if the
+// refresh token itself is no longer valid, which sends the user back to login.
+async function ensureFreshSession(){
+  if(!session) return null;
+  if(Date.now() < session.expires_at - 60000) return session;
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ refresh_token: session.refresh_token })
+    });
+    if(!res.ok) throw new Error('refresh failed');
+    const data = await res.json();
+    const fresh = {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Date.now() + data.expires_in * 1000,
+      user_id: data.user.id,
+      email: data.user.email
+    };
+    saveSession(fresh);
+    return fresh;
+  }catch(e){
+    saveSession(null);
+    return null;
+  }
+}
+
+// Forces a re-login when a Supabase session can't be refreshed mid-use —
+// storage must never silently drop to localStorage in this case, or a task
+// added believing it's synced to the cloud would quietly stop being so.
+function forceReauth(){
+  saveSession(null);
+  document.getElementById('appShell').style.display = 'none';
+  document.getElementById('authShell').style.display = '';
+  const errEl = document.getElementById('authError');
+  if(errEl) errEl.textContent = 'Your session expired — please sign in again.';
+}
+
+// Storage adapter — tries sources in order, all behind the same
+// storage.get/storage.set contract:
+//   1. window.storage — the real Claude.ai artifact storage, present only
+//      when this file is pasted into a claude.ai conversation as an artifact.
+//   2. localStorage — ONLY when localOnlyMode was explicitly chosen on the
+//      auth screen, for local testing without a Supabase account.
+//   3. Supabase — the hosted app's durable, per-user cloud storage, used
+//      whenever someone is logged in. If the session can't be refreshed,
+//      this forces a re-login rather than silently falling back to
+//      localStorage, so data never "goes local" without the user knowing.
+const storage = {
   async get(key){
-    const raw = localStorage.getItem('ledger-local:' + key);
-    if(raw === null){ const err = new Error('not found'); throw err; }
-    return { key, value: raw, shared: false };
+    if(window.storage) return window.storage.get(key);
+    if(localOnlyMode){
+      const raw = localStorage.getItem('ledger-local:' + key);
+      if(raw === null){ throw new Error('not found'); }
+      return { key, value: raw, shared: false };
+    }
+    const s = await ensureFreshSession();
+    if(!s){ forceReauth(); throw new Error('session expired'); }
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/ledger_state?user_id=eq.${s.user_id}&select=data`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${s.access_token}` } }
+    );
+    if(!res.ok) throw new Error('supabase get failed: ' + res.status);
+    const rows = await res.json();
+    if(!rows.length){ throw new Error('not found'); }
+    return { key, value: JSON.stringify(rows[0].data), shared: false };
   },
   async set(key, value){
-    localStorage.setItem('ledger-local:' + key, value);
+    if(window.storage) return window.storage.set(key, value);
+    if(localOnlyMode){
+      localStorage.setItem('ledger-local:' + key, value);
+      return { key, value, shared: false };
+    }
+    const s = await ensureFreshSession();
+    if(!s){ forceReauth(); throw new Error('session expired'); }
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/ledger_state`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${s.access_token}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify({ user_id: s.user_id, data: JSON.parse(value), updated_at: new Date().toISOString() })
+    });
+    if(!res.ok) throw new Error('supabase set failed: ' + res.status);
     return { key, value, shared: false };
   }
 };
@@ -939,9 +1062,79 @@ async function toggleLocation(){
   render();
 }
 
-(async function init(){
+function toggleAuthMode(){
+  authMode = authMode === 'signin' ? 'signup' : 'signin';
+  document.getElementById('authSubmitBtn').textContent = authMode === 'signin' ? 'Sign In' : 'Create Account';
+  document.getElementById('authModeToggle').textContent =
+    authMode === 'signin' ? 'Need an account? Create one' : 'Already have an account? Sign in';
+  document.getElementById('authError').textContent = '';
+}
+
+async function submitAuth(){
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errEl = document.getElementById('authError');
+  errEl.textContent = '';
+  if(!email || !password){ errEl.textContent = 'Enter an email and password.'; return; }
+  const endpoint = authMode === 'signin'
+    ? `${SUPABASE_URL}/auth/v1/token?grant_type=password`
+    : `${SUPABASE_URL}/auth/v1/signup`;
+  try{
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if(!res.ok){ errEl.textContent = data.error_description || data.msg || 'Something went wrong.'; return; }
+    if(!data.access_token){
+      errEl.textContent = 'Check your email to confirm your account, then sign in.';
+      return;
+    }
+    saveSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: Date.now() + data.expires_in * 1000,
+      user_id: data.user.id,
+      email: data.user.email
+    });
+    await enterApp();
+  }catch(e){
+    errEl.textContent = 'Network error — try again.';
+  }
+}
+
+function signOut(){
+  saveSession(null);
+  localOnlyMode = false;
+  document.getElementById('authEmail').value = '';
+  document.getElementById('authPassword').value = '';
+  document.getElementById('appShell').style.display = 'none';
+  document.getElementById('authShell').style.display = '';
+}
+
+function continueLocally(){
+  localOnlyMode = true;
+  enterApp();
+}
+
+async function enterApp(){
+  document.getElementById('authShell').style.display = 'none';
+  document.getElementById('appShell').style.display = '';
+  const signOutRow = document.getElementById('signOutRow');
+  if(signOutRow){
+    signOutRow.style.display = (window.storage || !session) ? 'none' : '';
+    document.getElementById('authEmailLabel').textContent = session ? session.email : '';
+  }
   await loadState();
   render();
+}
+
+(async function init(){
+  if(window.storage){ await enterApp(); return; }
+  session = loadSession();
+  if(session && await ensureFreshSession()){ await enterApp(); return; }
+  document.getElementById('authShell').style.display = '';
 })();
 </script>
 </body>

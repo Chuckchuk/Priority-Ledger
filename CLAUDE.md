@@ -4,14 +4,18 @@ Guidance for Claude Code when working in this repo.
 
 ## What this project is
 
-`priority-ledger.html` is a single self-contained file (HTML + CSS + JS, no build step, no dependencies) meant to run as a **Claude.ai artifact**. It's a personal task tracker for the project owner: four categories (Family Business, Game & Software, Estate Upkeep, Personal/Misc), plus a Daily tab for day-by-day priority lists.
+`priority-ledger.html` is a single self-contained file (HTML + CSS + JS, no build step, no npm dependencies) that runs two ways: hosted on **GitHub Pages** as the primary, day-to-day app (cross-device, login-gated, synced via Supabase), and it can still be pasted into a **Claude.ai** conversation and rendered as an artifact for quick previewing. It's a personal task tracker for the project owner: four categories (Family Business, Game & Software, Estate Upkeep, Personal/Misc), plus a Daily tab for day-by-day priority lists.
 
-Keep it a single file unless explicitly asked to split it up. That constraint is intentional — it's what lets it be pasted back into a Claude.ai conversation and rendered as an artifact in one shot.
+Keep it a single file unless explicitly asked to split it up. That constraint is intentional — it's what lets it be pasted back into a Claude.ai conversation and rendered as an artifact in one shot, and it keeps the GitHub Pages deploy to "just push the file."
 
 ## Architecture (read before editing)
 
 - **State** lives in one in-memory object: `state = { location, tasks: [], days: [] }`. Everything persists as one JSON blob under a single storage key (`tracker-state`) — don't split it into multiple keys.
-- **Storage**: all reads/writes go through the `storage` adapter defined near the top of the `<script>` block, not `window.storage` directly. That adapter uses the real Claude.ai artifact storage when available and falls back to `localStorage` for local testing. Always call `storage.get`/`storage.set` — never call `window.storage` directly, or local dev breaks.
+- **Storage**: all reads/writes go through the `storage` adapter defined near the top of the `<script>` block, not `window.storage` directly. Always call `storage.get`/`storage.set` — never bypass the adapter. It tries three sources in priority order:
+  1. `window.storage` — the real Claude.ai artifact storage, present only when pasted into a claude.ai conversation.
+  2. Supabase (Postgres + Auth + REST, via plain `fetch` — no supabase-js dependency) — the primary path for the hosted app. Each signed-in user has exactly one row in the `ledger_state` table, keyed by `user_id`, protected by a Row Level Security policy (`auth.uid() = user_id`) so the same public anon key can't be used to read/write another user's data. Auth tokens are refreshed via `ensureFreshSession()` before every call; if refresh fails, `forceReauth()` clears the session and kicks back to the login screen rather than silently degrading storage.
+  3. `localStorage` — **only** when the user explicitly picks "Continue without an account" on the login screen (`localOnlyMode = true`). This is single-device local testing, not a network-failure fallback — storage never silently drops from Supabase to `localStorage` on its own, since that would mean data quietly stops syncing without the user knowing.
+- **Auth**: `SUPABASE_URL` / `SUPABASE_ANON_KEY` near the top of the script hold the project's public config (safe to be public — RLS is what actually protects data, not the key). Login/signup UI lives in `#authShell`; the app itself lives in `#appShell`; `init()` decides which to show on load.
 - **Categories**: defined once in the `CATEGORIES` config object, including a `locations` array (`['MA']`, `['MA','Argentina']`, etc.) that controls which tabs show depending on the location toggle. Add new categories there, not by hardcoding strings elsewhere.
 - **Rendering**: no framework, just template strings + `innerHTML`. `taskRowHtml(task, showDot, inDaily)` is the single shared renderer for a task row — used both by the normal category tabs and by the Daily day-detail view. Edit it once, both places update. Don't fork it.
 - **The Daily tab** is a parallel view, not a category. `render()` branches between `#categoryView` and `#dailyView` based on `activeTab`. Both containers stay in the DOM; whichever one is inactive gets its `innerHTML` cleared on each render to avoid duplicate element IDs (task rows use `id="exp-<taskId>"`, which must stay unique).
@@ -32,8 +36,10 @@ Open `priority-ledger.html` directly in a browser, or:
 python3 -m http.server 8000
 ```
 
-`window.storage` won't exist outside claude.ai, so the storage adapter automatically uses `localStorage` instead — this is expected and is not something to "fix."
+`window.storage` won't exist outside claude.ai, so you'll land on the login screen. Either sign in with a real Supabase test account, or click "Continue without an account" to exercise the `localStorage` fallback — this is expected and is not something to "fix."
 
 ## After making changes
 
-This repo is not connected to any live Claude.ai artifact — pushing here does not update anything in a conversation. To get changes back into Claude.ai, the project owner needs to upload or paste the updated `priority-ledger.html` into a conversation and ask Claude to render it as an artifact. Mention this if you make a change that the owner will want to see live.
+**GitHub Pages** (primary): this repo's `main` branch is served directly by GitHub Pages. Pushing `priority-ledger.html` to `main` updates the live app at `https://chuckchuk.github.io/Priority-Ledger/priority-ledger.html` — always confirm with the project owner before pushing, since it's a real GitHub remote and the live site both users rely on.
+
+**Claude.ai artifact** (secondary): pushing to this repo does not update anything in a Claude.ai conversation. To preview a change as an artifact, the project owner needs to upload or paste the updated `priority-ledger.html` into a conversation and ask Claude to render it. Mention this if a change is worth previewing that way before it goes live on Pages.
