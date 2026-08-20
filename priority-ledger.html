@@ -89,16 +89,26 @@
      reads as "attached"; earlier rows were just loose pills floating in
      open space above. margin-bottom:-1px moved from each .tab onto this
      container so the whole block (any number of rows) sits flush against
-     the card, not just the last row. */
+     the card, not just the last row. The panel is a *light* parchment
+     tint (not a dark overlay) — against the near-black desk gradient a
+     dark panel is nearly invisible, which was its own "floating pills"
+     bug: with no visible surface behind them, the tabs read as loose
+     chips again regardless of the flush-attachment trick. A light shelf
+     plus a faint border reads as one continuous surface even on the
+     darkest desk colors; inactive tabs sit recessed (dark) *in* that
+     shelf, and the active tab reads as flush/level with the card below. */
   .tabs{
     display:flex; gap:6px 4px; padding: 8px 8px 0; flex-wrap:wrap;
     position:relative; z-index:1; margin-bottom:-1px;
-    background: rgba(0,0,0,0.14); border-radius: 10px 10px 0 0;
+    background: rgba(241,234,217,0.10);
+    border: 1px solid rgba(241,234,217,0.16);
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
   }
   .tab{
     font-family:'IBM Plex Mono', monospace; font-size:0.7rem; letter-spacing:0.06em;
     text-transform:uppercase; padding: 9px 14px 11px; border-radius: 7px 7px 0 0;
-    cursor:pointer; border:none; background: rgba(241,234,217,0.14); color: rgba(241,234,217,0.65);
+    cursor:pointer; border:none; background: rgba(0,0,0,0.18); color: rgba(241,234,217,0.65);
     transition: all .15s ease; display:flex; align-items:center; gap:6px;
   }
   .tab .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
