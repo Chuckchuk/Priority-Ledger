@@ -99,29 +99,46 @@
     box-shadow: 0 24px 55px rgba(0,0,0,0.4);
     padding: 22px 22px 14px;
     position: relative;
-    overflow: hidden;
+    z-index: 0; /* gives ::after a contained stacking context, so its negative z-index tucks it behind THIS card only, not sibling elements like .tabs */
   }
-  /* "Grain" texture — a subtle noise overlay via an inline SVG filter, so
-     no external image asset is needed. Low opacity + multiply keeps it
-     readable as paper grain rather than visible static. */
+  /* "Textured" — a noise overlay (::before, inline SVG feTurbulence, no
+     external asset) plus an inset box-shadow vignette that darkens toward
+     the edges, so it reads as an aged/uneven page rather than a flat tint.
+     ::before uses border-radius:inherit (not parent overflow:hidden) to
+     stay clipped to the card's rounded corners — .card has no
+     overflow:hidden, which is what leaves room for .texture-pages's
+     ::after to extend past the card's edges below. */
   #appCard.texture-grain::before{
     content:'';
     position:absolute; inset:0;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    opacity: 0.055;
+    border-radius: inherit;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.16;
     mix-blend-mode: multiply;
     pointer-events: none;
   }
-  /* "Pages" look — extra box-shadow layers peeking out from behind the
-     card to suggest a small stack of paper underneath. overflow:hidden on
-     .card only clips its own content/pseudo-elements, not its own
-     box-shadow, so this still renders outside the card's rounded edge. */
-  #appCard.texture-pages{
+  #appCard.texture-grain{
+    box-shadow: 0 24px 55px rgba(0,0,0,0.4), inset 0 0 46px rgba(0,0,0,0.16);
+  }
+  /* "Pages" — a single rotated sheet (::after) peeking out from behind the
+     card at an angle, with its own two box-shadow layers suggesting a
+     couple more underneath. A squarer border-radius than the card's own
+     (which is already asymmetric/dog-eared) plus the rotation is what
+     reads as loose paper rather than just a colored drop-shadow. Negative
+     z-index + .card's z-index:0 above keeps it strictly behind the card's
+     own background, contained to this card, without needing overflow
+     tricks on either element. */
+  #appCard.texture-pages::after{
+    content:'';
+    position:absolute;
+    top:8px; left:-8px; right:-14px; bottom:-16px;
+    z-index:-1;
+    background: var(--card-bg-dim);
+    border-radius: 4px 14px 14px 4px;
+    transform: rotate(-2deg);
     box-shadow:
-      0 24px 55px rgba(0,0,0,0.4),
-      4px 8px 0 -2px var(--card-bg-dim),
-      8px 16px 0 -4px var(--card-bg),
-      12px 24px 0 -6px var(--card-bg-dim);
+      7px 9px 0 -3px var(--card-bg),
+      13px 18px 0 -6px var(--card-bg-dim);
   }
   .quickadd{ display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
   .quickadd input[type=text]{
@@ -445,21 +462,30 @@ function defaultLocations(){
 // itself, incl. buttons/badges/inputs inside it via the derived -dim
 // tone) — not a full palette editor. --ink/--ink-soft/--line are derived
 // from "paper"'s lightness rather than user-set, so text stays legible
-// against a card color, not just the classic cream default.
+// against a card color, not just the classic cream default. "gradient"
+// and the two textures ("grain"/"pages") are independent booleans, not a
+// single exclusive choice — they're meant to layer (e.g. textured AND
+// pages together).
 function defaultTheme(){
-  return { bg:'#28362E', paper:'#F1EAD9', texture:'flat' };
+  return { bg:'#28362E', paper:'#F1EAD9', gradient:false, grain:false, pages:false };
 }
 
 function clamp255(n){ return Math.max(0, Math.min(255, n)); }
 
-// Lightens (positive percent) or darkens (negative) a hex color by
-// nudging each channel — good enough for deriving a paired "-dark"/"-dim"
-// shade from a single user-picked base color, no color library needed.
+// Darkens (negative percent) or lightens (positive) a hex color by
+// scaling each channel multiplicatively rather than adding a flat offset.
+// Additive offsets clip dark colors to black almost immediately (e.g. the
+// classic desk green's channels are only ~40-54 to start with, so a flat
+// -70 offset floors everything to 0) — multiplicative scaling keeps the
+// color's own character at any base lightness, which is what makes the
+// derived "-dark"/"-dim" shade read as a gentle shade rather than a harsh
+// clip to near-black.
 function shadeHex(hex, percent){
   const num = parseInt(hex.replace('#',''), 16);
-  const r = clamp255((num >> 16) + Math.round(255 * percent));
-  const g = clamp255(((num >> 8) & 0xFF) + Math.round(255 * percent));
-  const b = clamp255((num & 0xFF) + Math.round(255 * percent));
+  const factor = 1 + percent;
+  const r = clamp255(Math.round(((num >> 16) & 0xFF) * factor));
+  const g = clamp255(Math.round(((num >> 8) & 0xFF) * factor));
+  const b = clamp255(Math.round((num & 0xFF) * factor));
   return '#' + (0x1000000 + r*0x10000 + g*0x100 + b).toString(16).slice(1);
 }
 
@@ -470,13 +496,16 @@ function relLuminance(hex){
 }
 
 // Applies a theme object to the live page via CSS custom properties, plus
-// the texture class on #appCard. Takes a plain object (not necessarily
+// the texture classes on #appCard. Takes a plain object (not necessarily
 // state.theme) so signOut() can restore the classic look without needing
 // a logged-in state to read it from.
 function applyThemeObject(t){
   const root = document.documentElement.style;
   root.setProperty('--desk', t.bg);
-  root.setProperty('--desk-dark', shadeHex(t.bg, -0.28));
+  // -0.30 multiplicatively on the classic desk green reproduces the
+  // original hand-picked --desk-dark almost exactly — this is "the same
+  // gradient it always had," not a new, more intense one.
+  root.setProperty('--desk-dark', t.gradient ? shadeHex(t.bg, -0.30) : t.bg);
   root.setProperty('--card-bg', t.paper);
   root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
   const dark = relLuminance(t.paper) < 0.5;
@@ -486,9 +515,8 @@ function applyThemeObject(t){
 
   const appCard = document.getElementById('appCard');
   if(appCard){
-    appCard.classList.remove('texture-grain', 'texture-pages');
-    if(t.texture === 'grain') appCard.classList.add('texture-grain');
-    if(t.texture === 'pages') appCard.classList.add('texture-pages');
+    appCard.classList.toggle('texture-grain', !!t.grain);
+    appCard.classList.toggle('texture-pages', !!t.pages);
   }
 }
 
@@ -647,6 +675,17 @@ function normalizeState(){
   if(!Array.isArray(state.locations) || !state.locations.length) state.locations = defaultLocations();
   if(typeof state.locationEnabled !== 'boolean') state.locationEnabled = true;
   if(!state.theme) state.theme = defaultTheme();
+  // Migrate the short-lived single-choice `texture: 'flat'|'grain'|'pages'`
+  // shape (texture used to be exclusive) to the current independent
+  // grain/pages booleans (now layerable).
+  if(state.theme.texture !== undefined){
+    state.theme.grain = state.theme.texture === 'grain';
+    state.theme.pages = state.theme.texture === 'pages';
+    delete state.theme.texture;
+  }
+  if(typeof state.theme.gradient !== 'boolean') state.theme.gradient = false;
+  if(typeof state.theme.grain !== 'boolean') state.theme.grain = false;
+  if(typeof state.theme.pages !== 'boolean') state.theme.pages = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     if(t.plannedDate===undefined) t.plannedDate = '';
@@ -1007,7 +1046,6 @@ function renderSettings(){
     </div>`).join('') : ''}
   `;
 
-  const TEXTURES = [ ['flat','Flat'], ['grain','Textured'], ['pages','Pages'] ];
   const appearanceSection = `
     <div class="settingslabel">Appearance</div>
     <div class="themerow">
@@ -1020,8 +1058,13 @@ function renderSettings(){
         Ledger
       </label>
     </div>
+    <label class="catlocchk" style="margin-bottom:10px;">
+      <input type="checkbox" ${state.theme.gradient?'checked':''} onchange="toggleThemeGradient(this.checked)">
+      Background gradient
+    </label>
     <div class="texturerow">
-      ${TEXTURES.map(([id,label])=>`<button class="texturebtn ${state.theme.texture===id?'active':''}" onclick="updateThemeTexture('${id}')">${label}</button>`).join('')}
+      <button class="texturebtn ${state.theme.grain?'active':''}" onclick="toggleThemeTexture('grain')">Textured</button>
+      <button class="texturebtn ${state.theme.pages?'active':''}" onclick="toggleThemeTexture('pages')">Pages</button>
     </div>
     <button class="resetthemebtn" onclick="resetTheme()">Reset to classic colors</button>
   `;
@@ -1147,10 +1190,19 @@ async function updateThemeColor(key, val){
   queueSave();
 }
 
-async function updateThemeTexture(val){
-  if(state.theme.texture === val) return;
-  pushUndo('Changed ledger texture');
-  state.theme.texture = val;
+async function toggleThemeGradient(checked){
+  pushUndo(checked ? 'Enabled background gradient' : 'Disabled background gradient');
+  state.theme.gradient = checked;
+  applyTheme();
+  render();
+  queueSave();
+}
+
+const TEXTURE_TOGGLE_LABEL = { grain:'textured', pages:'pages' };
+async function toggleThemeTexture(key){
+  const val = !state.theme[key];
+  pushUndo(`${val ? 'Enabled' : 'Disabled'} ${TEXTURE_TOGGLE_LABEL[key]} look`);
+  state.theme[key] = val;
   applyTheme();
   render();
   queueSave();
