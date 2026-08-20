@@ -84,12 +84,22 @@
     text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
     color: rgba(241,234,217,0.7); margin-bottom: 18px;
   }
-  .tabs{ display:flex; gap:4px; padding: 0 10px; position:relative; z-index:1; flex-wrap:wrap; }
+  /* A shared backing panel groups the tabs into one header block — without
+     it, once tabs wrap to a second row only the row touching the card
+     reads as "attached"; earlier rows were just loose pills floating in
+     open space above. margin-bottom:-1px moved from each .tab onto this
+     container so the whole block (any number of rows) sits flush against
+     the card, not just the last row. */
+  .tabs{
+    display:flex; gap:6px 4px; padding: 8px 8px 0; flex-wrap:wrap;
+    position:relative; z-index:1; margin-bottom:-1px;
+    background: rgba(0,0,0,0.14); border-radius: 10px 10px 0 0;
+  }
   .tab{
     font-family:'IBM Plex Mono', monospace; font-size:0.7rem; letter-spacing:0.06em;
     text-transform:uppercase; padding: 9px 14px 11px; border-radius: 7px 7px 0 0;
     cursor:pointer; border:none; background: rgba(241,234,217,0.14); color: rgba(241,234,217,0.65);
-    margin-bottom:-1px; transition: all .15s ease; display:flex; align-items:center; gap:6px;
+    transition: all .15s ease; display:flex; align-items:center; gap:6px;
   }
   .tab .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
   .tab.active{ background: var(--card-bg); color: var(--ink); font-weight:500; }
@@ -99,7 +109,12 @@
     box-shadow: 0 24px 55px rgba(0,0,0,0.4);
     padding: 22px 22px 14px;
     position: relative;
-    z-index: 0; /* gives ::after a contained stacking context, so its negative z-index tucks it behind THIS card only, not sibling elements like .tabs */
+    /* z-index:1 (not just the 0 needed to contain ::after's stacking) so
+       the card paints above .leathercover's own ::before/::after when the
+       leather cover is on — without this the stitching border (leather's
+       ::after, generated last, painting last by default) drew over the
+       card's content, including a poking "pages" sheet. */
+    z-index: 1;
   }
   /* "Textured" — a noise overlay (::before, inline SVG feTurbulence, no
      external asset) plus an inset box-shadow vignette that darkens toward
@@ -135,7 +150,44 @@
     z-index:-1;
     background: var(--card-bg-dim);
     border-radius: 4px 14px 14px 4px;
-    transform: rotate(-2deg);
+    /* --page-transform is set from JS (randomizePageTilt(), called on each
+       switchTab) so the tilt/offset varies a little each time you change
+       tabs, like a hand actually riffling the stack underneath. The
+       rotate(-2deg) fallback is what renders before any tab switch has
+       happened yet. */
+    transform: var(--page-transform, rotate(-2deg));
+    /* Jagged only on the right/bottom edges — the ones that actually peek
+       out past the card; top/left stay straight since they're hidden
+       under the card regardless. These percentages are against the
+       *whole* card-sized box, so even a "small" 4-9% notch is tens of
+       actual pixels deep — the first version used exactly that and it
+       read as a harsh, regular sawtooth rather than paper fiber. Real
+       torn/deckled paper varies in both depth and spacing at a much
+       finer grain, so these notches stay under ~1.5% with irregular
+       spacing between them, plus a touch of blur below to soften the cut
+       edges instead of leaving them razor-sharp. */
+    clip-path: polygon(
+      0% 0%, 100% 0%,
+      100% 5%, 99.3% 6%, 100% 7.2%,
+      100% 12%, 98.7% 13.1%, 100% 14%,
+      100% 19%, 99.5% 20.3%, 100% 21%,
+      100% 27%, 98.9% 28%, 100% 29.4%,
+      100% 35%, 99.4% 36.2%, 100% 37%,
+      100% 44%, 98.6% 45%, 100% 46.3%,
+      100% 53%, 99.3% 54.1%, 100% 55%,
+      100% 62%, 98.8% 63.3%, 100% 64%,
+      100% 71%, 99.5% 72%, 100% 73.2%,
+      100% 80%, 98.9% 81.2%, 100% 82%,
+      100% 89%, 99.4% 90.1%, 100% 91%,
+      100% 96%, 98.7% 97%, 100% 100%,
+      92% 98.6%, 85% 100%, 79% 98.9%,
+      73% 100%, 66% 99.3%, 60% 100%,
+      53% 98.7%, 47% 100%, 40% 99.4%,
+      34% 100%, 27% 98.8%, 21% 100%,
+      15% 99.2%, 8% 100%, 3% 98.9%, 0% 100%,
+      0% 0%
+    );
+    filter: blur(0.4px);
     box-shadow:
       7px 9px 0 -3px var(--card-bg),
       13px 18px 0 -6px var(--card-bg-dim);
@@ -1022,7 +1074,27 @@ function render(){
   }
 }
 
-function switchTab(key){ activeTab = key; render(); }
+// Only visible when the "Pages" texture is on, but harmless to always
+// set — it's just an unused CSS variable otherwise. Picked from a fixed
+// preset list (not fully random per-axis) so the tilt+offset always stay
+// a matched, plausible-looking pair rather than occasionally combining
+// into something that reads as broken.
+const PAGE_TILTS = [
+  'rotate(-2deg)',
+  'rotate(2.5deg) translate(-2px, 1px)',
+  'rotate(-3.5deg) translate(2px, -1px)',
+  'rotate(1.5deg) translate(-1px, 2px)',
+  'rotate(-1deg) translate(1px, -2px)',
+  'rotate(3deg) translate(-1px, -1px)',
+];
+function randomizePageTilt(){
+  const appCard = document.getElementById('appCard');
+  if(!appCard) return;
+  const t = PAGE_TILTS[Math.floor(Math.random() * PAGE_TILTS.length)];
+  appCard.style.setProperty('--page-transform', t);
+}
+
+function switchTab(key){ activeTab = key; randomizePageTilt(); render(); }
 
 function toggleShowDone(){ showDone = !showDone; render(); }
 
