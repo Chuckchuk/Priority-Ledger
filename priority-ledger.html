@@ -140,6 +140,41 @@
       7px 9px 0 -3px var(--card-bg),
       13px 18px 0 -6px var(--card-bg-dim);
   }
+  /* "Leather" — a real wrapper element (not a pseudo-element) around
+     .card, since texture-grain/texture-pages already claim #appCard's own
+     ::before/::after. Off by default: no padding/background at all, so it
+     doesn't affect layout unless enabled. On: a leather-brown cover with
+     its own noise texture (coarser/marbled vs. the paper grain's fine
+     fractalNoise — leather and paper shouldn't look like the same
+     material) and a dashed inset border suggesting hand-stitching. No
+     overflow:hidden here either, same reasoning as .card — so a poking
+     "Pages" sheet underneath isn't clipped by the cover around it. */
+  .leathercover{ position:relative; }
+  .leathercover.leather-on{
+    border-radius: 18px;
+    padding: 18px;
+    background: linear-gradient(160deg, #6b4226 0%, #3d2716 100%);
+    box-shadow:
+      0 30px 60px rgba(0,0,0,0.5),
+      inset 0 2px 3px rgba(255,255,255,0.10),
+      inset 0 0 50px rgba(0,0,0,0.5);
+  }
+  .leathercover.leather-on::before{
+    content:'';
+    position:absolute; inset:0;
+    border-radius: inherit;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='l'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23l)'/%3E%3C/svg%3E");
+    opacity: 0.4;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+  .leathercover.leather-on::after{
+    content:'';
+    position:absolute; inset:8px;
+    border-radius: 12px;
+    border: 1.5px dashed rgba(0,0,0,0.35);
+    pointer-events: none;
+  }
   .quickadd{ display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
   .quickadd input[type=text]{
     flex:1; min-width: 160px; border:none; border-bottom: 1.5px solid var(--ink-soft);
@@ -397,19 +432,21 @@
   <div class="status-line" id="statusLine"></div>
   <div class="status-line" id="signOutRow" style="display:none;"><button class="signoutbtn" onclick="signOut()">Sign out (<span id="authEmailLabel"></span>)</button></div>
   <div class="tabs" id="tabs"></div>
-  <div class="card" id="appCard">
-    <div id="categoryView">
-      <div class="quickadd">
-        <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
-        <select id="quickCategory"></select>
-        <button class="flagbtn" id="urgentToggle" onclick="toggleUrgentDraft()" title="Mark urgent">⚑</button>
-        <button class="addbtn" onclick="addTask()">+</button>
+  <div class="leathercover" id="leatherCover">
+    <div class="card" id="appCard">
+      <div id="categoryView">
+        <div class="quickadd">
+          <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
+          <select id="quickCategory"></select>
+          <button class="flagbtn" id="urgentToggle" onclick="toggleUrgentDraft()" title="Mark urgent">⚑</button>
+          <button class="addbtn" onclick="addTask()">+</button>
+        </div>
+        <ul class="tasks" id="taskList"></ul>
+        <div class="footer-row"><button id="showDoneBtn" onclick="toggleShowDone()"></button></div>
       </div>
-      <ul class="tasks" id="taskList"></ul>
-      <div class="footer-row"><button id="showDoneBtn" onclick="toggleShowDone()"></button></div>
+      <div id="dailyView" style="display:none;"></div>
+      <div id="settingsView" style="display:none;"></div>
     </div>
-    <div id="dailyView" style="display:none;"></div>
-    <div id="settingsView" style="display:none;"></div>
   </div>
   <div class="undoRow">
     <button class="undobtn" id="undoBtn" onclick="undo()" title="Undo" disabled>↺</button>
@@ -463,11 +500,11 @@ function defaultLocations(){
 // tone) — not a full palette editor. --ink/--ink-soft/--line are derived
 // from "paper"'s lightness rather than user-set, so text stays legible
 // against a card color, not just the classic cream default. "gradient"
-// and the two textures ("grain"/"pages") are independent booleans, not a
-// single exclusive choice — they're meant to layer (e.g. textured AND
-// pages together).
+// and the three textures ("grain"/"pages"/"leather") are independent
+// booleans, not a single exclusive choice — they're meant to layer (e.g.
+// textured AND pages together).
 function defaultTheme(){
-  return { bg:'#28362E', paper:'#F1EAD9', gradient:false, grain:false, pages:false };
+  return { bg:'#28362E', paper:'#F1EAD9', gradient:false, grain:false, pages:false, leather:false };
 }
 
 function clamp255(n){ return Math.max(0, Math.min(255, n)); }
@@ -518,6 +555,8 @@ function applyThemeObject(t){
     appCard.classList.toggle('texture-grain', !!t.grain);
     appCard.classList.toggle('texture-pages', !!t.pages);
   }
+  const leatherCover = document.getElementById('leatherCover');
+  if(leatherCover) leatherCover.classList.toggle('leather-on', !!t.leather);
 }
 
 function applyTheme(){ applyThemeObject(state.theme); }
@@ -686,6 +725,7 @@ function normalizeState(){
   if(typeof state.theme.gradient !== 'boolean') state.theme.gradient = false;
   if(typeof state.theme.grain !== 'boolean') state.theme.grain = false;
   if(typeof state.theme.pages !== 'boolean') state.theme.pages = false;
+  if(typeof state.theme.leather !== 'boolean') state.theme.leather = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     if(t.plannedDate===undefined) t.plannedDate = '';
@@ -1065,6 +1105,7 @@ function renderSettings(){
     <div class="texturerow">
       <button class="texturebtn ${state.theme.grain?'active':''}" onclick="toggleThemeTexture('grain')">Textured</button>
       <button class="texturebtn ${state.theme.pages?'active':''}" onclick="toggleThemeTexture('pages')">Pages</button>
+      <button class="texturebtn ${state.theme.leather?'active':''}" onclick="toggleThemeTexture('leather')">Leather</button>
     </div>
     <button class="resetthemebtn" onclick="resetTheme()">Reset to classic colors</button>
   `;
@@ -1198,7 +1239,7 @@ async function toggleThemeGradient(checked){
   queueSave();
 }
 
-const TEXTURE_TOGGLE_LABEL = { grain:'textured', pages:'pages' };
+const TEXTURE_TOGGLE_LABEL = { grain:'textured', pages:'pages', leather:'leather journal' };
 async function toggleThemeTexture(key){
   const val = !state.theme[key];
   pushUndo(`${val ? 'Enabled' : 'Disabled'} ${TEXTURE_TOGGLE_LABEL[key]} look`);
