@@ -174,6 +174,19 @@
     text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.62rem;
     color: rgba(241,234,217,0.5); margin-top:12px; letter-spacing:0.06em; text-transform:uppercase; height:14px;
   }
+  .undoRow{ display:flex; align-items:center; justify-content:center; gap:10px; margin-top:16px; }
+  .undobtn{
+    width:30px; height:30px; border-radius:50%; border:1px solid rgba(241,234,217,0.25);
+    background: rgba(241,234,217,0.08); color: rgba(241,234,217,0.75);
+    font-size:0.95rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition: transform .15s ease;
+  }
+  .undobtn:hover:not(:disabled){ transform: scale(1.08); }
+  .undobtn:disabled{ opacity:0.25; cursor:not-allowed; }
+  .undostatus{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: rgba(241,234,217,0.65);
+    letter-spacing:0.04em; text-transform:uppercase; min-width:130px; text-align:center;
+  }
   .fieldlabel{ font-family:'IBM Plex Mono',monospace; font-size:0.68rem; color:var(--ink-soft); }
   .subedit{
     flex:1; border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
@@ -327,6 +340,11 @@
     </div>
     <div id="dailyView" style="display:none;"></div>
     <div id="settingsView" style="display:none;"></div>
+  </div>
+  <div class="undoRow">
+    <button class="undobtn" id="undoBtn" onclick="undo()" title="Undo" disabled>↺</button>
+    <span class="undostatus" id="undoStatus"></span>
+    <button class="undobtn" id="redoBtn" onclick="redo()" title="Redo" disabled>↻</button>
   </div>
   <div class="savestatus" id="saveStatus"></div>
 </div>
@@ -573,6 +591,72 @@ function queueSave(){
   return saveChain;
 }
 
+// Undo/redo — whole-state snapshots rather than hand-written inverse
+// operations per action. This app's entire content is already one JSON
+// blob (`state`), so cloning it before each mutation is cheap and, unlike
+// per-action-type inverses, can't drift out of sync with a mutation that
+// forgets to update it. Every user-facing content change calls
+// pushUndo(label) as its first step (before mutating state); pure
+// navigation (switching tabs, toggling which location you're viewing,
+// opening a day) is deliberately NOT on the undo stack — undo is for
+// content you changed, not where you were looking.
+let undoStack = [];
+let redoStack = [];
+const UNDO_LIMIT = 50;
+
+function pushUndo(label){
+  undoStack.push({ label, snapshot: JSON.parse(JSON.stringify(state)) });
+  if(undoStack.length > UNDO_LIMIT) undoStack.shift();
+  redoStack = [];
+}
+
+function showUndoStatus(text){
+  const el = document.getElementById('undoStatus');
+  if(!el) return;
+  el.textContent = text;
+  clearTimeout(showUndoStatus._t);
+  showUndoStatus._t = setTimeout(()=>{ if(el.textContent===text) el.textContent=''; }, 2500);
+}
+
+function refreshUndoButtons(){
+  const u = document.getElementById('undoBtn');
+  const r = document.getElementById('redoBtn');
+  if(u) u.disabled = undoStack.length===0;
+  if(r) r.disabled = redoStack.length===0;
+}
+
+// Runs after restoring a snapshot, since the restored state may no longer
+// match transient UI state that isn't itself part of the undo history
+// (e.g. you're viewing a day that undo just un-created).
+function afterStateRestore(){
+  rebuildCategoriesIndex();
+  if(!visibleTabs().includes(activeTab)) activeTab = 'all';
+  if(selectedDay && !state.days.includes(selectedDay)) selectedDay = null;
+  pendingDeleteCategoryId = null;
+}
+
+function undo(){
+  if(undoStack.length===0) return;
+  const entry = undoStack.pop();
+  redoStack.push({ label: entry.label, snapshot: JSON.parse(JSON.stringify(state)) });
+  state = entry.snapshot;
+  afterStateRestore();
+  render();
+  queueSave();
+  showUndoStatus('Undid: ' + entry.label);
+}
+
+function redo(){
+  if(redoStack.length===0) return;
+  const entry = redoStack.pop();
+  undoStack.push({ label: entry.label, snapshot: JSON.parse(JSON.stringify(state)) });
+  state = entry.snapshot;
+  afterStateRestore();
+  render();
+  queueSave();
+  showUndoStatus('Redid: ' + entry.label);
+}
+
 function isOverdue(t){
   return t.dueDate && t.status !== 'done' && new Date(t.dueDate) < new Date(todayStr());
 }
@@ -718,6 +802,7 @@ function escapeHtml(s){
 function render(){
   renderLocBadge();
   renderTabs();
+  refreshUndoButtons();
   document.getElementById('settingsBtn').classList.toggle('on', settingsOpen);
   const catView = document.getElementById('categoryView');
   const dayView = document.getElementById('dailyView');
@@ -826,10 +911,16 @@ async function renameCategory(id, val){
   const c = state.categories.find(c=>c.id===id);
   if(!c) return;
   const newVal = val.trim();
-  if(newVal) c.label = newVal;
-  rebuildCategoriesIndex();
+  // render() always runs (even on a no-op edit) so a cleared-then-blurred
+  // field snaps back to the real label instead of staying blank — but
+  // undo/save are skipped unless something actually changed.
+  if(newVal && newVal !== c.label){
+    pushUndo(`Renamed tab to "${newVal}"`);
+    c.label = newVal;
+    rebuildCategoriesIndex();
+    queueSave();
+  }
   render();
-  queueSave();
 }
 
 function askDeleteCategory(id){
@@ -844,6 +935,8 @@ function cancelDeleteCategory(){
 
 async function deleteCategory(id){
   if(state.categories.length <= 1) return;
+  const c = state.categories.find(c=>c.id===id);
+  pushUndo(`Deleted tab "${c ? c.label : ''}"`);
   // Tasks keep whatever category id they already had — with no tab left
   // that matches it, they simply stop appearing under a specific tab and
   // only show under "All" (styled via the CATEGORIES-lookup fallback in
@@ -860,6 +953,7 @@ async function deleteCategory(id){
 async function addCategory(text){
   const label = (text||'').trim();
   if(!label) return;
+  pushUndo(`Added tab "${label}"`);
   const hex = CATEGORY_PALETTE[state.categories.length % CATEGORY_PALETTE.length];
   state.categories.push({ id: newId('cat'), label, hex, locations: state.locations.map(l=>l.id) });
   rebuildCategoriesIndex();
@@ -871,6 +965,7 @@ function moveCategory(id, direction){
   const idx = state.categories.findIndex(c=>c.id===id);
   const newIdx = idx + direction;
   if(idx===-1 || newIdx<0 || newIdx>=state.categories.length) return;
+  pushUndo('Reordered tabs');
   const [c] = state.categories.splice(idx, 1);
   state.categories.splice(newIdx, 0, c);
   rebuildCategoriesIndex();
@@ -881,6 +976,7 @@ function moveCategory(id, direction){
 async function toggleCategoryLocation(catId, locId, checked){
   const c = state.categories.find(c=>c.id===catId);
   if(!c) return;
+  pushUndo(`Updated "${c.label}" locations`);
   if(checked){
     if(!c.locations.includes(locId)) c.locations.push(locId);
   } else {
@@ -892,6 +988,7 @@ async function toggleCategoryLocation(catId, locId, checked){
 }
 
 async function toggleLocationFeature(checked){
+  pushUndo(checked ? 'Enabled multiple locations' : 'Disabled multiple locations');
   state.locationEnabled = checked;
   render();
   queueSave();
@@ -901,9 +998,12 @@ async function renameLocation(id, val){
   const l = state.locations.find(l=>l.id===id);
   if(!l) return;
   const newVal = val.trim();
-  if(newVal) l.label = newVal;
+  if(newVal && newVal !== l.label){
+    pushUndo(`Renamed location to "${newVal}"`);
+    l.label = newVal;
+    queueSave();
+  }
   render();
-  queueSave();
 }
 
 // ---------- Daily tab ----------
@@ -948,6 +1048,7 @@ async function addDay(){
   while(state.days.includes(dateStr)){
     dateStr = addDaysToDateStr(dateStr, 1);
   }
+  pushUndo('Added a day');
   await ensureDay(dateStr);
   selectedDay = dateStr;
   render();
@@ -960,6 +1061,7 @@ async function confirmPickDate(){
   const val = input ? input.value : '';
   if(!val) return;
   pickerOpen = false;
+  pushUndo('Added a day');
   await ensureDay(val); // no-op if that day already exists — never duplicates
   selectedDay = val;
   render();
@@ -976,6 +1078,7 @@ async function rescheduleDay(oldDate, newDate){
     if(msgEl) msgEl.textContent = 'That day already exists.';
     return;
   }
+  pushUndo('Rescheduled day');
   state.tasks.forEach(t=>{ if(t.plannedDate===oldDate) t.plannedDate = newDate; });
   state.days = state.days.filter(d=>d!==oldDate);
   state.days.unshift(newDate);
@@ -988,6 +1091,7 @@ async function cascadeUnfinished(dateStr){
   const nextDate = addDaysToDateStr(dateStr, 1);
   const unfinished = state.tasks.filter(t=>t.plannedDate===dateStr && t.status!=='done');
   if(unfinished.length===0) return;
+  pushUndo('Copied unfinished tasks forward');
   await ensureDay(nextDate);
   unfinished.forEach(t=>{
     state.tasks.unshift({
@@ -1135,6 +1239,7 @@ async function addDayTask(dateStr){
   const title = input.value.trim();
   if(!title) return;
   const category = document.getElementById('dayQuickCategory').value;
+  pushUndo(`Added "${title}"`);
   await ensureDay(dateStr);
   state.tasks.unshift({
     id: newId('task'),
@@ -1150,6 +1255,7 @@ async function pullTaskToDay(dateStr){
   if(!id) return;
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
+  pushUndo(`Added "${t.title}" to day`);
   t.plannedDate = dateStr;
   await ensureDay(dateStr);
   render();
@@ -1159,6 +1265,7 @@ async function pullTaskToDay(dateStr){
 async function updatePlannedDate(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
+  pushUndo(val ? `Planned "${t.title}"` : `Unplanned "${t.title}"`);
   t.plannedDate = val;
   if(val) await ensureDay(val);
   render();
@@ -1182,10 +1289,13 @@ function startEditSubtask(el, taskId, subId){
     if(committed) return;
     committed = true;
     const val = input.value.trim();
-    if(val) s.text = val;
+    if(val && val !== s.text){
+      pushUndo(`Renamed step to "${val}"`);
+      s.text = val;
+      queueSave();
+    }
     render();
     reopen(taskId);
-    queueSave();
   };
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); input.blur(); } });
@@ -1196,6 +1306,7 @@ async function addTask(){
   const title = input.value.trim();
   if(!title) return;
   const category = activeTab==='all' ? document.getElementById('quickCategory').value : activeTab;
+  pushUndo(`Added "${title}"`);
   state.tasks.unshift({
     id: newId('task'),
     title, category, status:'open', urgent: urgentDraft, dueDate:'', notes:'', subtasks: [], plannedDate: '', createdAt: todayStr()
@@ -1210,7 +1321,9 @@ async function addTask(){
 async function toggleStatus(id){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
-  t.status = t.status==='done' ? 'open' : 'done';
+  const willBeDone = t.status !== 'done';
+  pushUndo(willBeDone ? `Completed "${t.title}"` : `Reopened "${t.title}"`);
+  t.status = willBeDone ? 'done' : 'open';
   render();
   queueSave();
 }
@@ -1218,7 +1331,9 @@ async function toggleStatus(id){
 async function toggleUrgent(id){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
-  t.urgent = !t.urgent;
+  const willBeUrgent = !t.urgent;
+  pushUndo(willBeUrgent ? `Flagged "${t.title}" urgent` : `Unflagged "${t.title}"`);
+  t.urgent = willBeUrgent;
   render();
   reopen(id);
   queueSave();
@@ -1227,6 +1342,8 @@ async function toggleUrgent(id){
 async function updateDueDate(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
+  if(val === t.dueDate) return;
+  pushUndo(`Changed due date for "${t.title}"`);
   t.dueDate = val;
   render();
   reopen(id);
@@ -1242,15 +1359,21 @@ async function updateTitle(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
   const newVal = val.trim();
-  if(newVal) t.title = newVal;
+  if(newVal && newVal !== t.title){
+    pushUndo(`Renamed task to "${newVal}"`);
+    t.title = newVal;
+    queueSave();
+  }
   render();
   reopen(id);
-  queueSave();
 }
 
 async function updateCategory(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
+  if(val === t.category) return;
+  const label = (CATEGORIES[val] || FALLBACK_CATEGORY).label;
+  pushUndo(`Moved "${t.title}" to ${label}`);
   t.category = val;
   render();
   reopen(id);
@@ -1262,6 +1385,7 @@ async function addSubtask(taskId, text){
   if(!val) return;
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
+  pushUndo(`Added step to "${t.title}"`);
   if(!t.subtasks) t.subtasks = [];
   t.subtasks.push({ id: newId('sub'), text: val, done:false });
   render();
@@ -1274,6 +1398,7 @@ async function toggleSubtask(taskId, subId){
   if(!t) return;
   const s = (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
+  pushUndo(s.done ? `Unchecked step in "${t.title}"` : `Checked step in "${t.title}"`);
   s.done = !s.done;
   render();
   reopen(taskId);
@@ -1283,6 +1408,7 @@ async function toggleSubtask(taskId, subId){
 async function deleteSubtask(taskId, subId){
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
+  pushUndo(`Deleted step from "${t.title}"`);
   t.subtasks = (t.subtasks||[]).filter(s=>s.id!==subId);
   render();
   reopen(taskId);
@@ -1292,11 +1418,15 @@ async function deleteSubtask(taskId, subId){
 async function updateNotes(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
+  if(val === t.notes) return;
+  pushUndo(`Edited notes for "${t.title}"`);
   t.notes = val;
   queueSave();
 }
 
 async function deleteTask(id){
+  const t = state.tasks.find(t=>t.id===id);
+  pushUndo(`Deleted "${t ? t.title : 'task'}"`);
   state.tasks = state.tasks.filter(t=>t.id!==id);
   render();
   queueSave();
@@ -1363,6 +1493,8 @@ function signOut(){
   localOnlyMode = false;
   settingsOpen = false;
   pendingDeleteCategoryId = null;
+  undoStack = [];
+  redoStack = [];
   document.getElementById('authEmail').value = '';
   document.getElementById('authPassword').value = '';
   document.getElementById('appShell').style.display = 'none';
@@ -1375,6 +1507,10 @@ function continueLocally(){
 }
 
 async function enterApp(){
+  // Undo history is scoped to one login session — it should never let you
+  // undo into a different account's data, or across a page reload.
+  undoStack = [];
+  redoStack = [];
   document.getElementById('authShell').style.display = 'none';
   document.getElementById('appShell').style.display = '';
   const signOutRow = document.getElementById('signOutRow');
@@ -1385,6 +1521,37 @@ async function enterApp(){
   await loadState();
   render();
 }
+
+// Esc: close whatever's most local first (a task's expanded detail, then
+// the Settings panel), and only fall back to jumping to the All tab if
+// neither of those was open. Cmd/Ctrl+Z / Shift+Z (or Ctrl+Y) drive
+// undo/redo, but only when focus isn't in a text field — typing needs its
+// own native undo, not this app's content-level one.
+document.addEventListener('keydown', (e) => {
+  const appShell = document.getElementById('appShell');
+  if(!appShell || appShell.style.display === 'none') return;
+
+  if(e.key === 'Escape'){
+    if(settingsOpen){ toggleSettings(); return; }
+    const openExpand = document.querySelector('.expand.open');
+    if(openExpand){ openExpand.classList.remove('open'); return; }
+    if(activeTab !== 'all'){ switchTab('all'); }
+    return;
+  }
+
+  const target = document.activeElement;
+  const inField = target && ['INPUT','TEXTAREA','SELECT'].includes(target.tagName);
+  if(inField) return;
+
+  const meta = e.metaKey || e.ctrlKey;
+  if(meta && e.key.toLowerCase()==='z'){
+    e.preventDefault();
+    if(e.shiftKey) redo(); else undo();
+  } else if(meta && e.key.toLowerCase()==='y'){
+    e.preventDefault();
+    redo();
+  }
+});
 
 (async function init(){
   if(window.storage){ await enterApp(); return; }
