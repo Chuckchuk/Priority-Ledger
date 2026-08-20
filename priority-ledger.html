@@ -242,6 +242,18 @@
     background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase;
     color: rgba(241,234,217,0.55); cursor:pointer; letter-spacing:0.05em;
   }
+  .catrow{ display:flex; align-items:center; gap:8px; padding:10px 2px; border-bottom:1px dashed var(--line); flex-wrap:wrap; }
+  .catedit{
+    flex:1; min-width:120px; border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.9rem; padding:4px 2px; color:var(--ink); outline:none;
+  }
+  .catwarn{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--estate); flex-basis:100%; }
+  .catdelete, .catdeleteconfirm, .catcancel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
+    background:none; border:1px solid var(--line); border-radius:5px; padding:5px 8px; cursor:pointer; color: var(--ink-soft); flex-shrink:0;
+  }
+  .catdeleteconfirm{ border-color: var(--estate); color: var(--estate); }
+  .catdelete:disabled{ opacity:0.4; cursor:not-allowed; }
   @media (max-width:480px){
     .masthead h1{ font-size:1.9rem; }
     .card{ padding: 18px 14px 10px; }
@@ -287,19 +299,38 @@
       <div class="footer-row"><button id="showDoneBtn" onclick="toggleShowDone()"></button></div>
     </div>
     <div id="dailyView" style="display:none;"></div>
+    <div id="manageView" style="display:none;"></div>
   </div>
   <div class="savestatus" id="saveStatus"></div>
 </div>
 
 <script>
-const CATEGORIES = {
-  family:   { label: 'Family Business', color: 'var(--family)',   hex:'#3C5A45', locations: ['MA','Argentina'] },
-  projects: { label: 'Game & Software', color: 'var(--projects)', hex:'#3E4A6B', locations: ['MA','Argentina'] },
-  estate:   { label: 'Estate Upkeep',   color: 'var(--estate)',   hex:'#9C4530', locations: ['MA'] },
-  personal: { label: 'Personal',        color: 'var(--personal)', hex:'#A9782F', locations: ['MA','Argentina'] },
-  misc:     { label: 'Misc',            color: 'var(--misc)',     hex:'#5B6560', locations: ['MA','Argentina'] },
-};
-const TAB_ORDER = ['all','family','projects','estate','personal','daily'];
+// Categories are per-user data (state.categories), not a fixed config, so
+// people can add/rename/remove their own tabs. CATEGORIES is a lookup index
+// rebuilt from state.categories on every load and mutation — kept as a
+// plain id-keyed object (via rebuildCategoriesIndex) so the many existing
+// `CATEGORIES[key]` / `Object.entries(CATEGORIES)` call sites didn't need
+// to change when categories became dynamic.
+const CATEGORY_PALETTE = ['#3C5A45','#3E4A6B','#9C4530','#A9782F','#5B6560','#6B4226','#2F6B5E','#7A4B6B'];
+// Used only when a task's category tab has been deleted — the task itself
+// is never touched, it just has nothing to look itself up as, and this
+// keeps that rendering path from breaking.
+const FALLBACK_CATEGORY = { id:'_orphan', label:'Uncategorized', hex:'#5B6560', locations:['MA','Argentina'] };
+function defaultCategories(){
+  return [
+    { id:'family',   label:'Family Business', hex:'#3C5A45', locations:['MA','Argentina'] },
+    { id:'projects', label:'Game & Software',  hex:'#3E4A6B', locations:['MA','Argentina'] },
+    { id:'estate',   label:'Estate Upkeep',    hex:'#9C4530', locations:['MA'] },
+    { id:'personal', label:'Personal',         hex:'#A9782F', locations:['MA','Argentina'] },
+    { id:'misc',     label:'Misc',             hex:'#5B6560', locations:['MA','Argentina'] }
+  ];
+}
+let CATEGORIES = {};
+function rebuildCategoriesIndex(){
+  CATEGORIES = {};
+  state.categories.forEach(c => { CATEGORIES[c.id] = c; });
+}
+function tabOrder(){ return ['all', ...state.categories.map(c=>c.id), 'daily']; }
 // Filled in once the project exists — see CLAUDE.md for setup steps.
 const SUPABASE_URL = 'https://kyswrzkgiphsniepahje.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5c3dyemtnaXBoc25pZXBhaGplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMzk1NTAsImV4cCI6MjEwMjgxNTU1MH0.mvDp9f1KcqAol3Tq4Libi32tODMCrVv8HdD3C9-x30c';
@@ -308,15 +339,17 @@ const EMPTY_MSG = {
   family: "No family business items on the books. Add one above.",
   projects: "Nothing queued for the workshop. What are you building?",
   estate: "The house is quiet, for now. Log anything that needs fixing.",
-  personal: "Nothing personal pending. Good place to add that wedding gift.",
+  personal: "Nothing personal pending yet. Add one above.",
 };
 
-let state = { location: 'MA', tasks: [], days: [] };
+let state = { location: 'MA', tasks: [], days: [], categories: [] };
 let activeTab = 'all';
 let showDone = false;
 let urgentDraft = false;
 let selectedDay = null;
 let expandedMonths = new Set();
+let manageMode = false;
+let pendingDeleteCategoryId = null;
 let session = null; // { access_token, refresh_token, expires_at, user_id, email }
 let localOnlyMode = false; // explicit opt-out of an account, chosen on the auth screen
 let authMode = 'signin';
@@ -432,16 +465,22 @@ function defaultState(){
   return {
     location: 'MA',
     days: [],
-    tasks: []
+    tasks: [],
+    categories: defaultCategories()
   };
 }
 
 function normalizeState(){
   if(!Array.isArray(state.days)) state.days = [];
+  // Accounts saved before tabs became editable won't have a categories
+  // array yet — seed it with the same set they've always seen so nothing
+  // about their existing tasks' categories changes.
+  if(!Array.isArray(state.categories) || !state.categories.length) state.categories = defaultCategories();
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     if(t.plannedDate===undefined) t.plannedDate = '';
   });
+  rebuildCategoriesIndex();
 }
 
 async function loadState(){
@@ -501,13 +540,13 @@ function sortTasks(list){
 }
 
 function visibleTabs(){
-  return TAB_ORDER.filter(key => key==='all' || key==='daily' || CATEGORIES[key].locations.includes(state.location));
+  return tabOrder().filter(key => key==='all' || key==='daily' || CATEGORIES[key].locations.includes(state.location));
 }
 
 function renderLocBadge(){
   const el = document.getElementById('locBadge');
   el.textContent = state.location === 'MA' ? 'MA' : 'B.A.';
-  const hidden = TAB_ORDER.filter(k => k!=='all' && k!=='daily' && !CATEGORIES[k].locations.includes(state.location));
+  const hidden = tabOrder().filter(k => k!=='all' && k!=='daily' && !CATEGORIES[k].locations.includes(state.location));
   const hiddenNote = hidden.length ? ` · ${hidden.map(k=>CATEGORIES[k].label).join(', ')} tucked under All` : '';
   document.getElementById('statusLine').textContent =
     (state.location === 'MA' ? 'Based in Massachusetts right now' : 'Based in Buenos Aires right now') + hiddenNote;
@@ -522,7 +561,7 @@ function renderTabs(){
     const dot = (key==='all'||key==='daily') ? '' : `<span class="dot" style="background:${CATEGORIES[key].hex}"></span>`;
     const label = key==='all' ? 'All' : key==='daily' ? 'Daily' : CATEGORIES[key].label;
     return `<button class="tab ${activeTab===key?'active':''}" onclick="switchTab('${key}')">${dot}${label} <span class="count">${openCount}</span></button>`;
-  }).join('');
+  }).join('') + `<button class="tab ${manageMode?'active':''}" onclick="toggleManageCategories()" title="Add, rename, or remove tabs">⚙ Tabs</button>`;
 }
 
 function renderQuickCategory(){
@@ -542,7 +581,7 @@ function renderQuickCategory(){
 }
 
 function taskRowHtml(t, showDot, inDaily){
-  const cat = CATEGORIES[t.category] || CATEGORIES.misc;
+  const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const canRemoveHere = !inDaily || t.category==='misc';
   const overdue = isOverdue(t);
   let badge = '';
@@ -617,9 +656,21 @@ function escapeHtml(s){
 function render(){
   renderLocBadge();
   renderTabs();
-  const isDaily = activeTab==='daily';
   const catView = document.getElementById('categoryView');
   const dayView = document.getElementById('dailyView');
+  const manView = document.getElementById('manageView');
+  if(manageMode){
+    catView.style.display = 'none';
+    dayView.style.display = 'none';
+    manView.style.display = '';
+    renderManageCategories();
+    document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
+    dayView.innerHTML = '';
+    return;
+  }
+  manView.style.display = 'none';
+  manView.innerHTML = '';
+  const isDaily = activeTab==='daily';
   catView.style.display = isDaily ? 'none' : '';
   dayView.style.display = isDaily ? '' : 'none';
   if(isDaily){
@@ -639,6 +690,90 @@ function toggleShowDone(){ showDone = !showDone; render(); }
 function toggleUrgentDraft(){
   urgentDraft = !urgentDraft;
   document.getElementById('urgentToggle').classList.toggle('on', urgentDraft);
+}
+
+// ---------- Manage tabs ----------
+
+function toggleManageCategories(){
+  manageMode = !manageMode;
+  pendingDeleteCategoryId = null;
+  render();
+}
+
+function renderManageCategories(){
+  const el = document.getElementById('manageView');
+  const rows = state.categories.map(c=>{
+    const count = state.tasks.filter(t=>t.category===c.id).length;
+    const confirming = pendingDeleteCategoryId === c.id;
+    const deleteControls = confirming
+      ? `<span class="catwarn">${count ? `${count} task${count===1?'':'s'} will move to All.` : 'No tasks in this tab.'}</span>
+         <button class="catdeleteconfirm" onclick="deleteCategory('${c.id}')">Yes, delete</button>
+         <button class="catcancel" onclick="cancelDeleteCategory()">Cancel</button>`
+      : `<button class="catdelete" ${state.categories.length<=1?'disabled title="At least one tab must stay"':''} onclick="askDeleteCategory('${c.id}')">Delete</button>`;
+    return `
+    <div class="catrow">
+      <span class="cdot" style="background:${c.hex}"></span>
+      <input type="text" class="catedit" value="${escapeHtml(c.label)}"
+        onblur="renameCategory('${c.id}', this.value)"
+        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+      ${deleteControls}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="daylistlabel">Manage Tabs</div>
+    ${rows}
+    <div class="catrow">
+      <input type="text" class="catedit" placeholder="+ add a new tab, enter to save"
+        onkeydown="if(event.key==='Enter'){ addCategory(this.value); this.value=''; }">
+    </div>
+    <div class="footer-row"><button onclick="toggleManageCategories()">Done</button></div>
+  `;
+}
+
+async function renameCategory(id, val){
+  const c = state.categories.find(c=>c.id===id);
+  if(!c) return;
+  const newVal = val.trim();
+  if(newVal) c.label = newVal;
+  rebuildCategoriesIndex();
+  await saveState();
+  render();
+}
+
+function askDeleteCategory(id){
+  pendingDeleteCategoryId = id;
+  render();
+}
+
+function cancelDeleteCategory(){
+  pendingDeleteCategoryId = null;
+  render();
+}
+
+async function deleteCategory(id){
+  if(state.categories.length <= 1) return;
+  // Tasks keep whatever category id they already had — with no tab left
+  // that matches it, they simply stop appearing under a specific tab and
+  // only show under "All" (styled via the CATEGORIES-lookup fallback in
+  // taskRowHtml). Nothing about the tasks themselves is touched, so this
+  // is safe even if the tab being deleted has a lot of tasks in it.
+  state.categories = state.categories.filter(c=>c.id!==id);
+  pendingDeleteCategoryId = null;
+  rebuildCategoriesIndex();
+  if(activeTab === id) activeTab = 'all';
+  await saveState();
+  render();
+}
+
+async function addCategory(text){
+  const label = (text||'').trim();
+  if(!label) return;
+  const hex = CATEGORY_PALETTE[state.categories.length % CATEGORY_PALETTE.length];
+  state.categories.push({ id: newId('cat'), label, hex, locations: ['MA','Argentina'] });
+  rebuildCategoriesIndex();
+  await saveState();
+  render();
 }
 
 // ---------- Daily tab ----------
@@ -857,7 +992,7 @@ function renderDayDetail(dateStr){
     <div class="pulladd">
       <select id="pullTaskSelect">
         <option value="">Pull in an existing task…</option>
-        ${unplanned.map(t=>`<option value="${t.id}">${escapeHtml((CATEGORIES[t.category]||CATEGORIES.misc).label)} — ${escapeHtml(t.title)}</option>`).join('')}
+        ${unplanned.map(t=>`<option value="${t.id}">${escapeHtml((CATEGORIES[t.category]||FALLBACK_CATEGORY).label)} — ${escapeHtml(t.title)}</option>`).join('')}
       </select>
       <button class="pullbtn" onclick="pullTaskToDay('${dateStr}')">Add</button>
     </div>` : ''}
@@ -1094,6 +1229,8 @@ async function submitAuth(){
 function signOut(){
   saveSession(null);
   localOnlyMode = false;
+  manageMode = false;
+  pendingDeleteCategoryId = null;
   document.getElementById('authEmail').value = '';
   document.getElementById('authPassword').value = '';
   document.getElementById('appShell').style.display = 'none';
