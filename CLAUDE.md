@@ -4,9 +4,9 @@ Guidance for Claude Code when working in this repo.
 
 ## What this project is
 
-`priority-ledger.html` is a single self-contained file (HTML + CSS + JS, no build step, no npm dependencies) that runs two ways: hosted on **GitHub Pages** as the primary, day-to-day app (cross-device, login-gated, synced via Supabase), and it can still be pasted into a **Claude.ai** conversation and rendered as an artifact for quick previewing. It's a personal task tracker for the project owner: four categories (Family Business, Game & Software, Estate Upkeep, Personal/Misc), plus a Daily tab for day-by-day priority lists.
+`priority-ledger.html` is a single self-contained file (HTML + CSS + JS, no build step, no npm dependencies) hosted on **GitHub Pages** as the app's only home (cross-device, login-gated, synced via Supabase). It's a personal task tracker for the project owner: four categories (Family Business, Game & Software, Estate Upkeep, Personal/Misc), plus a Daily tab for day-by-day priority lists.
 
-Keep it a single file unless explicitly asked to split it up. That constraint is intentional — it's what lets it be pasted back into a Claude.ai conversation and rendered as an artifact in one shot, and it keeps the GitHub Pages deploy to "just push the file."
+Keep it a single file unless explicitly asked to split it up. That constraint is intentional — it keeps the GitHub Pages deploy to "just push the file," with no build step to maintain.
 
 ## Architecture (read before editing)
 
@@ -55,6 +55,4 @@ python3 -m http.server 8000
 
 ## After making changes
 
-**GitHub Pages** (primary): this repo's `main` branch is served directly by GitHub Pages. Pushing `priority-ledger.html` to `main` updates the live app at `https://chuckchuk.github.io/Priority-Ledger/priority-ledger.html` — always confirm with the project owner before pushing, since it's a real GitHub remote and the live site both users rely on.
-
-**Claude.ai artifact** (secondary): pushing to this repo does not update anything in a Claude.ai conversation. To preview a change as an artifact, the project owner needs to upload or paste the updated `priority-ledger.html` into a conversation and ask Claude to render it. Mention this if a change is worth previewing that way before it goes live on Pages.
+This repo's `main` branch is served directly by GitHub Pages. Pushing `priority-ledger.html` to `main` updates the live app at `https://chuckchuk.github.io/Priority-Ledger/priority-ledger.html` — always confirm with the project owner before pushing, since it's a real GitHub remote and the live site both users rely on.
