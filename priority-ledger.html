@@ -114,6 +114,20 @@
   .tab .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
   .tab.active{ background: var(--card-bg); color: var(--ink); font-weight:500; }
   .tab .count{ opacity:0.6; font-size:0.65rem; }
+  /* When tabs wrap to more than one row, only the bottom row was ever
+     visually "resting" on anything (the card it flows into) — rows above
+     it just floated in the shelf panel with nothing under them. A
+     .tabrow-line is placed (by renderTabRowLines(), measuring actual
+     offsetTop per tab since row membership depends on wrapping, not
+     something CSS alone can target) in the gap under every row except
+     the last, so each row of tabs reads as sitting on its own shelf
+     board rather than floating in open space. */
+  .tabrow-line{
+    position:absolute; left:8px; right:8px; height:0;
+    border-top: 1px solid rgba(241,234,217,0.28);
+    box-shadow: 0 2px 3px rgba(0,0,0,0.3);
+    pointer-events:none;
+  }
   .card{
     background: var(--card-bg); border-radius: 2px 10px 10px 10px;
     box-shadow: 0 24px 55px rgba(0,0,0,0.4);
@@ -967,6 +981,34 @@ function renderTabs(){
     const label = key==='all' ? 'All' : key==='daily' ? 'Daily' : CATEGORIES[key].label;
     return `<button class="tab ${activeTab===key?'active':''}" onclick="switchTab('${key}')">${dot}${label} <span class="count">${openCount}</span></button>`;
   }).join('');
+  renderTabRowLines();
+}
+
+// Row membership depends on how the tab labels happen to wrap at the
+// current container width, which CSS alone has no hook for (no ::row
+// selector) — so this measures each tab's actual offsetTop after layout,
+// groups tabs sharing a top into a row, and draws a .tabrow-line under
+// every row but the last (which already rests directly on the card).
+function renderTabRowLines(){
+  const wrap = document.getElementById('tabs');
+  wrap.querySelectorAll('.tabrow-line').forEach(el=>el.remove());
+  const tabs = Array.from(wrap.querySelectorAll('.tab'));
+  if(!tabs.length) return;
+  const rows = [];
+  tabs.forEach(t=>{
+    const top = t.offsetTop;
+    let row = rows.find(r=>Math.abs(r.top-top)<2);
+    if(!row){ row = { top, bottom:0 }; rows.push(row); }
+    row.bottom = Math.max(row.bottom, t.offsetTop + t.offsetHeight);
+  });
+  if(rows.length < 2) return;
+  rows.sort((a,b)=>a.top-b.top);
+  rows.slice(0,-1).forEach(row=>{
+    const line = document.createElement('div');
+    line.className = 'tabrow-line';
+    line.style.top = (row.bottom + 3) + 'px';
+    wrap.appendChild(line);
+  });
 }
 
 function renderQuickCategory(){
@@ -1905,6 +1947,15 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     redo();
   }
+});
+
+// Resizing the window can change how tabs wrap into rows even with no
+// state change (nothing else calls render() in that case), which would
+// leave renderTabRowLines()'s shelf lines stale — so re-measure on resize.
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(renderTabRowLines, 120);
 });
 
 (async function init(){
