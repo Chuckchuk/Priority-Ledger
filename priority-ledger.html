@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Ledger</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3QgeD0iMyIgeT0iNCIgd2lkdGg9IjI2IiBoZWlnaHQ9IjI0IiByeD0iMiIgZmlsbD0iIzI4MzYyRSIvPjxyZWN0IHg9IjgiIHk9IjQiIHdpZHRoPSIyMSIgaGVpZ2h0PSIyNCIgcng9IjIiIGZpbGw9IiNGMUVBRDkiLz48cmVjdCB4PSIzIiB5PSI0IiB3aWR0aD0iNiIgaGVpZ2h0PSIyNCIgcng9IjIiIGZpbGw9IiNBOTc4MkYiLz48cmVjdCB4PSIxMyIgeT0iMTAiIHdpZHRoPSIxMyIgaGVpZ2h0PSIxLjgiIGZpbGw9IiM3QTZFNTgiLz48cmVjdCB4PSIxMyIgeT0iMTQuNSIgd2lkdGg9IjEzIiBoZWlnaHQ9IjEuOCIgZmlsbD0iIzdBNkU1OCIvPjxyZWN0IHg9IjEzIiB5PSIxOSIgd2lkdGg9IjgiIGhlaWdodD0iMS44IiBmaWxsPSIjN0E2RTU4Ii8+PHJlY3QgeD0iMjEiIHk9IjIiIHdpZHRoPSI0IiBoZWlnaHQ9IjkiIGZpbGw9IiNDOTlBNEUiLz48L3N2Zz4=">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,340;0,9..144,500;0,9..144,600;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -11,8 +12,14 @@
   :root{
     --desk:#28362E;
     --desk-dark:#1B2620;
+    /* --paper stays fixed forever — it's the light cream accent used
+       against the (also customizable) desk background, e.g. the masthead
+       title. --card-bg is the actual, user-customizable "ledger" surface
+       color; it defaults to the same value as --paper so nothing looks
+       different until someone opens Settings and changes it. */
     --paper:#F1EAD9;
-    --paper-dim:#E7DDC5;
+    --card-bg:#F1EAD9;
+    --card-bg-dim:#E7DDC5;
     --ink:#2A2318;
     --ink-soft:#7A6E58;
     --brass:#A9782F;
@@ -85,12 +92,36 @@
     margin-bottom:-1px; transition: all .15s ease; display:flex; align-items:center; gap:6px;
   }
   .tab .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
-  .tab.active{ background: var(--paper); color: var(--ink); font-weight:500; }
+  .tab.active{ background: var(--card-bg); color: var(--ink); font-weight:500; }
   .tab .count{ opacity:0.6; font-size:0.65rem; }
   .card{
-    background: var(--paper); border-radius: 2px 10px 10px 10px;
+    background: var(--card-bg); border-radius: 2px 10px 10px 10px;
     box-shadow: 0 24px 55px rgba(0,0,0,0.4);
     padding: 22px 22px 14px;
+    position: relative;
+    overflow: hidden;
+  }
+  /* "Grain" texture — a subtle noise overlay via an inline SVG filter, so
+     no external image asset is needed. Low opacity + multiply keeps it
+     readable as paper grain rather than visible static. */
+  #appCard.texture-grain::before{
+    content:'';
+    position:absolute; inset:0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.055;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+  }
+  /* "Pages" look — extra box-shadow layers peeking out from behind the
+     card to suggest a small stack of paper underneath. overflow:hidden on
+     .card only clips its own content/pseudo-elements, not its own
+     box-shadow, so this still renders outside the card's rounded edge. */
+  #appCard.texture-pages{
+    box-shadow:
+      0 24px 55px rgba(0,0,0,0.4),
+      4px 8px 0 -2px var(--card-bg-dim),
+      8px 16px 0 -4px var(--card-bg),
+      12px 24px 0 -6px var(--card-bg-dim);
   }
   .quickadd{ display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
   .quickadd input[type=text]{
@@ -101,10 +132,10 @@
   .quickadd input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
   .quickadd select{
     font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
-    background: var(--paper-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
   }
   .flagbtn{
-    border:1px solid var(--line); background:var(--paper-dim); border-radius:5px; width:32px; height:32px;
+    border:1px solid var(--line); background:var(--card-bg-dim); border-radius:5px; width:32px; height:32px;
     cursor:pointer; font-size:0.85rem; color: var(--ink-soft); flex-shrink:0;
   }
   .flagbtn.on{ background: var(--estate); color:white; border-color: var(--estate); }
@@ -121,24 +152,24 @@
     margin-top:2px; display:flex; align-items:center; justify-content:center; cursor:pointer;
   }
   .check.done{ background: var(--ink); border-color: var(--ink); }
-  .check.done::after{ content:'✓'; color: var(--paper); font-size:12px; }
+  .check.done::after{ content:'✓'; color: var(--card-bg); font-size:12px; }
   .cdot{ width:7px; height:7px; border-radius:50%; margin-top:7px; flex-shrink:0; }
   .title{ flex:1; font-size:0.97rem; line-height:1.4; }
   .title.done{ text-decoration: line-through; color: var(--ink-soft); }
   .meta{ display:flex; gap:6px; align-items:center; flex-shrink:0; }
   .badge{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; padding:2px 6px; border-radius:4px; letter-spacing:0.04em; }
   .badge.overdue{ background: var(--estate); color:white; }
-  .badge.due{ background: var(--paper-dim); color: var(--ink-soft); border:1px solid var(--line); }
+  .badge.due{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
   .expand{ margin: 10px 0 2px 28px; display:none; }
   .expand.open{ display:block; }
   .expand textarea{
     width:100%; min-height:52px; font-family:'IBM Plex Sans',sans-serif; font-size:0.85rem;
-    border:1px solid var(--line); border-radius:6px; background: var(--paper-dim); padding:8px; resize:vertical; color:var(--ink);
+    border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim); padding:8px; resize:vertical; color:var(--ink);
   }
   .expand-row{ display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap; }
   .expand input[type=date]{
     font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line);
-    border-radius:5px; padding:5px 6px; background: var(--paper-dim); color:var(--ink);
+    border-radius:5px; padding:5px 6px; background: var(--card-bg-dim); color:var(--ink);
   }
   .remove{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; color: var(--estate); background:none; border:none; cursor:pointer; letter-spacing:0.05em; margin-left:auto; }
   .titleedit{
@@ -147,7 +178,7 @@
   }
   .catselect{
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
-    background: var(--paper-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);
   }
   .empty{ font-family:'Fraunces', serif; font-style:italic; color: var(--ink-soft); text-align:center; padding: 26px 10px; font-size:1rem; }
   .footer-row{ display:flex; justify-content:center; padding: 12px 0 4px; }
@@ -160,7 +191,7 @@
     display:flex; align-items:center; justify-content:center; cursor:pointer;
   }
   .subcheck.done{ background: var(--ink); border-color: var(--ink); }
-  .subcheck.done::after{ content:'✓'; color: var(--paper); font-size:9px; }
+  .subcheck.done::after{ content:'✓'; color: var(--card-bg); font-size:9px; }
   .subtext{ flex:1; font-size:0.84rem; }
   .subtext.done{ text-decoration:line-through; color: var(--ink-soft); }
   .subdel{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
@@ -169,7 +200,7 @@
     font-family:'IBM Plex Sans',sans-serif; font-size:0.84rem; padding:6px 2px; color:var(--ink); outline:none; margin-top:2px;
   }
   .subadd::placeholder{ color: var(--ink-soft); opacity:0.7; }
-  .badge.subcount{ background: var(--paper-dim); color: var(--ink-soft); border:1px solid var(--line); }
+  .badge.subcount{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
   .savestatus{
     text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.62rem;
     color: rgba(241,234,217,0.5); margin-top:12px; letter-spacing:0.06em; text-transform:uppercase; height:14px;
@@ -205,16 +236,16 @@
   }
   .pickerwrap{ display:flex; gap:8px; align-items:center; margin:10px 0 16px; flex-wrap:wrap; }
   .pickerwrap input[type=date]{
-    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line); border-radius:5px; padding:6px; background:var(--paper-dim); color:var(--ink);
+    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line); border-radius:5px; padding:6px; background:var(--card-bg-dim); color:var(--ink);
   }
   .reschedule{ display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
   .reschedule input[type=date]{
-    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line); border-radius:5px; padding:6px; background:var(--paper-dim); color:var(--ink);
+    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line); border-radius:5px; padding:6px; background:var(--card-bg-dim); color:var(--ink);
   }
   .reschedulemsg{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; color:var(--estate); }
   .lockednote{
     display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'IBM Plex Mono', monospace; font-size:0.68rem;
-    color: var(--ink-soft); background: var(--paper-dim); border-radius:6px; padding:10px 12px; margin-bottom:14px; letter-spacing:0.03em;
+    color: var(--ink-soft); background: var(--card-bg-dim); border-radius:6px; padding:10px 12px; margin-bottom:14px; letter-spacing:0.03em;
   }
   .daylistlabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin: 4px 0 6px; }
   .dayitem{
@@ -229,7 +260,7 @@
   .monthgroup{ margin-bottom:4px; }
   .monthhead{
     width:100%; display:flex; justify-content:space-between; align-items:center; text-align:left;
-    border:none; background: var(--paper-dim); border-radius:6px; padding:10px 12px; cursor:pointer;
+    border:none; background: var(--card-bg-dim); border-radius:6px; padding:10px 12px; cursor:pointer;
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink); margin-bottom:4px;
   }
   .monthhead .count{ color: var(--ink-soft); opacity:1; }
@@ -244,7 +275,7 @@
   .pulladd{ display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
   .pulladd select{
     flex:1; min-width:160px; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
-    background: var(--paper-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
   }
   .pullbtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em;
@@ -252,7 +283,7 @@
   }
   .authform{ display:flex; flex-direction:column; gap:12px; margin-bottom:6px; }
   .authform input{
-    border:1px solid var(--line); border-radius:6px; background: var(--paper-dim);
+    border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim);
     font-family:'IBM Plex Sans', sans-serif; font-size:0.92rem; padding:10px 12px; color:var(--ink); outline:none;
   }
   .autherror{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; color: var(--estate); min-height:14px; margin-top:8px; }
@@ -279,7 +310,7 @@
   .catmove{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
   .catmovebtn{
     width:20px; height:15px; padding:0; border:1px solid var(--line); border-radius:3px;
-    background: var(--paper-dim); color: var(--ink-soft); font-size:0.55rem; line-height:1; cursor:pointer;
+    background: var(--card-bg-dim); color: var(--ink-soft); font-size:0.55rem; line-height:1; cursor:pointer;
   }
   .catmovebtn:disabled{ opacity:0.3; cursor:not-allowed; }
   .catlocs{ flex-basis:100%; display:flex; gap:16px; margin-top:2px; }
@@ -292,6 +323,28 @@
   .settingslabel{
     font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
     color: var(--ink-soft); margin: 18px 0 6px;
+  }
+  .themerow{ display:flex; gap:20px; margin-bottom:12px; flex-wrap:wrap; }
+  .themeswatch{
+    display:flex; align-items:center; gap:8px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
+    letter-spacing:0.03em; color: var(--ink-soft);
+  }
+  .themeswatch input[type=color]{
+    width:28px; height:28px; padding:0; border:1px solid var(--line); border-radius:6px;
+    cursor:pointer; background:none;
+  }
+  .texturerow{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .texturebtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.03em;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:6px; padding:8px 12px;
+    color: var(--ink-soft); cursor:pointer;
+  }
+  .texturebtn.active{ background: var(--brass); border-color: var(--brass); color:white; }
+  .resetthemebtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.04em;
+    background:transparent; border:1px dashed var(--brass); color:var(--brass); border-radius:6px;
+    padding:8px 12px; cursor:pointer;
   }
   @media (max-width:480px){
     .masthead h1{ font-size:1.9rem; }
@@ -327,7 +380,7 @@
   <div class="status-line" id="statusLine"></div>
   <div class="status-line" id="signOutRow" style="display:none;"><button class="signoutbtn" onclick="signOut()">Sign out (<span id="authEmailLabel"></span>)</button></div>
   <div class="tabs" id="tabs"></div>
-  <div class="card">
+  <div class="card" id="appCard">
     <div id="categoryView">
       <div class="quickadd">
         <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
@@ -386,6 +439,61 @@ function defaultLocations(){
     { id:'Argentina', label:'B.A.' }
   ];
 }
+
+// Appearance is per-user data too. Two colors is deliberately the whole
+// surface: "bg" (the desk behind everything) and "paper" (the ledger card
+// itself, incl. buttons/badges/inputs inside it via the derived -dim
+// tone) — not a full palette editor. --ink/--ink-soft/--line are derived
+// from "paper"'s lightness rather than user-set, so text stays legible
+// against a card color, not just the classic cream default.
+function defaultTheme(){
+  return { bg:'#28362E', paper:'#F1EAD9', texture:'flat' };
+}
+
+function clamp255(n){ return Math.max(0, Math.min(255, n)); }
+
+// Lightens (positive percent) or darkens (negative) a hex color by
+// nudging each channel — good enough for deriving a paired "-dark"/"-dim"
+// shade from a single user-picked base color, no color library needed.
+function shadeHex(hex, percent){
+  const num = parseInt(hex.replace('#',''), 16);
+  const r = clamp255((num >> 16) + Math.round(255 * percent));
+  const g = clamp255(((num >> 8) & 0xFF) + Math.round(255 * percent));
+  const b = clamp255((num & 0xFF) + Math.round(255 * percent));
+  return '#' + (0x1000000 + r*0x10000 + g*0x100 + b).toString(16).slice(1);
+}
+
+function relLuminance(hex){
+  const num = parseInt(hex.replace('#',''), 16);
+  const r = (num >> 16) / 255, g = ((num >> 8) & 0xFF) / 255, b = (num & 0xFF) / 255;
+  return 0.2126*r + 0.7152*g + 0.0722*b;
+}
+
+// Applies a theme object to the live page via CSS custom properties, plus
+// the texture class on #appCard. Takes a plain object (not necessarily
+// state.theme) so signOut() can restore the classic look without needing
+// a logged-in state to read it from.
+function applyThemeObject(t){
+  const root = document.documentElement.style;
+  root.setProperty('--desk', t.bg);
+  root.setProperty('--desk-dark', shadeHex(t.bg, -0.28));
+  root.setProperty('--card-bg', t.paper);
+  root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
+  const dark = relLuminance(t.paper) < 0.5;
+  root.setProperty('--ink', dark ? '#F1EAD9' : '#2A2318');
+  root.setProperty('--ink-soft', dark ? 'rgba(241,234,217,0.65)' : '#7A6E58');
+  root.setProperty('--line', dark ? 'rgba(241,234,217,0.18)' : 'rgba(42,35,24,0.16)');
+
+  const appCard = document.getElementById('appCard');
+  if(appCard){
+    appCard.classList.remove('texture-grain', 'texture-pages');
+    if(t.texture === 'grain') appCard.classList.add('texture-grain');
+    if(t.texture === 'pages') appCard.classList.add('texture-pages');
+  }
+}
+
+function applyTheme(){ applyThemeObject(state.theme); }
+
 // Filled in once the project exists — see CLAUDE.md for setup steps.
 const SUPABASE_URL = 'https://kyswrzkgiphsniepahje.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5c3dyemtnaXBoc25pZXBhaGplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMzk1NTAsImV4cCI6MjEwMjgxNTU1MH0.mvDp9f1KcqAol3Tq4Libi32tODMCrVv8HdD3C9-x30c';
@@ -523,7 +631,8 @@ function defaultState(){
     tasks: [],
     categories: defaultCategories(),
     locations: defaultLocations(),
-    locationEnabled: true
+    locationEnabled: true,
+    theme: defaultTheme()
   };
 }
 
@@ -532,10 +641,12 @@ function normalizeState(){
   // Accounts saved before tabs became editable won't have a categories
   // array yet — seed it with the same set they've always seen so nothing
   // about their existing tasks' categories changes. Same idea for
-  // locations, added alongside per-tab location editing.
+  // locations, added alongside per-tab location editing, and theme,
+  // added alongside custom colors/texture.
   if(!Array.isArray(state.categories) || !state.categories.length) state.categories = defaultCategories();
   if(!Array.isArray(state.locations) || !state.locations.length) state.locations = defaultLocations();
   if(typeof state.locationEnabled !== 'boolean') state.locationEnabled = true;
+  if(!state.theme) state.theme = defaultTheme();
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     if(t.plannedDate===undefined) t.plannedDate = '';
@@ -630,6 +741,7 @@ function refreshUndoButtons(){
 // (e.g. you're viewing a day that undo just un-created).
 function afterStateRestore(){
   rebuildCategoriesIndex();
+  applyTheme();
   if(!visibleTabs().includes(activeTab)) activeTab = 'all';
   if(selectedDay && !state.days.includes(selectedDay)) selectedDay = null;
   pendingDeleteCategoryId = null;
@@ -895,6 +1007,25 @@ function renderSettings(){
     </div>`).join('') : ''}
   `;
 
+  const TEXTURES = [ ['flat','Flat'], ['grain','Textured'], ['pages','Pages'] ];
+  const appearanceSection = `
+    <div class="settingslabel">Appearance</div>
+    <div class="themerow">
+      <label class="themeswatch">
+        <input type="color" value="${state.theme.bg}" onchange="updateThemeColor('bg', this.value)">
+        Background
+      </label>
+      <label class="themeswatch">
+        <input type="color" value="${state.theme.paper}" onchange="updateThemeColor('paper', this.value)">
+        Ledger
+      </label>
+    </div>
+    <div class="texturerow">
+      ${TEXTURES.map(([id,label])=>`<button class="texturebtn ${state.theme.texture===id?'active':''}" onclick="updateThemeTexture('${id}')">${label}</button>`).join('')}
+    </div>
+    <button class="resetthemebtn" onclick="resetTheme()">Reset to classic colors</button>
+  `;
+
   el.innerHTML = `
     <div class="daylistlabel">Manage Tabs</div>
     ${rows}
@@ -903,6 +1034,7 @@ function renderSettings(){
         onkeydown="if(event.key==='Enter'){ addCategory(this.value); this.value=''; }">
     </div>
     ${locationSection}
+    ${appearanceSection}
     <div class="footer-row"><button onclick="toggleSettings()">Done</button></div>
   `;
 }
@@ -1004,6 +1136,32 @@ async function renameLocation(id, val){
     queueSave();
   }
   render();
+}
+
+async function updateThemeColor(key, val){
+  if(state.theme[key] === val) return;
+  pushUndo(key === 'bg' ? 'Changed background color' : 'Changed ledger color');
+  state.theme[key] = val;
+  applyTheme();
+  render();
+  queueSave();
+}
+
+async function updateThemeTexture(val){
+  if(state.theme.texture === val) return;
+  pushUndo('Changed ledger texture');
+  state.theme.texture = val;
+  applyTheme();
+  render();
+  queueSave();
+}
+
+async function resetTheme(){
+  pushUndo('Reset to classic colors');
+  state.theme = defaultTheme();
+  applyTheme();
+  render();
+  queueSave();
 }
 
 // ---------- Daily tab ----------
@@ -1495,6 +1653,7 @@ function signOut(){
   pendingDeleteCategoryId = null;
   undoStack = [];
   redoStack = [];
+  applyThemeObject(defaultTheme()); // login screen always shows the classic look
   document.getElementById('authEmail').value = '';
   document.getElementById('authPassword').value = '';
   document.getElementById('appShell').style.display = 'none';
@@ -1519,6 +1678,7 @@ async function enterApp(){
     document.getElementById('authEmailLabel').textContent = session ? session.email : '';
   }
   await loadState();
+  applyTheme();
   render();
 }
 
