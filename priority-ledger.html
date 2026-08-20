@@ -64,6 +64,15 @@
     transition: transform .15s ease;
   }
   .locbadge:hover{ transform: scale(1.06); }
+  .settingsbtn{
+    position:absolute; top:-2px; left:0;
+    width:34px; height:34px; border-radius:50%;
+    background: rgba(241,234,217,0.14); color: rgba(241,234,217,0.75);
+    font-size:1rem; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; border:none; transition: all .15s ease;
+  }
+  .settingsbtn:hover{ transform: scale(1.06); }
+  .settingsbtn.on{ background: var(--brass); color:white; }
   .status-line{
     text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
     color: rgba(241,234,217,0.7); margin-bottom: 18px;
@@ -254,6 +263,17 @@
   }
   .catdeleteconfirm{ border-color: var(--estate); color: var(--estate); }
   .catdelete:disabled{ opacity:0.4; cursor:not-allowed; }
+  .catlocs{ flex-basis:100%; display:flex; gap:16px; margin-top:2px; }
+  .catlocchk{
+    display:flex; align-items:center; gap:5px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; text-transform:uppercase;
+    letter-spacing:0.03em; color: var(--ink-soft);
+  }
+  .catlocchk input{ cursor:pointer; }
+  .settingslabel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--ink-soft); margin: 18px 0 6px;
+  }
   @media (max-width:480px){
     .masthead h1{ font-size:1.9rem; }
     .card{ padding: 18px 14px 10px; }
@@ -280,6 +300,7 @@
 </div>
 <div class="shell" id="appShell" style="display:none;">
   <div class="masthead">
+    <button class="settingsbtn" id="settingsBtn" onclick="toggleSettings()" title="Settings">⚙</button>
     <h1>The Ledger</h1>
     <div class="tagline">family &nbsp;·&nbsp; projects &nbsp;·&nbsp; estate</div>
     <button class="locbadge" id="locBadge" onclick="toggleLocation()"></button>
@@ -299,7 +320,7 @@
       <div class="footer-row"><button id="showDoneBtn" onclick="toggleShowDone()"></button></div>
     </div>
     <div id="dailyView" style="display:none;"></div>
-    <div id="manageView" style="display:none;"></div>
+    <div id="settingsView" style="display:none;"></div>
   </div>
   <div class="savestatus" id="saveStatus"></div>
 </div>
@@ -331,6 +352,16 @@ function rebuildCategoriesIndex(){
   state.categories.forEach(c => { CATEGORIES[c.id] = c; });
 }
 function tabOrder(){ return ['all', ...state.categories.map(c=>c.id), 'daily']; }
+
+// Locations are also per-user: two editable-label entries plus a switch to
+// turn the whole feature off. Ids stay fixed ('MA'/'Argentina') so category
+// .locations arrays never need migrating when someone just renames a label.
+function defaultLocations(){
+  return [
+    { id:'MA', label:'MA' },
+    { id:'Argentina', label:'B.A.' }
+  ];
+}
 // Filled in once the project exists — see CLAUDE.md for setup steps.
 const SUPABASE_URL = 'https://kyswrzkgiphsniepahje.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5c3dyemtnaXBoc25pZXBhaGplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMzk1NTAsImV4cCI6MjEwMjgxNTU1MH0.mvDp9f1KcqAol3Tq4Libi32tODMCrVv8HdD3C9-x30c';
@@ -342,13 +373,13 @@ const EMPTY_MSG = {
   personal: "Nothing personal pending yet. Add one above.",
 };
 
-let state = { location: 'MA', tasks: [], days: [], categories: [] };
+let state = { location: 'MA', tasks: [], days: [], categories: [], locations: [], locationEnabled: true };
 let activeTab = 'all';
 let showDone = false;
 let urgentDraft = false;
 let selectedDay = null;
 let expandedMonths = new Set();
-let manageMode = false;
+let settingsOpen = false;
 let pendingDeleteCategoryId = null;
 let session = null; // { access_token, refresh_token, expires_at, user_id, email }
 let localOnlyMode = false; // explicit opt-out of an account, chosen on the auth screen
@@ -466,7 +497,9 @@ function defaultState(){
     location: 'MA',
     days: [],
     tasks: [],
-    categories: defaultCategories()
+    categories: defaultCategories(),
+    locations: defaultLocations(),
+    locationEnabled: true
   };
 }
 
@@ -474,8 +507,11 @@ function normalizeState(){
   if(!Array.isArray(state.days)) state.days = [];
   // Accounts saved before tabs became editable won't have a categories
   // array yet — seed it with the same set they've always seen so nothing
-  // about their existing tasks' categories changes.
+  // about their existing tasks' categories changes. Same idea for
+  // locations, added alongside per-tab location editing.
   if(!Array.isArray(state.categories) || !state.categories.length) state.categories = defaultCategories();
+  if(!Array.isArray(state.locations) || !state.locations.length) state.locations = defaultLocations();
+  if(typeof state.locationEnabled !== 'boolean') state.locationEnabled = true;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     if(t.plannedDate===undefined) t.plannedDate = '';
@@ -540,16 +576,23 @@ function sortTasks(list){
 }
 
 function visibleTabs(){
-  return tabOrder().filter(key => key==='all' || key==='daily' || CATEGORIES[key].locations.includes(state.location));
+  return tabOrder().filter(key => key==='all' || key==='daily' || !state.locationEnabled || CATEGORIES[key].locations.includes(state.location));
+}
+
+function currentLocation(){
+  return state.locations.find(l=>l.id===state.location) || state.locations[0];
 }
 
 function renderLocBadge(){
-  const el = document.getElementById('locBadge');
-  el.textContent = state.location === 'MA' ? 'MA' : 'B.A.';
+  const badge = document.getElementById('locBadge');
+  badge.style.display = state.locationEnabled ? '' : 'none';
+  const statusEl = document.getElementById('statusLine');
+  if(!state.locationEnabled){ statusEl.textContent = ''; return; }
+  const loc = currentLocation();
+  badge.textContent = loc.label;
   const hidden = tabOrder().filter(k => k!=='all' && k!=='daily' && !CATEGORIES[k].locations.includes(state.location));
   const hiddenNote = hidden.length ? ` · ${hidden.map(k=>CATEGORIES[k].label).join(', ')} tucked under All` : '';
-  document.getElementById('statusLine').textContent =
-    (state.location === 'MA' ? 'Based in Massachusetts right now' : 'Based in Buenos Aires right now') + hiddenNote;
+  statusEl.textContent = `Based in ${loc.label} right now` + hiddenNote;
 }
 
 function renderTabs(){
@@ -561,7 +604,7 @@ function renderTabs(){
     const dot = (key==='all'||key==='daily') ? '' : `<span class="dot" style="background:${CATEGORIES[key].hex}"></span>`;
     const label = key==='all' ? 'All' : key==='daily' ? 'Daily' : CATEGORIES[key].label;
     return `<button class="tab ${activeTab===key?'active':''}" onclick="switchTab('${key}')">${dot}${label} <span class="count">${openCount}</span></button>`;
-  }).join('') + `<button class="tab ${manageMode?'active':''}" onclick="toggleManageCategories()" title="Add, rename, or remove tabs">⚙ Tabs</button>`;
+  }).join('');
 }
 
 function renderQuickCategory(){
@@ -656,20 +699,21 @@ function escapeHtml(s){
 function render(){
   renderLocBadge();
   renderTabs();
+  document.getElementById('settingsBtn').classList.toggle('on', settingsOpen);
   const catView = document.getElementById('categoryView');
   const dayView = document.getElementById('dailyView');
-  const manView = document.getElementById('manageView');
-  if(manageMode){
+  const setView = document.getElementById('settingsView');
+  if(settingsOpen){
     catView.style.display = 'none';
     dayView.style.display = 'none';
-    manView.style.display = '';
-    renderManageCategories();
+    setView.style.display = '';
+    renderSettings();
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     dayView.innerHTML = '';
     return;
   }
-  manView.style.display = 'none';
-  manView.innerHTML = '';
+  setView.style.display = 'none';
+  setView.innerHTML = '';
   const isDaily = activeTab==='daily';
   catView.style.display = isDaily ? 'none' : '';
   dayView.style.display = isDaily ? '' : 'none';
@@ -694,14 +738,14 @@ function toggleUrgentDraft(){
 
 // ---------- Manage tabs ----------
 
-function toggleManageCategories(){
-  manageMode = !manageMode;
+function toggleSettings(){
+  settingsOpen = !settingsOpen;
   pendingDeleteCategoryId = null;
   render();
 }
 
-function renderManageCategories(){
-  const el = document.getElementById('manageView');
+function renderSettings(){
+  const el = document.getElementById('settingsView');
   const rows = state.categories.map(c=>{
     const count = state.tasks.filter(t=>t.category===c.id).length;
     const confirming = pendingDeleteCategoryId === c.id;
@@ -710,6 +754,14 @@ function renderManageCategories(){
          <button class="catdeleteconfirm" onclick="deleteCategory('${c.id}')">Yes, delete</button>
          <button class="catcancel" onclick="cancelDeleteCategory()">Cancel</button>`
       : `<button class="catdelete" ${state.categories.length<=1?'disabled title="At least one tab must stay"':''} onclick="askDeleteCategory('${c.id}')">Delete</button>`;
+    const locChecks = state.locationEnabled ? `
+      <div class="catlocs">
+        ${state.locations.map(l=>`
+          <label class="catlocchk">
+            <input type="checkbox" ${c.locations.includes(l.id)?'checked':''} onchange="toggleCategoryLocation('${c.id}','${l.id}', this.checked)">
+            ${escapeHtml(l.label)}
+          </label>`).join('')}
+      </div>` : '';
     return `
     <div class="catrow">
       <span class="cdot" style="background:${c.hex}"></span>
@@ -717,8 +769,23 @@ function renderManageCategories(){
         onblur="renameCategory('${c.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
       ${deleteControls}
+      ${locChecks}
     </div>`;
   }).join('');
+
+  const locationSection = `
+    <div class="settingslabel">Locations</div>
+    <label class="catlocchk" style="margin-bottom:10px;">
+      <input type="checkbox" ${state.locationEnabled?'checked':''} onchange="toggleLocationFeature(this.checked)">
+      Use multiple locations
+    </label>
+    ${state.locationEnabled ? state.locations.map(l=>`
+    <div class="catrow">
+      <input type="text" class="catedit" value="${escapeHtml(l.label)}"
+        onblur="renameLocation('${l.id}', this.value)"
+        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+    </div>`).join('') : ''}
+  `;
 
   el.innerHTML = `
     <div class="daylistlabel">Manage Tabs</div>
@@ -727,7 +794,8 @@ function renderManageCategories(){
       <input type="text" class="catedit" placeholder="+ add a new tab, enter to save"
         onkeydown="if(event.key==='Enter'){ addCategory(this.value); this.value=''; }">
     </div>
-    <div class="footer-row"><button onclick="toggleManageCategories()">Done</button></div>
+    ${locationSection}
+    <div class="footer-row"><button onclick="toggleSettings()">Done</button></div>
   `;
 }
 
@@ -770,8 +838,36 @@ async function addCategory(text){
   const label = (text||'').trim();
   if(!label) return;
   const hex = CATEGORY_PALETTE[state.categories.length % CATEGORY_PALETTE.length];
-  state.categories.push({ id: newId('cat'), label, hex, locations: ['MA','Argentina'] });
+  state.categories.push({ id: newId('cat'), label, hex, locations: state.locations.map(l=>l.id) });
   rebuildCategoriesIndex();
+  await saveState();
+  render();
+}
+
+async function toggleCategoryLocation(catId, locId, checked){
+  const c = state.categories.find(c=>c.id===catId);
+  if(!c) return;
+  if(checked){
+    if(!c.locations.includes(locId)) c.locations.push(locId);
+  } else {
+    c.locations = c.locations.filter(id=>id!==locId);
+  }
+  rebuildCategoriesIndex();
+  await saveState();
+  render();
+}
+
+async function toggleLocationFeature(checked){
+  state.locationEnabled = checked;
+  await saveState();
+  render();
+}
+
+async function renameLocation(id, val){
+  const l = state.locations.find(l=>l.id===id);
+  if(!l) return;
+  const newVal = val.trim();
+  if(newVal) l.label = newVal;
   await saveState();
   render();
 }
@@ -1178,7 +1274,9 @@ function toggleExpand(evt, id){
 }
 
 async function toggleLocation(){
-  state.location = state.location==='MA' ? 'Argentina' : 'MA';
+  if(!state.locationEnabled || state.locations.length < 2) return;
+  const idx = state.locations.findIndex(l=>l.id===state.location);
+  state.location = state.locations[(idx + 1) % state.locations.length].id;
   await saveState();
   if(!visibleTabs().includes(activeTab)) activeTab = 'all';
   render();
@@ -1229,7 +1327,7 @@ async function submitAuth(){
 function signOut(){
   saveSession(null);
   localOnlyMode = false;
-  manageMode = false;
+  settingsOpen = false;
   pendingDeleteCategoryId = null;
   document.getElementById('authEmail').value = '';
   document.getElementById('authPassword').value = '';
