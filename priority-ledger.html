@@ -834,18 +834,63 @@ async function loadState(){
   normalizeState();
 }
 
+// Resolves after `ms`, or immediately if the browser reports connectivity
+// coming back first — so a save that's mid-backoff after a network blip
+// doesn't sit out the rest of a long delay once the connection is actually
+// usable again.
+function delayOrOnline(ms){
+  return new Promise(resolve => {
+    const timer = setTimeout(finish, ms);
+    function finish(){
+      clearTimeout(timer);
+      window.removeEventListener('online', finish);
+      resolve();
+    }
+    window.addEventListener('online', finish);
+  });
+}
+
+// Capped exponential backoff — retries get less frequent but never stop
+// entirely while offline, since giving up after N tries would mean the
+// edit just silently never reaches Supabase.
+const SAVE_RETRY_DELAYS_MS = [1000, 2000, 5000, 10000, 20000, 30000];
+
+let unsavedChanges = false;
+
+// Retries a failed save with backoff instead of dropping the edit after
+// one attempt — a single network blip used to mean the change only ever
+// existed in memory, with nothing but a small, easy-to-miss status line
+// as a warning. This keeps trying (and the caller, via queueSave/saveChain,
+// keeps later edits queued behind it) until it either succeeds or the
+// session itself is gone. A dead session is the one case worth giving up
+// on immediately: storage.set() has already called forceReauth() and sent
+// the user back to login by the time that error reaches here, retrying
+// against it can't succeed, and the pending edit will be superseded by
+// loadState() pulling fresh data on the next login anyway.
 async function saveState(){
   const statusEl = document.getElementById('saveStatus');
-  if(statusEl) statusEl.textContent = 'Saving…';
-  try{
-    await storage.set('tracker-state', JSON.stringify(state), false);
-    if(statusEl){
-      statusEl.textContent = 'Saved';
-      setTimeout(()=>{ if(statusEl.textContent==='Saved') statusEl.textContent=''; }, 1500);
+  let attempt = 0;
+  while(true){
+    if(statusEl) statusEl.textContent = attempt ? `Saving… (retry ${attempt})` : 'Saving…';
+    try{
+      await storage.set('tracker-state', JSON.stringify(state), false);
+      unsavedChanges = false;
+      if(statusEl){
+        statusEl.textContent = 'Saved';
+        setTimeout(()=>{ if(statusEl.textContent==='Saved') statusEl.textContent=''; }, 1500);
+      }
+      return;
+    }catch(e){
+      console.error('Storage save failed', e);
+      if(e.message === 'session expired'){
+        if(statusEl) statusEl.textContent = 'Signed out — sign back in to keep syncing';
+        return;
+      }
+      const delay = SAVE_RETRY_DELAYS_MS[Math.min(attempt, SAVE_RETRY_DELAYS_MS.length - 1)];
+      if(statusEl) statusEl.textContent = `Save failed — retrying in ${Math.round(delay/1000)}s`;
+      await delayOrOnline(delay);
+      attempt++;
     }
-  }catch(e){
-    console.error('Storage save failed', e);
-    if(statusEl) statusEl.textContent = 'Save failed — check your connection';
   }
 }
 
@@ -858,6 +903,7 @@ async function saveState(){
 // data.
 let saveChain = Promise.resolve();
 function queueSave(){
+  unsavedChanges = true;
   saveChain = saveChain.then(() => saveState());
   return saveChain;
 }
@@ -1956,6 +2002,17 @@ let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(renderTabRowLines, 120);
+});
+
+// saveState() now retries indefinitely rather than dropping a failed save,
+// but that only helps while the tab stays open — closing it mid-retry
+// would still lose the edit silently. This is the last line of defense:
+// the browser's native "leave site?" prompt, gated on unsavedChanges so it
+// only appears when there's actually something not yet confirmed saved.
+window.addEventListener('beforeunload', (e) => {
+  if(!unsavedChanges) return;
+  e.preventDefault();
+  e.returnValue = '';
 });
 
 (async function init(){
