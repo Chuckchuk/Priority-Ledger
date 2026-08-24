@@ -1574,6 +1574,7 @@ function renderClaudeView(){
   el.innerHTML = `
     <button class="backbtn" onclick="closeClaudeView()">‹ Back</button>
     <div class="daylistlabel">Claude-readable ${claudeView==='full' ? 'raw data (JSON)' : 'priority digest'}</div>
+    <div class="lockednote">Point your assistant here directly by adding <b>?claude=1</b> (digest) or <b>?claude=full</b> (raw data) to this page's URL — it can read the text below without screenshotting the app.</div>
     <div class="claudeviewrow">
       <button class="pullbtn" onclick="toggleClaudeViewMode()">${claudeView==='full' ? 'Show digest' : 'Show full raw data'}</button>
       <button class="pullbtn" onclick="copyClaudeView(this)">Copy to clipboard</button>
