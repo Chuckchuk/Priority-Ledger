@@ -341,6 +341,7 @@
   .footer-row button{ background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; color: var(--ink-soft); cursor:pointer; letter-spacing:0.05em; }
   .subwrap{ margin-top:10px; }
   .sublabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin-bottom:6px; }
+  .pendinggroup{ margin-bottom:16px; }
   .subrow{ display:flex; align-items:center; gap:8px; padding:3px 0; }
   .subrow.dragging{ opacity:0.4; }
   .subrow.dragover{ border-top: 2px solid var(--brass); }
@@ -580,6 +581,7 @@
         <div class="footer-row"><button id="showDoneBtn" onclick="toggleShowDone()"></button></div>
       </div>
       <div id="dailyView" style="display:none;"></div>
+      <div id="checklistView" style="display:none;"></div>
       <div id="settingsView" style="display:none;"></div>
       <div id="claudeView" style="display:none;"></div>
     </div>
@@ -603,7 +605,7 @@ const CATEGORY_PALETTE = ['#3C5A45','#3E4A6B','#9C4530','#A9782F','#5B6560','#6B
 // Used only when a task's category tab has been deleted — the task itself
 // is never touched, it just has nothing to look itself up as, and this
 // keeps that rendering path from breaking.
-const FALLBACK_CATEGORY = { id:'_orphan', label:'Uncategorized', hex:'#5B6560', locations:['MA','Argentina'] };
+const FALLBACK_CATEGORY = { id:'_orphan', label:'Uncategorized', hex:'#5B6560', locations:['MA','Argentina'], type:'standard' };
 // Generic on purpose — this seeds any brand-new account (see normalizeState()
 // below), not just the project owner's, so it stays a broadly relatable
 // three-way split (work life / home life / everything else personal)
@@ -618,9 +620,9 @@ const FALLBACK_CATEGORY = { id:'_orphan', label:'Uncategorized', hex:'#5B6560', 
 // landing on a color one of these already uses.
 function defaultCategories(){
   return [
-    { id:'work',      label:'Work',      hex: CATEGORY_PALETTE[0], locations:['home','away'] },
-    { id:'household', label:'Household', hex: CATEGORY_PALETTE[1], locations:['home'] },
-    { id:'personal',  label:'Personal',  hex: CATEGORY_PALETTE[2], locations:['home','away'] }
+    { id:'work',      label:'Work',      hex: CATEGORY_PALETTE[0], locations:['home','away'], type:'standard' },
+    { id:'household', label:'Household', hex: CATEGORY_PALETTE[1], locations:['home'],         type:'standard' },
+    { id:'personal',  label:'Personal',  hex: CATEGORY_PALETTE[2], locations:['home','away'],  type:'standard' }
   ];
 }
 let CATEGORIES = {};
@@ -629,6 +631,26 @@ function rebuildCategoriesIndex(){
   state.categories.forEach(c => { CATEGORIES[c.id] = c; });
 }
 function tabOrder(){ return ['all', ...state.categories.map(c=>c.id), 'daily']; }
+
+// Category "type" is fixed at creation (see addCategory()) — there's no
+// UI to convert one after the fact, since a standard category's tasks
+// (due dates, priority) and a checklist's lists (name + items only) don't
+// map onto each other. 'standard' is the default/original behavior;
+// 'checklist' is the parallel, much simpler view (see the Checklist
+// section below) modeled on how the Daily tab is already a parallel view
+// rather than a real category.
+function isChecklistCategory(id){
+  const c = CATEGORIES[id];
+  return !!c && c.type === 'checklist';
+}
+// Category selects used for *standard* tasks (quick-add, "move to
+// category", the Daily quick-add) only ever offer standard categories —
+// a checklist category's "tasks" are really named lists with no due
+// date/priority fields, so dropping a standard task into one (or vice
+// versa) would produce a hybrid that neither view knows how to render.
+function standardCategoryEntries(){
+  return Object.entries(CATEGORIES).filter(([,v]) => v.type !== 'checklist');
+}
 
 // Locations are also per-user: two editable-label entries plus a switch to
 // turn the whole feature off. Ids stay fixed ('home'/'away') so category
@@ -732,6 +754,8 @@ let activeTab = 'all';
 let showDone = false;
 let urgentDraft = false;
 let selectedDay = null;
+let selectedListId = null; // id of the checklist "list" (a task) currently drilled into, or null for the overview
+let checklistPendingOpen = false; // showing the "all pending items" view for the active checklist category
 let expandedMonths = new Set();
 let settingsOpen = false;
 let claudeView = null; // null | 'digest' | 'full' — a plain-text view meant for a page-reading agent, not a category/day view
@@ -868,6 +892,9 @@ function normalizeState(){
   // locations, added alongside per-tab location editing, and theme,
   // added alongside custom colors/texture.
   if(!Array.isArray(state.categories) || !state.categories.length) state.categories = defaultCategories();
+  // Accounts saved before category types existed only ever had the
+  // 'standard' behavior, so that's the correct backfill.
+  state.categories.forEach(c => { if(!c.type) c.type = 'standard'; });
   if(!Array.isArray(state.locations) || !state.locations.length) state.locations = defaultLocations();
   if(typeof state.locationEnabled !== 'boolean') state.locationEnabled = true;
   if(!state.theme) state.theme = defaultTheme();
@@ -1033,6 +1060,7 @@ function afterStateRestore(){
   applyTheme();
   if(!visibleTabs().includes(activeTab)) activeTab = 'all';
   if(selectedDay && !state.days.includes(selectedDay)) selectedDay = null;
+  if(selectedListId && !state.tasks.some(t=>t.id===selectedListId)) selectedListId = null;
   pendingDeleteCategoryId = null;
 }
 
@@ -1172,12 +1200,29 @@ function renderLocBadge(){
   document.getElementById('statusLine').textContent = taglineFor(activeTab);
 }
 
+// A checklist tab's count is pending *items* across all its lists, not a
+// count of not-done lists — "how much is still left to get" is the more
+// useful number for that kind of tab. "All" excludes checklist-owned
+// tasks entirely, matching what renderList() actually shows there.
+function tabOpenCount(key){
+  if(key==='daily') return state.tasks.filter(t=>t.plannedDate===todayStr() && t.status!=='done').length;
+  if(key==='all'){
+    return state.tasks.filter(t=>{
+      if(t.status==='done') return false;
+      const cat = CATEGORIES[t.category];
+      return !cat || cat.type !== 'checklist';
+    }).length;
+  }
+  if(isChecklistCategory(key)){
+    return state.tasks.filter(t=>t.category===key).reduce((sum,t)=>sum+(t.subtasks||[]).filter(s=>!s.done).length, 0);
+  }
+  return state.tasks.filter(t => t.category===key && t.status!=='done').length;
+}
+
 function renderTabs(){
   const wrap = document.getElementById('tabs');
   wrap.innerHTML = visibleTabs().map(key=>{
-    const openCount = key==='daily'
-      ? state.tasks.filter(t=>t.plannedDate===todayStr() && t.status!=='done').length
-      : state.tasks.filter(t => (key==='all'||t.category===key) && t.status!=='done').length;
+    const openCount = tabOpenCount(key);
     const dot = (key==='all'||key==='daily') ? '' : `<span class="dot" style="background:${CATEGORIES[key].hex}"></span>`;
     const label = key==='all' ? 'All' : key==='daily' ? 'Daily' : CATEGORIES[key].label;
     return `<button class="tab ${activeTab===key?'active':''}" onclick="switchTab('${key}')">${dot}${label} <span class="count">${openCount}</span></button>`;
@@ -1219,7 +1264,7 @@ function renderQuickCategory(){
     sel.value = activeTab;
   } else {
     sel.style.display = '';
-    sel.innerHTML = Object.entries(CATEGORIES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
+    sel.innerHTML = standardCategoryEntries().map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
   }
   document.getElementById('quickInput').placeholder =
     activeTab==='household' ? 'Log a household task…' :
@@ -1431,7 +1476,7 @@ function taskRowHtml(t, showDot, inDaily){
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
       <div class="expand-row">
         <select class="catselect" onchange="updateCategory('${t.id}', this.value)">
-          ${Object.entries(CATEGORIES).map(([k,v])=>`<option value="${k}" ${t.category===k?'selected':''}>${v.label}</option>`).join('')}
+          ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${t.category===k?'selected':''}>${v.label}</option>`).join('')}
         </select>
         <label class="fieldlabel">DUE</label>
         <input type="date" value="${t.dueDate||''}" onchange="updateDueDate('${t.id}', this.value)">
@@ -1480,7 +1525,16 @@ function taskRowHtml(t, showDot, inDaily){
 }
 
 function renderList(){
-  const list = state.tasks.filter(t => activeTab==='all' || t.category===activeTab);
+  // Checklist lists don't carry due dates/priority and open into their
+  // own dedicated view rather than an inline expand, so taskRowHtml can't
+  // render them sensibly — they're excluded from "All" entirely rather
+  // than shown with fields that don't apply. Orphaned tasks (category id
+  // matches nothing current) still fall through to "All" as always.
+  const list = state.tasks.filter(t => {
+    if(activeTab !== 'all') return t.category === activeTab;
+    const cat = CATEGORIES[t.category];
+    return !cat || cat.type !== 'checklist';
+  });
   const visible = applySortMode(list).filter(t => showDone || t.status!=='done');
   const doneCount = list.filter(t=>t.status==='done').length;
 
@@ -1512,16 +1566,19 @@ function render(){
   document.getElementById('settingsBtn').classList.toggle('on', settingsOpen);
   const catView = document.getElementById('categoryView');
   const dayView = document.getElementById('dailyView');
+  const chkView = document.getElementById('checklistView');
   const setView = document.getElementById('settingsView');
   const cldView = document.getElementById('claudeView');
   if(claudeView){
     catView.style.display = 'none';
     dayView.style.display = 'none';
+    chkView.style.display = 'none';
     setView.style.display = 'none';
     cldView.style.display = '';
     renderClaudeView();
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     dayView.innerHTML = '';
+    chkView.innerHTML = '';
     setView.innerHTML = '';
     return;
   }
@@ -1530,24 +1587,34 @@ function render(){
   if(settingsOpen){
     catView.style.display = 'none';
     dayView.style.display = 'none';
+    chkView.style.display = 'none';
     setView.style.display = '';
     renderSettings();
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     dayView.innerHTML = '';
+    chkView.innerHTML = '';
     return;
   }
   setView.style.display = 'none';
   setView.innerHTML = '';
   const isDaily = activeTab==='daily';
-  catView.style.display = isDaily ? 'none' : '';
+  const isChecklist = isChecklistCategory(activeTab);
+  catView.style.display = (isDaily || isChecklist) ? 'none' : '';
   dayView.style.display = isDaily ? '' : 'none';
+  chkView.style.display = isChecklist ? '' : 'none';
   if(isDaily){
     renderDaily();
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
+    chkView.innerHTML = '';
+  } else if(isChecklist){
+    renderChecklist();
+    document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
+    dayView.innerHTML = '';
   } else {
     renderQuickCategory();
     renderList();
     dayView.innerHTML = ''; // avoid stale duplicate ids
+    chkView.innerHTML = '';
   }
 }
 
@@ -1617,6 +1684,7 @@ function renderSettings(){
       <input type="text" class="catedit" value="${escapeHtml(c.label)}"
         onblur="renameCategory('${c.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+      ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
       ${deleteControls}
       ${locChecks}
     </div>`;
@@ -1677,8 +1745,12 @@ function renderSettings(){
     <div class="daylistlabel">Manage Tabs</div>
     ${rows}
     <div class="catrow">
-      <input type="text" class="catedit" placeholder="+ add a new tab, enter to save"
-        onkeydown="if(event.key==='Enter'){ addCategory(this.value); this.value=''; }">
+      <input type="text" class="catedit" placeholder="+ add a new tab, enter to save" id="newCatNameInput"
+        onkeydown="if(event.key==='Enter'){ addCategory(this.value, document.getElementById('newCatTypeSelect').value); this.value=''; }">
+      <select class="catselect" id="newCatTypeSelect" title="Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off.">
+        <option value="standard">Standard</option>
+        <option value="checklist">Checklist</option>
+      </select>
     </div>
     ${locationSection}
     ${taskFieldsSection}
@@ -1731,12 +1803,14 @@ async function deleteCategory(id){
   queueSave();
 }
 
-async function addCategory(text){
+// Type is fixed at creation — there's no UI to convert a tab afterward
+// (see isChecklistCategory() above for why).
+async function addCategory(text, type){
   const label = (text||'').trim();
   if(!label) return;
   pushUndo(`Added tab "${label}"`);
   const hex = CATEGORY_PALETTE[state.categories.length % CATEGORY_PALETTE.length];
-  state.categories.push({ id: newId('cat'), label, hex, locations: state.locations.map(l=>l.id) });
+  state.categories.push({ id: newId('cat'), label, hex, locations: state.locations.map(l=>l.id), type: type==='checklist' ? 'checklist' : 'standard' });
   rebuildCategoriesIndex();
   render();
   queueSave();
@@ -2144,7 +2218,7 @@ function renderDayDetail(dateStr){
   const sorted = applySortMode(allTasks);
   const doneCount = allTasks.filter(t=>t.status==='done').length;
   const unfinishedCount = allTasks.length - doneCount;
-  const unplanned = state.tasks.filter(t=>t.plannedDate!==dateStr && t.status!=='done');
+  const unplanned = state.tasks.filter(t=>t.plannedDate!==dateStr && t.status!=='done' && !isChecklistCategory(t.category));
   const isPast = dateStr < todayStr();
   const nextDate = addDaysToDateStr(dateStr, 1);
 
@@ -2174,7 +2248,7 @@ function renderDayDetail(dateStr){
     <div class="quickadd">
       <input type="text" id="dayQuickInput" placeholder="Add a priority for this day…" onkeydown="if(event.key==='Enter') addDayTask('${dateStr}')">
       <select id="dayQuickCategory">
-        ${Object.entries(CATEGORIES).map(([k,v])=>`<option value="${k}" ${k==='personal'?'selected':''}>${v.label}</option>`).join('')}
+        ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${k==='personal'?'selected':''}>${v.label}</option>`).join('')}
       </select>
       <button class="addbtn" onclick="addDayTask('${dateStr}')">+</button>
     </div>
@@ -2192,6 +2266,151 @@ function renderDayDetail(dateStr){
     </div>
     <ul class="tasks">${list}</ul>
   `;
+}
+
+// ---------- Checklist category type ----------
+// A checklist category's "tasks" are named lists (still plain state.tasks
+// entries — same id/category/status/createdAt shape as everything else,
+// which is what lets the Claude digest, undo, and save/load all keep
+// working on them for free) whose subtasks array holds "items" instead of
+// steps. Two-level drill-down modeled directly on the Daily tab: an
+// overview of all lists in the category, and a single list's own detail
+// view — selectedListId plays the same role selectedDay does there.
+// Deliberately minimal: no due date, priority, timeframe, or notes: those
+// fields still exist on the task object (every task has them) but are
+// simply never shown or set for a checklist list, matching the "just a
+// name and items" brief.
+
+function renderChecklist(){
+  const el = document.getElementById('checklistView');
+  // Guards against a stale selectedListId left over from a different
+  // checklist category (only one global "currently open list" exists,
+  // same as selectedDay) — falls back to the overview rather than
+  // showing another category's list under this tab's header.
+  if(selectedListId){
+    const t = state.tasks.find(t=>t.id===selectedListId);
+    if(!t || t.category !== activeTab) selectedListId = null;
+  }
+  if(checklistPendingOpen){
+    el.innerHTML = renderChecklistPending(activeTab);
+  } else if(selectedListId){
+    el.innerHTML = renderChecklistDetail(selectedListId);
+  } else {
+    el.innerHTML = renderChecklistOverview(activeTab);
+  }
+}
+
+function checklistLists(categoryId){
+  return sortTasks(state.tasks.filter(t=>t.category===categoryId));
+}
+
+function renderChecklistOverview(categoryId){
+  const cat = CATEGORIES[categoryId];
+  const lists = checklistLists(categoryId);
+  const visible = lists.filter(t => showDone || t.status!=='done');
+  const doneCount = lists.filter(t=>t.status==='done').length;
+  const pendingTotal = lists.reduce((sum,t)=>sum+(t.subtasks||[]).filter(s=>!s.done).length, 0);
+  return `
+    <div class="quickadd">
+      <input type="text" id="checklistQuickInput" placeholder="Name a new list…"
+        onkeydown="if(event.key==='Enter') addChecklistList('${categoryId}')">
+      <button class="addbtn" onclick="addChecklistList('${categoryId}')">+</button>
+    </div>
+    ${pendingTotal ? `<button class="addday" onclick="openChecklistPending('${categoryId}')">See all pending items (${pendingTotal})</button>` : ''}
+    <ul class="tasks">
+      ${visible.length ? visible.map(t=>checklistListRowHtml(t)).join('') : `<div class="empty">${cat ? `No lists in ${escapeHtml(cat.label)} yet.` : 'No lists yet.'} Add one above.</div>`}
+    </ul>
+    <div class="footer-row"><button onclick="toggleShowDone()">${showDone ? `Hide completed (${doneCount})` : `Show completed (${doneCount})`}</button></div>
+  `;
+}
+
+function checklistListRowHtml(t){
+  const subs = t.subtasks || [];
+  const done = subs.filter(s=>s.done).length;
+  const total = subs.length;
+  return `
+  <li class="task" onclick="openChecklistList('${t.id}')">
+    <div class="row">
+      <div class="check ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
+      <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}</div>
+      <div class="meta">${total ? `<span class="badge due">${done}/${total}</span>` : ''}</div>
+    </div>
+  </li>`;
+}
+
+function renderChecklistDetail(taskId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  const cat = CATEGORIES[t.category];
+  const subs = t.subtasks || [];
+  return `
+    <button class="backbtn" onclick="closeChecklistList()">‹ ${cat ? escapeHtml(cat.label) : 'Lists'}</button>
+    <input type="text" class="titleedit" value="${escapeHtml(t.title)}"
+      onblur="updateTitle('${t.id}', this.value)"
+      onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+    <div class="taskmeta">Created ${fmtDate(t.createdAt)}</div>
+    <div class="subwrap">
+      ${subs.map(s=>`
+        <div class="subrow" ondragover="subDragOver(event)" ondrop="subDrop(event,'${t.id}','${s.id}')">
+          <span class="draghandle sub" draggable="true" ondragstart="subDragStart(event,'${t.id}','${s.id}')" ondragend="subDragEnd()" title="Drag to reorder">⠿</span>
+          <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
+          <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
+          <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
+        </div>`).join('')}
+      <input type="text" class="subadd" placeholder="+ add an item, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); this.value=''; }">
+    </div>
+    <div class="footer-row"><button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button></div>
+  `;
+}
+
+// Flat "what's still left" across every list in the category — the
+// explicit ask was a way to see all pending items at once without
+// opening each list one by one. Grouped by list (not a single flat pile)
+// so an item still has context for which list it's from.
+function renderChecklistPending(categoryId){
+  const cat = CATEGORIES[categoryId];
+  const groups = checklistLists(categoryId)
+    .map(t => ({ list: t, pending: (t.subtasks||[]).filter(s=>!s.done) }))
+    .filter(g => g.pending.length);
+  return `
+    <button class="backbtn" onclick="closeChecklistPending()">‹ ${cat ? escapeHtml(cat.label) : 'Lists'}</button>
+    <div class="daylistlabel">All pending items</div>
+    ${groups.length ? groups.map(g => `
+      <div class="pendinggroup">
+        <div class="sublabel">${escapeHtml(g.list.title)}</div>
+        ${g.pending.map(s=>`
+          <div class="subrow">
+            <div class="subcheck" onclick="toggleSubtask('${g.list.id}','${s.id}')"></div>
+            <div class="subtext" onclick="openChecklistList('${g.list.id}')">${escapeHtml(s.text)}</div>
+          </div>`).join('')}
+      </div>`).join('') : `<div class="empty">Nothing pending — everything's checked off.</div>`}
+  `;
+}
+
+function openChecklistList(id){ selectedListId = id; render(); }
+function closeChecklistList(){ selectedListId = null; render(); }
+function openChecklistPending(categoryId){ checklistPendingOpen = true; render(); }
+function closeChecklistPending(){ checklistPendingOpen = false; render(); }
+
+async function addChecklistList(categoryId){
+  const input = document.getElementById('checklistQuickInput');
+  const title = input.value.trim();
+  if(!title) return;
+  pushUndo(`Added list "${title}"`);
+  state.tasks.unshift({
+    id: newId('task'), title, category: categoryId, status:'open', urgent:false, dueDate:'',
+    notes:'', subtasks:[], plannedDate:'', timeframe:'', priority:0, completedAt:'', createdAt: todayStr()
+  });
+  render();
+  queueSave();
+}
+
+async function deleteChecklistList(id){
+  const t = state.tasks.find(t=>t.id===id);
+  pushUndo(`Deleted list "${t ? t.title : ''}"`);
+  state.tasks = state.tasks.filter(t=>t.id!==id);
+  selectedListId = null;
+  render();
+  queueSave();
 }
 
 async function addDayTask(dateStr){
@@ -2498,6 +2717,8 @@ function signOut(){
   localOnlyMode = false;
   settingsOpen = false;
   claudeView = null;
+  selectedListId = null;
+  checklistPendingOpen = false;
   pendingDeleteCategoryId = null;
   undoStack = [];
   redoStack = [];
@@ -2519,6 +2740,8 @@ async function enterApp(){
   undoStack = [];
   redoStack = [];
   claudeView = null;
+  selectedListId = null;
+  checklistPendingOpen = false;
   document.getElementById('authShell').style.display = 'none';
   document.getElementById('appShell').style.display = '';
   const signOutRow = document.getElementById('signOutRow');
@@ -2549,6 +2772,8 @@ document.addEventListener('keydown', (e) => {
   if(e.key === 'Escape'){
     if(claudeView){ closeClaudeView(); return; }
     if(settingsOpen){ toggleSettings(); return; }
+    if(checklistPendingOpen){ closeChecklistPending(); return; }
+    if(selectedListId){ closeChecklistList(); return; }
     const openExpand = document.querySelector('.expand.open');
     if(openExpand){ openExpand.classList.remove('open'); return; }
     if(activeTab !== 'all'){ switchTab('all'); }
