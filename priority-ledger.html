@@ -480,6 +480,16 @@
     background:transparent; border:1px dashed var(--brass); color:var(--brass); border-radius:6px;
     padding:8px 12px; cursor:pointer;
   }
+  /* Plain, semantic text output for the Claude-readable view — no
+     decorative markup to strip, just a monospace block a page-reading
+     tool can grab in one pass. */
+  .claudepre{
+    white-space: pre-wrap; word-break: break-word; margin:0;
+    font-family:'IBM Plex Mono', monospace; font-size:0.76rem; line-height:1.55;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:8px;
+    padding:14px; max-height:65vh; overflow:auto; color:var(--ink);
+  }
+  .claudeviewrow{ display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
   @media (max-width:480px){
     .masthead h1{ font-size:1.9rem; }
     .card{ padding: 18px 14px 10px; }
@@ -527,6 +537,7 @@
       </div>
       <div id="dailyView" style="display:none;"></div>
       <div id="settingsView" style="display:none;"></div>
+      <div id="claudeView" style="display:none;"></div>
     </div>
   </div>
   <div class="undoRow">
@@ -660,6 +671,7 @@ let urgentDraft = false;
 let selectedDay = null;
 let expandedMonths = new Set();
 let settingsOpen = false;
+let claudeView = null; // null | 'digest' | 'full' — a plain-text view meant for a page-reading agent, not a category/day view
 let pendingDeleteCategoryId = null;
 let session = null; // { access_token, refresh_token, expires_at, user_id, email }
 let localOnlyMode = false; // explicit opt-out of an account, chosen on the auth screen
@@ -1167,6 +1179,20 @@ function render(){
   const catView = document.getElementById('categoryView');
   const dayView = document.getElementById('dailyView');
   const setView = document.getElementById('settingsView');
+  const cldView = document.getElementById('claudeView');
+  if(claudeView){
+    catView.style.display = 'none';
+    dayView.style.display = 'none';
+    setView.style.display = 'none';
+    cldView.style.display = '';
+    renderClaudeView();
+    document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
+    dayView.innerHTML = '';
+    setView.innerHTML = '';
+    return;
+  }
+  cldView.style.display = 'none';
+  cldView.innerHTML = '';
   if(settingsOpen){
     catView.style.display = 'none';
     dayView.style.display = 'none';
@@ -1224,6 +1250,7 @@ function toggleUrgentDraft(){
 
 function toggleSettings(){
   settingsOpen = !settingsOpen;
+  if(settingsOpen) claudeView = null;
   pendingDeleteCategoryId = null;
   render();
 }
@@ -1299,6 +1326,11 @@ function renderSettings(){
     <button class="resetthemebtn" onclick="resetTheme()">Reset to classic colors</button>
   `;
 
+  const claudeSection = `
+    <div class="settingslabel">Claude Access</div>
+    <button class="resetthemebtn" onclick="openClaudeView('digest')">Open Claude-readable view</button>
+  `;
+
   el.innerHTML = `
     <div class="daylistlabel">Manage Tabs</div>
     ${rows}
@@ -1308,6 +1340,7 @@ function renderSettings(){
     </div>
     ${locationSection}
     ${appearanceSection}
+    ${claudeSection}
     <div class="footer-row"><button onclick="toggleSettings()">Done</button></div>
   `;
 }
@@ -1444,6 +1477,121 @@ async function resetTheme(){
   applyTheme();
   render();
   queueSave();
+}
+
+// ---------- Claude view ----------
+// A plain-text view meant to be read by an agent (e.g. the Claude Chrome
+// extension) via its page-text tools, instead of screenshotting the
+// visual ledger. Pure navigation like switchTab/toggleSettings, so it's
+// not on the undo stack and isn't itself state — it just renders a text
+// snapshot of the current in-memory `state` on demand.
+
+function openClaudeView(mode){
+  claudeView = mode === 'full' ? 'full' : 'digest';
+  settingsOpen = false;
+  pendingDeleteCategoryId = null;
+  render();
+}
+
+function closeClaudeView(){
+  claudeView = null;
+  render();
+}
+
+function toggleClaudeViewMode(){
+  claudeView = claudeView === 'full' ? 'digest' : 'full';
+  render();
+}
+
+// One line per task, plain enough for an LLM to parse without any markup:
+// a checkbox-style status, urgent flag, due date (flagged if overdue),
+// step progress, then notes and each subtask step on their own indented
+// lines so nothing stays hidden the way it does in the collapsed UI.
+function claudeTaskLine(t, withCategory){
+  const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
+  const bits = ['-', t.urgent ? '[URGENT]' : '[ ]', t.title];
+  if(withCategory) bits.push(`(${cat.label})`);
+  if(t.dueDate) bits.push(isOverdue(t) ? `— OVERDUE ${fmtDate(t.dueDate)}` : `— due ${fmtDate(t.dueDate)}`);
+  if(t.subtasks && t.subtasks.length){
+    const done = t.subtasks.filter(s=>s.done).length;
+    bits.push(`(${done}/${t.subtasks.length} steps)`);
+  }
+  let line = bits.join(' ');
+  if(t.notes && t.notes.trim()) line += `\n    note: ${t.notes.trim().replace(/\s*\n\s*/g,' ')}`;
+  (t.subtasks||[]).forEach(s=>{ line += `\n    · [${s.done?'x':' '}] ${s.text}`; });
+  return line;
+}
+
+// Curated for "what should I work on next" — open tasks only, grouped by
+// tab in the same order the tabs themselves appear, plus today's and any
+// upcoming Daily plans. Ignores the location filter deliberately: an
+// agent reading this wants the whole picture, not just what's visible
+// while standing in one location.
+function claudeDigestText(){
+  const lines = ['THE LEDGER — Claude priority digest', `Generated ${new Date().toLocaleString()}`];
+  if(state.locationEnabled) lines.push(`Currently at: ${currentLocation().label}`);
+  lines.push('');
+  const knownIds = new Set(state.categories.map(c=>c.id));
+  state.categories.forEach(c=>{
+    const open = sortTasks(state.tasks.filter(t=>t.category===c.id && t.status!=='done'));
+    const locNote = state.locationEnabled
+      ? ` (${c.locations.map(id=>(state.locations.find(l=>l.id===id)||{label:id}).label).join(', ')})`
+      : '';
+    lines.push(`== ${c.label}${locNote} — ${open.length} open ==`);
+    lines.push(open.length ? open.map(t=>claudeTaskLine(t)).join('\n') : '(nothing open)');
+    lines.push('');
+  });
+  const orphaned = sortTasks(state.tasks.filter(t=>!knownIds.has(t.category) && t.status!=='done'));
+  if(orphaned.length){
+    lines.push(`== Uncategorized — ${orphaned.length} open ==`);
+    lines.push(orphaned.map(t=>claudeTaskLine(t)).join('\n'));
+    lines.push('');
+  }
+  lines.push('== Daily plan ==');
+  const today = todayStr();
+  const todayTasks = sortTasks(tasksForDay(today).filter(t=>t.status!=='done'));
+  lines.push(`-- Today, ${dayLabel(today)} --`);
+  lines.push(todayTasks.length ? todayTasks.map(t=>claudeTaskLine(t, true)).join('\n') : '(nothing planned)');
+  state.days.filter(d=>d>today).sort().forEach(d=>{
+    const dt = sortTasks(tasksForDay(d).filter(t=>t.status!=='done'));
+    if(!dt.length) return;
+    lines.push('');
+    lines.push(`-- ${dayLabel(d)} --`);
+    lines.push(dt.map(t=>claudeTaskLine(t, true)).join('\n'));
+  });
+  return lines.join('\n');
+}
+
+// Complete, structured, and trivial for an LLM to parse — the entire
+// state object as-is, not a curated subset like the digest above.
+function claudeFullDumpText(){
+  return JSON.stringify(state, null, 2);
+}
+
+function renderClaudeView(){
+  const el = document.getElementById('claudeView');
+  const text = claudeView === 'full' ? claudeFullDumpText() : claudeDigestText();
+  el.innerHTML = `
+    <button class="backbtn" onclick="closeClaudeView()">‹ Back</button>
+    <div class="daylistlabel">Claude-readable ${claudeView==='full' ? 'raw data (JSON)' : 'priority digest'}</div>
+    <div class="claudeviewrow">
+      <button class="pullbtn" onclick="toggleClaudeViewMode()">${claudeView==='full' ? 'Show digest' : 'Show full raw data'}</button>
+      <button class="pullbtn" onclick="copyClaudeView(this)">Copy to clipboard</button>
+    </div>
+    <pre class="claudepre" id="claudeViewText">${escapeHtml(text)}</pre>
+  `;
+}
+
+async function copyClaudeView(btn){
+  const text = document.getElementById('claudeViewText').textContent;
+  try{
+    await navigator.clipboard.writeText(text);
+    const original = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(()=>{ if(btn.textContent==='Copied!') btn.textContent = original; }, 1500);
+  }catch(e){
+    console.error('Clipboard copy failed', e);
+  }
 }
 
 // ---------- Daily tab ----------
@@ -1932,6 +2080,7 @@ function signOut(){
   saveSession(null);
   localOnlyMode = false;
   settingsOpen = false;
+  claudeView = null;
   pendingDeleteCategoryId = null;
   undoStack = [];
   redoStack = [];
@@ -1952,6 +2101,7 @@ async function enterApp(){
   // undo into a different account's data, or across a page reload.
   undoStack = [];
   redoStack = [];
+  claudeView = null;
   document.getElementById('authShell').style.display = 'none';
   document.getElementById('appShell').style.display = '';
   const signOutRow = document.getElementById('signOutRow');
@@ -1962,6 +2112,12 @@ async function enterApp(){
   await loadState();
   applyTheme();
   render();
+  // A `?claude=1` (or `?claude=full`) URL lets an agent (e.g. the Claude
+  // Chrome extension) navigate straight to the plain-text view instead of
+  // clicking through Settings, as long as it's using a browser session
+  // that's already signed in here.
+  const claudeParam = new URLSearchParams(location.search).get('claude');
+  if(claudeParam) openClaudeView(claudeParam);
 }
 
 // Esc: close whatever's most local first (a task's expanded detail, then
@@ -1974,6 +2130,7 @@ document.addEventListener('keydown', (e) => {
   if(!appShell || appShell.style.display === 'none') return;
 
   if(e.key === 'Escape'){
+    if(claudeView){ closeClaudeView(); return; }
     if(settingsOpen){ toggleSettings(); return; }
     const openExpand = document.querySelector('.expand.open');
     if(openExpand){ openExpand.classList.remove('open'); return; }
