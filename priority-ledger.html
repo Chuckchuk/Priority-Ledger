@@ -272,9 +272,25 @@
     background: radial-gradient(circle at 35% 30%, var(--brass-light), var(--brass) 70%);
     color: var(--ink); font-size:1.1rem; cursor:pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
   }
+  .sortrow{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .sortrow select{
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);
+  }
   ul.tasks{ list-style:none; margin:0; padding:0; }
   li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
+  li.task.dragging{ opacity:0.4; }
+  li.task.dragover{ border-top: 2px solid var(--brass); }
   .row{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
+  /* Drag reordering is scoped to this small handle rather than the whole
+     row — the row already has its own click-to-expand and a checkbox
+     right next to where a handle would sit, so making the entire row a
+     drag source risked turning an ordinary tap into an accidental drag. */
+  .draghandle{
+    cursor: grab; color: var(--ink-soft); font-size:0.9rem; line-height:1;
+    flex-shrink:0; padding:2px 2px; margin-top:1px; touch-action:none;
+  }
+  .draghandle:active{ cursor: grabbing; }
   .checkwrap{ display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; margin-top:2px; }
   .check{
     width:18px; height:18px; border:1.5px solid var(--ink-soft); border-radius:4px; flex-shrink:0;
@@ -324,6 +340,9 @@
   .subwrap{ margin-top:10px; }
   .sublabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin-bottom:6px; }
   .subrow{ display:flex; align-items:center; gap:8px; padding:3px 0; }
+  .subrow.dragging{ opacity:0.4; }
+  .subrow.dragover{ border-top: 2px solid var(--brass); }
+  .draghandle.sub{ font-size:0.78rem; }
   .subcheck{
     width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
     display:flex; align-items:center; justify-content:center; cursor:pointer;
@@ -554,6 +573,7 @@
           <button class="flagbtn" id="urgentToggle" onclick="toggleUrgentDraft()" title="Mark urgent">⚑</button>
           <button class="addbtn" onclick="addTask()">+</button>
         </div>
+        <div class="sortrow" id="sortRow"></div>
         <ul class="tasks" id="taskList"></ul>
         <div class="footer-row"><button id="showDoneBtn" onclick="toggleShowDone()"></button></div>
       </div>
@@ -1064,6 +1084,45 @@ function sortTasks(list){
 
 function daysBetween(a, b){ return Math.round((new Date(b) - new Date(a)) / 86400000); }
 
+// ---------- Sort modes ----------
+// state.tasks' own array order IS "My Order" — dragging a task in
+// 'default' mode splices it to a new spot in that array directly (see
+// reorderTask() below), so there's no separate manual-order field to
+// store or migrate; the order that's always been there just becomes a
+// first-class, always-available view. Every other mode is a single sort
+// key layered on top of the same "done sinks to the bottom" rule that
+// sortTasks() already enforced, so switching modes never hides anything,
+// just re-orders it. Ties fall back to array order since Array#sort is
+// spec-guaranteed stable — that's what keeps 'default' mode a pure
+// reflection of array order with only the done/open split imposed on it.
+let sortMode = 'default';
+const SORT_MODE_LABELS = { default:'My Order', mixed:'Mixed', timeframe:'Timeframe', timestamp:'Oldest First', priority:'Priority', category:'Category' };
+const TIMEFRAME_ORDER = { urgent:0, today:1, short:2, medium:3, long:4, '':5 };
+
+function setSortMode(val){
+  sortMode = val;
+  render();
+}
+
+function applySortMode(list){
+  const doneLast = (a,b) => (a.status==='done') !== (b.status==='done') ? (a.status==='done'?1:-1) : 0;
+  switch(sortMode){
+    case 'mixed': return sortTasks(list);
+    case 'timeframe': return list.slice().sort((a,b)=> doneLast(a,b) || (TIMEFRAME_ORDER[a.timeframe||''] - TIMEFRAME_ORDER[b.timeframe||'']));
+    case 'timestamp': return list.slice().sort((a,b)=> doneLast(a,b) || (new Date(a.createdAt) - new Date(b.createdAt)));
+    case 'priority': return list.slice().sort((a,b)=> doneLast(a,b) || ((b.priority||0) - (a.priority||0)));
+    case 'category': {
+      const order = state.categories.map(c=>c.id);
+      return list.slice().sort((a,b)=> doneLast(a,b) || (order.indexOf(a.category) - order.indexOf(b.category)));
+    }
+    default: return list.slice().sort(doneLast);
+  }
+}
+
+function sortModeOptionsHtml(){
+  return Object.entries(SORT_MODE_LABELS).map(([k,label])=>`<option value="${k}" ${sortMode===k?'selected':''}>${label}</option>`).join('');
+}
+
 function visibleTabs(){
   return tabOrder().filter(key => key==='all' || key==='daily' || !state.locationEnabled || CATEGORIES[key].locations.includes(state.location));
 }
@@ -1072,17 +1131,43 @@ function currentLocation(){
   return state.locations.find(l=>l.id===state.location) || state.locations[0];
 }
 
+// Known tabs get a hand-picked line; a custom or renamed tab falls back to
+// a stable pick from GENERIC_TAGLINES, keyed off the tab id via hashStr so
+// it doesn't change on every render — a real random pick would flicker
+// distractingly since this repaints on every render(), not just tab
+// switches.
+const TAB_TAGLINES = {
+  all: 'Every open thread, one place.',
+  work: 'Steady work, steady progress.',
+  household: 'A well-kept home, one task at a time.',
+  personal: "Make time for what's yours.",
+  daily: "Today's page, one line at a time."
+};
+const GENERIC_TAGLINES = [
+  'One task at a time.',
+  'Small steps, steadily kept.',
+  'Clear the page, clear the mind.',
+  'Progress worth logging.',
+  'Every entry counts.'
+];
+function hashStr(s){
+  let h = 0;
+  for(let i=0; i<s.length; i++) h = (h*31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+function taglineFor(tabId){
+  return TAB_TAGLINES[tabId] || GENERIC_TAGLINES[hashStr(tabId) % GENERIC_TAGLINES.length];
+}
+
 function renderLocBadge(){
   const badge = document.getElementById('locBadge');
   badge.style.display = state.locationEnabled ? '' : 'none';
-  const statusEl = document.getElementById('statusLine');
-  if(!state.locationEnabled){ statusEl.textContent = ''; return; }
-  const loc = currentLocation();
-  badge.textContent = loc.label;
-  const hidden = tabOrder().filter(k => k!=='all' && k!=='daily' && !CATEGORIES[k].locations.includes(state.location));
-  statusEl.textContent = hidden.length
-    ? `Not shown here: ${hidden.map(k=>CATEGORIES[k].label).join(', ')}`
-    : '';
+  if(state.locationEnabled) badge.textContent = currentLocation().label;
+  // The subheader used to list which tabs the current location was
+  // hiding — that read as a warning rather than something useful, and
+  // didn't apply when locations were off at all. A tagline is useful
+  // (or at least pleasant) regardless of the location feature's state.
+  document.getElementById('statusLine').textContent = taglineFor(activeTab);
 }
 
 function renderTabs(){
@@ -1154,6 +1239,108 @@ function subProgressHtml(subs){
   return `<div class="substack bar" title="${done}/${total} steps done"><div class="subfill" style="width:${pct}%"></div></div>`;
 }
 
+// ---------- Drag reordering ----------
+// Main tasks: only draggable in 'default' sort mode (taskRowHtml only
+// renders the handle/attributes there in the first place), reordering
+// state.tasks directly — the same array applySortMode()'s 'default' case
+// reads as-is. Subtasks: always draggable regardless of the main list's
+// sort mode, since a task's steps have never had a sort mode of their own
+// to lock against — array order is the only order they've ever had.
+let draggedTaskId = null;
+let draggedSubtask = null; // { taskId, subId }
+
+function taskDragStart(e, id){
+  draggedTaskId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.closest('li.task').classList.add('dragging');
+}
+
+function taskDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('li.task.dragover').forEach(el=>el.classList.remove('dragover'));
+  e.currentTarget.classList.add('dragover');
+}
+
+function taskDrop(e, targetId){
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  if(draggedTaskId && draggedTaskId !== targetId){
+    const rect = e.currentTarget.getBoundingClientRect();
+    reorderTask(draggedTaskId, targetId, (e.clientY - rect.top) < rect.height/2);
+  }
+  draggedTaskId = null;
+}
+
+function taskDragEnd(){
+  document.querySelectorAll('li.task.dragging, li.task.dragover').forEach(el=>el.classList.remove('dragging','dragover'));
+  draggedTaskId = null;
+}
+
+function reorderTask(draggedId, targetId, before){
+  const fromIdx = state.tasks.findIndex(t=>t.id===draggedId);
+  const targetExists = state.tasks.some(t=>t.id===targetId);
+  if(fromIdx===-1 || !targetExists) return;
+  const item = state.tasks[fromIdx];
+  pushUndo(`Reordered "${item.title}"`);
+  state.tasks.splice(fromIdx, 1);
+  let toIdx = state.tasks.findIndex(t=>t.id===targetId);
+  if(!before) toIdx += 1;
+  state.tasks.splice(toIdx, 0, item);
+  render();
+  queueSave();
+}
+
+function subDragStart(e, taskId, subId){
+  draggedSubtask = { taskId, subId };
+  e.dataTransfer.effectAllowed = 'move';
+  e.stopPropagation();
+  e.currentTarget.closest('.subrow').classList.add('dragging');
+}
+
+function subDragOver(e){
+  e.preventDefault();
+  e.stopPropagation();
+  document.querySelectorAll('.subrow.dragover').forEach(el=>el.classList.remove('dragover'));
+  e.currentTarget.classList.add('dragover');
+}
+
+function subDrop(e, taskId, subId){
+  e.preventDefault();
+  e.stopPropagation();
+  e.currentTarget.classList.remove('dragover');
+  // Reordering only within the same task's own steps — dragging a step
+  // onto a different task is silently ignored rather than moving it
+  // there, since that's a distinct feature nobody asked for here.
+  if(draggedSubtask && draggedSubtask.taskId===taskId && draggedSubtask.subId!==subId){
+    const rect = e.currentTarget.getBoundingClientRect();
+    reorderSubtask(taskId, draggedSubtask.subId, subId, (e.clientY - rect.top) < rect.height/2);
+  }
+  draggedSubtask = null;
+}
+
+function subDragEnd(){
+  document.querySelectorAll('.subrow.dragging, .subrow.dragover').forEach(el=>el.classList.remove('dragging','dragover'));
+  draggedSubtask = null;
+}
+
+function reorderSubtask(taskId, draggedSubId, targetSubId, before){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  const fromIdx = t.subtasks.findIndex(s=>s.id===draggedSubId);
+  const targetExists = t.subtasks.some(s=>s.id===targetSubId);
+  if(fromIdx===-1 || !targetExists) return;
+  const item = t.subtasks[fromIdx];
+  pushUndo(`Reordered a step in "${t.title}"`);
+  t.subtasks.splice(fromIdx, 1);
+  let toIdx = t.subtasks.findIndex(s=>s.id===targetSubId);
+  if(!before) toIdx += 1;
+  t.subtasks.splice(toIdx, 0, item);
+  render();
+  reopen(taskId);
+  queueSave();
+}
+
 function taskRowHtml(t, showDot, inDaily){
   const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const canRemoveHere = !inDaily || t.category==='misc';
@@ -1182,9 +1369,22 @@ function taskRowHtml(t, showDot, inDaily){
     const age = daysBetween(t.createdAt, todayStr());
     if(age > 0) metaLine += ` · Open ${age}d`;
   }
+  // Drag-to-reorder is only meaningful in 'default' sort mode — every
+  // other mode derives the row's position from a sort key, so a drag
+  // there would just snap back on the next render. No handle, no drag
+  // attributes at all outside 'default', rather than a handle that's
+  // present but silently does nothing.
+  const draggableMain = sortMode === 'default';
+  const dragHandle = draggableMain
+    ? `<span class="draghandle" draggable="true" ondragstart="taskDragStart(event,'${t.id}')" ondragend="taskDragEnd()" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>`
+    : '';
+  const dragTargetAttrs = draggableMain
+    ? `ondragover="taskDragOver(event)" ondrop="taskDrop(event,'${t.id}')"`
+    : '';
   return `
-  <li class="task">
+  <li class="task" ${dragTargetAttrs}>
     <div class="row" onclick="toggleExpand(event,'${t.id}')">
+      ${dragHandle}
       <div class="checkwrap">
         <div class="check ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
         ${subProgressHtml(subs)}
@@ -1233,7 +1433,8 @@ function taskRowHtml(t, showDot, inDaily){
       <div class="subwrap">
         <div class="sublabel">Steps</div>
         ${subs.map(s=>`
-          <div class="subrow">
+          <div class="subrow" ondragover="subDragOver(event)" ondrop="subDrop(event,'${t.id}','${s.id}')">
+            <span class="draghandle sub" draggable="true" ondragstart="subDragStart(event,'${t.id}','${s.id}')" ondragend="subDragEnd()" title="Drag to reorder">⠿</span>
             <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
@@ -1248,8 +1449,13 @@ function taskRowHtml(t, showDot, inDaily){
 
 function renderList(){
   const list = state.tasks.filter(t => activeTab==='all' || t.category===activeTab);
-  const visible = sortTasks(list).filter(t => showDone || t.status!=='done');
+  const visible = applySortMode(list).filter(t => showDone || t.status!=='done');
   const doneCount = list.filter(t=>t.status==='done').length;
+
+  document.getElementById('sortRow').innerHTML = `
+    <label class="fieldlabel">SORT</label>
+    <select onchange="setSortMode(this.value)">${sortModeOptionsHtml()}</select>
+  `;
 
   const el = document.getElementById('taskList');
   if(visible.length===0){
@@ -1903,7 +2109,7 @@ function dayItemHtml(dateStr){
 
 function renderDayDetail(dateStr){
   const allTasks = tasksForDay(dateStr);
-  const sorted = sortTasks(allTasks);
+  const sorted = applySortMode(allTasks);
   const doneCount = allTasks.filter(t=>t.status==='done').length;
   const unfinishedCount = allTasks.length - doneCount;
   const unplanned = state.tasks.filter(t=>t.plannedDate!==dateStr && t.status!=='done');
@@ -1948,6 +2154,10 @@ function renderDayDetail(dateStr){
       </select>
       <button class="pullbtn" onclick="pullTaskToDay('${dateStr}')">Add</button>
     </div>` : ''}
+    <div class="sortrow">
+      <label class="fieldlabel">SORT</label>
+      <select onchange="setSortMode(this.value)">${sortModeOptionsHtml()}</select>
+    </div>
     <ul class="tasks">${list}</ul>
   `;
 }
