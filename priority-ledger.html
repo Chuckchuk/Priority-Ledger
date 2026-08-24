@@ -582,13 +582,21 @@ const CATEGORY_PALETTE = ['#3C5A45','#3E4A6B','#9C4530','#A9782F','#5B6560','#6B
 // is never touched, it just has nothing to look itself up as, and this
 // keeps that rendering path from breaking.
 const FALLBACK_CATEGORY = { id:'_orphan', label:'Uncategorized', hex:'#5B6560', locations:['MA','Argentina'] };
+// Generic on purpose — this seeds any brand-new account (see normalizeState()
+// below), not just the project owner's, so it stays a broadly relatable
+// three-way split (work life / home life / everything else personal)
+// rather than the owner's own specific tabs. All three default to showing
+// at both default locations since there's no way to guess a new user's
+// real-world split the way "Estate Upkeep only applies at MA" could for
+// the owner's own accounts. Hexes are CATEGORY_PALETTE[0..2] in order —
+// addCategory() colors a new tab from CATEGORY_PALETTE[state.categories.length
+// % length], so leaving these three at indices 0-2 keeps a user's first
+// added tab (index 3) from landing on a color one of these already uses.
 function defaultCategories(){
   return [
-    { id:'family',   label:'Family Business', hex:'#3C5A45', locations:['MA','Argentina'] },
-    { id:'projects', label:'Game & Software',  hex:'#3E4A6B', locations:['MA','Argentina'] },
-    { id:'estate',   label:'Estate Upkeep',    hex:'#9C4530', locations:['MA'] },
-    { id:'personal', label:'Personal',         hex:'#A9782F', locations:['MA','Argentina'] },
-    { id:'misc',     label:'Misc',             hex:'#5B6560', locations:['MA','Argentina'] }
+    { id:'work',      label:'Work',      hex: CATEGORY_PALETTE[0], locations:['home','away'] },
+    { id:'household', label:'Household', hex: CATEGORY_PALETTE[1], locations:['home','away'] },
+    { id:'personal',  label:'Personal',  hex: CATEGORY_PALETTE[2], locations:['home','away'] }
   ];
 }
 let CATEGORIES = {};
@@ -599,12 +607,15 @@ function rebuildCategoriesIndex(){
 function tabOrder(){ return ['all', ...state.categories.map(c=>c.id), 'daily']; }
 
 // Locations are also per-user: two editable-label entries plus a switch to
-// turn the whole feature off. Ids stay fixed ('MA'/'Argentina') so category
-// .locations arrays never need migrating when someone just renames a label.
+// turn the whole feature off. Ids stay fixed ('home'/'away') so category
+// .locations arrays never need migrating when someone just renames a
+// label — "Home"/"Away" is a generic default that still demonstrates the
+// feature immediately (a primary place vs. everywhere else) without
+// assuming any particular real-world setup the way "MA"/"B.A." did.
 function defaultLocations(){
   return [
-    { id:'MA', label:'MA' },
-    { id:'Argentina', label:'B.A.' }
+    { id:'home', label:'Home' },
+    { id:'away', label:'Away' }
   ];
 }
 
@@ -680,9 +691,8 @@ const SUPABASE_URL = 'https://kyswrzkgiphsniepahje.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5c3dyemtnaXBoc25pZXBhaGplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMzk1NTAsImV4cCI6MjEwMjgxNTU1MH0.mvDp9f1KcqAol3Tq4Libi32tODMCrVv8HdD3C9-x30c';
 const EMPTY_MSG = {
   all: "The ledger's empty. Start logging what needs doing.",
-  family: "No family business items on the books. Add one above.",
-  projects: "Nothing queued for the workshop. What are you building?",
-  estate: "The house is quiet, for now. Log anything that needs fixing.",
+  work: "Nothing on your plate at work. Add a task above.",
+  household: "Nothing to take care of around the house. Add one above.",
   personal: "Nothing personal pending yet. Add one above.",
 };
 
@@ -693,7 +703,7 @@ const EMPTY_MSG = {
 const PRIORITY_LABELS = { 0:'None', 1:'Low', 2:'Medium', 3:'High' };
 const TIMEFRAME_LABELS = { today:'Today', short:'Short', medium:'Medium', long:'Long', urgent:'Urgent' };
 
-let state = { location: 'MA', tasks: [], days: [], categories: [], locations: [], locationEnabled: true };
+let state = { location: 'home', tasks: [], days: [], categories: [], locations: [], locationEnabled: true };
 let activeTab = 'all';
 let showDone = false;
 let urgentDraft = false;
@@ -815,7 +825,7 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 
 function defaultState(){
   return {
-    location: 'MA',
+    location: 'home',
     days: [],
     tasks: [],
     categories: defaultCategories(),
@@ -1123,9 +1133,8 @@ function renderQuickCategory(){
     sel.innerHTML = Object.entries(CATEGORIES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
   }
   document.getElementById('quickInput').placeholder =
-    activeTab==='estate' ? 'Log a house issue…' :
-    activeTab==='projects' ? 'Add a project task…' :
-    activeTab==='family' ? 'Add a family business item…' :
+    activeTab==='household' ? 'Log a household task…' :
+    activeTab==='work' ? 'Add a work task…' :
     activeTab==='personal' ? 'Add a personal to-do…' : 'What needs doing?';
   document.getElementById('quickTimeframe').style.display = state.advancedTaskFields ? '' : 'none';
   document.getElementById('quickPriority').style.display = state.advancedTaskFields ? '' : 'none';
@@ -1925,7 +1934,7 @@ function renderDayDetail(dateStr){
     <div class="quickadd">
       <input type="text" id="dayQuickInput" placeholder="Add a priority for this day…" onkeydown="if(event.key==='Enter') addDayTask('${dateStr}')">
       <select id="dayQuickCategory">
-        ${Object.entries(CATEGORIES).map(([k,v])=>`<option value="${k}" ${k==='misc'?'selected':''}>${v.label}</option>`).join('')}
+        ${Object.entries(CATEGORIES).map(([k,v])=>`<option value="${k}" ${k==='personal'?'selected':''}>${v.label}</option>`).join('')}
       </select>
       <button class="addbtn" onclick="addDayTask('${dateStr}')">+</button>
     </div>
