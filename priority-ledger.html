@@ -294,6 +294,10 @@
   .badge{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; padding:2px 6px; border-radius:4px; letter-spacing:0.04em; }
   .badge.overdue{ background: var(--estate); color:white; }
   .badge.due{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
+  .badge.timeframe{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
+  .badge.priority-low{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
+  .badge.priority-medium{ background: var(--brass); color:white; }
+  .badge.priority-high{ background: var(--estate); color:white; }
   .expand{ margin: 10px 0 2px 28px; display:none; }
   .expand.open{ display:block; }
   .expand textarea{
@@ -353,6 +357,10 @@
     letter-spacing:0.04em; text-transform:uppercase; min-width:130px; text-align:center;
   }
   .fieldlabel{ font-family:'IBM Plex Mono',monospace; font-size:0.68rem; color:var(--ink-soft); }
+  .taskmeta{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--ink-soft);
+    margin-top:10px; letter-spacing:0.03em;
+  }
   .subedit{
     flex:1; border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
     font-family:'IBM Plex Sans',sans-serif; font-size:0.84rem; padding:0 0 2px; color:var(--ink); outline:none;
@@ -529,6 +537,20 @@
         <div class="quickadd">
           <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
           <select id="quickCategory"></select>
+          <select id="quickTimeframe" title="Timeframe">
+            <option value="">Timeframe</option>
+            <option value="today">Today</option>
+            <option value="short">Short</option>
+            <option value="medium">Medium</option>
+            <option value="long">Long</option>
+            <option value="urgent">Urgent</option>
+          </select>
+          <select id="quickPriority" title="Priority">
+            <option value="0">Priority</option>
+            <option value="1">Low</option>
+            <option value="2">Medium</option>
+            <option value="3">High</option>
+          </select>
           <button class="flagbtn" id="urgentToggle" onclick="toggleUrgentDraft()" title="Mark urgent">⚑</button>
           <button class="addbtn" onclick="addTask()">+</button>
         </div>
@@ -664,6 +686,13 @@ const EMPTY_MSG = {
   personal: "Nothing personal pending yet. Add one above.",
 };
 
+// Priority (0-3) and timeframe are both optional, advanced-mode-only task
+// fields — separate from and independent of the existing `urgent` flag,
+// which stays the always-available "simple" way to mark importance
+// (state.advancedTaskFields just controls whether these show in the UI).
+const PRIORITY_LABELS = { 0:'None', 1:'Low', 2:'Medium', 3:'High' };
+const TIMEFRAME_LABELS = { today:'Today', short:'Short', medium:'Medium', long:'Long', urgent:'Urgent' };
+
 let state = { location: 'MA', tasks: [], days: [], categories: [], locations: [], locationEnabled: true };
 let activeTab = 'all';
 let showDone = false;
@@ -792,7 +821,8 @@ function defaultState(){
     categories: defaultCategories(),
     locations: defaultLocations(),
     locationEnabled: true,
-    theme: defaultTheme()
+    theme: defaultTheme(),
+    advancedTaskFields: true
   };
 }
 
@@ -819,9 +849,16 @@ function normalizeState(){
   if(typeof state.theme.grain !== 'boolean') state.theme.grain = false;
   if(typeof state.theme.pages !== 'boolean') state.theme.pages = false;
   if(typeof state.theme.leather !== 'boolean') state.theme.leather = false;
+  if(typeof state.advancedTaskFields !== 'boolean') state.advancedTaskFields = true;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     if(t.plannedDate===undefined) t.plannedDate = '';
+    // Bookkeeping (createdAt already existed) plus the optional advanced
+    // fields — timeframe/priority default to "unset" rather than any
+    // particular value, and completedAt is only ever set by toggleStatus().
+    if(t.timeframe===undefined) t.timeframe = '';
+    if(t.priority===undefined) t.priority = 0;
+    if(t.completedAt===undefined) t.completedAt = '';
   });
   rebuildCategoriesIndex();
 }
@@ -1001,12 +1038,19 @@ function sortTasks(list){
   return list.slice().sort((a,b)=>{
     if((a.status==='done') !== (b.status==='done')) return a.status==='done' ? 1 : -1;
     if(a.urgent !== b.urgent) return a.urgent ? -1 : 1;
+    // Priority slots in between the urgent flag and due date — tasks that
+    // never set it (the default, 0) tie here and fall through to due date
+    // exactly as before, so this is a no-op for anyone not using the field.
+    const ap = a.priority||0, bp = b.priority||0;
+    if(ap !== bp) return bp - ap;
     const ad = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
     const bd = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
     if(ad !== bd) return ad - bd;
     return new Date(b.createdAt) - new Date(a.createdAt);
   });
 }
+
+function daysBetween(a, b){ return Math.round((new Date(b) - new Date(a)) / 86400000); }
 
 function visibleTabs(){
   return tabOrder().filter(key => key==='all' || key==='daily' || !state.locationEnabled || CATEGORIES[key].locations.includes(state.location));
@@ -1083,6 +1127,8 @@ function renderQuickCategory(){
     activeTab==='projects' ? 'Add a project task…' :
     activeTab==='family' ? 'Add a family business item…' :
     activeTab==='personal' ? 'Add a personal to-do…' : 'What needs doing?';
+  document.getElementById('quickTimeframe').style.display = state.advancedTaskFields ? '' : 'none';
+  document.getElementById('quickPriority').style.display = state.advancedTaskFields ? '' : 'none';
 }
 
 function subProgressHtml(subs){
@@ -1104,8 +1150,27 @@ function taskRowHtml(t, showDot, inDaily){
   let badge = '';
   if(overdue) badge = `<span class="badge overdue">Overdue</span>`;
   else if(t.dueDate) badge = `<span class="badge due">${fmtDate(t.dueDate)}</span>`;
+  // Priority/timeframe badges only render when actually set (both default
+  // to "unset") and only in advanced mode — a task nobody has triaged
+  // stays exactly as uncluttered as it always was.
+  let priorityBadge = '';
+  if(state.advancedTaskFields && t.priority){
+    const pClass = t.priority===3 ? 'priority-high' : t.priority===2 ? 'priority-medium' : 'priority-low';
+    priorityBadge = `<span class="badge ${pClass}">${PRIORITY_LABELS[t.priority]}</span>`;
+  }
+  let timeframeBadge = '';
+  if(state.advancedTaskFields && t.timeframe){
+    timeframeBadge = `<span class="badge timeframe">${TIMEFRAME_LABELS[t.timeframe]}</span>`;
+  }
   const dotHtml = showDot ? `<span class="cdot" style="background:${cat.hex}"></span>` : '';
   const subs = t.subtasks || [];
+  let metaLine = `Created ${fmtDate(t.createdAt)}`;
+  if(t.status==='done' && t.completedAt){
+    metaLine += ` · Completed ${fmtDate(t.completedAt)} (${daysBetween(t.createdAt, t.completedAt)}d)`;
+  } else {
+    const age = daysBetween(t.createdAt, todayStr());
+    if(age > 0) metaLine += ` · Open ${age}d`;
+  }
   return `
   <li class="task">
     <div class="row" onclick="toggleExpand(event,'${t.id}')">
@@ -1115,7 +1180,7 @@ function taskRowHtml(t, showDot, inDaily){
       </div>
       ${dotHtml}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.urgent && t.status!=='done' ? ' ⚑' : ''}</div>
-      <div class="meta">${badge}</div>
+      <div class="meta">${priorityBadge}${timeframeBadge}${badge}</div>
     </div>
     <div class="expand" id="exp-${t.id}">
       <input type="text" class="titleedit" value="${escapeHtml(t.title)}"
@@ -1135,6 +1200,25 @@ function taskRowHtml(t, showDot, inDaily){
         <input type="date" value="${t.plannedDate||''}" onchange="updatePlannedDate('${t.id}', this.value)">
         ${t.plannedDate ? `<button class="remove" onclick="updatePlannedDate('${t.id}','')">Unplan</button>` : ''}
       </div>
+      ${state.advancedTaskFields ? `
+      <div class="expand-row">
+        <label class="fieldlabel">TIMEFRAME</label>
+        <select class="catselect" onchange="updateTimeframe('${t.id}', this.value)">
+          <option value="" ${!t.timeframe?'selected':''}>None</option>
+          <option value="today" ${t.timeframe==='today'?'selected':''}>Today</option>
+          <option value="short" ${t.timeframe==='short'?'selected':''}>Short</option>
+          <option value="medium" ${t.timeframe==='medium'?'selected':''}>Medium</option>
+          <option value="long" ${t.timeframe==='long'?'selected':''}>Long</option>
+          <option value="urgent" ${t.timeframe==='urgent'?'selected':''}>Urgent</option>
+        </select>
+        <label class="fieldlabel">PRIORITY</label>
+        <select class="catselect" onchange="updatePriority('${t.id}', this.value)">
+          <option value="0" ${!t.priority?'selected':''}>None</option>
+          <option value="1" ${t.priority===1?'selected':''}>Low</option>
+          <option value="2" ${t.priority===2?'selected':''}>Medium</option>
+          <option value="3" ${t.priority===3?'selected':''}>High</option>
+        </select>
+      </div>` : ''}
       <div class="subwrap">
         <div class="sublabel">Steps</div>
         ${subs.map(s=>`
@@ -1146,6 +1230,7 @@ function taskRowHtml(t, showDot, inDaily){
         <input type="text" class="subadd" placeholder="+ add a step, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); this.value=''; }">
       </div>
       <textarea placeholder="Notes…" onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>
+      <div class="taskmeta">${metaLine}</div>
     </div>
   </li>`;
 }
@@ -1302,6 +1387,14 @@ function renderSettings(){
     </div>`).join('') : ''}
   `;
 
+  const taskFieldsSection = `
+    <div class="settingslabel">Task Fields</div>
+    <label class="catlocchk" style="margin-bottom:10px;">
+      <input type="checkbox" ${state.advancedTaskFields?'checked':''} onchange="toggleAdvancedTaskFields(this.checked)">
+      Show timeframe & priority (uncheck for the simpler flag-only view)
+    </label>
+  `;
+
   const appearanceSection = `
     <div class="settingslabel">Appearance</div>
     <div class="themerow">
@@ -1339,6 +1432,7 @@ function renderSettings(){
         onkeydown="if(event.key==='Enter'){ addCategory(this.value); this.value=''; }">
     </div>
     ${locationSection}
+    ${taskFieldsSection}
     ${appearanceSection}
     ${claudeSection}
     <div class="footer-row"><button onclick="toggleSettings()">Done</button></div>
@@ -1432,6 +1526,17 @@ async function toggleLocationFeature(checked){
   queueSave();
 }
 
+// Purely a display toggle — timeframe/priority values already on a task
+// are left untouched when hidden, same as a deleted category leaves a
+// task's category id alone. Turning this back on just makes them visible
+// (and editable) again.
+async function toggleAdvancedTaskFields(checked){
+  pushUndo(checked ? 'Enabled timeframe & priority fields' : 'Disabled timeframe & priority fields');
+  state.advancedTaskFields = checked;
+  render();
+  queueSave();
+}
+
 async function renameLocation(id, val){
   const l = state.locations.find(l=>l.id===id);
   if(!l) return;
@@ -1511,11 +1616,18 @@ function claudeTaskLine(t, withCategory){
   const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const bits = ['-', t.urgent ? '[URGENT]' : '[ ]', t.title];
   if(withCategory) bits.push(`(${cat.label})`);
+  if(t.priority) bits.push(`priority:${PRIORITY_LABELS[t.priority].toLowerCase()}`);
+  if(t.timeframe) bits.push(`timeframe:${t.timeframe}`);
   if(t.dueDate) bits.push(isOverdue(t) ? `— OVERDUE ${fmtDate(t.dueDate)}` : `— due ${fmtDate(t.dueDate)}`);
   if(t.subtasks && t.subtasks.length){
     const done = t.subtasks.filter(s=>s.done).length;
     bits.push(`(${done}/${t.subtasks.length} steps)`);
   }
+  // Age is the whole point of this digest for a "what's been sitting
+  // around" read — every open line gets one, not just old ones, so an LLM
+  // can compare across the list without guessing at missing data.
+  const age = daysBetween(t.createdAt, todayStr());
+  bits.push(`(open ${age}d)`);
   let line = bits.join(' ');
   if(t.notes && t.notes.trim()) line += `\n    note: ${t.notes.trim().replace(/\s*\n\s*/g,' ')}`;
   (t.subtasks||[]).forEach(s=>{ line += `\n    · [${s.done?'x':' '}] ${s.text}`; });
@@ -1693,6 +1805,12 @@ async function cascadeUnfinished(dateStr){
       notes: t.notes,
       subtasks: (t.subtasks||[]).map(s=>({ id:newId('sub'), text:s.text, done:s.done })),
       plannedDate: nextDate,
+      // "Today" was specific to the day this got copied from, so it
+      // wouldn't mean anything carried forward — everything else about
+      // priority/timeframe is still a fair read on the new instance.
+      timeframe: t.timeframe==='today' ? '' : (t.timeframe||''),
+      priority: t.priority||0,
+      completedAt: '',
       createdAt: todayStr()
     });
   });
@@ -1832,7 +1950,8 @@ async function addDayTask(dateStr){
   await ensureDay(dateStr);
   state.tasks.unshift({
     id: newId('task'),
-    title, category, status:'open', urgent:false, dueDate:'', notes:'', subtasks:[], plannedDate: dateStr, createdAt: todayStr()
+    title, category, status:'open', urgent:false, dueDate:'', notes:'', subtasks:[], plannedDate: dateStr, createdAt: todayStr(),
+    timeframe:'', priority:0, completedAt:''
   });
   render();
   queueSave();
@@ -1857,6 +1976,37 @@ async function updatePlannedDate(id, val){
   pushUndo(val ? `Planned "${t.title}"` : `Unplanned "${t.title}"`);
   t.plannedDate = val;
   if(val) await ensureDay(val);
+  render();
+  reopen(id);
+  queueSave();
+}
+
+// Setting timeframe to "today" also plans the task for today's Daily list
+// — one-way only. Changing the timeframe away from "today" later doesn't
+// auto-unplan it, since the task may since have been deliberately kept on
+// that day's list for reasons unrelated to this field; use the existing
+// Unplan button for that.
+async function updateTimeframe(id, val){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t || val === t.timeframe) return;
+  pushUndo(`Set timeframe for "${t.title}"`);
+  t.timeframe = val;
+  if(val === 'today'){
+    t.plannedDate = todayStr();
+    await ensureDay(todayStr());
+  }
+  render();
+  reopen(id);
+  queueSave();
+}
+
+async function updatePriority(id, val){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  const p = parseInt(val, 10) || 0;
+  if(p === t.priority) return;
+  pushUndo(`Set priority for "${t.title}"`);
+  t.priority = p;
   render();
   reopen(id);
   queueSave();
@@ -1895,24 +2045,37 @@ async function addTask(){
   const title = input.value.trim();
   if(!title) return;
   const category = activeTab==='all' ? document.getElementById('quickCategory').value : activeTab;
+  const timeframe = document.getElementById('quickTimeframe').value;
+  const priority = parseInt(document.getElementById('quickPriority').value, 10) || 0;
   pushUndo(`Added "${title}"`);
+  if(timeframe === 'today') await ensureDay(todayStr());
   state.tasks.unshift({
     id: newId('task'),
-    title, category, status:'open', urgent: urgentDraft, dueDate:'', notes:'', subtasks: [], plannedDate: '', createdAt: todayStr()
+    title, category, status:'open', urgent: urgentDraft, dueDate:'', notes:'', subtasks: [],
+    plannedDate: timeframe==='today' ? todayStr() : '',
+    timeframe, priority, completedAt:'',
+    createdAt: todayStr()
   });
   input.value = '';
   urgentDraft = false;
   document.getElementById('urgentToggle').classList.remove('on');
+  document.getElementById('quickTimeframe').value = '';
+  document.getElementById('quickPriority').value = '0';
   render();
   queueSave();
 }
 
+// Completing a task stamps completedAt; reopening it clears that stamp
+// entirely rather than keeping a history of past completions — the undo
+// stack is already this app's history mechanism for "what did this used
+// to be," so a second, per-field log would just be redundant bookkeeping.
 async function toggleStatus(id){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
   const willBeDone = t.status !== 'done';
   pushUndo(willBeDone ? `Completed "${t.title}"` : `Reopened "${t.title}"`);
   t.status = willBeDone ? 'done' : 'open';
+  t.completedAt = willBeDone ? todayStr() : '';
   render();
   queueSave();
 }
