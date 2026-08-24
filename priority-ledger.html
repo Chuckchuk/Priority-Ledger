@@ -281,6 +281,8 @@
   li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
   li.task.dragging{ opacity:0.4; }
   li.task.dragover{ border-top: 2px solid var(--brass); }
+  .dropend{ height:16px; list-style:none; }
+  .dropend.dragover{ border-top: 2px solid var(--brass); }
   .row{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
   /* Drag reordering is scoped to this small handle rather than the whole
      row — the row already has its own click-to-expand and a checkbox
@@ -1258,7 +1260,7 @@ function taskDragStart(e, id){
 function taskDragOver(e){
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
-  document.querySelectorAll('li.task.dragover').forEach(el=>el.classList.remove('dragover'));
+  document.querySelectorAll('li.task.dragover, .dropend.dragover').forEach(el=>el.classList.remove('dragover'));
   e.currentTarget.classList.add('dragover');
 }
 
@@ -1273,8 +1275,26 @@ function taskDrop(e, targetId){
 }
 
 function taskDragEnd(){
-  document.querySelectorAll('li.task.dragging, li.task.dragover').forEach(el=>el.classList.remove('dragging','dragover'));
+  document.querySelectorAll('li.task.dragging, li.task.dragover, .dropend.dragover').forEach(el=>el.classList.remove('dragging','dragover'));
   draggedTaskId = null;
+}
+
+// A dedicated trailing target, appended after the last row whenever the
+// list is in 'default' sort mode — rather than requiring a drop to land
+// in exactly the bottom half of the last row's own (fairly short) bounds
+// to reach "the end," this gives that same outcome a large, unambiguous
+// target immediately below the list.
+function taskDropEnd(e, lastId){
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  if(draggedTaskId) reorderTask(draggedTaskId, lastId, false);
+  draggedTaskId = null;
+}
+
+function dropEndHtml(visible){
+  if(sortMode !== 'default' || !visible.length) return '';
+  const lastId = visible[visible.length-1].id;
+  return `<li class="dropend" ondragover="taskDragOver(event)" ondrop="taskDropEnd(event,'${lastId}')"></li>`;
 }
 
 function reorderTask(draggedId, targetId, before){
@@ -1287,7 +1307,16 @@ function reorderTask(draggedId, targetId, before){
   let toIdx = state.tasks.findIndex(t=>t.id===targetId);
   if(!before) toIdx += 1;
   state.tasks.splice(toIdx, 0, item);
-  render();
+  // render() replaces the dragged <li> with a brand-new DOM node via
+  // innerHTML — doing that synchronously inside the drop handler yanks
+  // the element the browser's native drag session is still tracking out
+  // from under it, before dragend has even fired on it. That corrupts the
+  // browser's own drag-state bookkeeping and is what made *later* drags
+  // in the same session increasingly unreliable. Deferring to the next
+  // tick lets the drag session finish (dragend included) before the DOM
+  // underneath it changes. queueSave() doesn't touch the DOM, so it can
+  // fire right away against the already-mutated state.
+  setTimeout(render, 0);
   queueSave();
 }
 
@@ -1336,10 +1365,13 @@ function reorderSubtask(taskId, draggedSubId, targetSubId, before){
   let toIdx = t.subtasks.findIndex(s=>s.id===targetSubId);
   if(!before) toIdx += 1;
   t.subtasks.splice(toIdx, 0, item);
-  render();
-  reopen(taskId);
+  // Same reasoning as reorderTask() — defer past the still-active native
+  // drag session on the dragged .subrow rather than yanking it out from
+  // under itself.
+  setTimeout(()=>{ render(); reopen(taskId); }, 0);
   queueSave();
 }
+
 
 function taskRowHtml(t, showDot, inDaily){
   const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
@@ -1461,7 +1493,7 @@ function renderList(){
   if(visible.length===0){
     el.innerHTML = `<div class="empty">${EMPTY_MSG[activeTab] || 'Nothing here yet.'}</div>`;
   } else {
-    el.innerHTML = visible.map(t=>taskRowHtml(t, activeTab==='all', false)).join('');
+    el.innerHTML = visible.map(t=>taskRowHtml(t, activeTab==='all', false)).join('') + dropEndHtml(visible);
   }
 
   const btn = document.getElementById('showDoneBtn');
@@ -2119,7 +2151,7 @@ function renderDayDetail(dateStr){
   // Every task shows, including completed ones — completed just render
   // crossed out, so you can see the whole day's shape at a glance.
   const list = sorted.length
-    ? sorted.map(t=>taskRowHtml(t, true, true)).join('')
+    ? sorted.map(t=>taskRowHtml(t, true, true)).join('') + dropEndHtml(sorted)
     : `<div class="empty">Nothing planned for this day yet.</div>`;
 
   return `
