@@ -592,6 +592,7 @@
     <button class="undobtn" id="redoBtn" onclick="redo()" title="Redo" disabled>↻</button>
   </div>
   <div class="savestatus" id="saveStatus"></div>
+  <div class="status-line"><button class="signoutbtn" onclick="refreshFromServer(true)" id="refreshBtn">Refresh</button></div>
 </div>
 
 <script>
@@ -943,6 +944,68 @@ async function loadState(){
   state = defaultState();
   normalizeState();
 }
+
+// ---------- Cross-device refresh ----------
+// There's no realtime subscription and no per-field merge here — storage
+// is "replace the whole blob," for saves and for this alike. So this only
+// ever pulls in a server copy when there's nothing local it could
+// clobber: no unsaved edit in flight, and no field actively focused
+// (replacing state re-renders the whole task list via innerHTML, which
+// would yank an in-progress, not-yet-blurred keystroke out from under
+// someone mid-edit). It's deliberately a simple last-write-wins model,
+// same as saving already is — not real conflict resolution. If two
+// devices edit within the same window before either refreshes, whichever
+// saves last wins, same as it always has.
+const REFRESH_INTERVAL_MS = 60000;
+let refreshTimer = null;
+let refreshInFlight = false;
+let appEntered = false; // guards the visibilitychange listener from firing before/after a real login
+
+async function refreshFromServer(manual){
+  if(!appEntered || localOnlyMode || window.storage) return; // nothing external to pull from
+  if(unsavedChanges || refreshInFlight) return; // don't clobber an in-flight local edit
+  if(!manual && document.hidden) return; // only poll while the tab is actually visible
+  const active = document.activeElement;
+  if(active && ['INPUT','TEXTAREA','SELECT'].includes(active.tagName)) return; // don't interrupt an in-progress edit
+  refreshInFlight = true;
+  const btn = document.getElementById('refreshBtn');
+  if(btn) btn.disabled = true;
+  try{
+    const res = await storage.get('tracker-state', false);
+    if(res && res.value){
+      const incoming = res.value;
+      if(incoming !== JSON.stringify(state)){
+        state = JSON.parse(incoming);
+        normalizeState();
+        afterStateRestore();
+        render();
+        showUndoStatus('Refreshed with new changes');
+      } else if(manual){
+        showUndoStatus('Already up to date');
+      }
+    }
+  }catch(e){
+    console.error('Background refresh failed', e);
+  }finally{
+    refreshInFlight = false;
+    if(btn) btn.disabled = false;
+  }
+}
+
+function startAutoRefresh(){
+  stopAutoRefresh();
+  if(!localOnlyMode && !window.storage) refreshTimer = setInterval(() => refreshFromServer(false), REFRESH_INTERVAL_MS);
+}
+function stopAutoRefresh(){
+  if(refreshTimer){ clearInterval(refreshTimer); refreshTimer = null; }
+}
+// Catches "I switched back to this tab" immediately rather than waiting
+// for the next interval tick — appEntered/other guards inside
+// refreshFromServer() make this a safe no-op before login or on the auth
+// screen.
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden) refreshFromServer(false);
+});
 
 // Resolves after `ms`, or immediately if the browser reports connectivity
 // coming back first — so a save that's mid-backoff after a network blip
@@ -2714,6 +2777,8 @@ async function submitAuth(){
 
 function signOut(){
   saveSession(null);
+  appEntered = false;
+  stopAutoRefresh();
   localOnlyMode = false;
   settingsOpen = false;
   claudeView = null;
@@ -2749,9 +2814,13 @@ async function enterApp(){
     signOutRow.style.display = (window.storage || !session) ? 'none' : '';
     document.getElementById('authEmailLabel').textContent = session ? session.email : '';
   }
+  const refreshBtn = document.getElementById('refreshBtn');
+  if(refreshBtn) refreshBtn.style.display = (localOnlyMode || window.storage) ? 'none' : '';
   await loadState();
   applyTheme();
   render();
+  appEntered = true;
+  startAutoRefresh();
   // A `?claude=1` (or `?claude=full`) URL lets an agent (e.g. the Claude
   // Chrome extension) navigate straight to the plain-text view instead of
   // clicking through Settings, as long as it's using a browser session
