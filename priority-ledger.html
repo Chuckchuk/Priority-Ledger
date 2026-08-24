@@ -585,17 +585,19 @@ const FALLBACK_CATEGORY = { id:'_orphan', label:'Uncategorized', hex:'#5B6560', 
 // Generic on purpose — this seeds any brand-new account (see normalizeState()
 // below), not just the project owner's, so it stays a broadly relatable
 // three-way split (work life / home life / everything else personal)
-// rather than the owner's own specific tabs. All three default to showing
-// at both default locations since there's no way to guess a new user's
-// real-world split the way "Estate Upkeep only applies at MA" could for
-// the owner's own accounts. Hexes are CATEGORY_PALETTE[0..2] in order —
-// addCategory() colors a new tab from CATEGORY_PALETTE[state.categories.length
-// % length], so leaving these three at indices 0-2 keeps a user's first
-// added tab (index 3) from landing on a color one of these already uses.
+// rather than the owner's own specific tabs. Household is Home-only (the
+// one deliberate exception) so the location feature actually does
+// something visible out of the box, the same way "Estate Upkeep only
+// applies at MA" did for the owner's own accounts — Work and Personal
+// stay at both locations since neither maps to a single place. Hexes are
+// CATEGORY_PALETTE[0..2] in order — addCategory() colors a new tab from
+// CATEGORY_PALETTE[state.categories.length % length], so leaving these
+// three at indices 0-2 keeps a user's first added tab (index 3) from
+// landing on a color one of these already uses.
 function defaultCategories(){
   return [
     { id:'work',      label:'Work',      hex: CATEGORY_PALETTE[0], locations:['home','away'] },
-    { id:'household', label:'Household', hex: CATEGORY_PALETTE[1], locations:['home','away'] },
+    { id:'household', label:'Household', hex: CATEGORY_PALETTE[1], locations:['home'] },
     { id:'personal',  label:'Personal',  hex: CATEGORY_PALETTE[2], locations:['home','away'] }
   ];
 }
