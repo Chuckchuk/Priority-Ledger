@@ -360,9 +360,22 @@
      stacking into something darker. */
   .pegpivot{ position:absolute; top:50%; left:50%; width:0; height:0; z-index:1; }
   .pegpivot.filled{ z-index:2; }
+  /* An unfilled peg's softer look used to come from opacity:0.6 — reverted
+     for overlap reasons (two translucent pegs stacking visibly darkened
+     where they touched), but the muted color itself is worth keeping.
+     color-mix() bakes the same "60% peg color over the card" result into
+     a flat, fully-opaque color instead, so two unfilled pegs overlapping
+     still blend into that one flat color rather than compounding into
+     something darker. Plain fallback declared first, same reasoning as
+     .stackedpage's background: color-mix()-unsupporting browsers just
+     keep the (slightly less soft, but still fine) flat --card-bg-dim. */
   .peg{
     position:absolute; top:-14px; left:-3px; width:6px; height:5px;
-    background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px;
+    background: var(--card-bg-dim);
+    background: color-mix(in srgb, var(--card-bg-dim) 60%, var(--card-bg) 40%);
+    border: 1px solid var(--ink-soft);
+    border-color: color-mix(in srgb, var(--ink-soft) 60%, var(--card-bg) 40%);
+    border-radius:1px;
   }
   .pegpivot.filled .peg{ background: var(--ink); border-color: var(--ink); }
   /* Past the peg threshold, a conic-gradient ring takes over — the
@@ -1941,7 +1954,20 @@ function randomizePageTilt(){
   appCard.style.setProperty('--page-transform', t);
 }
 
-function switchTab(key){ activeTab = key; randomizePageTilt(); render(); }
+// Clicking a category tab always lands on that category, acting like an
+// Esc out of whatever overlay (Settings, the Claude-readable view) was
+// showing first — the tab bar stays visible and clickable through both,
+// so without this a tap on a tab would silently update activeTab behind
+// the still-open overlay instead of visibly taking you anywhere. No
+// early-return for key === activeTab: clicking the tab you're already
+// "on" while an overlay is open must still exit the overlay.
+function switchTab(key){
+  claudeView = null;
+  settingsOpen = false;
+  activeTab = key;
+  randomizePageTilt();
+  render();
+}
 
 function toggleShowDone(){ showDone = !showDone; render(); }
 
@@ -2312,14 +2338,16 @@ function renderClaudeView(){
   const el = document.getElementById('claudeView');
   const text = claudeView === 'full' ? claudeFullDumpText() : claudeDigestText();
   el.innerHTML = `
-    <button class="backbtn" onclick="closeClaudeView()">‹ Back</button>
-    <div class="daylistlabel">Claude-readable ${claudeView==='full' ? 'raw data (JSON)' : 'priority digest'}</div>
-    <div class="lockednote">Point your assistant here directly by adding <b>?claude=1</b> (digest) or <b>?claude=full</b> (raw data) to this page's URL — it can read the text below without screenshotting the app.</div>
-    <div class="claudeviewrow">
-      <button class="pullbtn" onclick="toggleClaudeViewMode()">${claudeView==='full' ? 'Show digest' : 'Show full raw data'}</button>
-      <button class="pullbtn" onclick="copyClaudeView(this)">Copy to clipboard</button>
+    <div class="stackedpage">
+      ${pageTagHtml('closeClaudeView()', 'Back')}
+      <div class="daylistlabel">Claude-readable ${claudeView==='full' ? 'raw data (JSON)' : 'priority digest'}</div>
+      <div class="lockednote">Point your assistant here directly by adding <b>?claude=1</b> (digest) or <b>?claude=full</b> (raw data) to this page's URL — it can read the text below without screenshotting the app.</div>
+      <div class="claudeviewrow">
+        <button class="pullbtn" onclick="toggleClaudeViewMode()">${claudeView==='full' ? 'Show digest' : 'Show full raw data'}</button>
+        <button class="pullbtn" onclick="copyClaudeView(this)">Copy to clipboard</button>
+      </div>
+      <pre class="claudepre" id="claudeViewText">${escapeHtml(text)}</pre>
     </div>
-    <pre class="claudepre" id="claudeViewText">${escapeHtml(text)}</pre>
   `;
 }
 
