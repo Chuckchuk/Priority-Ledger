@@ -55,6 +55,12 @@ function dropEndHtml(visible){
 }
 
 function reorderTask(draggedId, targetId, before){
+  // Reached via taskDropEnd() when the dragged task is already the last
+  // row: draggedId===targetId here, which would otherwise splice the
+  // dragged item out, then fail to re-find "itself" as the target and
+  // fall back to index 0 — silently yanking it to the front instead of
+  // leaving it exactly where it already was.
+  if(draggedId === targetId) return;
   const fromIdx = state.tasks.findIndex(t=>t.id===draggedId);
   const targetExists = state.tasks.some(t=>t.id===targetId);
   if(fromIdx===-1 || !targetExists) return;
@@ -87,7 +93,7 @@ function subDragStart(e, taskId, subId){
 function subDragOver(e){
   e.preventDefault();
   e.stopPropagation();
-  document.querySelectorAll('.subrow.dragover').forEach(el=>el.classList.remove('dragover'));
+  document.querySelectorAll('.subrow.dragover, .subdropend.dragover').forEach(el=>el.classList.remove('dragover'));
   e.currentTarget.classList.add('dragover');
 }
 
@@ -106,11 +112,32 @@ function subDrop(e, taskId, subId){
 }
 
 function subDragEnd(){
-  document.querySelectorAll('.subrow.dragging, .subrow.dragover').forEach(el=>el.classList.remove('dragging','dragover'));
+  document.querySelectorAll('.subrow.dragging, .subrow.dragover, .subdropend.dragover').forEach(el=>el.classList.remove('dragging','dragover'));
   draggedSubtask = null;
 }
 
+// Same reasoning as dropEndHtml() above, one level down: a dedicated
+// trailing target below a task's own steps (or a checklist's own items),
+// so dropping at "the very end" doesn't depend on landing in exactly the
+// bottom half of the last (fairly short) .subrow's bounds.
+function subDropEnd(e, taskId, lastSubId){
+  e.preventDefault();
+  e.stopPropagation();
+  e.currentTarget.classList.remove('dragover');
+  if(draggedSubtask && draggedSubtask.taskId===taskId) reorderSubtask(taskId, draggedSubtask.subId, lastSubId, false);
+  draggedSubtask = null;
+}
+
+function subDropEndHtml(taskId, subs){
+  if(!subs.length) return '';
+  const lastId = subs[subs.length-1].id;
+  return `<div class="subdropend" ondragover="subDragOver(event)" ondrop="subDropEnd(event,'${taskId}','${lastId}')"></div>`;
+}
+
 function reorderSubtask(taskId, draggedSubId, targetSubId, before){
+  // Same reasoning as reorderTask()'s identical guard — reached via
+  // subDropEnd() when the dragged step is already the last one.
+  if(draggedSubId === targetSubId) return;
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
   const fromIdx = t.subtasks.findIndex(s=>s.id===draggedSubId);

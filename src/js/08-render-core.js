@@ -68,6 +68,7 @@ function taskExpandFieldsHtml(t, canRemoveHere){
             <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
           </div>`;
         }).join('')}
+        ${subDropEndHtml(t.id, subs)}
         <input type="text" class="subadd" placeholder="+ add a step, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); }">
       </div>
       <textarea placeholder="Notes…" onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>

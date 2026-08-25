@@ -448,6 +448,8 @@
      each item's real individual state exactly as it was. */
   .subrow.listdone{ opacity:0.5; }
   .subrow.listdone .subtext{ text-decoration: line-through; }
+  .subdropend{ height:10px; }
+  .subdropend.dragover{ border-top: 2px solid var(--brass); }
   .draghandle.sub{ font-size:0.78rem; }
   .subcheck{
     width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;

@@ -162,6 +162,7 @@ function renderChecklistDetail(taskId){
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
           </div>`).join('')}
+        ${subDropEndHtml(t.id, subs)}
         <input type="text" class="subadd" placeholder="+ add an item, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); }">
       </div>
       <div class="footer-row"><button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button></div>
