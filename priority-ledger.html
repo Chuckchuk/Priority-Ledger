@@ -396,6 +396,10 @@
   }
   .subcheck.done{ background: var(--ink); border-color: var(--ink); }
   .subcheck.done::after{ content:'✓'; color: var(--card-bg); font-size:9px; }
+  /* Checklist items only (not a standard task's subtasks, which stay
+     square to match its own square .check) — round to match .checkcircle,
+     the checklist category's own circular checkbox language. */
+  .subcheck.circle{ border-radius:50%; }
   .subtext{ flex:1; font-size:0.84rem; }
   .subtext.done{ text-decoration:line-through; color: var(--ink-soft); }
   .subdel{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
@@ -476,6 +480,47 @@
   .backbtn{
     background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
     color: var(--ink-soft); cursor:pointer; letter-spacing:0.05em; padding:0; margin-bottom:14px;
+  }
+  /* A checklist list's detail view (and its "all pending items" view)
+     read as a distinct page stacked on top of the checklist overview
+     beneath, rather than a plain swap within the same surface — a
+     slightly different tint than plain --card-bg (the second
+     `background` line is the enhancement; color-mix()-unsupporting
+     browsers just keep the --card-bg fallback above it, since an
+     invalid declaration doesn't override a valid earlier one) plus its
+     own shadow and fully-rounded corners (vs. .card's single squared
+     "dog-ear" corner) is what sells it as a separate sheet rather than
+     a re-skinned version of the same card. This is checklist-only on
+     purpose — the Daily/Claude-digest back links keep using the plain
+     .backbtn above, they aren't part of this "stacked page" affordance. */
+  .checklistpage{
+    background: var(--card-bg);
+    background: color-mix(in srgb, var(--card-bg) 95%, white 5%);
+    border-radius: 10px;
+    box-shadow: 0 10px 22px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08);
+    padding: 12px 14px 10px;
+    margin: -2px -4px 0;
+    position: relative;
+  }
+  /* A flag/tag shape instead of .backbtn's plain text, to go with the
+     "stacked page" look above. .cbtip is a rounded square rotated 45°
+     — a simple rounded-triangle "arrow" tip, no SVG or hand-drawn
+     clip-path needed — positioned so its center sits exactly at
+     .cblabel's flat left edge: the right half lands under .cblabel
+     (lower z-index, so it's hidden behind its opaque background) and
+     only the left-pointing corner shows, jetting out past the tag. */
+  .checklistback{
+    position:relative; display:inline-flex; align-items:center; border:none; background:none;
+    cursor:pointer; padding:0; margin: 0 0 14px 8px;
+  }
+  .cbtip{
+    position:absolute; left:-9px; top:50%; width:18px; height:18px; z-index:1;
+    background: var(--brass); border-radius:5px; transform: translateY(-50%) rotate(45deg);
+  }
+  .cblabel{
+    position:relative; z-index:2; background: var(--brass); color:white;
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;
+    padding:9px 16px 9px 20px; border-radius:0 9px 9px 0;
   }
   .daydetailhead{ margin-bottom:14px; }
   .daydetailhead h2{ font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.35rem; margin:0 0 4px; color:var(--ink); }
@@ -2544,27 +2589,33 @@ function checklistListRowHtml(t){
   </li>`;
 }
 
+function checklistBackTagHtml(onclick, label){
+  return `<button class="checklistback" onclick="${onclick}"><span class="cbtip"></span><span class="cblabel">${escapeHtml(label)}</span></button>`;
+}
+
 function renderChecklistDetail(taskId){
   const t = state.tasks.find(t=>t.id===taskId);
   const cat = CATEGORIES[t.category];
   const subs = t.subtasks || [];
   return `
-    <button class="backbtn" onclick="closeChecklistList()">‹ ${cat ? escapeHtml(cat.label) : 'Lists'}</button>
-    <input type="text" class="titleedit" value="${escapeHtml(t.title)}"
-      onblur="updateTitle('${t.id}', this.value)"
-      onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
-    <div class="taskmeta">Created ${fmtDate(t.createdAt)}</div>
-    <div class="subwrap">
-      ${subs.map(s=>`
-        <div class="subrow" ondragover="subDragOver(event)" ondrop="subDrop(event,'${t.id}','${s.id}')">
-          <span class="draghandle sub" draggable="true" ondragstart="subDragStart(event,'${t.id}','${s.id}')" ondragend="subDragEnd()" title="Drag to reorder">⠿</span>
-          <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
-          <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
-          <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
-        </div>`).join('')}
-      <input type="text" class="subadd" placeholder="+ add an item, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); this.value=''; }">
+    <div class="checklistpage">
+      ${checklistBackTagHtml('closeChecklistList()', cat ? cat.label : 'Lists')}
+      <input type="text" class="titleedit" value="${escapeHtml(t.title)}"
+        onblur="updateTitle('${t.id}', this.value)"
+        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+      <div class="taskmeta">Created ${fmtDate(t.createdAt)}</div>
+      <div class="subwrap">
+        ${subs.map(s=>`
+          <div class="subrow" ondragover="subDragOver(event)" ondrop="subDrop(event,'${t.id}','${s.id}')">
+            <span class="draghandle sub" draggable="true" ondragstart="subDragStart(event,'${t.id}','${s.id}')" ondragend="subDragEnd()" title="Drag to reorder">⠿</span>
+            <div class="subcheck circle ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
+            <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
+            <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
+          </div>`).join('')}
+        <input type="text" class="subadd" placeholder="+ add an item, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); this.value=''; }">
+      </div>
+      <div class="footer-row"><button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button></div>
     </div>
-    <div class="footer-row"><button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button></div>
   `;
 }
 
@@ -2578,17 +2629,19 @@ function renderChecklistPending(categoryId){
     .map(t => ({ list: t, pending: checklistPendingItems(t) }))
     .filter(g => g.pending.length);
   return `
-    <button class="backbtn" onclick="closeChecklistPending()">‹ ${cat ? escapeHtml(cat.label) : 'Lists'}</button>
-    <div class="daylistlabel">All pending items</div>
-    ${groups.length ? groups.map(g => `
-      <div class="pendinggroup">
-        <div class="sublabel">${escapeHtml(g.list.title)}</div>
-        ${g.pending.map(s=>`
-          <div class="subrow">
-            <div class="subcheck" onclick="toggleSubtask('${g.list.id}','${s.id}')"></div>
-            <div class="subtext" onclick="openChecklistList('${g.list.id}')">${escapeHtml(s.text)}</div>
-          </div>`).join('')}
-      </div>`).join('') : `<div class="empty">Nothing pending — everything's checked off.</div>`}
+    <div class="checklistpage">
+      ${checklistBackTagHtml('closeChecklistPending()', cat ? cat.label : 'Lists')}
+      <div class="daylistlabel">All pending items</div>
+      ${groups.length ? groups.map(g => `
+        <div class="pendinggroup">
+          <div class="sublabel">${escapeHtml(g.list.title)}</div>
+          ${g.pending.map(s=>`
+            <div class="subrow">
+              <div class="subcheck circle" onclick="toggleSubtask('${g.list.id}','${s.id}')"></div>
+              <div class="subtext" onclick="openChecklistList('${g.list.id}')">${escapeHtml(s.text)}</div>
+            </div>`).join('')}
+        </div>`).join('') : `<div class="empty">Nothing pending — everything's checked off.</div>`}
+    </div>
   `;
 }
 
