@@ -607,6 +607,17 @@
   .pagetag.compact{ top:2px; }
   .pagetag.compact .pagetagtip{ width:13px; height:13px; left:-6.5px; }
   .pagetag.compact .pagetaglabel{ font-size:0.6rem; padding:5px 10px 5px 11px; }
+  /* EXPERIMENTAL — Settings → Dev Settings (see defaultDevSettings() /
+     applyDevSettings() in <script>). Two alternate looks for where the
+     .pagetagtip meets .pagetaglabel, toggled independently so the
+     project owner can compare them (including together) before
+     deciding whether either is worth keeping for real. Safe to delete
+     this whole block (and its Dev Settings entry) if neither survives. */
+  body.devtag-seam .pagetaglabel{
+    box-shadow: inset 4px 0 5px -3px rgba(0,0,0,0.45);
+  }
+  body.devtag-outline .pagetagtip{ border: 1.5px solid var(--ink); }
+  body.devtag-outline .pagetaglabel{ border: 1.5px solid var(--ink); border-left: none; }
   /* The large "header" version of a list's own progress indicator atop
      its detail page (see renderChecklistDetail()) — same .checkcircle-
      wrap/.checkcircle/.peg/.progressring markup and JS as the small one
@@ -700,6 +711,14 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.04em;
     background:transparent; border:1px dashed var(--brass); color:var(--brass); border-radius:6px;
     padding:8px 12px; cursor:pointer;
+  }
+  /* EXPERIMENTAL — see defaultDevSettings() in <script>. A plain <details>
+     rather than a JS-driven toggle so "usually obscured" needs no state
+     of its own — collapsed by default, native browser disclosure. */
+  .devsettings{ margin-top:18px; border-top:1px dashed var(--line); padding-top:10px; }
+  .devsettings summary{
+    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--ink-soft); cursor:pointer; margin-bottom:10px;
   }
   /* Plain, semantic text output for the Claude-readable view — no
      decorative markup to strip, just a monospace block a page-reading
@@ -924,6 +943,25 @@ function applyThemeObject(t){
 
 function applyTheme(){ applyThemeObject(state.theme); }
 
+// EXPERIMENTAL, see defaultDevSettings() above — toggles body classes
+// the body.devtag-seam/body.devtag-outline CSS reads, rather than a
+// per-element inline style, since .pagetag is used from several
+// different render functions and a body-level class lets all of them
+// pick it up without each one having to know these settings exist.
+function applyDevSettings(){
+  const d = state.devSettings || defaultDevSettings();
+  document.body.classList.toggle('devtag-seam', !!d.tagSeam);
+  document.body.classList.toggle('devtag-outline', !!d.tagOutline);
+}
+
+async function toggleDevSetting(key, checked){
+  pushUndo(`${checked ? 'Enabled' : 'Disabled'} dev setting: ${key}`);
+  state.devSettings[key] = checked;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
 // Filled in once the project exists — see CLAUDE.md for setup steps.
 const SUPABASE_URL = 'https://kyswrzkgiphsniepahje.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5c3dyemtnaXBoc25pZXBhaGplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMzk1NTAsImV4cCI6MjEwMjgxNTU1MH0.mvDp9f1KcqAol3Tq4Libi32tODMCrVv8HdD3C9-x30c';
@@ -1081,6 +1119,16 @@ const storage = {
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
+// EXPERIMENTAL — Settings → Dev Settings. Two alternate .pagetag looks
+// being tried out (see applyDevSettings()/toggleDevSetting() and the
+// body.devtag-seam/body.devtag-outline CSS) so the project owner can
+// compare them live and decide which, if either, to keep. Isolated in
+// its own state key and its own commit specifically so it's trivial to
+// rip out later without touching anything else.
+function defaultDevSettings(){
+  return { tagSeam:false, tagOutline:false };
+}
+
 function defaultState(){
   return {
     location: 'home',
@@ -1090,7 +1138,8 @@ function defaultState(){
     locations: defaultLocations(),
     locationEnabled: true,
     theme: defaultTheme(),
-    advancedTaskFields: true
+    advancedTaskFields: true,
+    devSettings: defaultDevSettings()
   };
 }
 
@@ -1121,6 +1170,9 @@ function normalizeState(){
   if(typeof state.theme.pages !== 'boolean') state.theme.pages = false;
   if(typeof state.theme.leather !== 'boolean') state.theme.leather = false;
   if(typeof state.advancedTaskFields !== 'boolean') state.advancedTaskFields = true;
+  if(!state.devSettings) state.devSettings = defaultDevSettings();
+  if(typeof state.devSettings.tagSeam !== 'boolean') state.devSettings.tagSeam = false;
+  if(typeof state.devSettings.tagOutline !== 'boolean') state.devSettings.tagOutline = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     if(t.plannedDate===undefined) t.plannedDate = '';
@@ -1362,6 +1414,7 @@ function refreshUndoButtons(){
 function afterStateRestore(){
   rebuildCategoriesIndex();
   applyTheme();
+  applyDevSettings();
   if(!visibleTabs().includes(activeTab)) activeTab = 'all';
   if(selectedDay && !state.days.includes(selectedDay)) selectedDay = null;
   if(selectedListId && !state.tasks.some(t=>t.id===selectedListId)) selectedListId = null;
@@ -2070,6 +2123,24 @@ function renderSettings(){
     <button class="resetthemebtn" onclick="openClaudeView('digest')">Open Claude-readable view</button>
   `;
 
+  // EXPERIMENTAL — see defaultDevSettings() above. Kept in its own
+  // <details> specifically so it's obscured by default rather than
+  // sitting in the main settings flow.
+  const dev = state.devSettings || defaultDevSettings();
+  const devSection = `
+    <details class="devsettings">
+      <summary>Dev Settings</summary>
+      <label class="catlocchk" style="margin-bottom:10px;">
+        <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
+        Page tag: seam shadow (tip reads as receding behind the label)
+      </label>
+      <label class="catlocchk" style="margin-bottom:10px;">
+        <input type="checkbox" ${dev.tagOutline?'checked':''} onchange="toggleDevSetting('tagOutline', this.checked)">
+        Page tag: full outline
+      </label>
+    </details>
+  `;
+
   el.innerHTML = `
     <div class="stackedpage">
       ${pageTagHtml('toggleSettings()', 'Done')}
@@ -2087,6 +2158,7 @@ function renderSettings(){
       ${taskFieldsSection}
       ${appearanceSection}
       ${claudeSection}
+      ${devSection}
     </div>
   `;
 }
@@ -3169,6 +3241,7 @@ async function enterApp(){
   if(refreshBtn) refreshBtn.style.display = (localOnlyMode || window.storage) ? 'none' : '';
   await loadState();
   applyTheme();
+  applyDevSettings();
   render();
   appEntered = true;
   startAutoRefresh();
