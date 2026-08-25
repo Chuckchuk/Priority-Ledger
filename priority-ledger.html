@@ -346,12 +346,25 @@
      offset inside its already-rotated pivot, so it only needs a single
      centering fraction (half its own width) instead of two independent
      ones that could drift apart under different rounding. */
-  .pegpivot{ position:absolute; top:50%; left:50%; width:0; height:0; }
+  /* At this spacing, adjacent pegs' corners slightly overlap — two
+     concerns that come with that: an unfilled peg must never paint
+     over a filled one at that seam, and two overlapping unfilled pegs
+     must not visibly darken where they overlap. z-index handles the
+     first (each .pegpivot carries a transform, which gives it its own
+     stacking context, so the ordering has to be set on the pivot
+     itself — setting it on the inner .peg would only reorder within
+     that one pivot's context, not against sibling pivots). Dropping
+     opacity handles the second: .peg's colors are fully opaque solid
+     fills, not a translucent tint over the card, so two overlapping
+     unfilled pegs blend into the exact same flat color instead of
+     stacking into something darker. */
+  .pegpivot{ position:absolute; top:50%; left:50%; width:0; height:0; z-index:1; }
+  .pegpivot.filled{ z-index:2; }
   .peg{
     position:absolute; top:-14px; left:-3px; width:6px; height:5px;
-    background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px; opacity:0.6;
+    background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px;
   }
-  .peg.filled{ background: var(--ink); border-color: var(--ink); opacity:1; }
+  .pegpivot.filled .peg{ background: var(--ink); border-color: var(--ink); }
   /* Past the peg threshold, a conic-gradient ring takes over — the
      opaque .checkcircle sitting centered on top of it (same z-index
      trick as above) masks the middle, leaving only the outer ring
@@ -1794,7 +1807,7 @@ function taskRowHtml(t, showDot, inDaily){
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
           </div>`).join('')}
-        <input type="text" class="subadd" placeholder="+ add a step, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); this.value=''; }">
+        <input type="text" class="subadd" placeholder="+ add a step, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); }">
       </div>
       <textarea placeholder="Notes…" onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>
       <div class="taskmeta">${metaLine}</div>
@@ -2656,7 +2669,7 @@ function checklistProgressHtml(subs){
   if(total <= CHECKLIST_PEG_LIMIT){
     return subs.map((s,i)=>{
       const angle = PEG_START_DEG + i*PEG_SLOT_DEG;
-      return `<span class="pegpivot" style="transform:rotate(${angle}deg)"><span class="peg ${s.done?'filled':''}"></span></span>`;
+      return `<span class="pegpivot ${s.done?'filled':''}" style="transform:rotate(${angle}deg)"><span class="peg"></span></span>`;
     }).join('');
   }
   const pct = Math.round(done/total*100);
@@ -2707,7 +2720,7 @@ function renderChecklistDetail(taskId){
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
           </div>`).join('')}
-        <input type="text" class="subadd" placeholder="+ add an item, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); this.value=''; }">
+        <input type="text" class="subadd" placeholder="+ add an item, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); }">
       </div>
       <div class="footer-row"><button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button></div>
     </div>
@@ -2755,6 +2768,10 @@ async function addChecklistList(categoryId){
     notes:'', subtasks:[], plannedDate:'', timeframe:'', priority:0, completedAt:'', createdAt: todayStr()
   });
   render();
+  // render() just rebuilt #checklistQuickInput from scratch (same
+  // reason addSubtask() needs focusVisibleSubadd()) — refocus it so
+  // adding several lists in a row doesn't drop focus after each Enter.
+  document.getElementById('checklistQuickInput')?.focus();
   queueSave();
 }
 
@@ -2958,6 +2975,20 @@ async function updateCategory(id, val){
   queueSave();
 }
 
+// render() rebuilds the relevant view's whole innerHTML on every
+// mutation, which destroys and recreates the "add a step/item" input
+// rather than just clearing it in place — so the freshly-typed-into
+// input loses focus after every single Enter unless something
+// explicitly refocuses whichever new .subadd render() just created.
+// Scoped to the currently visible one (offsetParent is null for a
+// display:none element) since a hidden task's own .subadd can still be
+// in the DOM even when it's not the one the user was just typing into.
+function focusVisibleSubadd(){
+  for(const el of document.querySelectorAll('.subadd')){
+    if(el.offsetParent !== null){ el.focus(); return; }
+  }
+}
+
 async function addSubtask(taskId, text){
   const val = (text||'').trim();
   if(!val) return;
@@ -2968,6 +2999,7 @@ async function addSubtask(taskId, text){
   t.subtasks.push({ id: newId('sub'), text: val, done:false });
   render();
   reopen(taskId);
+  focusVisibleSubadd();
   queueSave();
 }
 
