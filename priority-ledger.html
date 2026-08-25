@@ -1650,6 +1650,15 @@ let undoStack = [];
 let redoStack = [];
 const UNDO_LIMIT = 50;
 
+// Which tasks' inline .expand rows are open — render() rebuilds every
+// row's markup from scratch on every mutation (see taskRowHtml), which
+// would otherwise silently collapse every *other* expanded task back to
+// closed the moment you acted on any one of them, since a plain DOM
+// classList.toggle() doesn't survive its element being torn down and
+// recreated. Tracking which ids are open here (independent of any single
+// task's own action) is what lets several stay expanded at once.
+let expandedTaskIds = new Set();
+
 function pushUndo(label){
   undoStack.push({ label, snapshot: JSON.parse(JSON.stringify(state)) });
   if(undoStack.length > UNDO_LIMIT) undoStack.shift();
@@ -2279,7 +2288,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
       ` : ''}
     </div>
-    ${inDaily ? '' : `<div class="expand" id="exp-${t.id}">${taskExpandFieldsHtml(t, canRemoveHere)}</div>`}
+    ${inDaily ? '' : `<div class="expand ${expandedTaskIds.has(t.id)?'open':''}" id="exp-${t.id}">${taskExpandFieldsHtml(t, canRemoveHere)}</div>`}
   </li>`;
 }
 
@@ -4038,6 +4047,7 @@ async function updateDueDate(id, val){
 }
 
 function reopen(id){
+  expandedTaskIds.add(id);
   const exp = document.getElementById('exp-' + id);
   if(exp) exp.classList.add('open');
 }
@@ -4135,6 +4145,7 @@ async function deleteTask(id){
 }
 
 function toggleExpand(evt, id){
+  if(expandedTaskIds.has(id)) expandedTaskIds.delete(id); else expandedTaskIds.add(id);
   const exp = document.getElementById('exp-' + id);
   exp.classList.toggle('open');
 }
@@ -4202,6 +4213,7 @@ function signOut(){
   pendingDeleteCategoryId = null;
   undoStack = [];
   redoStack = [];
+  expandedTaskIds = new Set();
   applyThemeObject(defaultTheme()); // login screen always shows the classic look
   document.getElementById('authEmail').value = '';
   document.getElementById('authPassword').value = '';
@@ -4219,6 +4231,7 @@ async function enterApp(){
   // undo into a different account's data, or across a page reload.
   undoStack = [];
   redoStack = [];
+  expandedTaskIds = new Set();
   claudeView = null;
   selectedListId = null;
   checklistPendingOpen = false;
@@ -4267,7 +4280,11 @@ document.addEventListener('keydown', (e) => {
     if(selectedListId){ closeChecklistList(); return; }
     if(taskDetailId){ closeTaskDetail(); return; }
     const openExpand = document.querySelector('.expand.open');
-    if(openExpand){ openExpand.classList.remove('open'); return; }
+    if(openExpand){
+      expandedTaskIds.delete(openExpand.id.replace('exp-', ''));
+      openExpand.classList.remove('open');
+      return;
+    }
     if(activeTab !== 'all'){ switchTab('all'); }
     return;
   }
