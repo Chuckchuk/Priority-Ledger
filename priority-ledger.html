@@ -336,9 +336,19 @@
      count, only how many slots (up to CHECKLIST_PEG_LIMIT) are filled in
      — that's what keeps a 3-item list's pegs the same size as a
      12-item list's instead of stretching to fill the ring. */
+  /* .pegpivot is a zero-size point placed exactly on the container's
+     center (top/left:50% of an even-pixel box lands on a whole pixel,
+     no fraction involved) and rotated — a plain, un-overridden
+     transform-origin ("50% 50%" of a 0×0 box is just that same point)
+     is what actually rotates around it, rather than a .peg carrying
+     both a fractional margin AND a fractional transform-origin that
+     have to cancel out exactly. .peg itself is a static, unrotated
+     offset inside its already-rotated pivot, so it only needs a single
+     centering fraction (half its own width) instead of two independent
+     ones that could drift apart under different rounding. */
+  .pegpivot{ position:absolute; top:50%; left:50%; width:0; height:0; }
   .peg{
-    position:absolute; top:50%; left:50%; width:5px; height:5px;
-    margin:-14px 0 0 -2.5px; transform-origin: 2.5px 14px;
+    position:absolute; top:-14px; left:-3px; width:6px; height:5px;
     background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px; opacity:0.6;
   }
   .peg.filled{ background: var(--ink); border-color: var(--ink); opacity:1; }
@@ -580,12 +590,12 @@
      gives it an explicit box (rather than relying on the transform's
      visual overflow) sized to actually fit the scaled-up result, so it
      reserves real flow space instead of overlapping neighboring
-     content. Margin kept tight (not the page's usual generous spacing)
-     since the title right below reads as this header's own caption,
-     not a separate block. */
+     content. Margin is negative on purpose (not just tight) — the
+     title right below should sit close enough to read as this header's
+     own caption sitting almost on top of it, not a separate block. */
   .checklistheader{
     display:flex; align-items:center; justify-content:center;
-    height:84px; margin: 4px 0 4px;
+    height:78px; margin: 4px 0 -8px;
   }
   .checklistheader .checkcircle-wrap{ transform: scale(2.2); }
   .daydetailhead{ margin-bottom:14px; }
@@ -2646,7 +2656,7 @@ function checklistProgressHtml(subs){
   if(total <= CHECKLIST_PEG_LIMIT){
     return subs.map((s,i)=>{
       const angle = PEG_START_DEG + i*PEG_SLOT_DEG;
-      return `<span class="peg ${s.done?'filled':''}" style="transform:rotate(${angle}deg)"></span>`;
+      return `<span class="pegpivot" style="transform:rotate(${angle}deg)"><span class="peg ${s.done?'filled':''}"></span></span>`;
     }).join('');
   }
   const pct = Math.round(done/total*100);
@@ -3164,8 +3174,22 @@ window.addEventListener('beforeunload', (e) => {
   e.returnValue = '';
 });
 
+// Dev-only bypass: ?localdev=1 skips straight past the login screen into
+// local-only mode (localStorage, same as clicking "Continue without an
+// account"). Gated to localhost/file:// so it can never do anything on
+// the real hosted site — it's purely a shortcut for testing this file
+// directly, not a feature for real users.
+function isLocalDevHost(){
+  return location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:';
+}
+
 (async function init(){
   if(window.storage){ await enterApp(); return; }
+  if(isLocalDevHost() && new URLSearchParams(location.search).has('localdev')){
+    localOnlyMode = true;
+    await enterApp();
+    return;
+  }
   session = loadSession();
   if(session && await ensureFreshSession()){ await enterApp(); return; }
   document.getElementById('authShell').style.display = '';
