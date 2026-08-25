@@ -376,6 +376,12 @@
     width:100%; border:none; border-bottom: 1.5px solid var(--ink-soft); background:transparent;
     font-family:'Fraunces', serif; font-style:italic; font-size:1rem; padding:4px 2px 8px; color:var(--ink); outline:none; margin-bottom:6px;
   }
+  /* The checklist detail page's title reads as a page header sitting
+     right under the big checkcircle above it, not a small inline-edit
+     field the way a standard task's own title field looks — bigger and
+     centered. Still the same <input>, just with this layered on, so the
+     standard task expand view's .titleedit is untouched. */
+  .titleedit.checklisttitle{ font-size:1.5rem; text-align:center; }
   .catselect{
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);
@@ -389,6 +395,14 @@
   .subrow{ display:flex; align-items:center; gap:8px; padding:3px 0; }
   .subrow.dragging{ opacity:0.4; }
   .subrow.dragover{ border-top: 2px solid var(--brass); }
+  /* Once a checklist's own list is marked complete, every item in it
+     reads as done too, whether or not that specific item was ever
+     individually checked off — dims the whole row (checkbox included,
+     not just text) rather than only styling .subtext, and doesn't touch
+     the item's actual `done` flag, so un-completing the list restores
+     each item's real individual state exactly as it was. */
+  .subrow.listdone{ opacity:0.5; }
+  .subrow.listdone .subtext{ text-decoration: line-through; }
   .draghandle.sub{ font-size:0.78rem; }
   .subcheck{
     width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
@@ -431,6 +445,10 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--ink-soft);
     margin-top:10px; letter-spacing:0.03em;
   }
+  /* Goes with .checklisttitle above — a tiny faded subheader centered
+     under the (now centered, header-sized) checklist title, rather than
+     the small left-aligned meta line under a standard task's title. */
+  .taskmeta.checklistmeta{ text-align:center; margin-top:2px; opacity:0.75; }
   .subedit{
     flex:1; border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
     font-family:'IBM Plex Sans',sans-serif; font-size:0.84rem; padding:0 0 2px; color:var(--ink); outline:none;
@@ -497,6 +515,7 @@
     background: var(--card-bg);
     background: color-mix(in srgb, var(--card-bg) 95%, white 5%);
     border-radius: 10px;
+    border: 1px solid var(--line);
     box-shadow: 0 10px 22px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08);
     /* Extra padding-top reserves flow space for .checklistback below,
        which is taken out of flow (position:absolute) so it can jut past
@@ -2632,13 +2651,13 @@ function renderChecklistDetail(taskId){
     <div class="checklistpage">
       ${checklistBackTagHtml('closeChecklistList()', cat ? cat.label : 'Lists')}
       <div class="checklistheader">${checklistCheckcircleHtml(t)}</div>
-      <input type="text" class="titleedit" value="${escapeHtml(t.title)}"
+      <input type="text" class="titleedit checklisttitle" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
-      <div class="taskmeta">Created ${fmtDate(t.createdAt)}</div>
+      <div class="taskmeta checklistmeta">Created ${fmtDate(t.createdAt)}</div>
       <div class="subwrap">
         ${subs.map(s=>`
-          <div class="subrow" ondragover="subDragOver(event)" ondrop="subDrop(event,'${t.id}','${s.id}')">
+          <div class="subrow ${t.status==='done'?'listdone':''}" ondragover="subDragOver(event)" ondrop="subDrop(event,'${t.id}','${s.id}')">
             <span class="draghandle sub" draggable="true" ondragstart="subDragStart(event,'${t.id}','${s.id}')" ondragend="subDragEnd()" title="Drag to reorder">⠿</span>
             <div class="subcheck circle ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
