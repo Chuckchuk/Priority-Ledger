@@ -337,8 +337,8 @@
      — that's what keeps a 3-item list's pegs the same size as a
      12-item list's instead of stretching to fill the ring. */
   .peg{
-    position:absolute; top:50%; left:50%; width:3px; height:5px;
-    margin:-14px 0 0 -1.5px; transform-origin: 1.5px 14px;
+    position:absolute; top:50%; left:50%; width:4px; height:5px;
+    margin:-14px 0 0 -2px; transform-origin: 2px 14px;
     background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px; opacity:0.6;
   }
   .peg.filled{ background: var(--ink); border-color: var(--ink); opacity:1; }
@@ -2499,9 +2499,13 @@ function renderChecklistOverview(categoryId){
 const CHECKLIST_PEG_LIMIT = 12;
 const PEG_SLOT_DEG = 360 / CHECKLIST_PEG_LIMIT;
 // Both the first peg slot and the progress ring's 0% point start here:
-// 25° counterclockwise from straight up, i.e. top-left rather than dead
-// center-top.
-const PEG_START_DEG = -25;
+// top-left rather than dead center-top. Kept as a multiple of
+// PEG_SLOT_DEG (30°) on purpose — since 90° (the gap between the four
+// cardinal directions) is exactly 3 slots, that's what guarantees the
+// slots nearest top/right/bottom/left land exactly on those axes
+// instead of sitting at an off-angle. -25 (nearer the "25° left of top"
+// originally asked for) would have thrown that off.
+const PEG_START_DEG = -30;
 
 // At or under the threshold: one fixed-size .peg per item, in list
 // order, at slot i's angle — so an item's peg always sits at the same
