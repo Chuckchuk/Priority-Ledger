@@ -597,7 +597,6 @@
     display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'IBM Plex Mono', monospace; font-size:0.68rem;
     color: var(--ink-soft); background: var(--card-bg-dim); border-radius:6px; padding:10px 12px; margin-bottom:14px; letter-spacing:0.03em;
   }
-  .movetomorrowrow{ margin-bottom:14px; }
   /* Large "which day is this" label centered atop a day's detail page —
      see dayHeaderTag() in <script>. Plain text for Yesterday/Tomorrow/a
      weekday name; Today gets its own larger, brass-colored treatment so
@@ -767,8 +766,16 @@
      no separate title line here the way .checklistheader has one, since
      the title is itself an editable field right underneath. */
   .taskdetailhead{ display:flex; align-items:center; gap:8px; margin:4px 0 10px; }
-  .daydetailhead{ margin-bottom:14px; }
-  .daydetailhead h2{ font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.35rem; margin:0 0 4px; color:var(--ink); }
+  /* A row, not a stack — the date on the left, progress + the "move
+     incomplete" button (when there's something to move) on the right.
+     That button used to sit on its own full-width row underneath
+     everything else in the header, which was one more vertical block
+     between opening a day and actually seeing its tasks; sharing the
+     date's row instead of adding a row of its own is the fix. Wraps on
+     narrow widths rather than clipping. */
+  .daydetailhead{ margin-bottom:14px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .daydetailhead h2{ font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.35rem; margin:0; color:var(--ink); }
+  .daydetailheadright{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
   .dayprogress{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); }
   .pullbtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em;
@@ -3377,13 +3384,12 @@ function renderDayDetail(dateStr){
       ${headerTag ? `<div class="dayherorow"><span class="dayhero ${headerTag.today?'today':''}">${headerTag.text}</span></div>` : ''}
       <div class="daydetailhead">
         <h2>${dayLabel(dateStr)}</h2>
-        <div class="dayprogress">${total ? `${done} of ${total} done` : 'Nothing planned yet'}</div>
+        <div class="daydetailheadright">
+          <div class="dayprogress">${total ? `${done} of ${total} done` : 'Nothing planned yet'}</div>
+          ${unfinishedCount>0 && dateStr<=todayStr() ? `<button class="pullbtn" onclick="moveIncompleteToTomorrow('${dateStr}')">Move ${unfinishedCount} incomplete → ${fmtDate(nextDate)}</button>` : ''}
+        </div>
       </div>
       ${isPast ? `<div class="lockednote"><span>🔒 This day has passed</span></div>` : ''}
-      ${unfinishedCount>0 && dateStr<=todayStr() ? `
-      <div class="movetomorrowrow">
-        <button class="pullbtn" onclick="moveIncompleteToTomorrow('${dateStr}')">Move ${unfinishedCount} incomplete → ${fmtDate(nextDate)}</button>
-      </div>` : ''}
       <div class="quickadd">
         <input type="text" id="dayQuickInput" placeholder="Add a new task for this day…" onkeydown="if(event.key==='Enter') addDayTask('${dateStr}')">
         <select id="dayQuickCategory">
