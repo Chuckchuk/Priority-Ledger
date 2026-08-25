@@ -787,9 +787,12 @@
   /* The "Add to this day" tree lives in its own visually distinct box —
      a filled, bordered panel — rather than sitting flush against the
      rest of the page, so it reads at a glance as a tool you've opened
-     rather than more of the day's own content. */
+     rather than more of the day's own content. Brass border + faint
+     brass tint match .dayaddtoggle (the .pullbtn that opens it) on
+     purpose — the panel should read as that same button's contents
+     unfolded, not an unrelated box that happens to appear underneath it. */
   .dayaddpanel{
-    margin-bottom:14px; background: var(--card-bg-dim); border:1px solid var(--line);
+    margin-bottom:14px; background: rgba(169,120,47,0.08); border:1px solid var(--brass);
     border-radius:10px; padding:10px 12px;
   }
   .dayaddhead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px; }
@@ -3247,7 +3250,7 @@ function dayTreeChecklistLeafHtml(t, dateStr){
 
 function renderAddToDayPicker(dateStr){
   if(!dayAddOpen){
-    return `<button class="pullbtn dayaddtoggle" onclick="toggleDayAdd()">+ Add to this day</button>`;
+    return `<button class="pullbtn dayaddtoggle" onclick="toggleDayAdd()">+ Add an existing task to this day</button>`;
   }
   const taskCatsHtml = standardCategoryEntries().map(([k,v])=>{
     const key = 'cat:'+k;
