@@ -388,6 +388,15 @@
   .cdot{ width:7px; height:7px; border-radius:50%; margin-top:7px; flex-shrink:0; }
   .title{ flex:1; font-size:0.97rem; line-height:1.4; }
   .title.done{ text-decoration: line-through; color: var(--ink-soft); }
+  /* EXPERIMENTAL — Settings → Dev Settings. Always rendered by
+     checklistListRowHtml() (see .listdate there), just hidden by
+     default — visibility is a pure CSS toggle rather than conditional
+     HTML, matching how the other dev settings work. */
+  .listdate{
+    font-family:'IBM Plex Mono', monospace; font-size:0.6rem; color:var(--ink-soft);
+    opacity:0.7; margin-left:6px; display:none;
+  }
+  body.devlist-dates .listdate{ display:inline; }
   .meta{ display:flex; gap:6px; align-items:center; flex-shrink:0; }
   .badge{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; padding:2px 6px; border-radius:4px; letter-spacing:0.04em; }
   .badge.overdue{ background: var(--estate); color:white; }
@@ -616,8 +625,35 @@
   body.devtag-seam .pagetaglabel{
     box-shadow: inset 4px 0 5px -3px rgba(0,0,0,0.45);
   }
-  body.devtag-outline .pagetagtip{ border: 1.5px solid var(--ink); }
-  body.devtag-outline .pagetaglabel{ border: 1.5px solid var(--ink); border-left: none; }
+  /* Softer than a first pass: thinner (1px, not 1.5) and --ink-soft
+     rather than --ink, so it reads as a light pencil outline instead of
+     a hard, dark border. */
+  body.devtag-outline .pagetagtip{ border: 1px solid var(--ink-soft); }
+  body.devtag-outline .pagetaglabel{ border: 1px solid var(--ink-soft); border-left: none; }
+  /* EXPERIMENTAL — three alternate looks for the checklist overview's
+     "pending items" trigger specifically (.pagetag.compact), picked via
+     a <select> rather than checkboxes since they're mutually exclusive
+     redesigns of the same element, not independently layerable — see
+     body[data-pending-tag-style] below and setDevPendingTagStyle() in
+     <script>. "default" (the plain compact page tag) needs no rule
+     here since it's just the normal .pagetag.compact look with nothing
+     added. */
+  body[data-pending-tag-style="jetout"] .pagetag.compact{ left:-18px; }
+  body[data-pending-tag-style="jetout"] .pagetag.compact .pagetagtip,
+  body[data-pending-tag-style="jetout"] .pagetag.compact .pagetaglabel{ background: var(--estate); }
+  /* "sidebar": drops the diamond tip entirely and turns the label into
+     a vertical strip running down from near the top of the card, text
+     rotated to read top-to-bottom — a different affordance ("a strip
+     along the edge") rather than a variation on the tag shape. */
+  body[data-pending-tag-style="sidebar"] .pagetag.compact{ top:40px; }
+  body[data-pending-tag-style="sidebar"] .pagetag.compact .pagetagtip{ display:none; }
+  body[data-pending-tag-style="sidebar"] .pagetag.compact .pagetaglabel{
+    background: var(--estate);
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    padding: 14px 6px;
+    border-radius: 6px;
+  }
   /* The large "header" version of a list's own progress indicator atop
      its detail page (see renderChecklistDetail()) — same .checkcircle-
      wrap/.checkcircle/.peg/.progressring markup and JS as the small one
@@ -957,11 +993,21 @@ function applyDevSettings(){
   const d = state.devSettings || defaultDevSettings();
   document.body.classList.toggle('devtag-seam', !!d.tagSeam);
   document.body.classList.toggle('devtag-outline', !!d.tagOutline);
+  document.body.dataset.pendingTagStyle = d.pendingTagStyle || 'default';
+  document.body.classList.toggle('devlist-dates', !!d.showListDates);
 }
 
 async function toggleDevSetting(key, checked){
   pushUndo(`${checked ? 'Enabled' : 'Disabled'} dev setting: ${key}`);
   state.devSettings[key] = checked;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevPendingTagStyle(val){
+  pushUndo(`Changed dev pending-tag style to "${val}"`);
+  state.devSettings.pendingTagStyle = val;
   applyDevSettings();
   render();
   queueSave();
@@ -1131,7 +1177,7 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 // its own state key and its own commit specifically so it's trivial to
 // rip out later without touching anything else.
 function defaultDevSettings(){
-  return { tagSeam:false, tagOutline:false };
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', showListDates:false };
 }
 
 function defaultState(){
@@ -1178,6 +1224,8 @@ function normalizeState(){
   if(!state.devSettings) state.devSettings = defaultDevSettings();
   if(typeof state.devSettings.tagSeam !== 'boolean') state.devSettings.tagSeam = false;
   if(typeof state.devSettings.tagOutline !== 'boolean') state.devSettings.tagOutline = false;
+  if(typeof state.devSettings.pendingTagStyle !== 'string') state.devSettings.pendingTagStyle = 'default';
+  if(typeof state.devSettings.showListDates !== 'boolean') state.devSettings.showListDates = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     if(t.plannedDate===undefined) t.plannedDate = '';
@@ -2153,6 +2201,18 @@ function renderSettings(){
         <input type="checkbox" ${dev.tagOutline?'checked':''} onchange="toggleDevSetting('tagOutline', this.checked)">
         Page tag: full outline
       </label>
+      <label class="catlocchk" style="margin-bottom:10px;">
+        Pending-items tag style
+        <select onchange="setDevPendingTagStyle(this.value)">
+          <option value="default" ${dev.pendingTagStyle==='default'?'selected':''}>Default (small page tag)</option>
+          <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Redder, jets out further</option>
+          <option value="sidebar" ${dev.pendingTagStyle==='sidebar'?'selected':''}>Vertical sidebar strip</option>
+        </select>
+      </label>
+      <label class="catlocchk" style="margin-bottom:10px;">
+        <input type="checkbox" ${dev.showListDates?'checked':''} onchange="toggleDevSetting('showListDates', this.checked)">
+        Show a faded created-date next to each checklist's title
+      </label>
     </details>
   `;
 
@@ -2827,7 +2887,7 @@ function checklistListRowHtml(t){
   <li class="task" onclick="openChecklistList('${t.id}')">
     <div class="row">
       ${checklistCheckcircleHtml(t)}
-      <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}</div>
+      <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}<span class="listdate">${fmtDate(t.createdAt)}</span></div>
     </div>
   </li>`;
 }
