@@ -337,8 +337,8 @@
      — that's what keeps a 3-item list's pegs the same size as a
      12-item list's instead of stretching to fill the ring. */
   .peg{
-    position:absolute; top:50%; left:50%; width:4px; height:5px;
-    margin:-14px 0 0 -2px; transform-origin: 2px 14px;
+    position:absolute; top:50%; left:50%; width:5px; height:5px;
+    margin:-14px 0 0 -2.5px; transform-origin: 2.5px 14px;
     background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px; opacity:0.6;
   }
   .peg.filled{ background: var(--ink); border-color: var(--ink); opacity:1; }
@@ -498,20 +498,28 @@
     background: color-mix(in srgb, var(--card-bg) 95%, white 5%);
     border-radius: 10px;
     box-shadow: 0 10px 22px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08);
-    padding: 12px 14px 10px;
+    /* Extra padding-top reserves flow space for .checklistback below,
+       which is taken out of flow (position:absolute) so it can jut past
+       the page's own left edge instead of being confined to it. */
+    padding: 46px 14px 10px;
     margin: -2px -4px 0;
     position: relative;
   }
   /* A flag/tag shape instead of .backbtn's plain text, to go with the
-     "stacked page" look above. .cbtip is a rounded square rotated 45°
-     — a simple rounded-triangle "arrow" tip, no SVG or hand-drawn
-     clip-path needed — positioned so its center sits exactly at
-     .cblabel's flat left edge: the right half lands under .cblabel
-     (lower z-index, so it's hidden behind its opaque background) and
-     only the left-pointing corner shows, jetting out past the tag. */
+     "stacked page" look above — positioned to hang off the page's top
+     edge (position:absolute against .checklistpage, left in negative
+     territory) like a bookmark tab, rather than sitting fully inside
+     the page's own padding. .cbtip is a rounded square rotated 45° — a
+     simple rounded-triangle "arrow" tip, no SVG or hand-drawn clip-path
+     needed — positioned so its center sits exactly at .cblabel's flat
+     left edge: the right half lands under .cblabel (lower z-index, so
+     it's hidden behind its opaque background) and only the
+     left-pointing corner shows, which is what actually crosses the
+     page's edge and reads as "jutting out" rather than just the tag's
+     ordinary left margin. */
   .checklistback{
-    position:relative; display:inline-flex; align-items:center; border:none; background:none;
-    cursor:pointer; padding:0; margin: 0 0 14px 8px;
+    position:absolute; top:14px; left:-6px; z-index:3;
+    display:flex; align-items:center; border:none; background:none; cursor:pointer; padding:0;
   }
   .cbtip{
     position:absolute; left:-9px; top:50%; width:18px; height:18px; z-index:1;
@@ -522,6 +530,21 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;
     padding:9px 16px 9px 20px; border-radius:0 9px 9px 0;
   }
+  /* The large "header" version of a list's own progress indicator atop
+     its detail page (see renderChecklistDetail()) — same .checkcircle-
+     wrap/.checkcircle/.peg/.progressring markup and JS as the small one
+     next to each row in the overview, just visually scaled up via
+     transform rather than duplicated at a second set of sizes, so the
+     two can never drift out of sync with each other. .checklistheader
+     gives it an explicit box (rather than relying on the transform's
+     visual overflow) sized to actually fit the scaled-up result, so it
+     reserves real flow space instead of overlapping neighboring
+     content. */
+  .checklistheader{
+    display:flex; align-items:center; justify-content:center;
+    height:84px; margin: 4px 0 18px;
+  }
+  .checklistheader .checkcircle-wrap{ transform: scale(2.2); }
   .daydetailhead{ margin-bottom:14px; }
   .daydetailhead h2{ font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.35rem; margin:0 0 4px; color:var(--ink); }
   .dayprogress{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); }
@@ -2573,17 +2596,25 @@ function checklistProgressHtml(subs){
   return `<div class="progressring" style="background: conic-gradient(from ${PEG_START_DEG}deg, var(--ink) ${pct}%, var(--line) 0)"></div>`;
 }
 
-function checklistListRowHtml(t){
+// Shared by the small icon next to each row in the overview and the
+// large header atop a list's own detail page (.checklistheader scales
+// this same markup up via CSS transform) — one definition means the two
+// can never drift out of sync with each other.
+function checklistCheckcircleHtml(t){
   const subs = t.subtasks || [];
   const done = subs.filter(s=>s.done).length;
   const total = subs.length;
+  return `<div class="checkcircle-wrap" title="${total ? `${done}/${total} items` : ''}">
+    ${checklistProgressHtml(subs)}
+    <div class="checkcircle ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
+  </div>`;
+}
+
+function checklistListRowHtml(t){
   return `
   <li class="task" onclick="openChecklistList('${t.id}')">
     <div class="row">
-      <div class="checkcircle-wrap" title="${total ? `${done}/${total} items` : ''}">
-        ${checklistProgressHtml(subs)}
-        <div class="checkcircle ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
-      </div>
+      ${checklistCheckcircleHtml(t)}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}</div>
     </div>
   </li>`;
@@ -2600,6 +2631,7 @@ function renderChecklistDetail(taskId){
   return `
     <div class="checklistpage">
       ${checklistBackTagHtml('closeChecklistList()', cat ? cat.label : 'Lists')}
+      <div class="checklistheader">${checklistCheckcircleHtml(t)}</div>
       <input type="text" class="titleedit" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
