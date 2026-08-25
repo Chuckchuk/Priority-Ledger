@@ -4,9 +4,47 @@ Guidance for Claude Code when working in this repo.
 
 ## What this project is
 
-`priority-ledger.html` is a single self-contained file (HTML + CSS + JS, no build step, no npm dependencies) hosted on **GitHub Pages** as the app's only home (cross-device, login-gated, synced via Supabase). It's a personal task tracker for the project owner: four categories (Family Business, Game & Software, Estate Upkeep, Personal/Misc), plus a Daily tab for day-by-day priority lists.
+`priority-ledger.html` is a single self-contained file (HTML + CSS + JS, no npm dependencies) hosted on **GitHub Pages** as the app's only home (cross-device, login-gated, synced via Supabase). It's a personal task tracker for the project owner: four categories (Family Business, Game & Software, Estate Upkeep, Personal/Misc), plus a Daily tab for day-by-day priority lists.
 
-Keep it a single file unless explicitly asked to split it up. That constraint is intentional — it keeps the GitHub Pages deploy to "just push the file," with no build step to maintain.
+`priority-ledger.html` itself is **generated output**, not source — never hand-edit it. It stays a single file at the point GitHub Pages serves it (deploy is still "just push the file," no build step for the *user*), but the editable source underneath it is split into small feature-scoped files under `src/`, joined back into `priority-ledger.html` by `build.py`. See "Source layout & build" below before editing anything.
+
+## Source layout & build
+
+Source of truth is `src/`:
+
+- `src/shell-head.html` — `<!DOCTYPE>`/`<head>` through the opening `<style>` tag.
+- `src/styles.css` — the entire stylesheet (no `<style>` tags — `build.py` adds those).
+- `src/shell-body.html` — `</style>` through `</head>`/`<body>`/all static markup, through the opening `<script>` tag.
+- `src/js/NN-name.js` — the script body, split into 18 feature-scoped modules (numbered so both the filesystem and `build.py`'s explicit list show the assembly order at a glance):
+
+  | file | covers |
+  |---|---|
+  | `01-categories-theme.js` | category/location defaults, `CATEGORIES` index, theme color math (`shadeHex`, `relLuminance`, `applyThemeObject`) |
+  | `02-storage-state.js` | Supabase config, session load/save, `storage` adapter, `defaultState`/`normalizeState` |
+  | `03-sync-save.js` | cross-device refresh polling, `saveState`/`queueSave` retry logic |
+  | `04-undo.js` | `pushUndo`/`undo`/`redo`, undo status UI |
+  | `05-dates-sort.js` | date parsing/formatting, `sortTasks`, sort-mode handling |
+  | `06-tabs-render.js` | `visibleTabs`, tab bar rendering, taglines, location badge |
+  | `07-drag.js` | task/subtask drag-reorder handlers |
+  | `08-render-core.js` | `taskRowHtml`, `render()`, `renderList()`, `switchTab`, page-tilt/tag helpers |
+  | `09-settings.js` | Settings panel: category/location management |
+  | `10-claudeview.js` | the plain-text Claude-readable view |
+  | `11-daily-core.js` | Daily tab: month/day list, day summaries |
+  | `12-daily-tree.js` | Daily tab: the "add to this day" tree picker |
+  | `13-checklist.js` | checklist category type: overview, detail, pending views |
+  | `14-task-actions.js` | day-planning actions (plan/unplan/move-to-tomorrow), timeframe/priority updates |
+  | `15-subtask-edit.js` | inline subtask title/date editing |
+  | `16-task-crud.js` | core task/subtask CRUD (add/toggle/delete/update) |
+  | `17-auth-ui.js` | location toggle, auth form submit, sign-out, `enterApp()` |
+  | `18-bootstrap.js` | the Esc/undo keydown listener, resize/beforeunload listeners, the `init()` IIFE — **must stay last**, see note in `build.py` |
+
+- `src/shell-foot.html` — `</script>`/`</body>`/`</html>`.
+
+**Function order inside the concatenated script doesn't matter** — it's one shared scope and function declarations hoist — so a function can live in whichever module matches its feature even if that's not where it physically sat before the split. The one real constraint is `18-bootstrap.js` staying last, since it contains the `init()` IIFE and event-listener registrations that read globals defined throughout the other modules.
+
+**Workflow**: edit files under `src/`, then run `python3 build.py` to regenerate `priority-ledger.html` before testing or committing. Claude Code should run this itself automatically as part of finishing any task or preparing a commit — no need to ask first, just run it. Never edit `priority-ledger.html` directly; the next build silently overwrites hand edits there.
+
+The architecture notes below still describe behavior accurately regardless of which module a function now lives in — use `grep -rn 'functionName' src/` to find it rather than assuming a specific file.
 
 ## Architecture (read before editing)
 
@@ -53,7 +91,7 @@ Keep it a single file unless explicitly asked to split it up. That constraint is
 
 ## Testing locally
 
-Open `priority-ledger.html` directly in a browser, or:
+Run `python3 build.py` first if you've touched anything under `src/` — `priority-ledger.html` only reflects source changes after a rebuild. Then open `priority-ledger.html` directly in a browser, or:
 
 ```
 python3 -m http.server 8000
@@ -64,5 +102,7 @@ python3 -m http.server 8000
 To skip the login screen entirely (e.g. Claude Code testing a UI change), append `?localdev=1` to the URL — it's equivalent to clicking "Continue without an account" but lands in the app on first paint, no click/JS-eval needed. Gated by `isLocalDevHost()` (localhost/127.0.0.1/file:// only) so it can never do anything on the real hosted site even if someone appends it there by mistake — it's a dev convenience, not a feature.
 
 ## After making changes
+
+Run `python3 build.py` before committing anything that touches `src/` — do this automatically, don't wait to be asked. Commit both the `src/` changes and the regenerated `priority-ledger.html` together so the deployed file never drifts from source.
 
 This repo's `main` branch is served directly by GitHub Pages. Pushing `priority-ledger.html` to `main` updates the live app at `https://chuckchuk.github.io/Priority-Ledger/priority-ledger.html` — always confirm with the project owner before pushing, since it's a real GitHub remote and the live site both users rely on.
