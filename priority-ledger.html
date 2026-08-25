@@ -312,11 +312,12 @@
   .substack.bar{ gap:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:2px; overflow:hidden; }
   .substack.bar .subfill{ height:100%; background: var(--ink); }
   /* Checklist-category list rows: a round checkbox (vs. the square .check
-     used everywhere else) with its items shown as small radial pegs
-     around it, like clock ticks, rather than the linear .substack used
-     under a standard task. .checkcircle-wrap is a fixed-size box
-     regardless of item count — pegs/ring sit absolutely inside it — so
-     rows stay column-aligned the same way .checkwrap does for .check. */
+     used everywhere else) with its items shown as a thin ring of arc
+     segments around it — one segment per item, filled as each is
+     checked off — rather than the linear .substack used under a
+     standard task. .checkcircle-wrap is a fixed-size box regardless of
+     item count — the ring sits absolutely inside it — so rows stay
+     column-aligned the same way .checkwrap does for .check. */
   .checkcircle-wrap{ position:relative; width:34px; height:34px; flex-shrink:0; }
   .checkcircle{
     position:absolute; top:50%; left:50%; transform: translate(-50%,-50%); z-index:1;
@@ -325,21 +326,17 @@
   }
   .checkcircle.done{ background: var(--ink); border-color: var(--ink); }
   .checkcircle.done::after{ content:'✓'; color: var(--card-bg); font-size:10px; }
-  /* Each peg is a short tick positioned at the container's center and
-     rotated around it (transform-origin sits back at that center point),
-     so at rotate(0) it points straight up at a fixed radius and swinging
-     it around the circle is just varying the rotation angle per item. */
-  .peg{
-    position:absolute; top:50%; left:50%; width:2px; height:5px;
-    margin:-13px 0 0 -1px; transform-origin: 1px 13px;
-    background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px; opacity:0.6;
-  }
-  .peg.filled{ background: var(--ink); border-color: var(--ink); opacity:1; }
-  /* Past the peg threshold, a conic-gradient ring takes over — the
-     opaque .checkcircle sitting centered on top of it (same z-index
-     trick as above) masks the middle, leaving only the outer ring
-     visible, so no separate donut-cutout element is needed. */
-  .progressring{ position:absolute; inset:0; border-radius:50%; }
+  /* One ring for both cases (checklistProgressHtml() picks the fill
+     pattern): at or under the peg threshold it's built from per-item
+     conic-gradient arc segments with small gaps, so the segments read
+     as connected beads tracing the ring rather than spikes off the
+     checkbox; past it, a single smooth percentage sweep. inset:5px (not
+     0) keeps the visible band only ~3px thick against the 18px
+     .checkcircle — inset:0 (a full 8px band) was the "way too thick"
+     version. The opaque .checkcircle sits centered on top of it (via
+     z-index, not DOM order) and masks the middle, so no separate
+     donut-cutout element is needed. */
+  .progressring{ position:absolute; inset:5px; border-radius:50%; }
   .cdot{ width:7px; height:7px; border-radius:50%; margin-top:7px; flex-shrink:0; }
   .title{ flex:1; font-size:0.97rem; line-height:1.4; }
   .title.done{ text-decoration: line-through; color: var(--ink-soft); }
@@ -2472,21 +2469,36 @@ function renderChecklistOverview(categoryId){
   `;
 }
 
-// Beyond this many items, discrete pegs around the circle would either
-// overlap or get too thin to read as ticks — a circular progress ring
-// reads better than clutter at that point. Mirrors subProgressHtml()'s
-// linear-pips-vs-bar threshold (also 6) for the same reason.
+// Beyond this many items, per-item arc segments would either touch with
+// no visible gap or get too thin to read as separate — a smooth
+// percentage ring reads better than clutter at that point. Mirrors
+// subProgressHtml()'s linear-pips-vs-bar threshold (also 6) for the
+// same reason.
 const CHECKLIST_PEG_LIMIT = 6;
 
+// At or under the threshold: one conic-gradient arc segment per item,
+// each with a small gap on either side, so segments read as connected
+// beads tracing the ring rather than disconnected pegs — filled
+// (var(--ink)) once done, empty (var(--line)) until then. Built as
+// explicit hard-stop pairs (same color repeated at a segment's start and
+// end) rather than plain color-per-angle stops, since conic-gradient
+// blends smoothly between consecutive stops by default and a soft
+// gradient into each gap would look like a smudge, not a gap.
 function checklistProgressHtml(subs){
   if(!subs.length) return '';
   const done = subs.filter(s=>s.done).length;
   const total = subs.length;
   if(total <= CHECKLIST_PEG_LIMIT){
-    return subs.map((s,i)=>{
-      const angle = Math.round((360/total)*i);
-      return `<span class="peg ${s.done?'filled':''}" style="transform:rotate(${angle}deg)"></span>`;
-    }).join('');
+    const sliceDeg = 360/total;
+    const gapDeg = Math.min(8, sliceDeg*0.25);
+    const stops = [];
+    subs.forEach((s,i)=>{
+      const start = i*sliceDeg + gapDeg/2;
+      const end = (i+1)*sliceDeg - gapDeg/2;
+      const color = s.done ? 'var(--ink)' : 'var(--line)';
+      stops.push(`var(--card-bg) ${start}deg`, `${color} ${start}deg`, `${color} ${end}deg`, `var(--card-bg) ${end}deg`);
+    });
+    return `<div class="progressring" style="background: conic-gradient(${stops.join(', ')})"></div>`;
   }
   const pct = Math.round(done/total*100);
   return `<div class="progressring" style="background: conic-gradient(var(--ink) ${pct}%, var(--line) 0)"></div>`;
