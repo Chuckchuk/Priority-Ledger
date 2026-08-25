@@ -549,6 +549,22 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;
     padding:9px 16px 9px 20px; border-radius:0 9px 9px 0;
   }
+  /* The "see all pending items" trigger, on the checklist overview
+     (not a .checklistpage — the overview is the base layer, not a
+     stacked page). Reuses .checklistback's own hang-off-the-edge tip
+     shape rather than a second geometry, just smaller and positioned
+     against #appCard (the nearest positioned ancestor of
+     #checklistView, same trick as .locbadge against .masthead) instead
+     of a page. position:absolute is what keeps it from taking up its
+     own row the way the old full-width .addday button did — the
+     checklist's own list starts right after .quickadd regardless of
+     whether this tag is even present. */
+  .checklistpending{
+    position:absolute; top:2px; left:-6px; z-index:3;
+    display:flex; align-items:center; border:none; background:none; cursor:pointer; padding:0;
+  }
+  .checklistpending .cbtip{ width:13px; height:13px; left:-6.5px; }
+  .checklistpending .cblabel{ font-size:0.6rem; padding:5px 10px 5px 11px; }
   /* The large "header" version of a list's own progress indicator atop
      its detail page (see renderChecklistDetail()) — same .checkcircle-
      wrap/.checkcircle/.peg/.progressring markup and JS as the small one
@@ -558,10 +574,12 @@
      gives it an explicit box (rather than relying on the transform's
      visual overflow) sized to actually fit the scaled-up result, so it
      reserves real flow space instead of overlapping neighboring
-     content. */
+     content. Margin kept tight (not the page's usual generous spacing)
+     since the title right below reads as this header's own caption,
+     not a separate block. */
   .checklistheader{
     display:flex; align-items:center; justify-content:center;
-    height:84px; margin: 4px 0 18px;
+    height:84px; margin: 4px 0 4px;
   }
   .checklistheader .checkcircle-wrap{ transform: scale(2.2); }
   .daydetailhead{ margin-bottom:14px; }
@@ -2564,12 +2582,12 @@ function renderChecklistOverview(categoryId){
   const doneCount = lists.filter(t=>t.status==='done').length;
   const pendingTotal = lists.reduce((sum,t)=>sum+checklistPendingItems(t).length, 0);
   return `
+    ${checklistPendingTagHtml(categoryId, pendingTotal)}
     <div class="quickadd">
       <input type="text" id="checklistQuickInput" placeholder="Name a new list…"
         onkeydown="if(event.key==='Enter') addChecklistList('${categoryId}')">
       <button class="addbtn" onclick="addChecklistList('${categoryId}')">+</button>
     </div>
-    ${pendingTotal ? `<button class="addday" onclick="openChecklistPending('${categoryId}')">See all pending items (${pendingTotal})</button>` : ''}
     <ul class="tasks">
       ${visible.length ? visible.map(t=>checklistListRowHtml(t)).join('') : `<div class="empty">${cat ? `No lists in ${escapeHtml(cat.label)} yet.` : 'No lists yet.'} Add one above.</div>`}
     </ul>
@@ -2641,6 +2659,11 @@ function checklistListRowHtml(t){
 
 function checklistBackTagHtml(onclick, label){
   return `<button class="checklistback" onclick="${onclick}"><span class="cbtip"></span><span class="cblabel">${escapeHtml(label)}</span></button>`;
+}
+
+function checklistPendingTagHtml(categoryId, pendingTotal){
+  if(!pendingTotal) return '';
+  return `<button class="checklistpending" onclick="openChecklistPending('${categoryId}')"><span class="cbtip"></span><span class="cblabel">Pending ${pendingTotal}</span></button>`;
 }
 
 function renderChecklistDetail(taskId){
