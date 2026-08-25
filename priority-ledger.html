@@ -742,12 +742,12 @@
      background+border), so the tree's category level visually matches
      the tab bar's. */
   body.devtreebubble .daytreecat{
-    display:inline-flex; align-items:center; width:auto; border-radius:999px;
+    display:inline-flex; align-items:center; width:auto; border-radius:8px;
     background: var(--card-bg); border:1px solid var(--line); padding:6px 14px 6px 10px;
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em;
   }
   body.devtreebubble .daytreecat:hover{ border-color: var(--brass); }
-  .daytreetaskrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:6px; }
+  .daytreetaskrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:6px; position:relative; }
   .daytreetaskrow .daytreelabel{ flex:1; min-width:0; }
   .daytreemark{ color:var(--brass); font-weight:700; flex-shrink:0; margin:0 2px; }
   .daytreechildren{ margin-left:16px; }
@@ -763,19 +763,29 @@
   }
   .daytreeleaf.whole:hover, .daytreeaddbtn:hover{ background:var(--card-bg); }
   .daytreeleaf.whole.added, .daytreeaddbtn.added{ background:var(--brass); color:white; border-color:var(--brass); }
-  .daytreeleafrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:6px; }
+  .daytreeleafrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:6px; position:relative; }
   .daytreeleafrow .daytreeleaf{ flex:1; min-width:0; width:auto; }
   /* One-shot fade — plays once when a row is freshly rendered with this
      class (see dayTreeFlashKey in <script>), on both the add and the
      remove direction. Doesn't loop: renderDaily() rebuilds this row's DOM
      node fresh, so the animation only replays if dayTreeFlashKey still
      names this row on some later unrelated render, which the timeout in
-     the toggle functions prevents. */
-  @keyframes daytreeflash{
-    0%{ background: color-mix(in srgb, var(--brass) 40%, transparent); }
-    100%{ background: transparent; }
+     the toggle functions prevents.
+     Painted as an absolutely-positioned ::after rather than animating the
+     row's own background directly — the row's background sits *behind*
+     its child buttons in paint order, so a hover state on the button the
+     user just clicked (which lingers, since the mouse is still over it)
+     would sit on top of and hide the flash. A positioned pseudo-element
+     with no explicit z-index still paints after its element's own
+     in-flow static children, so it lands above the hover fill regardless
+     of where the mouse is. pointer-events:none keeps it from blocking the
+     actual click target underneath. */
+  .flashtoggle::after{
+    content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background: var(--brass); opacity:0.4;
+    animation: daytreeflash 700ms ease-out forwards;
   }
-  .flashtoggle{ animation: daytreeflash 700ms ease-out; }
+  @keyframes daytreeflash{ from{ opacity:0.4; } to{ opacity:0; } }
   .authform{ display:flex; flex-direction:column; gap:12px; margin-bottom:6px; }
   .authform input{
     border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim);
@@ -1131,6 +1141,13 @@ let showDone = false;
 let urgentDraft = false;
 let selectedDay = null;
 let selectedListId = null; // id of the checklist "list" (a task) currently drilled into, or null for the overview
+// Set only when a list was opened via openChecklistList's optional second
+// argument (currently just openChecklistListFromDay) — the dateStr of the
+// day to return to. Lets the checklist detail's own back tag skip the
+// category overview and go straight back to that day instead. Cleared by
+// switchTab() on every tab change so it can never survive into an
+// unrelated later visit to the same checklist list.
+let checklistReturnDay = null;
 let checklistPendingOpen = false; // showing the "all pending items" view for the active checklist category
 let expandedMonths = new Set();
 let settingsOpen = false;
@@ -2255,6 +2272,7 @@ function randomizePageTilt(){
 // early-return for key === activeTab: clicking the tab you're already
 // "on" while an overlay is open must still exit the overlay.
 function switchTab(key){
+  checklistReturnDay = null;
   claudeView = null;
   settingsOpen = false;
   activeTab = key;
@@ -3115,7 +3133,7 @@ function daySubtaskRowHtml(task, sub, dateStr){
 function dayChecklistRowHtml(t, dateStr){
   return `
   <li class="task">
-    <div class="row" onclick="openChecklistListFromDay('${t.id}')">
+    <div class="row" onclick="openChecklistListFromDay('${t.id}','${dateStr}')">
       ${checklistCheckcircleHtml(t)}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}</div>
       <button class="subdel" onclick="event.stopPropagation(); updatePlannedDate('${t.id}','')" title="Remove from this day">×</button>
@@ -3330,9 +3348,14 @@ function renderChecklistDetail(taskId){
   const t = state.tasks.find(t=>t.id===taskId);
   const cat = CATEGORIES[t.category];
   const subs = t.subtasks || [];
+  // Opened from a day's Checklists section (see openChecklistListFromDay)
+  // — the back tag should return there, not to this list's own category
+  // overview, and say so rather than showing a label ("Lists") that no
+  // longer matches where closeChecklistList() is actually about to go.
+  const backLabel = checklistReturnDay ? 'Daily' : (cat ? cat.label : 'Lists');
   return `
     <div class="stackedpage">
-      ${pageTagHtml('closeChecklistList()', cat ? cat.label : 'Lists')}
+      ${pageTagHtml('closeChecklistList()', backLabel)}
       <div class="checklistheader">${checklistCheckcircleHtml(t)}</div>
       <input type="text" class="titleedit checklisttitle" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"
@@ -3379,8 +3402,26 @@ function renderChecklistPending(categoryId){
   `;
 }
 
-function openChecklistList(id){ selectedListId = id; render(); }
-function closeChecklistList(){ selectedListId = null; render(); }
+// returnDay is optional — only openChecklistListFromDay passes it. Every
+// other call site (the normal overview row click) omits it, which resets
+// checklistReturnDay to null even if some earlier visit had left it set,
+// so "opened from Daily" can never leak into an unrelated later open.
+function openChecklistList(id, returnDay){
+  checklistReturnDay = returnDay || null;
+  selectedListId = id;
+  render();
+}
+function closeChecklistList(){
+  selectedListId = null;
+  if(checklistReturnDay){
+    const d = checklistReturnDay;
+    checklistReturnDay = null;
+    selectedDay = d;
+    switchTab('daily');
+    return;
+  }
+  render();
+}
 function openChecklistPending(categoryId){ checklistPendingOpen = true; render(); }
 function closeChecklistPending(){ checklistPendingOpen = false; render(); }
 
@@ -3467,11 +3508,11 @@ async function unplanSubtaskFromDay(taskId, subId){
 // active (see render()'s isChecklist branch) — switching tabs first is
 // what actually makes it visible, openChecklistList() alone would just
 // set selectedListId behind the still-showing Daily view.
-function openChecklistListFromDay(taskId){
+function openChecklistListFromDay(taskId, dateStr){
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
   switchTab(t.category);
-  openChecklistList(taskId);
+  openChecklistList(taskId, dateStr);
 }
 
 async function updatePlannedDate(id, val){
