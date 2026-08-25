@@ -312,8 +312,19 @@
   }
   .check.done{ background: var(--ink); border-color: var(--ink); }
   .check.done::after{ content:'✓'; color: var(--card-bg); font-size:12px; }
-  .substack{ width:18px; height:5px; display:flex; gap:1.5px; flex-shrink:0; }
-  .subpip{ flex:1; min-width:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px; opacity:0.55; }
+  /* grid, not flex, for the N-equal-columns layout — flexbox's flex:1
+     rounds each item's fractional share of the 18px bar independently,
+     and tends to dump the leftover remainder pixel onto the last
+     item(s), which reads as inconsistent sizing between the first few
+     pips and the last few (worse at non-100% browser zoom, since that
+     rescales the already-fractional division against a new pixel
+     grid). CSS Grid's `fr` unit distributes that same remainder more
+     evenly across tracks instead of concentrating it at one end.
+     grid-auto-columns (not a hardcoded grid-template-columns) is what
+     lets this still work without knowing the pip count in advance —
+     one auto column per child, all sized equally. */
+  .substack{ width:18px; height:5px; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:1.5px; flex-shrink:0; }
+  .subpip{ min-width:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px; opacity:0.55; }
   .subpip.filled{ background: var(--ink); border-color: var(--ink); opacity:1; }
   .substack.bar{ gap:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:2px; overflow:hidden; }
   .substack.bar .subfill{ height:100%; background: var(--ink); }
@@ -3466,9 +3477,21 @@ function checklistProgressHtml(subs){
   const done = subs.filter(s=>s.done).length;
   const total = subs.length;
   if(total <= CHECKLIST_PEG_LIMIT){
+    // translateZ(0) alongside the rotate is a no-op visually, but it's
+    // there specifically so every pegpivot gets promoted to its own
+    // GPU-composited layer the same way, regardless of angle. Without
+    // it, rotate(0deg) — which a peg lands on exactly whenever a slot
+    // falls on a cardinal axis — can get treated by the browser as an
+    // identity transform and rendered via the plain CPU layout/paint
+    // path instead, snapped to a different sub-pixel grid than its
+    // genuinely-rotated siblings. That mismatch is invisible at 100%
+    // zoom but shows up as that one peg being a slightly different
+    // size at other browser zoom levels, since layout-snapped and
+    // compositor-positioned elements round fractional device pixels
+    // differently once the CSS-px-to-device-px ratio isn't 1:1.
     return subs.map((s,i)=>{
       const angle = PEG_START_DEG + i*PEG_SLOT_DEG;
-      return `<span class="pegpivot ${s.done?'filled':''}" style="transform:rotate(${angle}deg)"><span class="peg"></span></span>`;
+      return `<span class="pegpivot ${s.done?'filled':''}" style="transform:rotate(${angle}deg) translateZ(0)"><span class="peg"></span></span>`;
     }).join('');
   }
   const pct = Math.round(done/total*100);
