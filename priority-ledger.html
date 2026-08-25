@@ -698,38 +698,31 @@
   .daydetailhead{ margin-bottom:14px; }
   .daydetailhead h2{ font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.35rem; margin:0 0 4px; color:var(--ink); }
   .dayprogress{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); }
-  .pulladd{ display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
-  .pulladd select{
-    flex:1; min-width:160px; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
-    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
-  }
   .pullbtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em;
     background:transparent; border:1px solid var(--brass); color:var(--brass); border-radius:5px; padding:7px 12px; cursor:pointer; flex-shrink:0;
   }
   .dayaddtoggle{ width:100%; margin-bottom:14px; }
-  /* EXPERIMENTAL — Settings → Dev Settings → "Add to day" picker style.
-     Two shapes for the same underlying add flow (see renderAddToDayPicker()
-     in <script>): .dayaddpanel's default .pulladd body is the cascading
-     dependent-<select> variant; .daytree below is the expandable-list
-     variant. Kept as plain sibling rules (not exclusive) since only one
-     ever renders at a time, picked by the dev setting. */
-  .dayaddpanel{ margin-bottom:14px; }
-  .dayaddhead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:8px; }
-  .dayaddclose{ background:none; border:none; color:var(--ink-soft); font-size:1.05rem; line-height:1; cursor:pointer; padding:2px 8px; flex-shrink:0; }
-  .daymodetoggle{ display:flex; gap:6px; }
-  .modebtn{
-    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; text-transform:uppercase; letter-spacing:0.04em;
-    background:var(--card-bg-dim); border:1px solid var(--line); color:var(--ink-soft); border-radius:5px; padding:6px 10px; cursor:pointer;
+  /* The "Add to this day" tree lives in its own visually distinct box —
+     a filled, bordered panel — rather than sitting flush against the
+     rest of the page, so it reads at a glance as a tool you've opened
+     rather than more of the day's own content. */
+  .dayaddpanel{
+    margin-bottom:14px; background: var(--card-bg-dim); border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px;
   }
-  .modebtn.on{ background:var(--brass); color:white; border-color:var(--brass); }
-  /* Tree variant: categories/checklists as collapsible headers
-     (.daytreelabel, disclosure triangle in its own text rather than a
-     separate icon element), tasks nested one level under a category
-     (.daytreenode.sub), steps nested one level further — clicking any
-     leaf (.daytreeleaf) adds it immediately, no separate Add button.
-     Echoes .monthgroup/.monthhead's existing expand/collapse language
-     rather than inventing a new one. */
+  .dayaddhead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px; }
+  .dayaddclose{ background:none; border:none; color:var(--ink-soft); font-size:1.05rem; line-height:1; cursor:pointer; padding:2px 8px; flex-shrink:0; }
+  /* Categories/checklists as collapsible headers (.daytreelabel,
+     disclosure triangle in its own span rather than a separate icon
+     element), tasks nested one level under a category (.daytreenode.sub),
+     steps nested one level further. Every row (task, step, or list) stays
+     visible whether or not it's already on the day — see toggleDayTree*()
+     in <script> — with a ✓ mark plus a matching toggle button on the
+     right (.daytreeleaf.whole for a whole task, .daytreeaddbtn for a
+     step/list) so "already added" reads as a state to flip back, not a
+     one-way trip. Echoes .monthgroup/.monthhead's existing expand/collapse
+     language rather than inventing a new one. */
   .daytreesection{
     font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
     color:var(--ink-soft); margin:10px 0 4px;
@@ -740,20 +733,49 @@
     display:block; width:100%; text-align:left; background:none; border:none; color:var(--ink);
     font-family:'IBM Plex Sans', sans-serif; font-size:0.84rem; padding:5px 2px; cursor:pointer; border-radius:4px;
   }
-  .daytreelabel:hover{ background:var(--card-bg-dim); }
-  .daytreetaskrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .daytreelabel:hover{ background:var(--card-bg); }
+  .daytreetriangle{ display:inline-block; width:12px; color:var(--ink-soft); }
+  .daytreecat .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:7px; }
+  /* EXPERIMENTAL — Settings → Dev Settings. Off by default: a category
+     header is plain text next to its triangle/dot. On: it becomes a
+     rounded pill echoing .tab's own look (mono/uppercase, its own
+     background+border), so the tree's category level visually matches
+     the tab bar's. */
+  body.devtreebubble .daytreecat{
+    display:inline-flex; align-items:center; width:auto; border-radius:999px;
+    background: var(--card-bg); border:1px solid var(--line); padding:6px 14px 6px 10px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em;
+  }
+  body.devtreebubble .daytreecat:hover{ border-color: var(--brass); }
+  .daytreetaskrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:6px; }
   .daytreetaskrow .daytreelabel{ flex:1; min-width:0; }
+  .daytreemark{ color:var(--brass); font-weight:700; flex-shrink:0; margin:0 2px; }
   .daytreechildren{ margin-left:16px; }
   .daytreeleaf{
     display:block; width:100%; text-align:left; background:none; border:none; color:var(--ink-soft);
     font-family:'IBM Plex Sans', sans-serif; font-size:0.8rem; padding:4px 6px; cursor:pointer; border-radius:4px;
   }
-  .daytreeleaf:hover{ background:var(--card-bg-dim); color:var(--ink); }
-  .daytreeleaf.whole{
+  .daytreeleaf:hover{ background:var(--card-bg); color:var(--ink); }
+  .daytreeleaf.whole,
+  .daytreeaddbtn{
     width:auto; flex-shrink:0; font-family:'IBM Plex Mono', monospace; font-size:0.6rem; text-transform:uppercase;
-    letter-spacing:0.03em; border:1px solid var(--line); padding:5px 8px;
+    letter-spacing:0.03em; border:1px solid var(--line); padding:5px 8px; border-radius:4px; background:none; color:var(--ink-soft); cursor:pointer;
   }
-  .daytreeleaf.whole.added{ color:var(--ink-soft); opacity:0.6; cursor:default; }
+  .daytreeleaf.whole:hover, .daytreeaddbtn:hover{ background:var(--card-bg); }
+  .daytreeleaf.whole.added, .daytreeaddbtn.added{ background:var(--brass); color:white; border-color:var(--brass); }
+  .daytreeleafrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:6px; }
+  .daytreeleafrow .daytreeleaf{ flex:1; min-width:0; width:auto; }
+  /* One-shot fade — plays once when a row is freshly rendered with this
+     class (see dayTreeFlashKey in <script>), on both the add and the
+     remove direction. Doesn't loop: renderDaily() rebuilds this row's DOM
+     node fresh, so the animation only replays if dayTreeFlashKey still
+     names this row on some later unrelated render, which the timeout in
+     the toggle functions prevents. */
+  @keyframes daytreeflash{
+    0%{ background: color-mix(in srgb, var(--brass) 40%, transparent); }
+    100%{ background: transparent; }
+  }
+  .flashtoggle{ animation: daytreeflash 700ms ease-out; }
   .authform{ display:flex; flex-direction:column; gap:12px; margin-bottom:6px; }
   .authform input{
     border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim);
@@ -1066,6 +1088,7 @@ function applyDevSettings(){
   document.body.classList.toggle('devtag-outline', !!d.tagOutline);
   document.body.dataset.pendingTagStyle = d.pendingTagStyle || 'default';
   document.body.classList.toggle('devlist-dates', !!d.showListDates);
+  document.body.classList.toggle('devtreebubble', !!d.dayTreeCatBubble);
 }
 
 async function toggleDevSetting(key, checked){
@@ -1084,12 +1107,6 @@ async function setDevPendingTagStyle(val){
   queueSave();
 }
 
-async function setDevDayPickerStyle(val){
-  pushUndo(`Changed dev day-picker style to "${val}"`);
-  state.devSettings.dayPickerStyle = val;
-  render();
-  queueSave();
-}
 
 // Filled in once the project exists — see CLAUDE.md for setup steps.
 const SUPABASE_URL = 'https://kyswrzkgiphsniepahje.supabase.co';
@@ -1255,7 +1272,7 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 // its own state key and its own commit specifically so it's trivial to
 // rip out later without touching anything else.
 function defaultDevSettings(){
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', showListDates:false, dayPickerStyle:'cascade' };
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', showListDates:false, dayTreeCatBubble:false };
 }
 
 function defaultState(){
@@ -1304,7 +1321,7 @@ function normalizeState(){
   if(typeof state.devSettings.tagOutline !== 'boolean') state.devSettings.tagOutline = false;
   if(typeof state.devSettings.pendingTagStyle !== 'string') state.devSettings.pendingTagStyle = 'default';
   if(typeof state.devSettings.showListDates !== 'boolean') state.devSettings.showListDates = false;
-  if(typeof state.devSettings.dayPickerStyle !== 'string') state.devSettings.dayPickerStyle = 'cascade';
+  if(typeof state.devSettings.dayTreeCatBubble !== 'boolean') state.devSettings.dayTreeCatBubble = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     if(t.plannedDate===undefined) t.plannedDate = '';
@@ -2048,6 +2065,7 @@ function taskRowHtml(t, showDot, inDaily){
       ${dotHtml}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.urgent && t.status!=='done' ? ' ⚑' : ''}</div>
       <div class="meta">${priorityBadge}${timeframeBadge}${badge}</div>
+      ${inDaily ? `<button class="subdel" onclick="event.stopPropagation(); updatePlannedDate('${t.id}','')" title="Remove from this day">×</button>` : ''}
     </div>
     <div class="expand" id="exp-${t.id}">
       <input type="text" class="titleedit" value="${escapeHtml(t.title)}"
@@ -2373,11 +2391,8 @@ function renderSettings(){
         Show a faded created-date next to each checklist's title
       </label>
       <label class="catlocchk" style="margin-bottom:10px;">
-        "Add to day" picker style
-        <select onchange="setDevDayPickerStyle(this.value)">
-          <option value="cascade" ${dev.dayPickerStyle==='cascade'?'selected':''}>Cascading dropdowns (category → task → step)</option>
-          <option value="tree" ${dev.dayPickerStyle==='tree'?'selected':''}>Expandable tree (click to add)</option>
-        </select>
+        <input type="checkbox" ${dev.dayTreeCatBubble?'checked':''} onchange="toggleDevSetting('dayTreeCatBubble', this.checked)">
+        "Add to day" tree: pill-shaped category bubbles (like the tab bar)
       </label>
     </details>
   `;
@@ -2696,14 +2711,16 @@ function addDaysToDateStr(dateStr, n){
 
 let pickerOpen = false;
 
-// "Add to this day" picker state — transient UI state, not persisted,
-// same idiom as pickerOpen/expandedMonths above. Reset by
+// "Add to this day" tree picker state — transient UI state, not
+// persisted, same idiom as pickerOpen/expandedMonths above. Reset by
 // resetDayAddPicker() whenever a day is opened or closed.
 let dayAddOpen = false;
-let dayAddMode = 'task'; // 'task' | 'checklist'
-let dayAddCategory = '';
-let dayAddTaskId = '';
-let dayTreeExpanded = new Set(); // tree variant's open nodes, keyed 'cat:<id>' / 'task:<id>' / 'cklist:<id>'
+let dayTreeExpanded = new Set(); // open nodes, keyed 'cat:<id>' / 'task:<id>' / 'cklist:<id>'
+// Which row (if any) just got toggled on/off the day, keyed the same way
+// as dayTreeExpanded — read at render time to apply a one-shot fade
+// animation, then cleared shortly after so an unrelated later re-render
+// (which recreates the row's DOM node from scratch) doesn't replay it.
+let dayTreeFlashKey = null;
 
 function monthLabel(key){
   const [y,m] = key.split('-').map(Number);
@@ -2852,10 +2869,8 @@ async function cascadeUnfinished(dateStr){
 
 function resetDayAddPicker(){
   dayAddOpen = false;
-  dayAddMode = 'task';
-  dayAddCategory = '';
-  dayAddTaskId = '';
   dayTreeExpanded = new Set();
+  dayTreeFlashKey = null;
 }
 
 function openDay(dateStr){ selectedDay = dateStr; resetDayAddPicker(); render(); }
@@ -2942,97 +2957,7 @@ function dayCandidateTasks(dateStr, categoryId){
 
 function toggleDayAdd(){
   dayAddOpen = !dayAddOpen;
-  if(dayAddOpen){ dayAddMode = 'task'; dayAddCategory = ''; dayAddTaskId = ''; }
   renderDaily();
-}
-function setDayAddMode(mode){ dayAddMode = mode; dayAddCategory = ''; dayAddTaskId = ''; renderDaily(); }
-function setDayAddCategory(val){ dayAddCategory = val; dayAddTaskId = ''; renderDaily(); }
-function setDayAddTask(val){ dayAddTaskId = val; renderDaily(); }
-
-async function commitDayAddTask(dateStr){
-  const subSel = document.getElementById('dayAddSubSelect');
-  const subId = subSel ? subSel.value : '';
-  if(subId) await pullSubtaskToDay(dayAddTaskId, subId, dateStr);
-  else await planTaskForDay(dayAddTaskId, dateStr);
-}
-
-async function commitDayAddChecklist(dateStr){
-  const sel = document.getElementById('dayAddListSelect');
-  const id = sel ? sel.value : '';
-  if(!id) return;
-  await planTaskForDay(id, dateStr);
-}
-
-// EXPERIMENTAL — Settings → Dev Settings → "Add to day" picker style.
-// Two genuinely different shapes for browsing category → task → step (+
-// checklists) built side by side so they can be compared live, same
-// mechanism as pendingTagStyle above. renderDayCascadePicker() is three
-// dependent <select>s plus an explicit Add; renderDayTreePicker() is an
-// expandable nested list where clicking a row adds it immediately. Both
-// call the same underlying mutators (planTaskForDay/pullSubtaskToDay),
-// so behavior is identical — only the browsing UI differs.
-function renderAddToDayPicker(dateStr){
-  const dev = state.devSettings || defaultDevSettings();
-  return dev.dayPickerStyle === 'tree' ? renderDayTreePicker(dateStr) : renderDayCascadePicker(dateStr);
-}
-
-function renderDayCascadePicker(dateStr){
-  if(!dayAddOpen){
-    return `<button class="pullbtn dayaddtoggle" onclick="toggleDayAdd()">+ Add to this day</button>`;
-  }
-  const catOptions = dayAddMode==='task'
-    ? standardCategoryEntries()
-    : Object.entries(CATEGORIES).filter(([,v])=>v.type==='checklist');
-
-  let body = '';
-  if(dayAddMode==='task'){
-    const tasksInCat = dayAddCategory ? dayCandidateTasks(dateStr, dayAddCategory) : [];
-    const chosenTask = tasksInCat.find(t=>t.id===dayAddTaskId);
-    body = `
-      <select class="catselect" onchange="setDayAddCategory(this.value)">
-        <option value="">Category…</option>
-        ${catOptions.map(([k,v])=>`<option value="${k}" ${dayAddCategory===k?'selected':''}>${escapeHtml(v.label)}</option>`).join('')}
-      </select>
-      ${dayAddCategory ? `
-      <select class="catselect" onchange="setDayAddTask(this.value)">
-        <option value="">Task…</option>
-        ${tasksInCat.map(t=>`<option value="${t.id}" ${dayAddTaskId===t.id?'selected':''}>${escapeHtml(t.title)}</option>`).join('')}
-      </select>` : ''}
-      ${chosenTask ? `
-      <select class="catselect" id="dayAddSubSelect">
-        <option value="">Whole task</option>
-        ${(chosenTask.subtasks||[]).filter(s=>s.plannedDate!==dateStr).map(s=>`<option value="${s.id}">${escapeHtml(s.text)}</option>`).join('')}
-      </select>
-      <button class="pullbtn" onclick="commitDayAddTask('${dateStr}')">Add</button>` : ''}
-    `;
-  } else {
-    const listsInCat = dayAddCategory ? checklistLists(dayAddCategory).filter(t=>t.plannedDate!==dateStr) : [];
-    body = `
-      <select class="catselect" onchange="setDayAddCategory(this.value)">
-        <option value="">Category…</option>
-        ${catOptions.map(([k,v])=>`<option value="${k}" ${dayAddCategory===k?'selected':''}>${escapeHtml(v.label)}</option>`).join('')}
-      </select>
-      ${dayAddCategory ? `
-      <select class="catselect" id="dayAddListSelect">
-        <option value="">List…</option>
-        ${listsInCat.map(t=>`<option value="${t.id}">${escapeHtml(t.title)}</option>`).join('')}
-      </select>
-      <button class="pullbtn" onclick="commitDayAddChecklist('${dateStr}')">Add</button>` : ''}
-    `;
-  }
-
-  return `
-    <div class="dayaddpanel">
-      <div class="dayaddhead">
-        <div class="daymodetoggle">
-          <button class="modebtn ${dayAddMode==='task'?'on':''}" onclick="setDayAddMode('task')">Task</button>
-          <button class="modebtn ${dayAddMode==='checklist'?'on':''}" onclick="setDayAddMode('checklist')">Checklist</button>
-        </div>
-        <button class="dayaddclose" onclick="toggleDayAdd()" title="Close">×</button>
-      </div>
-      <div class="pulladd">${body}</div>
-    </div>
-  `;
 }
 
 function toggleDayTreeNode(key){
@@ -3040,24 +2965,90 @@ function toggleDayTreeNode(key){
   renderDaily();
 }
 
+// The three toggle* functions below are the only way anything gets
+// added to or removed from a day through the tree picker — each wraps
+// an existing mutator (which already does its own pushUndo/render/
+// queueSave) so the tree can treat "add" and "remove" as one flip of
+// the same switch rather than two different code paths, and so a row
+// never has to disappear from the tree just because it's already
+// planned — it stays put and picks up the "added" mark/flash instead.
+// dayTreeFlashKey is set just before the mutator runs (so the render()
+// inside it picks up the flash class for this one pass) and cleared
+// shortly after — see the flashtoggle CSS and the comment on
+// dayTreeFlashKey's declaration above for why the timeout matters.
+async function toggleDayTreeTask(taskId, dateStr){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  const key = 'task:'+taskId;
+  dayTreeFlashKey = key;
+  if(t.plannedDate===dateStr) await updatePlannedDate(taskId, '');
+  else await planTaskForDay(taskId, dateStr);
+  setTimeout(()=>{ if(dayTreeFlashKey===key) dayTreeFlashKey = null; }, 700);
+}
+
+async function toggleDayTreeSub(taskId, subId, dateStr){
+  const t = state.tasks.find(t=>t.id===taskId);
+  const s = t && (t.subtasks||[]).find(s=>s.id===subId);
+  if(!s) return;
+  const key = 'sub:'+subId;
+  dayTreeFlashKey = key;
+  if(s.plannedDate===dateStr) await unplanSubtaskFromDay(taskId, subId);
+  else await pullSubtaskToDay(taskId, subId, dateStr);
+  setTimeout(()=>{ if(dayTreeFlashKey===key) dayTreeFlashKey = null; }, 700);
+}
+
+async function toggleDayTreeChecklist(listId, dateStr){
+  const t = state.tasks.find(t=>t.id===listId);
+  if(!t) return;
+  const key = 'cklist:'+listId;
+  dayTreeFlashKey = key;
+  if(t.plannedDate===dateStr) await updatePlannedDate(listId, '');
+  else await planTaskForDay(listId, dateStr);
+  setTimeout(()=>{ if(dayTreeFlashKey===key) dayTreeFlashKey = null; }, 700);
+}
+
 function dayTreeTaskHtml(t, dateStr){
   const key = 'task:'+t.id;
   const open = dayTreeExpanded.has(key);
-  const subs = (t.subtasks||[]).filter(s=>s.plannedDate!==dateStr);
+  const subs = t.subtasks || [];
   const alreadyWhole = t.plannedDate===dateStr;
+  const flash = dayTreeFlashKey===key ? ' flashtoggle' : '';
   return `
     <div class="daytreenode sub">
-      <div class="daytreetaskrow">
+      <div class="daytreetaskrow${flash}">
         <button class="daytreelabel" onclick="toggleDayTreeNode('${key}')">${subs.length ? (open?'▾':'▸') : '·'} ${escapeHtml(t.title)}</button>
-        <button class="daytreeleaf whole ${alreadyWhole?'added':''}" onclick="planTaskForDay('${t.id}','${dateStr}')">${alreadyWhole?'Added':'+ Whole task'}</button>
+        ${alreadyWhole ? `<span class="daytreemark" title="On today's list">✓</span>` : ''}
+        <button class="daytreeleaf whole ${alreadyWhole?'added':''}" onclick="toggleDayTreeTask('${t.id}','${dateStr}')">${alreadyWhole?'Added':'+ Whole task'}</button>
       </div>
       ${open && subs.length ? `<div class="daytreechildren">
-        ${subs.map(s=>`<button class="daytreeleaf" onclick="pullSubtaskToDay('${t.id}','${s.id}','${dateStr}')">${escapeHtml(s.text)}</button>`).join('')}
+        ${subs.map(s=>daySubLeafHtml(t, s, dateStr)).join('')}
       </div>` : ''}
     </div>`;
 }
 
-function renderDayTreePicker(dateStr){
+function daySubLeafHtml(t, s, dateStr){
+  const planned = s.plannedDate===dateStr;
+  const key = 'sub:'+s.id;
+  const flash = dayTreeFlashKey===key ? ' flashtoggle' : '';
+  return `
+    <div class="daytreeleafrow${flash}">
+      <button class="daytreeleaf" onclick="toggleDayTreeSub('${t.id}','${s.id}','${dateStr}')">${planned ? '<span class="daytreemark">✓</span> ' : ''}${escapeHtml(s.text)}</button>
+      <button class="daytreeaddbtn ${planned?'added':''}" onclick="toggleDayTreeSub('${t.id}','${s.id}','${dateStr}')">${planned?'Added':'+ Add'}</button>
+    </div>`;
+}
+
+function dayTreeChecklistLeafHtml(t, dateStr){
+  const planned = t.plannedDate===dateStr;
+  const key = 'cklist:'+t.id;
+  const flash = dayTreeFlashKey===key ? ' flashtoggle' : '';
+  return `
+    <div class="daytreeleafrow${flash}">
+      <button class="daytreeleaf" onclick="toggleDayTreeChecklist('${t.id}','${dateStr}')">${planned ? '<span class="daytreemark">✓</span> ' : ''}${escapeHtml(t.title)}</button>
+      <button class="daytreeaddbtn ${planned?'added':''}" onclick="toggleDayTreeChecklist('${t.id}','${dateStr}')">${planned?'Added':'+ Add'}</button>
+    </div>`;
+}
+
+function renderAddToDayPicker(dateStr){
   if(!dayAddOpen){
     return `<button class="pullbtn dayaddtoggle" onclick="toggleDayAdd()">+ Add to this day</button>`;
   }
@@ -3067,7 +3058,9 @@ function renderDayTreePicker(dateStr){
     const tasks = dayCandidateTasks(dateStr, k);
     return `
       <div class="daytreenode">
-        <button class="daytreelabel" onclick="toggleDayTreeNode('${key}')">${open?'▾':'▸'} ${escapeHtml(v.label)}</button>
+        <button class="daytreelabel daytreecat" onclick="toggleDayTreeNode('${key}')">
+          <span class="daytreetriangle">${open?'▾':'▸'}</span><span class="dot" style="background:${v.hex}"></span>${escapeHtml(v.label)}
+        </button>
         ${open ? `<div class="daytreechildren">
           ${tasks.length ? tasks.map(t=>dayTreeTaskHtml(t, dateStr)).join('') : `<div class="empty" style="padding:4px 0;">Nothing eligible here.</div>`}
         </div>` : ''}
@@ -3077,18 +3070,20 @@ function renderDayTreePicker(dateStr){
   const checklistCatsHtml = Object.entries(CATEGORIES).filter(([,v])=>v.type==='checklist').map(([k,v])=>{
     const key = 'cklist:'+k;
     const open = dayTreeExpanded.has(key);
-    const lists = checklistLists(k).filter(t=>t.plannedDate!==dateStr);
+    const lists = checklistLists(k);
     return `
       <div class="daytreenode">
-        <button class="daytreelabel" onclick="toggleDayTreeNode('${key}')">${open?'▾':'▸'} ${escapeHtml(v.label)}</button>
+        <button class="daytreelabel daytreecat" onclick="toggleDayTreeNode('${key}')">
+          <span class="daytreetriangle">${open?'▾':'▸'}</span><span class="dot" style="background:${v.hex}"></span>${escapeHtml(v.label)}
+        </button>
         ${open ? `<div class="daytreechildren">
-          ${lists.length ? lists.map(t=>`<button class="daytreeleaf" onclick="planTaskForDay('${t.id}','${dateStr}')">${escapeHtml(t.title)}</button>`).join('') : `<div class="empty" style="padding:4px 0;">No lists here.</div>`}
+          ${lists.length ? lists.map(t=>dayTreeChecklistLeafHtml(t, dateStr)).join('') : `<div class="empty" style="padding:4px 0;">No lists here.</div>`}
         </div>` : ''}
       </div>`;
   }).join('');
 
   return `
-    <div class="dayaddpanel daytree">
+    <div class="dayaddpanel">
       <div class="dayaddhead">
         <div class="daylistlabel" style="margin:0;">Add to this day</div>
         <button class="dayaddclose" onclick="toggleDayAdd()" title="Close">×</button>
@@ -3142,18 +3137,26 @@ function renderDayDetail(dateStr){
   const isPast = dateStr < todayStr();
   const nextDate = addDaysToDateStr(dateStr, 1);
 
+  // Whole tasks and steps share one list — a step planned onto a day is
+  // just as much "on today's list" as a whole task is, so there's no
+  // separate "Steps" section splitting them apart. Checklists stay their
+  // own group below: a whole named list is a different enough kind of
+  // thing (opens into its own page, has no due date/priority) that
+  // lumping it in with tasks/steps would be more confusing than helpful.
   // Every task shows, including completed ones — completed just render
   // crossed out, so you can see the whole day's shape at a glance.
-  const list = sorted.length
-    ? sorted.map(t=>taskRowHtml(t, true, true)).join('') + dropEndHtml(sorted)
-    : `<div class="empty">Nothing planned for this day yet.</div>`;
-
-  // Steps/checklists groups only render when non-empty, so a day with
-  // none planned (the common case today) looks exactly as it always has.
-  const subsBlock = subItems.length ? `
-    <div class="daylistlabel">Steps</div>
-    <ul class="tasks">${subItems.map(x=>daySubtaskRowHtml(x.task, x.sub, dateStr)).join('')}</ul>
+  const mainCount = sorted.length + subItems.length;
+  const mainListHtml = mainCount ? `
+    <ul class="tasks">${
+      sorted.map(t=>taskRowHtml(t, true, true)).join('') +
+      subItems.map(x=>daySubtaskRowHtml(x.task, x.sub, dateStr)).join('') +
+      dropEndHtml(sorted)
+    }</ul>
   ` : '';
+  // Only claim "nothing planned" when the day is truly empty across all
+  // three kinds of item — a day with only a checklist planned (no tasks,
+  // no steps) shouldn't say nothing's planned right above that checklist.
+  const emptyMsg = total ? '' : `<div class="empty">Nothing planned for this day yet.</div>`;
   const checklistsBlock = checklistItems.length ? `
     <div class="daylistlabel">Checklists</div>
     <ul class="tasks">${checklistItems.map(t=>dayChecklistRowHtml(t, dateStr)).join('')}</ul>
@@ -3189,8 +3192,8 @@ function renderDayDetail(dateStr){
         <label class="fieldlabel">SORT</label>
         <select onchange="setSortMode(this.value)">${sortModeOptionsHtml()}</select>
       </div>
-      <ul class="tasks">${list}</ul>
-      ${subsBlock}
+      ${emptyMsg}
+      ${mainListHtml}
       ${checklistsBlock}
     </div>
   `;
