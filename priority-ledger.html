@@ -469,7 +469,19 @@
   .subcheck{
     width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
     display:flex; align-items:center; justify-content:center; cursor:pointer;
+    position:relative;
   }
+  /* Invisible hit-area expansion — the visible box stays exactly 14px
+     (the whole point was keeping it visually smaller than a task's own
+     .check, just easier to actually tap), but an unpainted ::before
+     extends the real clickable region past the drawn edges. A click
+     landing on a pseudo-element still resolves to the element it belongs
+     to, so this needs no JS. Biased toward top/right/bottom, where taps
+     were most often landing just outside the box; left is left almost
+     alone since that side wasn't reported as a problem. Uses ::before
+     (not ::after, which the done checkmark below already owns) so the
+     two can't collide. */
+  .subcheck::before{ content:''; position:absolute; top:-7px; right:-9px; bottom:-7px; left:-3px; }
   .subcheck.done{ background: var(--ink); border-color: var(--ink); }
   .subcheck.done::after{ content:'✓'; color: var(--card-bg); font-size:9px; }
   /* Checklist items only (not a standard task's subtasks, which stay
@@ -524,8 +536,12 @@
      task is also planned whole onto the same day (see renderDayDetail's
      nestedSteps grouping) — indented past the checkbox column rather
      than sharing its alignment, so nesting reads as "under," not just
-     "another row at the same level." */
-  .daysubnested{ margin-left:28px; }
+     "another row at the same level." The step still carries the full
+     "TASK > step" label regardless (see daySubtaskRowHtml) — indentation
+     is a second, reinforcing cue, not the only one, since relying on
+     indent alone read as ambiguous on its own. The left border gives that
+     cue a visible anchor line rather than just empty space. */
+  .daysubnested{ margin-left:34px; padding-left:10px; border-left:2px solid var(--line); }
   .subadd{
     width:100%; border:none; border-bottom:1px dashed var(--line); background:transparent;
     font-family:'IBM Plex Sans',sans-serif; font-size:0.84rem; padding:6px 2px; color:var(--ink); outline:none; margin-top:2px;
@@ -3264,9 +3280,13 @@ function daySubtaskRowHtml(task, sub, dateStr, nested){
   const spacer = (!nested && draggableMain)
     ? `<span class="draghandle" style="visibility:hidden" aria-hidden="true">⠿</span>`
     : '';
-  const label = nested
-    ? escapeHtml(sub.text)
-    : `<span class="daysubparent">${escapeHtml(task.title)} &gt; </span>${escapeHtml(sub.text)}`;
+  // Always "TASK > step", nested or not — an orphan step (parent not on
+  // this day) and a nested one (parent's own row sitting right above it)
+  // used to read differently depending on which day you were looking at,
+  // which was the actual complaint: the same step could show as bare
+  // "step" on one day and "TASK > step" on another. Nesting still gets
+  // its indent (below) as an *additional* cue, it just isn't the only one.
+  const label = `<span class="daysubparent">${escapeHtml(task.title)} &gt; </span>${escapeHtml(sub.text)}`;
   return `
   <li class="task ${nested ? 'daysubnested' : ''}">
     <div class="row" onclick="openTaskDetailFromDay('${task.id}')">
