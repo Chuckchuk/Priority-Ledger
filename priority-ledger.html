@@ -468,8 +468,26 @@
   .subtext{ flex:1; font-size:0.84rem; }
   .subtext.done{ text-decoration:line-through; color: var(--ink-soft); }
   .subdel{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
-  .movetmrw{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
-  .movetmrw:hover{ color: var(--brass); }
+  /* .movetmrw ("move to tomorrow") / .dayremove ("remove from this day")
+     — the pair of small action buttons on a Daily row. Given a real
+     border/box (unlike the plain-text .subdel used for step/item delete
+     elsewhere) specifically so the arrow and × read as two distinct
+     tappable buttons sitting side by side, not stray punctuation next to
+     the row. .movetmrw goes further and gets a disabled state — once
+     tomorrow's date is already in the item's plannedDates (see
+     taskRowHtml/daySubtaskRowHtml), re-adding it would be a no-op, so the
+     button fades out and stops accepting clicks rather than sitting there
+     implying there's still something to do. */
+  .movetmrw, .dayremove{
+    display:flex; align-items:center; justify-content:center;
+    width:22px; height:22px; flex-shrink:0; padding:0; line-height:1;
+    font-size:0.78rem; cursor:pointer; border-radius:5px;
+    background:none; border:1px solid var(--line); color: var(--ink-soft);
+  }
+  .movetmrw:hover{ border-color: var(--brass); color: var(--brass); }
+  .dayremove:hover{ border-color: var(--estate); color: var(--estate); }
+  .movetmrw:disabled{ opacity:0.35; cursor:default; }
+  .movetmrw:disabled:hover{ border-color: var(--line); color: var(--ink-soft); }
   /* A step's own optional date — discreet by design, per the ask: a
      small muted pill rather than a full date input. Empty state gets a
      dashed underline (echoing .subadd's own placeholder-as-invitation
@@ -486,6 +504,17 @@
   /* A step planned onto a day, shown "TASK > step" (see daySubtaskRowHtml)
      — the task half stays muted so the step itself reads as the subject. */
   .daysubparent{ color: var(--ink-soft); }
+  /* Fixes a step row's .subcheck (14px) to center under a task row's
+     .check (18px) instead of drifting left of it — width matches .check's
+     own so .checkwrap's existing align-items:center does the centering,
+     same trick as .checklistheader scaling reusing shared markup. */
+  .checkwrap.daysub{ width:18px; }
+  /* Groups a step directly under its own parent task's row when that
+     task is also planned whole onto the same day (see renderDayDetail's
+     nestedSteps grouping) — indented past the checkbox column rather
+     than sharing its alignment, so nesting reads as "under," not just
+     "another row at the same level." */
+  .daysubnested{ margin-left:28px; }
   .subadd{
     width:100%; border:none; border-bottom:1px dashed var(--line); background:transparent;
     font-family:'IBM Plex Sans',sans-serif; font-size:0.84rem; padding:6px 2px; color:var(--ink); outline:none; margin-top:2px;
@@ -2166,20 +2195,21 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // openTaskDetailFromDay/renderTaskDetailPage) rather than expanding
   // inline — everywhere else it's the usual inline .expand toggle.
   const rowClick = inDaily ? `openTaskDetailFromDay('${t.id}')` : `toggleExpand(event,'${t.id}')`;
+  const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
   <li class="task" ${dragTargetAttrs}>
     <div class="row" onclick="${rowClick}">
       ${dragHandle}
-      <div class="checkwrap">
-        <div class="check ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
+      <div class="checkwrap" onclick="event.stopPropagation()">
+        <div class="check ${t.status==='done'?'done':''}" onclick="toggleStatus('${t.id}')"></div>
         ${subProgressHtml(subs)}
       </div>
       ${dotHtml}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.urgent && t.status!=='done' ? ' ⚑' : ''}</div>
       <div class="meta">${priorityBadge}${timeframeBadge}${badge}</div>
       ${inDaily ? `
-        <button class="movetmrw" onclick="event.stopPropagation(); moveTaskToTomorrow('${t.id}','${dayDate}')" title="Move to tomorrow">→</button>
-        <button class="subdel" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
+        <button class="movetmrw" ${onTomorrow?'disabled':''} onclick="event.stopPropagation(); moveTaskToTomorrow('${t.id}','${dayDate}')" title="${onTomorrow ? 'Already planned for tomorrow' : 'Also plan for tomorrow'}">→</button>
+        <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
       ` : ''}
     </div>
     ${inDaily ? '' : `<div class="expand" id="exp-${t.id}">${taskExpandFieldsHtml(t, canRemoveHere)}</div>`}
@@ -3204,16 +3234,38 @@ function renderAddToDayPicker(dateStr){
 // small square .subcheck — deliberately a different shape from a whole
 // task's big .check or a checklist's round .checkcircle, so a step-daily
 // reads at a glance as a lighter-weight item than either.
-function daySubtaskRowHtml(task, sub, dateStr){
+// `nested` is true when this step's parent task is also planned whole
+// onto the same day — renderDayDetail groups it directly under the
+// parent's own row in that case (see the nestedByParent grouping there),
+// so the "TASK > " prefix would be redundant and it gets an indent
+// instead. An "orphan" step (parent not itself on this day) stays flat
+// with the prefix, same as before, since there's no parent row nearby to
+// read it as nested under.
+function daySubtaskRowHtml(task, sub, dateStr, nested){
+  const nextDate = addDaysToDateStr(dateStr, 1);
+  const onTomorrow = (sub.plannedDates||[]).includes(nextDate);
+  // Matches the invisible-when-not-draggable spacer taskRowHtml reserves
+  // for its own .draghandle, so an orphan step's checkbox lines up under
+  // a whole task's — see the .checkwrap.daysub / .draghandle comment in
+  // <style>. Skipped when nested: indentation already reads as "under its
+  // parent" without also needing to sit on the same checkbox column.
+  const draggableMain = sortMode === 'default';
+  const spacer = (!nested && draggableMain)
+    ? `<span class="draghandle" style="visibility:hidden" aria-hidden="true">⠿</span>`
+    : '';
+  const label = nested
+    ? escapeHtml(sub.text)
+    : `<span class="daysubparent">${escapeHtml(task.title)} &gt; </span>${escapeHtml(sub.text)}`;
   return `
-  <li class="task">
+  <li class="task ${nested ? 'daysubnested' : ''}">
     <div class="row" onclick="openTaskDetailFromDay('${task.id}')">
-      <div class="checkwrap">
-        <div class="subcheck ${sub.done?'done':''}" onclick="event.stopPropagation(); toggleSubtask('${task.id}','${sub.id}')"></div>
+      ${spacer}
+      <div class="checkwrap daysub" onclick="event.stopPropagation()">
+        <div class="subcheck ${sub.done?'done':''}" onclick="toggleSubtask('${task.id}','${sub.id}')"></div>
       </div>
-      <div class="title ${sub.done?'done':''}"><span class="daysubparent">${escapeHtml(task.title)} &gt; </span>${escapeHtml(sub.text)}</div>
-      <button class="movetmrw" onclick="event.stopPropagation(); moveSubtaskToTomorrow('${task.id}','${sub.id}','${dateStr}')" title="Move to tomorrow">→</button>
-      <button class="subdel" onclick="event.stopPropagation(); unplanSubtaskFromDay('${task.id}','${sub.id}','${dateStr}')" title="Remove from this day">×</button>
+      <div class="title ${sub.done?'done':''}">${label}</div>
+      <button class="movetmrw" ${onTomorrow?'disabled':''} onclick="event.stopPropagation(); moveSubtaskToTomorrow('${task.id}','${sub.id}','${dateStr}')" title="${onTomorrow ? 'Already planned for tomorrow' : 'Also plan for tomorrow'}">→</button>
+      <button class="dayremove" onclick="event.stopPropagation(); unplanSubtaskFromDay('${task.id}','${sub.id}','${dateStr}')" title="Remove from this day">×</button>
     </div>
   </li>`;
 }
@@ -3224,7 +3276,7 @@ function dayChecklistRowHtml(t, dateStr){
     <div class="row" onclick="openChecklistListFromDay('${t.id}','${dateStr}')">
       ${checklistCheckcircleHtml(t)}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}</div>
-      <button class="subdel" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dateStr}')" title="Remove from this day">×</button>
+      <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dateStr}')" title="Remove from this day">×</button>
     </div>
   </li>`;
 }
@@ -3254,11 +3306,28 @@ function renderDayDetail(dateStr){
   // lumping it in with tasks/steps would be more confusing than helpful.
   // Every task shows, including completed ones — completed just render
   // crossed out, so you can see the whole day's shape at a glance.
+  //
+  // A step whose parent task is *also* planned whole onto this day
+  // renders directly under that task's own row (nested, no "TASK > "
+  // prefix — see daySubtaskRowHtml) instead of out in the flat list, so
+  // the day reads as an actual outline rather than every step floating
+  // independently next to its own task. A step whose parent isn't itself
+  // on this day (only the step was pulled in) has no row to nest under,
+  // so it stays a flat "TASK > step" row same as before.
+  const sortedIds = new Set(sorted.map(t=>t.id));
+  const nestedSteps = {};
+  const orphanSteps = [];
+  subItems.forEach(x=>{
+    if(sortedIds.has(x.task.id)) (nestedSteps[x.task.id] = nestedSteps[x.task.id] || []).push(x);
+    else orphanSteps.push(x);
+  });
   const mainCount = sorted.length + subItems.length;
   const mainListHtml = mainCount ? `
     <ul class="tasks">${
-      sorted.map(t=>taskRowHtml(t, true, true, dateStr)).join('') +
-      subItems.map(x=>daySubtaskRowHtml(x.task, x.sub, dateStr)).join('') +
+      sorted.map(t => taskRowHtml(t, true, true, dateStr) +
+        (nestedSteps[t.id] ? nestedSteps[t.id].map(x=>daySubtaskRowHtml(x.task, x.sub, dateStr, true)).join('') : '')
+      ).join('') +
+      orphanSteps.map(x=>daySubtaskRowHtml(x.task, x.sub, dateStr, false)).join('') +
       dropEndHtml(sorted)
     }</ul>
   ` : '';
@@ -3612,19 +3681,21 @@ async function unplanSubtaskFromDay(taskId, subId, dateStr){
   queueSave();
 }
 
-// Pushes a task/step off one specific day and onto the next — a genuine
-// move (unlike moveIncompleteToTomorrow's copy-forward, which keeps the
-// item on the day it started on) for pushing a single item you didn't
-// get to today onto tomorrow's list instead.
+// Same copy-forward semantics as moveIncompleteToTomorrow, one item at a
+// time — keeps the item on the day it started on and additionally plans
+// it onto tomorrow, rather than pulling it off today (that's a different
+// action the project owner didn't want here). Idempotent: a no-op once
+// tomorrow's date is already in plannedDates, so the button can safely be
+// left enabled without risking a duplicate — see the taskRowHtml/
+// daySubtaskRowHtml render sites for where it's disabled once already added.
 async function moveTaskToTomorrow(taskId, dateStr){
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
   const nextDate = addDaysToDateStr(dateStr, 1);
   if(!t.plannedDates) t.plannedDates = [];
-  const idx = t.plannedDates.indexOf(dateStr);
-  pushUndo(`Moved "${t.title}" to ${fmtDate(nextDate)}`);
-  if(idx!==-1) t.plannedDates.splice(idx, 1);
-  if(!t.plannedDates.includes(nextDate)) t.plannedDates.push(nextDate);
+  if(t.plannedDates.includes(nextDate)) return;
+  pushUndo(`Also planned "${t.title}" for ${fmtDate(nextDate)}`);
+  t.plannedDates.push(nextDate);
   await ensureDay(nextDate);
   render();
   queueSave();
@@ -3636,10 +3707,9 @@ async function moveSubtaskToTomorrow(taskId, subId, dateStr){
   if(!s) return;
   const nextDate = addDaysToDateStr(dateStr, 1);
   if(!s.plannedDates) s.plannedDates = [];
-  const idx = s.plannedDates.indexOf(dateStr);
-  pushUndo(`Moved step "${s.text}" to ${fmtDate(nextDate)}`);
-  if(idx!==-1) s.plannedDates.splice(idx, 1);
-  if(!s.plannedDates.includes(nextDate)) s.plannedDates.push(nextDate);
+  if(s.plannedDates.includes(nextDate)) return;
+  pushUndo(`Also planned step "${s.text}" for ${fmtDate(nextDate)}`);
+  s.plannedDates.push(nextDate);
   await ensureDay(nextDate);
   render();
   queueSave();
@@ -3772,12 +3842,21 @@ function startEditSubtaskDate(el, taskId, subId){
   input.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); input.blur(); } });
 }
 
+// Same auto-plan-onto-its-due-day behavior as updateDueDate — see the
+// comment there.
 async function updateSubtaskDueDate(taskId, subId, dueDate){
   const t = state.tasks.find(t=>t.id===taskId);
   const s = t && (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
   pushUndo(dueDate ? `Dated step "${s.text}"` : `Cleared date for step "${s.text}"`);
   s.dueDate = dueDate;
+  if(dueDate && isDueWithinDays(dueDate, 3)){
+    if(!s.plannedDates) s.plannedDates = [];
+    if(!s.plannedDates.includes(dueDate)){
+      s.plannedDates.push(dueDate);
+      await ensureDay(dueDate);
+    }
+  }
   render();
   reopen(taskId);
   queueSave();
@@ -3850,12 +3929,26 @@ async function toggleUrgent(id){
   queueSave();
 }
 
+// Setting a due date within isDueWithinDays' 3-day/overdue window also
+// plans the task onto that due date's daily — same window the "Add to
+// this day" tree already uses to decide what's eligible to pull in, just
+// applied automatically instead of waiting for a manual tree add.
+// ensureDay() creates that day if it doesn't exist yet. One-way, same as
+// updateTimeframe's "today" plan: pushing the due date back out past the
+// window later doesn't retroactively unplan it.
 async function updateDueDate(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
   if(val === t.dueDate) return;
   pushUndo(`Changed due date for "${t.title}"`);
   t.dueDate = val;
+  if(val && isDueWithinDays(val, 3)){
+    if(!t.plannedDates) t.plannedDates = [];
+    if(!t.plannedDates.includes(val)){
+      t.plannedDates.push(val);
+      await ensureDay(val);
+    }
+  }
   render();
   reopen(id);
   queueSave();
