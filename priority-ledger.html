@@ -2354,6 +2354,11 @@ function switchTab(key){
   claudeView = null;
   settingsOpen = false;
   activeTab = key;
+  // Device-local only (plain localStorage, not the synced storage adapter)
+  // — which tab you're looking at isn't ledger data, so it doesn't belong
+  // in state/Supabase. Restored in enterApp() so a reload lands back where
+  // you were instead of always snapping to "All".
+  localStorage.setItem('ledger-last-tab', key);
   randomizePageTilt();
   render();
 }
@@ -4051,6 +4056,12 @@ async function enterApp(){
   const refreshBtn = document.getElementById('refreshBtn');
   if(refreshBtn) refreshBtn.style.display = (localOnlyMode || window.storage) ? 'none' : '';
   await loadState();
+  // Restore whichever tab was active before the last reload/sign-in, rather
+  // than always landing on "All" — visibleTabs() guards against a stale id
+  // (a deleted category, or a tab left over from a different account on
+  // this device) by falling back to whatever activeTab already is ('all').
+  const lastTab = localStorage.getItem('ledger-last-tab');
+  if(lastTab && visibleTabs().includes(lastTab)) activeTab = lastTab;
   applyTheme();
   applyDevSettings();
   render();
