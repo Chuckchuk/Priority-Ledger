@@ -468,6 +468,8 @@
   .subtext{ flex:1; font-size:0.84rem; }
   .subtext.done{ text-decoration:line-through; color: var(--ink-soft); }
   .subdel{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
+  .movetmrw{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
+  .movetmrw:hover{ color: var(--brass); }
   /* A step's own optional date — discreet by design, per the ask: a
      small muted pill rather than a full date input. Empty state gets a
      dashed underline (echoing .subadd's own placeholder-as-invitation
@@ -535,15 +537,22 @@
   .pickerwrap input[type=date]{
     font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line); border-radius:5px; padding:6px; background:var(--card-bg-dim); color:var(--ink);
   }
-  .reschedule{ display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
-  .reschedule input[type=date]{
-    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line); border-radius:5px; padding:6px; background:var(--card-bg-dim); color:var(--ink);
-  }
-  .reschedulemsg{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; color:var(--estate); }
   .lockednote{
     display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'IBM Plex Mono', monospace; font-size:0.68rem;
     color: var(--ink-soft); background: var(--card-bg-dim); border-radius:6px; padding:10px 12px; margin-bottom:14px; letter-spacing:0.03em;
   }
+  .movetomorrowrow{ margin-bottom:14px; }
+  /* Large "which day is this" label centered atop a day's detail page —
+     see dayHeaderTag() in <script>. Plain text for Yesterday/Tomorrow/a
+     weekday name; Today gets its own larger, brass-colored treatment so
+     it's unmistakable at a glance which day you're looking at, echoing
+     .todaytag's brass accent used for "today" everywhere else. */
+  .dayherorow{ display:flex; justify-content:center; margin:2px 0 6px; }
+  .dayhero{
+    font-family:'Fraunces', serif; font-weight:600; font-size:1.15rem;
+    color:var(--ink-soft); letter-spacing:0.02em;
+  }
+  .dayhero.today{ font-size:1.9rem; font-weight:700; color:var(--brass); }
   .daylistlabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin: 4px 0 6px; }
   .dayitem{
     width:100%; display:flex; justify-content:space-between; align-items:center; text-align:left;
@@ -582,10 +591,11 @@
      it) plus its own shadow, a thin border for definition, and
      fully-rounded corners (vs. .card's single squared "dog-ear" corner)
      is what sells it as a separate sheet rather than a re-skinned
-     version of the same card. Not every view needs this — plain
-     sub-views (Daily's day-detail, the Claude-digest view) stay on
-     .backbtn's plain text link instead; reach for .stackedpage
-     specifically when the "opened a page on top" feeling is wanted. */
+     version of the same card. Not every view needs this — the plain
+     Claude-digest view stays on .backbtn's plain text link instead;
+     reach for .stackedpage specifically when the "opened a page on top"
+     feeling is wanted, as Daily's day-detail, its per-task detail page,
+     the checklist views, and Settings all do. */
   .stackedpage{
     background: var(--card-bg);
     background: color-mix(in srgb, var(--card-bg) 95%, white 5%);
@@ -695,6 +705,12 @@
     height:78px; margin: 4px 0 -8px;
   }
   .checklistheader .checkcircle-wrap{ transform: scale(2.2); }
+  /* Header atop the full-page task detail opened from Daily (see
+     renderTaskDetailPage) — just the completion check and category dot,
+     since the title/fields below (taskExpandFieldsHtml) carry the rest;
+     no separate title line here the way .checklistheader has one, since
+     the title is itself an editable field right underneath. */
+  .taskdetailhead{ display:flex; align-items:center; gap:8px; margin:4px 0 10px; }
   .daydetailhead{ margin-bottom:14px; }
   .daydetailhead h2{ font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.35rem; margin:0 0 4px; color:var(--ink); }
   .dayprogress{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); }
@@ -1341,14 +1357,19 @@ function normalizeState(){
   if(typeof state.devSettings.dayTreeCatBubble !== 'boolean') state.devSettings.dayTreeCatBubble = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
-    if(t.plannedDate===undefined) t.plannedDate = '';
+    // plannedDate (one day, exclusive) migrated to plannedDates (an array)
+    // so a task can sit on more than one day's list at once — see the
+    // note on planTaskForDay() for why exclusivity was actually a bug.
+    if(t.plannedDates===undefined) t.plannedDates = t.plannedDate ? [t.plannedDate] : [];
+    delete t.plannedDate;
     // Steps didn't used to carry their own dates — dueDate (typed/parsed,
-    // informational) and plannedDate (which day's list this step is on,
-    // independent of the parent task's own plannedDate) both default to
+    // informational) and plannedDates (which days' lists this step is on,
+    // independent of the parent task's own plannedDates) both default to
     // "unset" for every pre-existing step.
     (t.subtasks||[]).forEach(s=>{
       if(s.dueDate===undefined) s.dueDate = '';
-      if(s.plannedDate===undefined) s.plannedDate = '';
+      if(s.plannedDates===undefined) s.plannedDates = s.plannedDate ? [s.plannedDate] : [];
+      delete s.plannedDate;
     });
     // Bookkeeping (createdAt already existed) plus the optional advanced
     // fields — timeframe/priority default to "unset" rather than any
@@ -2031,26 +2052,12 @@ function reorderSubtask(taskId, draggedSubId, targetSubId, before){
 }
 
 
-function taskRowHtml(t, showDot, inDaily){
-  const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
-  const canRemoveHere = !inDaily || t.category==='misc';
-  const overdue = isOverdue(t);
-  let badge = '';
-  if(overdue) badge = `<span class="badge overdue">Overdue</span>`;
-  else if(t.dueDate) badge = `<span class="badge due">${fmtDate(t.dueDate)}</span>`;
-  // Priority/timeframe badges only render when actually set (both default
-  // to "unset") and only in advanced mode — a task nobody has triaged
-  // stays exactly as uncluttered as it always was.
-  let priorityBadge = '';
-  if(state.advancedTaskFields && t.priority){
-    const pClass = t.priority===3 ? 'priority-high' : t.priority===2 ? 'priority-medium' : 'priority-low';
-    priorityBadge = `<span class="badge ${pClass}">${PRIORITY_LABELS[t.priority]}</span>`;
-  }
-  let timeframeBadge = '';
-  if(state.advancedTaskFields && t.timeframe){
-    timeframeBadge = `<span class="badge timeframe">${TIMEFRAME_LABELS[t.timeframe]}</span>`;
-  }
-  const dotHtml = showDot ? `<span class="cdot" style="background:${cat.hex}"></span>` : '';
+// Everything a task's own detail shows below its row header — title,
+// category/due/urgent/today fields, timeframe/priority, steps, notes,
+// meta line. Shared by the inline .expand under a normal row and the
+// full-page task detail opened from Daily (renderTaskDetailPage) so the
+// two can never drift out of sync — edit once, both places update.
+function taskExpandFieldsHtml(t, canRemoveHere){
   const subs = t.subtasks || [];
   let metaLine = `Created ${fmtDate(t.createdAt)}`;
   if(t.status==='done' && t.completedAt){
@@ -2059,32 +2066,12 @@ function taskRowHtml(t, showDot, inDaily){
     const age = daysBetween(t.createdAt, todayStr());
     if(age > 0) metaLine += ` · Open ${age}d`;
   }
-  // Drag-to-reorder is only meaningful in 'default' sort mode — every
-  // other mode derives the row's position from a sort key, so a drag
-  // there would just snap back on the next render. No handle, no drag
-  // attributes at all outside 'default', rather than a handle that's
-  // present but silently does nothing.
-  const draggableMain = sortMode === 'default';
-  const dragHandle = draggableMain
-    ? `<span class="draghandle" draggable="true" ondragstart="taskDragStart(event,'${t.id}')" ondragend="taskDragEnd()" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>`
-    : '';
-  const dragTargetAttrs = draggableMain
-    ? `ondragover="taskDragOver(event)" ondrop="taskDrop(event,'${t.id}')"`
-    : '';
+  const plannedToday = (t.plannedDates||[]).includes(todayStr());
+  const otherPlanned = (t.plannedDates||[]).filter(d=>d!==todayStr()).length;
+  const todayTitle = plannedToday ? 'Remove from today’s list'
+    : otherPlanned ? `Also planned on ${otherPlanned} other day${otherPlanned===1?'':'s'} — tap to add today too`
+    : 'Add to today’s list';
   return `
-  <li class="task" ${dragTargetAttrs}>
-    <div class="row" onclick="toggleExpand(event,'${t.id}')">
-      ${dragHandle}
-      <div class="checkwrap">
-        <div class="check ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
-        ${subProgressHtml(subs)}
-      </div>
-      ${dotHtml}
-      <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.urgent && t.status!=='done' ? ' ⚑' : ''}</div>
-      <div class="meta">${priorityBadge}${timeframeBadge}${badge}</div>
-      ${inDaily ? `<button class="subdel" onclick="event.stopPropagation(); updatePlannedDate('${t.id}','')" title="Remove from this day">×</button>` : ''}
-    </div>
-    <div class="expand" id="exp-${t.id}">
       <input type="text" class="titleedit" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
@@ -2095,8 +2082,7 @@ function taskRowHtml(t, showDot, inDaily){
         <label class="fieldlabel">DUE</label>
         <input type="date" value="${t.dueDate||''}" onchange="updateDueDate('${t.id}', this.value)">
         <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-        <button class="flagbtn daybtn ${t.plannedDate?'on':''}" onclick="toggleTaskToday('${t.id}')"
-          title="${t.plannedDate===todayStr() ? 'Remove from today’s list' : t.plannedDate ? `Planned for ${fmtDate(t.plannedDate)} — tap to move to today` : 'Add to today’s list'}">📌</button>
+        <button class="flagbtn daybtn ${(t.plannedDates||[]).length?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>
         ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
       </div>
       ${state.advancedTaskFields ? `
@@ -2120,22 +2106,114 @@ function taskRowHtml(t, showDot, inDaily){
       </div>` : ''}
       <div class="subwrap">
         <div class="sublabel">Steps</div>
-        ${subs.map(s=>`
+        ${subs.map(s=>{
+          const subPlannedToday = (s.plannedDates||[]).includes(todayStr());
+          const subOtherPlanned = (s.plannedDates||[]).filter(d=>d!==todayStr()).length;
+          const subTodayTitle = subPlannedToday ? 'Remove from today’s list'
+            : subOtherPlanned ? `Also planned on ${subOtherPlanned} other day${subOtherPlanned===1?'':'s'} — tap to add today too`
+            : 'Add to today’s list';
+          return `
           <div class="subrow" ondragover="subDragOver(event)" ondrop="subDrop(event,'${t.id}','${s.id}')">
             <span class="draghandle sub" draggable="true" ondragstart="subDragStart(event,'${t.id}','${s.id}')" ondragend="subDragEnd()" title="Drag to reorder">⠿</span>
             <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <div class="subdate ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
-            <button class="flagbtn daybtn small ${s.plannedDate?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')"
-              title="${s.plannedDate===todayStr() ? 'Remove from today’s list' : s.plannedDate ? `Planned for ${fmtDate(s.plannedDate)} — tap to move to today` : 'Add to today’s list'}">📌</button>
+            <button class="flagbtn daybtn small ${(s.plannedDates||[]).length?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
             <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
         <input type="text" class="subadd" placeholder="+ add a step, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); }">
       </div>
       <textarea placeholder="Notes…" onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>
       <div class="taskmeta">${metaLine}</div>
+  `;
+}
+
+function taskRowHtml(t, showDot, inDaily, dayDate){
+  const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
+  const canRemoveHere = !inDaily || t.category==='misc';
+  const overdue = isOverdue(t);
+  let badge = '';
+  if(overdue) badge = `<span class="badge overdue">Overdue</span>`;
+  else if(t.dueDate) badge = `<span class="badge due">${fmtDate(t.dueDate)}</span>`;
+  // Priority/timeframe badges only render when actually set (both default
+  // to "unset") and only in advanced mode — a task nobody has triaged
+  // stays exactly as uncluttered as it always was.
+  let priorityBadge = '';
+  if(state.advancedTaskFields && t.priority){
+    const pClass = t.priority===3 ? 'priority-high' : t.priority===2 ? 'priority-medium' : 'priority-low';
+    priorityBadge = `<span class="badge ${pClass}">${PRIORITY_LABELS[t.priority]}</span>`;
+  }
+  let timeframeBadge = '';
+  if(state.advancedTaskFields && t.timeframe){
+    timeframeBadge = `<span class="badge timeframe">${TIMEFRAME_LABELS[t.timeframe]}</span>`;
+  }
+  const dotHtml = showDot ? `<span class="cdot" style="background:${cat.hex}"></span>` : '';
+  const subs = t.subtasks || [];
+  // Drag-to-reorder is only meaningful in 'default' sort mode — every
+  // other mode derives the row's position from a sort key, so a drag
+  // there would just snap back on the next render. No handle, no drag
+  // attributes at all outside 'default', rather than a handle that's
+  // present but silently does nothing.
+  const draggableMain = sortMode === 'default';
+  const dragHandle = draggableMain
+    ? `<span class="draghandle" draggable="true" ondragstart="taskDragStart(event,'${t.id}')" ondragend="taskDragEnd()" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>`
+    : '';
+  const dragTargetAttrs = draggableMain
+    ? `ondragover="taskDragOver(event)" ondrop="taskDrop(event,'${t.id}')"`
+    : '';
+  // Within Daily, clicking a task opens its own full page (see
+  // openTaskDetailFromDay/renderTaskDetailPage) rather than expanding
+  // inline — everywhere else it's the usual inline .expand toggle.
+  const rowClick = inDaily ? `openTaskDetailFromDay('${t.id}')` : `toggleExpand(event,'${t.id}')`;
+  return `
+  <li class="task" ${dragTargetAttrs}>
+    <div class="row" onclick="${rowClick}">
+      ${dragHandle}
+      <div class="checkwrap">
+        <div class="check ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
+        ${subProgressHtml(subs)}
+      </div>
+      ${dotHtml}
+      <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.urgent && t.status!=='done' ? ' ⚑' : ''}</div>
+      <div class="meta">${priorityBadge}${timeframeBadge}${badge}</div>
+      ${inDaily ? `
+        <button class="movetmrw" onclick="event.stopPropagation(); moveTaskToTomorrow('${t.id}','${dayDate}')" title="Move to tomorrow">→</button>
+        <button class="subdel" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
+      ` : ''}
     </div>
+    ${inDaily ? '' : `<div class="expand" id="exp-${t.id}">${taskExpandFieldsHtml(t, canRemoveHere)}</div>`}
   </li>`;
+}
+
+// Full-page task detail, opened by clicking a task or step within Daily
+// (see openTaskDetailFromDay) — same shared fields as the inline .expand,
+// wrapped in the "stacked page" pattern with a page tag back to the day
+// it was opened from, rather than expanding inline the way it does
+// everywhere else.
+function renderTaskDetailPage(taskId, dateStr){
+  const t = state.tasks.find(t=>t.id===taskId);
+  const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
+  const canRemoveHere = t.category==='misc';
+  return `
+    <div class="stackedpage">
+      ${pageTagHtml('closeTaskDetail()', 'Daily')}
+      <div class="taskdetailhead">
+        <div class="check ${t.status==='done'?'done':''}" onclick="toggleStatus('${t.id}')"></div>
+        <span class="cdot" style="background:${cat.hex}"></span>
+      </div>
+      ${taskExpandFieldsHtml(t, canRemoveHere)}
+    </div>
+  `;
+}
+
+function openTaskDetailFromDay(taskId){
+  taskDetailId = taskId;
+  renderDaily();
+}
+function closeTaskDetail(){
+  taskDetailId = null;
+  renderDaily();
 }
 
 function renderList(){
@@ -2740,6 +2818,12 @@ let dayTreeExpanded = new Set(); // open nodes, keyed 'cat:<id>' / 'task:<id>' /
 // (which recreates the row's DOM node from scratch) doesn't replay it.
 let dayTreeFlashKey = null;
 
+// Which task's full-page detail view (opened from clicking a task or step
+// within Daily — see openTaskDetailFromDay()) is showing on top of the
+// current day's detail, if any. Transient UI state, reset the same places
+// dayAddOpen/dayTreeExpanded are.
+let taskDetailId = null;
+
 function monthLabel(key){
   const [y,m] = key.split('-').map(Number);
   return new Date(y, m-1, 1).toLocaleDateString('en-US', { month:'long', year:'numeric' });
@@ -2750,7 +2834,7 @@ function dayLabel(dateStr){
 }
 
 function tasksForDay(dateStr){
-  return state.tasks.filter(t=>t.plannedDate===dateStr);
+  return state.tasks.filter(t=>(t.plannedDates||[]).includes(dateStr));
 }
 
 // Of the whole tasks planned onto a day, the checklist lists among them
@@ -2764,14 +2848,14 @@ function checklistDailyItemsForDay(dateStr){
 }
 
 // Steps planned onto a day independently of their parent task's own
-// plannedDate — {task, sub} pairs. Checklist items aren't part of this;
+// plannedDates — {task, sub} pairs. Checklist items aren't part of this;
 // a checklist is planned onto a day as a whole list, same as a task.
 function subDailyItemsForDay(dateStr){
   const out = [];
   state.tasks.forEach(t=>{
     if(isChecklistCategory(t.category)) return;
     (t.subtasks||[]).forEach(s=>{
-      if(s.plannedDate===dateStr) out.push({ task:t, sub:s });
+      if((s.plannedDates||[]).includes(dateStr)) out.push({ task:t, sub:s });
     });
   });
   return out;
@@ -2827,60 +2911,32 @@ async function confirmPickDate(){
   render();
 }
 
-async function rescheduleDay(oldDate, newDate){
-  const msgEl = document.getElementById('rescheduleMsg');
-  if(!newDate || newDate===oldDate) return;
-  if(newDate < todayStr()){
-    if(msgEl) msgEl.textContent = "Can't move a day into the past.";
-    return;
-  }
-  if(state.days.includes(newDate)){
-    if(msgEl) msgEl.textContent = 'That day already exists.';
-    return;
-  }
-  pushUndo('Rescheduled day');
-  state.tasks.forEach(t=>{ if(t.plannedDate===oldDate) t.plannedDate = newDate; });
-  state.days = state.days.filter(d=>d!==oldDate);
-  state.days.unshift(newDate);
-  selectedDay = newDate;
-  render();
-  queueSave();
-}
-
-async function cascadeUnfinished(dateStr){
+// Replaces the old whole-day reschedule + "copy unfinished as new tasks"
+// pair — the project owner found the "Move this Day To" date-picker
+// distracting and wanted it gone, with the copy-forward behavior kept but
+// changed to actually carry the *same* task/step forward (via the
+// plannedDates array — see the migration note in normalizeState()) rather
+// than minting duplicate task objects. An item already carrying tomorrow's
+// date is skipped, so mashing this button repeatedly can't pile up
+// duplicate entries on tomorrow's list the way the old copy did.
+async function moveIncompleteToTomorrow(dateStr){
   const nextDate = addDaysToDateStr(dateStr, 1);
-  // Checklist lists excluded — a whole-task copy doesn't make sense for
-  // a named list of items the way it does for a standard task, and now
-  // that checklists can carry a plannedDate at all (via the day picker),
-  // this filter would otherwise try to duplicate one.
-  const unfinished = state.tasks.filter(t=>t.plannedDate===dateStr && t.status!=='done' && !isChecklistCategory(t.category));
-  if(unfinished.length===0) return;
-  pushUndo('Copied unfinished tasks forward');
+  // Checklist lists excluded — a whole named list doesn't have the
+  // "incomplete" urgency a standard task/step does, same reasoning the
+  // old cascade used.
+  const tasks = standardTasksForDay(dateStr).filter(t=>t.status!=='done');
+  const subs = subDailyItemsForDay(dateStr).filter(x=>!x.sub.done);
+  if(tasks.length===0 && subs.length===0) return;
+  pushUndo('Moved incomplete items to tomorrow');
   await ensureDay(nextDate);
-  unfinished.forEach(t=>{
-    state.tasks.unshift({
-      id: newId('task'),
-      title: t.title,
-      category: t.category,
-      status: 'open',
-      urgent: t.urgent,
-      dueDate: t.dueDate,
-      notes: t.notes,
-      // Fresh copies start with no date/plan of their own — the parent
-      // task's plannedDate is what's being carried forward, not whatever
-      // day/date each individual step happened to carry.
-      subtasks: (t.subtasks||[]).map(s=>({ id:newId('sub'), text:s.text, done:s.done, dueDate:'', plannedDate:'' })),
-      plannedDate: nextDate,
-      // "Today" was specific to the day this got copied from, so it
-      // wouldn't mean anything carried forward — everything else about
-      // priority/timeframe is still a fair read on the new instance.
-      timeframe: t.timeframe==='today' ? '' : (t.timeframe||''),
-      priority: t.priority||0,
-      completedAt: '',
-      createdAt: todayStr()
-    });
+  tasks.forEach(t=>{
+    if(!t.plannedDates) t.plannedDates = [];
+    if(!t.plannedDates.includes(nextDate)) t.plannedDates.push(nextDate);
   });
-  selectedDay = nextDate;
+  subs.forEach(({sub})=>{
+    if(!sub.plannedDates) sub.plannedDates = [];
+    if(!sub.plannedDates.includes(nextDate)) sub.plannedDates.push(nextDate);
+  });
   render();
   queueSave();
 }
@@ -2889,6 +2945,7 @@ function resetDayAddPicker(){
   dayAddOpen = false;
   dayTreeExpanded = new Set();
   dayTreeFlashKey = null;
+  taskDetailId = null;
 }
 
 function openDay(dateStr){ selectedDay = dateStr; resetDayAddPicker(); render(); }
@@ -2901,7 +2958,27 @@ function toggleMonthGroup(key){
 
 function renderDaily(){
   const el = document.getElementById('dailyView');
-  el.innerHTML = selectedDay ? renderDayDetail(selectedDay) : renderDayList();
+  if(taskDetailId && !state.tasks.find(t=>t.id===taskDetailId)) taskDetailId = null;
+  if(selectedDay && taskDetailId){
+    el.innerHTML = renderTaskDetailPage(taskDetailId, selectedDay);
+  } else {
+    el.innerHTML = selectedDay ? renderDayDetail(selectedDay) : renderDayList();
+  }
+}
+
+// Large "which day is this" label shown centered atop a day's detail page
+// — distinct from the h2 (which always shows the full weekday+date). Today
+// and yesterday/tomorrow are unambiguous by name; 2-7 days out only reads
+// as a weekday, since "in 5 days" doesn't have a name people reach for;
+// beyond that window (or more than a day in the past) there's nothing
+// clarifying to say, so it renders nothing at all.
+function dayHeaderTag(dateStr){
+  const diffDays = Math.round((new Date(dateStr+'T00:00:00') - new Date(todayStr()+'T00:00:00')) / 86400000);
+  if(diffDays === 0) return { text:'Today', today:true };
+  if(diffDays === 1) return { text:'Tomorrow', today:false };
+  if(diffDays === -1) return { text:'Yesterday', today:false };
+  if(diffDays >= 2 && diffDays <= 7) return { text: new Date(dateStr+'T00:00:00').toLocaleDateString('en-US', { weekday:'long' }), today:false };
+  return null;
 }
 
 function renderDayList(){
@@ -2999,7 +3076,7 @@ async function toggleDayTreeTask(taskId, dateStr){
   if(!t) return;
   const key = 'task:'+taskId;
   dayTreeFlashKey = key;
-  if(t.plannedDate===dateStr) await updatePlannedDate(taskId, '');
+  if((t.plannedDates||[]).includes(dateStr)) await unplanTaskFromDay(taskId, dateStr);
   else await planTaskForDay(taskId, dateStr);
   setTimeout(()=>{ if(dayTreeFlashKey===key) dayTreeFlashKey = null; }, 700);
 }
@@ -3010,7 +3087,7 @@ async function toggleDayTreeSub(taskId, subId, dateStr){
   if(!s) return;
   const key = 'sub:'+subId;
   dayTreeFlashKey = key;
-  if(s.plannedDate===dateStr) await unplanSubtaskFromDay(taskId, subId);
+  if((s.plannedDates||[]).includes(dateStr)) await unplanSubtaskFromDay(taskId, subId, dateStr);
   else await pullSubtaskToDay(taskId, subId, dateStr);
   setTimeout(()=>{ if(dayTreeFlashKey===key) dayTreeFlashKey = null; }, 700);
 }
@@ -3020,7 +3097,7 @@ async function toggleDayTreeChecklist(listId, dateStr){
   if(!t) return;
   const key = 'cklist:'+listId;
   dayTreeFlashKey = key;
-  if(t.plannedDate===dateStr) await updatePlannedDate(listId, '');
+  if((t.plannedDates||[]).includes(dateStr)) await unplanTaskFromDay(listId, dateStr);
   else await planTaskForDay(listId, dateStr);
   setTimeout(()=>{ if(dayTreeFlashKey===key) dayTreeFlashKey = null; }, 700);
 }
@@ -3029,7 +3106,7 @@ function dayTreeTaskHtml(t, dateStr){
   const key = 'task:'+t.id;
   const open = dayTreeExpanded.has(key);
   const subs = t.subtasks || [];
-  const alreadyWhole = t.plannedDate===dateStr;
+  const alreadyWhole = (t.plannedDates||[]).includes(dateStr);
   const flash = dayTreeFlashKey===key ? ' flashtoggle' : '';
   return `
     <div class="daytreenode sub">
@@ -3045,7 +3122,7 @@ function dayTreeTaskHtml(t, dateStr){
 }
 
 function daySubLeafHtml(t, s, dateStr){
-  const planned = s.plannedDate===dateStr;
+  const planned = (s.plannedDates||[]).includes(dateStr);
   const key = 'sub:'+s.id;
   const flash = dayTreeFlashKey===key ? ' flashtoggle' : '';
   return `
@@ -3055,13 +3132,16 @@ function daySubLeafHtml(t, s, dateStr){
     </div>`;
 }
 
+// showListDates (Settings → Dev Settings) reuses the same .listdate class
+// checklistListRowHtml() uses for a list's created-date — always rendered,
+// just hidden by CSS unless that dev toggle is on, same idiom.
 function dayTreeChecklistLeafHtml(t, dateStr){
-  const planned = t.plannedDate===dateStr;
+  const planned = (t.plannedDates||[]).includes(dateStr);
   const key = 'cklist:'+t.id;
   const flash = dayTreeFlashKey===key ? ' flashtoggle' : '';
   return `
     <div class="daytreeleafrow${flash}">
-      <button class="daytreeleaf" onclick="toggleDayTreeChecklist('${t.id}','${dateStr}')">${planned ? '<span class="daytreemark">✓</span> ' : ''}${escapeHtml(t.title)}</button>
+      <button class="daytreeleaf" onclick="toggleDayTreeChecklist('${t.id}','${dateStr}')">${planned ? '<span class="daytreemark">✓</span> ' : ''}${escapeHtml(t.title)}<span class="listdate">${fmtDate(t.createdAt)}</span></button>
       <button class="daytreeaddbtn ${planned?'added':''}" onclick="toggleDayTreeChecklist('${t.id}','${dateStr}')">${planned?'Added':'+ Add'}</button>
     </div>`;
 }
@@ -3088,7 +3168,9 @@ function renderAddToDayPicker(dateStr){
   const checklistCatsHtml = Object.entries(CATEGORIES).filter(([,v])=>v.type==='checklist').map(([k,v])=>{
     const key = 'cklist:'+k;
     const open = dayTreeExpanded.has(key);
-    const lists = checklistLists(k);
+    // A completed list has nothing left to add to a day, same reasoning
+    // dayCandidateTasks already applies to standard tasks.
+    const lists = checklistLists(k).filter(t=>t.status!=='done');
     return `
       <div class="daytreenode">
         <button class="daytreelabel daytreecat" onclick="toggleDayTreeNode('${key}')">
@@ -3120,12 +3202,13 @@ function renderAddToDayPicker(dateStr){
 function daySubtaskRowHtml(task, sub, dateStr){
   return `
   <li class="task">
-    <div class="row">
+    <div class="row" onclick="openTaskDetailFromDay('${task.id}')">
       <div class="checkwrap">
         <div class="subcheck ${sub.done?'done':''}" onclick="event.stopPropagation(); toggleSubtask('${task.id}','${sub.id}')"></div>
       </div>
       <div class="title ${sub.done?'done':''}"><span class="daysubparent">${escapeHtml(task.title)} &gt; </span>${escapeHtml(sub.text)}</div>
-      <button class="subdel" onclick="event.stopPropagation(); unplanSubtaskFromDay('${task.id}','${sub.id}')" title="Remove from this day">×</button>
+      <button class="movetmrw" onclick="event.stopPropagation(); moveSubtaskToTomorrow('${task.id}','${sub.id}','${dateStr}')" title="Move to tomorrow">→</button>
+      <button class="subdel" onclick="event.stopPropagation(); unplanSubtaskFromDay('${task.id}','${sub.id}','${dateStr}')" title="Remove from this day">×</button>
     </div>
   </li>`;
 }
@@ -3136,7 +3219,7 @@ function dayChecklistRowHtml(t, dateStr){
     <div class="row" onclick="openChecklistListFromDay('${t.id}','${dateStr}')">
       ${checklistCheckcircleHtml(t)}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}</div>
-      <button class="subdel" onclick="event.stopPropagation(); updatePlannedDate('${t.id}','')" title="Remove from this day">×</button>
+      <button class="subdel" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dateStr}')" title="Remove from this day">×</button>
     </div>
   </li>`;
 }
@@ -3147,13 +3230,16 @@ function renderDayDetail(dateStr){
   const subItems = subDailyItemsForDay(dateStr);
   const checklistItems = checklistDailyItemsForDay(dateStr);
   const { total, done } = dayItemsSummary(dateStr);
-  // What cascadeUnfinished() actually copies forward is whole standard
-  // tasks only — this count has to match that exactly, not the unified
-  // day total, or the "Copy N unfinished" label would promise more than
-  // the button delivers.
-  const unfinishedCount = allTasks.filter(t=>t.status!=='done').length;
+  // What moveIncompleteToTomorrow() actually moves is unfinished standard
+  // tasks and steps — this count has to match that exactly, not the
+  // unified day total, or the button's label would promise more than it
+  // delivers.
+  const unfinishedTasks = allTasks.filter(t=>t.status!=='done');
+  const unfinishedSubs = subItems.filter(x=>!x.sub.done);
+  const unfinishedCount = unfinishedTasks.length + unfinishedSubs.length;
   const isPast = dateStr < todayStr();
   const nextDate = addDaysToDateStr(dateStr, 1);
+  const headerTag = dayHeaderTag(dateStr);
 
   // Whole tasks and steps share one list — a step planned onto a day is
   // just as much "on today's list" as a whole task is, so there's no
@@ -3166,7 +3252,7 @@ function renderDayDetail(dateStr){
   const mainCount = sorted.length + subItems.length;
   const mainListHtml = mainCount ? `
     <ul class="tasks">${
-      sorted.map(t=>taskRowHtml(t, true, true)).join('') +
+      sorted.map(t=>taskRowHtml(t, true, true, dateStr)).join('') +
       subItems.map(x=>daySubtaskRowHtml(x.task, x.sub, dateStr)).join('') +
       dropEndHtml(sorted)
     }</ul>
@@ -3183,23 +3269,18 @@ function renderDayDetail(dateStr){
   return `
     <div class="stackedpage">
       ${pageTagHtml('closeDay()', 'All Days')}
+      ${headerTag ? `<div class="dayherorow"><span class="dayhero ${headerTag.today?'today':''}">${headerTag.text}</span></div>` : ''}
       <div class="daydetailhead">
         <h2>${dayLabel(dateStr)}</h2>
         <div class="dayprogress">${total ? `${done} of ${total} done` : 'Nothing planned yet'}</div>
       </div>
-      ${isPast ? `
-      <div class="lockednote">
-        <span>🔒 This day has passed — locked</span>
-        ${unfinishedCount>0 ? `<button class="pullbtn" onclick="cascadeUnfinished('${dateStr}')">Copy ${unfinishedCount} unfinished → ${fmtDate(nextDate)}</button>` : ''}
-      </div>` : `
-      <div class="reschedule">
-        <label class="fieldlabel">MOVE THIS DAY TO</label>
-        <input type="date" id="rescheduleInput" min="${todayStr()}" value="${dateStr}">
-        <button class="pullbtn" onclick="rescheduleDay('${dateStr}', document.getElementById('rescheduleInput').value)">Move</button>
-        <span class="reschedulemsg" id="rescheduleMsg"></span>
-      </div>`}
+      ${isPast ? `<div class="lockednote"><span>🔒 This day has passed</span></div>` : ''}
+      ${unfinishedCount>0 && dateStr<=todayStr() ? `
+      <div class="movetomorrowrow">
+        <button class="pullbtn" onclick="moveIncompleteToTomorrow('${dateStr}')">Move ${unfinishedCount} incomplete → ${fmtDate(nextDate)}</button>
+      </div>` : ''}
       <div class="quickadd">
-        <input type="text" id="dayQuickInput" placeholder="Add a priority for this day…" onkeydown="if(event.key==='Enter') addDayTask('${dateStr}')">
+        <input type="text" id="dayQuickInput" placeholder="Add a new task for this day…" onkeydown="if(event.key==='Enter') addDayTask('${dateStr}')">
         <select id="dayQuickCategory">
           ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${k==='personal'?'selected':''}>${v.label}</option>`).join('')}
         </select>
@@ -3432,7 +3513,7 @@ async function addChecklistList(categoryId){
   pushUndo(`Added list "${title}"`);
   state.tasks.unshift({
     id: newId('task'), title, category: categoryId, status:'open', urgent:false, dueDate:'',
-    notes:'', subtasks:[], plannedDate:'', timeframe:'', priority:0, completedAt:'', createdAt: todayStr()
+    notes:'', subtasks:[], plannedDates:[], timeframe:'', priority:0, completedAt:'', createdAt: todayStr()
   });
   render();
   // render() just rebuilt #checklistQuickInput from scratch (same
@@ -3460,7 +3541,7 @@ async function addDayTask(dateStr){
   await ensureDay(dateStr);
   state.tasks.unshift({
     id: newId('task'),
-    title, category, status:'open', urgent:false, dueDate:'', notes:'', subtasks:[], plannedDate: dateStr, createdAt: todayStr(),
+    title, category, status:'open', urgent:false, dueDate:'', notes:'', subtasks:[], plannedDates:[dateStr], createdAt: todayStr(),
     timeframe:'', priority:0, completedAt:''
   });
   render();
@@ -3469,36 +3550,92 @@ async function addDayTask(dateStr){
 
 // Shared by both "add to day" picker styles (cascade and tree) — plans a
 // whole task (or a whole checklist, since a checklist list is just a
-// plain state.tasks entry too) onto a specific day.
+// plain state.tasks entry too) onto a specific day. Additive: a task
+// already planned on some other day keeps that day too, rather than
+// getting bumped off it — plannedDates is an array specifically so a
+// task/checklist can sit on any number of dailies at once (see the
+// migration note in normalizeState()). Idempotent against a day it's
+// already on, so re-clicking an "Added" tree row can't duplicate the date.
 async function planTaskForDay(taskId, dateStr){
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
+  if(!t.plannedDates) t.plannedDates = [];
+  if(t.plannedDates.includes(dateStr)) return;
   pushUndo(`Added "${t.title}" to day`);
-  t.plannedDate = dateStr;
+  t.plannedDates.push(dateStr);
   await ensureDay(dateStr);
   render();
+  queueSave();
+}
+
+async function unplanTaskFromDay(taskId, dateStr){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  const idx = (t.plannedDates||[]).indexOf(dateStr);
+  if(idx===-1) return;
+  pushUndo(`Removed "${t.title}" from day`);
+  t.plannedDates.splice(idx, 1);
+  render();
+  reopen(taskId);
   queueSave();
 }
 
 // Plans a single step onto a day independently of its parent task's own
-// plannedDate — same idea as planTaskForDay, one level down.
+// plannedDates — same idea as planTaskForDay, one level down.
 async function pullSubtaskToDay(taskId, subId, dateStr){
   const t = state.tasks.find(t=>t.id===taskId);
   const s = t && (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
+  if(!s.plannedDates) s.plannedDates = [];
+  if(s.plannedDates.includes(dateStr)) return;
   pushUndo(`Added step "${s.text}" to day`);
-  s.plannedDate = dateStr;
+  s.plannedDates.push(dateStr);
   await ensureDay(dateStr);
   render();
   queueSave();
 }
 
-async function unplanSubtaskFromDay(taskId, subId){
+async function unplanSubtaskFromDay(taskId, subId, dateStr){
   const t = state.tasks.find(t=>t.id===taskId);
   const s = t && (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
+  const idx = (s.plannedDates||[]).indexOf(dateStr);
+  if(idx===-1) return;
   pushUndo(`Removed step "${s.text}" from day`);
-  s.plannedDate = '';
+  s.plannedDates.splice(idx, 1);
+  render();
+  queueSave();
+}
+
+// Pushes a task/step off one specific day and onto the next — a genuine
+// move (unlike moveIncompleteToTomorrow's copy-forward, which keeps the
+// item on the day it started on) for pushing a single item you didn't
+// get to today onto tomorrow's list instead.
+async function moveTaskToTomorrow(taskId, dateStr){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  const nextDate = addDaysToDateStr(dateStr, 1);
+  if(!t.plannedDates) t.plannedDates = [];
+  const idx = t.plannedDates.indexOf(dateStr);
+  pushUndo(`Moved "${t.title}" to ${fmtDate(nextDate)}`);
+  if(idx!==-1) t.plannedDates.splice(idx, 1);
+  if(!t.plannedDates.includes(nextDate)) t.plannedDates.push(nextDate);
+  await ensureDay(nextDate);
+  render();
+  queueSave();
+}
+
+async function moveSubtaskToTomorrow(taskId, subId, dateStr){
+  const t = state.tasks.find(t=>t.id===taskId);
+  const s = t && (t.subtasks||[]).find(s=>s.id===subId);
+  if(!s) return;
+  const nextDate = addDaysToDateStr(dateStr, 1);
+  if(!s.plannedDates) s.plannedDates = [];
+  const idx = s.plannedDates.indexOf(dateStr);
+  pushUndo(`Moved step "${s.text}" to ${fmtDate(nextDate)}`);
+  if(idx!==-1) s.plannedDates.splice(idx, 1);
+  if(!s.plannedDates.includes(nextDate)) s.plannedDates.push(nextDate);
+  await ensureDay(nextDate);
   render();
   queueSave();
 }
@@ -3515,30 +3652,20 @@ function openChecklistListFromDay(taskId, dateStr){
   openChecklistList(taskId, dateStr);
 }
 
-async function updatePlannedDate(id, val){
-  const t = state.tasks.find(t=>t.id===id);
-  if(!t) return;
-  pushUndo(val ? `Planned "${t.title}"` : `Unplanned "${t.title}"`);
-  t.plannedDate = val;
-  if(val) await ensureDay(val);
-  render();
-  reopen(id);
-  queueSave();
-}
-
 // The compact replacement for the old "Plan for Day" date picker — one
-// tap, always today. A task already planned for some other day (only
-// reachable via a specific day's own "pull in an existing task" picker)
-// gets overwritten to today rather than left alone, since this button's
-// whole point is "the fast path onto today's list," not arbitrary-day
-// scheduling.
+// tap, toggles specifically *today's* membership in plannedDates. A task
+// already planned on some other day keeps that day too (see the note on
+// planTaskForDay) — this button only ever adds/removes today, it never
+// touches any other day the task is already planned for.
 async function toggleTaskToday(id){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
+  if(!t.plannedDates) t.plannedDates = [];
   const today = todayStr();
-  const willPlan = t.plannedDate !== today;
+  const idx = t.plannedDates.indexOf(today);
+  const willPlan = idx === -1;
   pushUndo(willPlan ? `Added "${t.title}" to today` : `Removed "${t.title}" from today`);
-  t.plannedDate = willPlan ? today : '';
+  if(willPlan) t.plannedDates.push(today); else t.plannedDates.splice(idx, 1);
   if(willPlan) await ensureDay(today);
   render();
   reopen(id);
@@ -3556,7 +3683,8 @@ async function updateTimeframe(id, val){
   pushUndo(`Set timeframe for "${t.title}"`);
   t.timeframe = val;
   if(val === 'today'){
-    t.plannedDate = todayStr();
+    if(!t.plannedDates) t.plannedDates = [];
+    if(!t.plannedDates.includes(todayStr())) t.plannedDates.push(todayStr());
     await ensureDay(todayStr());
   }
   render();
@@ -3654,10 +3782,12 @@ async function toggleSubtaskToday(taskId, subId){
   const t = state.tasks.find(t=>t.id===taskId);
   const s = t && (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
+  if(!s.plannedDates) s.plannedDates = [];
   const today = todayStr();
-  const willPlan = s.plannedDate !== today;
+  const idx = s.plannedDates.indexOf(today);
+  const willPlan = idx === -1;
   pushUndo(willPlan ? `Added step "${s.text}" to today` : `Removed step "${s.text}" from today`);
-  s.plannedDate = willPlan ? today : '';
+  if(willPlan) s.plannedDates.push(today); else s.plannedDates.splice(idx, 1);
   if(willPlan) await ensureDay(today);
   render();
   reopen(taskId);
@@ -3676,7 +3806,7 @@ async function addTask(){
   state.tasks.unshift({
     id: newId('task'),
     title, category, status:'open', urgent: urgentDraft, dueDate:'', notes:'', subtasks: [],
-    plannedDate: timeframe==='today' ? todayStr() : '',
+    plannedDates: timeframe==='today' ? [todayStr()] : [],
     timeframe, priority, completedAt:'',
     createdAt: todayStr()
   });
@@ -3777,7 +3907,7 @@ async function addSubtask(taskId, text){
   if(!t) return;
   pushUndo(`Added step to "${t.title}"`);
   if(!t.subtasks) t.subtasks = [];
-  t.subtasks.push({ id: newId('sub'), text: val, done:false, dueDate:'', plannedDate:'' });
+  t.subtasks.push({ id: newId('sub'), text: val, done:false, dueDate:'', plannedDates:[] });
   render();
   reopen(taskId);
   focusVisibleSubadd();
@@ -3948,6 +4078,7 @@ document.addEventListener('keydown', (e) => {
     if(settingsOpen){ toggleSettings(); return; }
     if(checklistPendingOpen){ closeChecklistPending(); return; }
     if(selectedListId){ closeChecklistList(); return; }
+    if(taskDetailId){ closeTaskDetail(); return; }
     const openExpand = document.querySelector('.expand.open');
     if(openExpand){ openExpand.classList.remove('open'); return; }
     if(activeTab !== 'all'){ switchTab('all'); }
