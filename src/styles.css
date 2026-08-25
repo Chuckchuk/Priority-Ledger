@@ -1,0 +1,938 @@
+  :root{
+    --desk:#28362E;
+    --desk-dark:#1B2620;
+    /* --paper stays fixed forever — it's the light cream accent used
+       against the (also customizable) desk background, e.g. the masthead
+       title. --card-bg is the actual, user-customizable "ledger" surface
+       color; it defaults to the same value as --paper so nothing looks
+       different until someone opens Settings and changes it. */
+    --paper:#F1EAD9;
+    --card-bg:#F1EAD9;
+    --card-bg-dim:#E7DDC5;
+    --ink:#2A2318;
+    --ink-soft:#7A6E58;
+    --brass:#A9782F;
+    --brass-light:#C99A4E;
+    --family:#3C5A45;
+    --projects:#3E4A6B;
+    --estate:#9C4530;
+    --personal:#A9782F;
+    --misc:#5B6560;
+    --line: rgba(42,35,24,0.16);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background: radial-gradient(ellipse at 50% -10%, var(--desk) 0%, var(--desk-dark) 75%);
+    font-family:'IBM Plex Sans', sans-serif;
+    color: var(--ink);
+    padding: 36px 14px 70px;
+  }
+  .shell{ max-width: 720px; margin: 0 auto; }
+  .masthead{ text-align:center; margin-bottom: 22px; position:relative; }
+  .masthead h1{
+    font-family:'Fraunces', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 2.3rem;
+    color: var(--paper);
+    margin: 0 0 4px;
+    letter-spacing: 0.01em;
+  }
+  .masthead .tagline{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(241,234,217,0.55);
+  }
+  .locbadge{
+    position:absolute; top:-6px; right: 0;
+    width:52px; height:52px; border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, var(--brass-light), var(--brass) 70%);
+    color: var(--ink);
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:500; font-size:0.68rem;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    line-height:1.1; cursor:pointer; border:none;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.4);
+    transition: transform .15s ease;
+  }
+  .locbadge:hover{ transform: scale(1.06); }
+  .settingsbtn{
+    position:absolute; top:-2px; left:0;
+    width:34px; height:34px; border-radius:50%;
+    background: rgba(241,234,217,0.14); color: rgba(241,234,217,0.75);
+    font-size:1rem; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; border:none; transition: all .15s ease;
+  }
+  .settingsbtn:hover{ transform: scale(1.06); }
+  .settingsbtn.on{ background: var(--brass); color:white; }
+  .status-line{
+    text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
+    color: rgba(241,234,217,0.7); margin-bottom: 18px;
+  }
+  /* A shared backing panel groups the tabs into one header block — without
+     it, once tabs wrap to a second row only the row touching the card
+     reads as "attached"; earlier rows were just loose pills floating in
+     open space above. margin-bottom:-1px moved from each .tab onto this
+     container so the whole block (any number of rows) sits flush against
+     the card, not just the last row. The panel is a *light* parchment
+     tint (not a dark overlay) — against the near-black desk gradient a
+     dark panel is nearly invisible, which was its own "floating pills"
+     bug: with no visible surface behind them, the tabs read as loose
+     chips again regardless of the flush-attachment trick. A light shelf
+     plus a faint border reads as one continuous surface even on the
+     darkest desk colors; inactive tabs sit recessed (dark) *in* that
+     shelf, and the active tab reads as flush/level with the card below. */
+  .tabs{
+    display:flex; gap:6px 4px; padding: 8px 8px 0; flex-wrap:wrap;
+    position:relative; z-index:1; margin-bottom:-1px;
+    background: rgba(241,234,217,0.10);
+    border: 1px solid rgba(241,234,217,0.16);
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+  }
+  .tab{
+    font-family:'IBM Plex Mono', monospace; font-size:0.7rem; letter-spacing:0.06em;
+    text-transform:uppercase; padding: 9px 14px 11px; border-radius: 7px 7px 0 0;
+    cursor:pointer; border:none; background: rgba(0,0,0,0.18); color: rgba(241,234,217,0.65);
+    transition: all .15s ease; display:flex; align-items:center; gap:6px;
+  }
+  .tab .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
+  .tab.active{ background: var(--card-bg); color: var(--ink); font-weight:500; }
+  .tab .count{ opacity:0.6; font-size:0.65rem; }
+  /* When tabs wrap to more than one row, only the bottom row was ever
+     visually "resting" on anything (the card it flows into) — rows above
+     it just floated in the shelf panel with nothing under them. A
+     .tabrow-line is placed (by renderTabRowLines(), measuring actual
+     offsetTop per tab since row membership depends on wrapping, not
+     something CSS alone can target) in the gap under every row except
+     the last, so each row of tabs reads as sitting on its own shelf
+     board rather than floating in open space. */
+  .tabrow-line{
+    position:absolute; left:8px; right:8px; height:0;
+    border-top: 1px solid rgba(241,234,217,0.28);
+    box-shadow: 0 2px 3px rgba(0,0,0,0.3);
+    pointer-events:none;
+  }
+  .card{
+    background: var(--card-bg); border-radius: 2px 10px 10px 10px;
+    box-shadow: 0 24px 55px rgba(0,0,0,0.4);
+    padding: 22px 22px 14px;
+    position: relative;
+    /* z-index:1 (not just the 0 needed to contain ::after's stacking) so
+       the card paints above .leathercover's own ::before/::after when the
+       leather cover is on — without this the stitching border (leather's
+       ::after, generated last, painting last by default) drew over the
+       card's content, including a poking "pages" sheet. */
+    z-index: 1;
+  }
+  /* "Textured" — a noise overlay (::before, inline SVG feTurbulence, no
+     external asset) plus an inset box-shadow vignette that darkens toward
+     the edges, so it reads as an aged/uneven page rather than a flat tint.
+     ::before uses border-radius:inherit (not parent overflow:hidden) to
+     stay clipped to the card's rounded corners — .card has no
+     overflow:hidden, which is what leaves room for .texture-pages's
+     ::after to extend past the card's edges below. */
+  #appCard.texture-grain::before{
+    content:'';
+    position:absolute; inset:0;
+    border-radius: inherit;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.16;
+    mix-blend-mode: multiply;
+    pointer-events: none;
+  }
+  #appCard.texture-grain{
+    box-shadow: 0 24px 55px rgba(0,0,0,0.4), inset 0 0 46px rgba(0,0,0,0.16);
+  }
+  /* "Pages" — a single rotated sheet (::after) peeking out from behind the
+     card at an angle, with its own two box-shadow layers suggesting a
+     couple more underneath. A squarer border-radius than the card's own
+     (which is already asymmetric/dog-eared) plus the rotation is what
+     reads as loose paper rather than just a colored drop-shadow. Negative
+     z-index + .card's z-index:0 above keeps it strictly behind the card's
+     own background, contained to this card, without needing overflow
+     tricks on either element. */
+  #appCard.texture-pages::after{
+    content:'';
+    position:absolute;
+    top:8px; left:-8px; right:-14px; bottom:-16px;
+    z-index:-1;
+    background: var(--card-bg-dim);
+    border-radius: 4px 14px 14px 4px;
+    /* --page-transform is set from JS (randomizePageTilt(), called on each
+       switchTab) so the tilt/offset varies a little each time you change
+       tabs, like a hand actually riffling the stack underneath. The
+       rotate(-2deg) fallback is what renders before any tab switch has
+       happened yet. */
+    transform: var(--page-transform, rotate(-2deg));
+    /* Jagged only on the right/bottom edges — the ones that actually peek
+       out past the card; top/left stay straight since they're hidden
+       under the card regardless. These percentages are against the
+       *whole* card-sized box, so even a "small" 4-9% notch is tens of
+       actual pixels deep — the first version used exactly that and it
+       read as a harsh, regular sawtooth rather than paper fiber. Real
+       torn/deckled paper varies in both depth and spacing at a much
+       finer grain, so these notches stay under ~1.5% with irregular
+       spacing between them, plus a touch of blur below to soften the cut
+       edges instead of leaving them razor-sharp. */
+    clip-path: polygon(
+      0% 0%, 100% 0%,
+      100% 5%, 99.3% 6%, 100% 7.2%,
+      100% 12%, 98.7% 13.1%, 100% 14%,
+      100% 19%, 99.5% 20.3%, 100% 21%,
+      100% 27%, 98.9% 28%, 100% 29.4%,
+      100% 35%, 99.4% 36.2%, 100% 37%,
+      100% 44%, 98.6% 45%, 100% 46.3%,
+      100% 53%, 99.3% 54.1%, 100% 55%,
+      100% 62%, 98.8% 63.3%, 100% 64%,
+      100% 71%, 99.5% 72%, 100% 73.2%,
+      100% 80%, 98.9% 81.2%, 100% 82%,
+      100% 89%, 99.4% 90.1%, 100% 91%,
+      100% 96%, 98.7% 97%, 100% 100%,
+      92% 98.6%, 85% 100%, 79% 98.9%,
+      73% 100%, 66% 99.3%, 60% 100%,
+      53% 98.7%, 47% 100%, 40% 99.4%,
+      34% 100%, 27% 98.8%, 21% 100%,
+      15% 99.2%, 8% 100%, 3% 98.9%, 0% 100%,
+      0% 0%
+    );
+    filter: blur(0.4px);
+    box-shadow:
+      7px 9px 0 -3px var(--card-bg),
+      13px 18px 0 -6px var(--card-bg-dim);
+  }
+  /* "Leather" — a real wrapper element (not a pseudo-element) around
+     .card, since texture-grain/texture-pages already claim #appCard's own
+     ::before/::after. Off by default: no padding/background at all, so it
+     doesn't affect layout unless enabled. On: a leather-brown cover with
+     its own noise texture (coarser/marbled vs. the paper grain's fine
+     fractalNoise — leather and paper shouldn't look like the same
+     material) and a dashed inset border suggesting hand-stitching. No
+     overflow:hidden here either, same reasoning as .card — so a poking
+     "Pages" sheet underneath isn't clipped by the cover around it. */
+  .leathercover{ position:relative; }
+  .leathercover.leather-on{
+    border-radius: 18px;
+    padding: 18px;
+    background: linear-gradient(160deg, #6b4226 0%, #3d2716 100%);
+    box-shadow:
+      0 30px 60px rgba(0,0,0,0.5),
+      inset 0 2px 3px rgba(255,255,255,0.10),
+      inset 0 0 50px rgba(0,0,0,0.5);
+  }
+  .leathercover.leather-on::before{
+    content:'';
+    position:absolute; inset:0;
+    border-radius: inherit;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='l'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23l)'/%3E%3C/svg%3E");
+    opacity: 0.4;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+  .leathercover.leather-on::after{
+    content:'';
+    position:absolute; inset:8px;
+    border-radius: 12px;
+    border: 1.5px dashed rgba(0,0,0,0.35);
+    pointer-events: none;
+  }
+  .quickadd{ display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+  .quickadd input[type=text]{
+    flex:1; min-width: 160px; border:none; border-bottom: 1.5px solid var(--ink-soft);
+    background:transparent; font-family:'Fraunces', serif; font-style:italic; font-size:1.02rem;
+    padding: 6px 2px; color: var(--ink); outline:none;
+  }
+  .quickadd input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
+  .quickadd select{
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
+  }
+  .flagbtn{
+    border:1px solid var(--line); background:var(--card-bg-dim); border-radius:5px; width:32px; height:32px;
+    cursor:pointer; font-size:0.85rem; color: var(--ink-soft); flex-shrink:0;
+  }
+  .flagbtn.on{ background: var(--estate); color:white; border-color: var(--estate); }
+  /* The "add to today" pin reuses .flagbtn's box but its own accent
+     color when on — --brass rather than --estate, so it doesn't read as
+     an alert state sitting right next to the urgent flag. .small is the
+     subtask-row version, sized down to sit comfortably next to .subtext. */
+  .daybtn.on{ background: var(--brass); color:white; border-color: var(--brass); }
+  .daybtn.small{ width:26px; height:26px; font-size:0.72rem; }
+  .addbtn{
+    width:34px; height:34px; border-radius:50%; border:none; flex-shrink:0;
+    background: radial-gradient(circle at 35% 30%, var(--brass-light), var(--brass) 70%);
+    color: var(--ink); font-size:1.1rem; cursor:pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
+  }
+  .sortrow{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .sortrow select{
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);
+  }
+  ul.tasks{ list-style:none; margin:0; padding:0; }
+  li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
+  li.task.dragging{ opacity:0.4; }
+  li.task.dragover{ border-top: 2px solid var(--brass); }
+  .dropend{ height:16px; list-style:none; }
+  .dropend.dragover{ border-top: 2px solid var(--brass); }
+  .row{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
+  /* Drag reordering is scoped to this small handle rather than the whole
+     row — the row already has its own click-to-expand and a checkbox
+     right next to where a handle would sit, so making the entire row a
+     drag source risked turning an ordinary tap into an accidental drag. */
+  .draghandle{
+    cursor: grab; color: var(--ink-soft); font-size:0.9rem; line-height:1;
+    flex-shrink:0; padding:2px 2px; margin-top:1px; touch-action:none;
+  }
+  .draghandle:active{ cursor: grabbing; }
+  .checkwrap{ display:flex; flex-direction:column; align-items:center; gap:4px; flex-shrink:0; margin-top:2px; }
+  .check{
+    width:18px; height:18px; border:1.5px solid var(--ink-soft); border-radius:4px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .check.done{ background: var(--ink); border-color: var(--ink); }
+  .check.done::after{ content:'✓'; color: var(--card-bg); font-size:12px; }
+  /* grid, not flex, for the N-equal-columns layout — flexbox's flex:1
+     rounds each item's fractional share of the 18px bar independently,
+     and tends to dump the leftover remainder pixel onto the last
+     item(s), which reads as inconsistent sizing between the first few
+     pips and the last few (worse at non-100% browser zoom, since that
+     rescales the already-fractional division against a new pixel
+     grid). CSS Grid's `fr` unit distributes that same remainder more
+     evenly across tracks instead of concentrating it at one end.
+     grid-auto-columns (not a hardcoded grid-template-columns) is what
+     lets this still work without knowing the pip count in advance —
+     one auto column per child, all sized equally. */
+  .substack{ width:18px; height:5px; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:1.5px; flex-shrink:0; }
+  .subpip{ min-width:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px; opacity:0.55; }
+  .subpip.filled{ background: var(--ink); border-color: var(--ink); opacity:1; }
+  .substack.bar{ gap:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:2px; overflow:hidden; }
+  .substack.bar .subfill{ height:100%; background: var(--ink); }
+  /* Checklist-category list rows: a round checkbox (vs. the square .check
+     used everywhere else) with its items shown around it — as fixed-size
+     boxy pegs at or under the peg threshold, or a progress ring past it
+     — rather than the linear .substack used under a standard task.
+     .checkcircle-wrap is a fixed-size box regardless of item count —
+     pegs/ring sit absolutely inside it — so rows stay column-aligned the
+     same way .checkwrap does for .check. */
+  .checkcircle-wrap{ position:relative; width:34px; height:34px; flex-shrink:0; }
+  .checkcircle{
+    position:absolute; top:50%; left:50%; transform: translate(-50%,-50%); z-index:1;
+    width:18px; height:18px; border:1.5px solid var(--ink-soft); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; background: var(--card-bg);
+  }
+  .checkcircle.done{ background: var(--ink); border-color: var(--ink); }
+  .checkcircle.done::after{ content:'✓'; color: var(--card-bg); font-size:10px; }
+  /* Each peg is a genuine fixed-size rectangle (not a conic-gradient arc
+     slice — those are wedges, wider at the outer edge than the inner
+     one, which read as "trapezoids" rather than boxes) positioned at the
+     container's center and rotated around it — transform-origin sits
+     back at that center point, so at rotate(0) it points straight up at
+     a fixed radius, and swinging it to a given item's slot is just
+     varying the rotation angle. Size and radius never change with item
+     count, only how many slots (up to CHECKLIST_PEG_LIMIT) are filled in
+     — that's what keeps a 3-item list's pegs the same size as a
+     12-item list's instead of stretching to fill the ring. */
+  /* .pegpivot is a zero-size point placed exactly on the container's
+     center (top/left:50% of an even-pixel box lands on a whole pixel,
+     no fraction involved) and rotated — a plain, un-overridden
+     transform-origin ("50% 50%" of a 0×0 box is just that same point)
+     is what actually rotates around it, rather than a .peg carrying
+     both a fractional margin AND a fractional transform-origin that
+     have to cancel out exactly. .peg itself is a static, unrotated
+     offset inside its already-rotated pivot, so it only needs a single
+     centering fraction (half its own width) instead of two independent
+     ones that could drift apart under different rounding. */
+  /* At this spacing, adjacent pegs' corners slightly overlap — two
+     concerns that come with that: an unfilled peg must never paint
+     over a filled one at that seam, and two overlapping unfilled pegs
+     must not visibly darken where they overlap. z-index handles the
+     first (each .pegpivot carries a transform, which gives it its own
+     stacking context, so the ordering has to be set on the pivot
+     itself — setting it on the inner .peg would only reorder within
+     that one pivot's context, not against sibling pivots). Dropping
+     opacity handles the second: .peg's colors are fully opaque solid
+     fills, not a translucent tint over the card, so two overlapping
+     unfilled pegs blend into the exact same flat color instead of
+     stacking into something darker. */
+  .pegpivot{ position:absolute; top:50%; left:50%; width:0; height:0; z-index:1; }
+  .pegpivot.filled{ z-index:2; }
+  /* An unfilled peg's softer look used to come from opacity:0.6 — reverted
+     for overlap reasons (two translucent pegs stacking visibly darkened
+     where they touched), but the muted color itself is worth keeping.
+     color-mix() bakes the same "60% peg color over the card" result into
+     a flat, fully-opaque color instead, so two unfilled pegs overlapping
+     still blend into that one flat color rather than compounding into
+     something darker. Plain fallback declared first, same reasoning as
+     .stackedpage's background: color-mix()-unsupporting browsers just
+     keep the (slightly less soft, but still fine) flat --card-bg-dim. */
+  .peg{
+    position:absolute; top:-14px; left:-3px; width:6px; height:5px;
+    background: var(--card-bg-dim);
+    background: color-mix(in srgb, var(--card-bg-dim) 60%, var(--card-bg) 40%);
+    border: 1px solid var(--ink-soft);
+    border-color: color-mix(in srgb, var(--ink-soft) 60%, var(--card-bg) 40%);
+    border-radius:1px;
+  }
+  .pegpivot.filled .peg{ background: var(--ink); border-color: var(--ink); }
+  /* Past the peg threshold, a conic-gradient ring takes over — the
+     opaque .checkcircle sitting centered on top of it (same z-index
+     trick as above) masks the middle, leaving only the outer ring
+     visible, so no separate donut-cutout element is needed. inset:5px
+     (not 0) keeps the visible band thin (~3px against the 18px
+     .checkcircle) — inset:0 was the "way too thick" original version. */
+  .progressring{ position:absolute; inset:5px; border-radius:50%; }
+  .cdot{ width:7px; height:7px; border-radius:50%; margin-top:7px; flex-shrink:0; }
+  .title{ flex:1; font-size:0.97rem; line-height:1.4; }
+  .title.done{ text-decoration: line-through; color: var(--ink-soft); }
+  /* EXPERIMENTAL — Settings → Dev Settings. Always rendered by
+     checklistListRowHtml() (see .listdate there), just hidden by
+     default — visibility is a pure CSS toggle rather than conditional
+     HTML, matching how the other dev settings work. */
+  .listdate{
+    font-family:'IBM Plex Mono', monospace; font-size:0.6rem; color:var(--ink-soft);
+    opacity:0.7; margin-left:6px; display:none;
+  }
+  body.devlist-dates .listdate{ display:inline; }
+  .meta{ display:flex; gap:6px; align-items:center; flex-shrink:0; }
+  .badge{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; padding:2px 6px; border-radius:4px; letter-spacing:0.04em; }
+  .badge.overdue{ background: var(--estate); color:white; }
+  .badge.due{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
+  .badge.timeframe{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
+  .badge.priority-low{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
+  .badge.priority-medium{ background: var(--brass); color:white; }
+  .badge.priority-high{ background: var(--estate); color:white; }
+  .expand{ margin: 10px 0 2px 28px; display:none; }
+  .expand.open{ display:block; }
+  .expand textarea{
+    width:100%; min-height:52px; font-family:'IBM Plex Sans',sans-serif; font-size:0.85rem;
+    border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim); padding:8px; resize:vertical; color:var(--ink);
+  }
+  .expand-row{ display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  .expand input[type=date]{
+    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line);
+    border-radius:5px; padding:5px 6px; background: var(--card-bg-dim); color:var(--ink);
+  }
+  .remove{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; color: var(--estate); background:none; border:none; cursor:pointer; letter-spacing:0.05em; margin-left:auto; }
+  .titleedit{
+    width:100%; border:none; border-bottom: 1.5px solid var(--ink-soft); background:transparent;
+    font-family:'Fraunces', serif; font-style:italic; font-size:1rem; padding:4px 2px 8px; color:var(--ink); outline:none; margin-bottom:6px;
+  }
+  /* The checklist detail page's title reads as a page header sitting
+     right under the big checkcircle above it, not a small inline-edit
+     field the way a standard task's own title field looks — bigger and
+     centered. Still the same <input>, just with this layered on, so the
+     standard task expand view's .titleedit is untouched. */
+  .titleedit.checklisttitle{ font-size:1.5rem; text-align:center; }
+  .catselect{
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);
+  }
+  .empty{ font-family:'Fraunces', serif; font-style:italic; color: var(--ink-soft); text-align:center; padding: 26px 10px; font-size:1rem; }
+  .footer-row{ display:flex; justify-content:center; padding: 12px 0 4px; }
+  .footer-row button{ background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; color: var(--ink-soft); cursor:pointer; letter-spacing:0.05em; }
+  .subwrap{ margin-top:10px; }
+  .sublabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin-bottom:6px; }
+  .pendinggroup{ margin-bottom:16px; }
+  .subrow{ display:flex; align-items:center; gap:8px; padding:3px 0; }
+  .subrow.dragging{ opacity:0.4; }
+  .subrow.dragover{ border-top: 2px solid var(--brass); }
+  /* Once a checklist's own list is marked complete, every item in it
+     reads as done too, whether or not that specific item was ever
+     individually checked off — dims the whole row (checkbox included,
+     not just text) rather than only styling .subtext, and doesn't touch
+     the item's actual `done` flag, so un-completing the list restores
+     each item's real individual state exactly as it was. */
+  .subrow.listdone{ opacity:0.5; }
+  .subrow.listdone .subtext{ text-decoration: line-through; }
+  .draghandle.sub{ font-size:0.78rem; }
+  .subcheck{
+    width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    position:relative;
+  }
+  /* Invisible hit-area expansion — the visible box stays exactly 14px
+     (the whole point was keeping it visually smaller than a task's own
+     .check, just easier to actually tap), but an unpainted ::before
+     extends the real clickable region past the drawn edges. A click
+     landing on a pseudo-element still resolves to the element it belongs
+     to, so this needs no JS. Biased toward top/right/bottom, where taps
+     were most often landing just outside the box; left is left almost
+     alone since that side wasn't reported as a problem. Uses ::before
+     (not ::after, which the done checkmark below already owns) so the
+     two can't collide. */
+  .subcheck::before{ content:''; position:absolute; top:-7px; right:-9px; bottom:-7px; left:-3px; }
+  .subcheck.done{ background: var(--ink); border-color: var(--ink); }
+  .subcheck.done::after{ content:'✓'; color: var(--card-bg); font-size:9px; }
+  /* Checklist items only (not a standard task's subtasks, which stay
+     square to match its own square .check) — round to match .checkcircle,
+     the checklist category's own circular checkbox language. */
+  .subcheck.circle{ border-radius:50%; }
+  .subtext{ flex:1; font-size:0.84rem; }
+  .subtext.done{ text-decoration:line-through; color: var(--ink-soft); }
+  .subdel{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
+  /* .movetmrw ("move to tomorrow") / .dayremove ("remove from this day")
+     — the pair of small action buttons on a Daily row. Given a real
+     border/box (unlike the plain-text .subdel used for step/item delete
+     elsewhere) specifically so the arrow and × read as two distinct
+     tappable buttons sitting side by side, not stray punctuation next to
+     the row. .movetmrw goes further and gets a disabled state — once
+     tomorrow's date is already in the item's plannedDates (see
+     taskRowHtml/daySubtaskRowHtml), re-adding it would be a no-op, so the
+     button fades out and stops accepting clicks rather than sitting there
+     implying there's still something to do. */
+  .movetmrw, .dayremove{
+    display:flex; align-items:center; justify-content:center;
+    width:22px; height:22px; flex-shrink:0; padding:0; line-height:1;
+    font-size:0.78rem; cursor:pointer; border-radius:5px;
+    background:none; border:1px solid var(--line); color: var(--ink-soft);
+  }
+  .movetmrw:hover{ border-color: var(--brass); color: var(--brass); }
+  .dayremove:hover{ border-color: var(--estate); color: var(--estate); }
+  .movetmrw:disabled{ opacity:0.35; cursor:default; }
+  .movetmrw:disabled:hover{ border-color: var(--line); color: var(--ink-soft); }
+  /* A step's own optional date — discreet by design, per the ask: a
+     small muted pill rather than a full date input. Empty state gets a
+     dashed underline (echoing .subadd's own placeholder-as-invitation
+     look) so it still reads as clickable even with no value to show. */
+  .subdate{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--ink-soft);
+    cursor:pointer; flex-shrink:0; padding:3px 2px; border-bottom:1px dashed transparent;
+  }
+  .subdate.empty{ opacity:0.65; border-bottom-color: var(--ink-soft); }
+  .subdateedit{
+    width:120px; border:none; border-bottom:1.5px solid var(--ink-soft); background:transparent;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; padding:3px 2px; color:var(--ink); outline:none; flex-shrink:0;
+  }
+  /* A step planned onto a day, shown "TASK > step" (see daySubtaskRowHtml)
+     — the task half stays muted so the step itself reads as the subject. */
+  .daysubparent{ color: var(--ink-soft); }
+  /* Fixes a step row's .subcheck (14px) to center under a task row's
+     .check (18px) instead of drifting left of it — width matches .check's
+     own so .checkwrap's existing align-items:center does the centering,
+     same trick as .checklistheader scaling reusing shared markup. */
+  .checkwrap.daysub{ width:18px; }
+  /* Groups a step directly under its own parent task's row when that
+     task is also planned whole onto the same day (see renderDayDetail's
+     nestedSteps grouping) — indented past the checkbox column rather
+     than sharing its alignment, so nesting reads as "under," not just
+     "another row at the same level." The step still carries the full
+     "TASK > step" label regardless (see daySubtaskRowHtml) — indentation
+     is a second, reinforcing cue, not the only one, since relying on
+     indent alone read as ambiguous on its own. The left border gives that
+     cue a visible anchor line rather than just empty space. */
+  .daysubnested{ margin-left:34px; padding-left:10px; border-left:2px solid var(--line); }
+  .subadd{
+    width:100%; border:none; border-bottom:1px dashed var(--line); background:transparent;
+    font-family:'IBM Plex Sans',sans-serif; font-size:0.84rem; padding:6px 2px; color:var(--ink); outline:none; margin-top:2px;
+  }
+  .subadd::placeholder{ color: var(--ink-soft); opacity:0.7; }
+  .badge.subcount{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
+  .savestatus{
+    text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.62rem;
+    color: rgba(241,234,217,0.5); margin-top:12px; letter-spacing:0.06em; text-transform:uppercase; height:14px;
+  }
+  .undoRow{ display:flex; align-items:center; justify-content:center; gap:10px; margin-top:16px; }
+  .undobtn{
+    width:30px; height:30px; border-radius:50%; border:1px solid rgba(241,234,217,0.25);
+    background: rgba(241,234,217,0.08); color: rgba(241,234,217,0.75);
+    font-size:0.95rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition: transform .15s ease;
+  }
+  .undobtn:hover:not(:disabled){ transform: scale(1.08); }
+  .undobtn:disabled{ opacity:0.25; cursor:not-allowed; }
+  .undostatus{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: rgba(241,234,217,0.65);
+    letter-spacing:0.04em; text-transform:uppercase; min-width:130px; text-align:center;
+  }
+  .fieldlabel{ font-family:'IBM Plex Mono',monospace; font-size:0.68rem; color:var(--ink-soft); }
+  .taskmeta{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--ink-soft);
+    margin-top:10px; letter-spacing:0.03em;
+  }
+  /* Goes with .checklisttitle above — a tiny faded subheader centered
+     under the (now centered, header-sized) checklist title, rather than
+     the small left-aligned meta line under a standard task's title. */
+  .taskmeta.checklistmeta{ text-align:center; margin-top:2px; opacity:0.75; }
+  .subedit{
+    flex:1; border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
+    font-family:'IBM Plex Sans',sans-serif; font-size:0.84rem; padding:0 0 2px; color:var(--ink); outline:none;
+  }
+  .addday{
+    width:100%; text-align:left; font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
+    letter-spacing:0.05em; padding:11px 14px; border-radius:8px; border:1px dashed var(--brass);
+    background: rgba(169,120,47,0.08); color: var(--brass); cursor:pointer; margin-bottom:16px;
+  }
+  .adddayrow{ display:flex; gap:8px; margin-bottom:16px; }
+  .adddayrow .addday{ flex:1; width:auto; margin-bottom:0; }
+  .pickdatebtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em;
+    background:transparent; border:1px dashed var(--line); color:var(--ink-soft); border-radius:8px; padding:11px 12px; cursor:pointer; flex-shrink:0;
+  }
+  .pickerwrap{ display:flex; gap:8px; align-items:center; margin:10px 0 16px; flex-wrap:wrap; }
+  .pickerwrap input[type=date]{
+    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line); border-radius:5px; padding:6px; background:var(--card-bg-dim); color:var(--ink);
+  }
+  .lockednote{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'IBM Plex Mono', monospace; font-size:0.68rem;
+    color: var(--ink-soft); background: var(--card-bg-dim); border-radius:6px; padding:10px 12px; margin-bottom:14px; letter-spacing:0.03em;
+  }
+  /* Large "which day is this" label centered atop a day's detail page —
+     see dayHeaderTag() in <script>. Plain text for Yesterday/Tomorrow/a
+     weekday name; Today gets its own larger, brass-colored treatment so
+     it's unmistakable at a glance which day you're looking at, echoing
+     .todaytag's brass accent used for "today" everywhere else. */
+  .dayherorow{ display:flex; justify-content:center; margin:2px 0 6px; }
+  .dayhero{
+    font-family:'Fraunces', serif; font-weight:600; font-size:1.15rem;
+    color:var(--ink-soft); letter-spacing:0.02em;
+  }
+  .dayhero.today{ font-size:1.9rem; font-weight:700; color:var(--brass); }
+  .daylistlabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin: 4px 0 6px; }
+  .dayitem{
+    width:100%; display:flex; justify-content:space-between; align-items:center; text-align:left;
+    border:none; background:none; border-bottom:1px dashed var(--line); padding:11px 4px; cursor:pointer;
+    font-family:'IBM Plex Sans',sans-serif; font-size:0.92rem; color:var(--ink);
+  }
+  .todaytag{
+    font-family:'IBM Plex Mono', monospace; font-size:0.58rem; text-transform:uppercase; background:var(--brass);
+    color:white; padding:2px 6px; border-radius:4px; margin-left:8px; letter-spacing:0.04em;
+  }
+  .monthgroup{ margin-bottom:4px; }
+  .monthhead{
+    width:100%; display:flex; justify-content:space-between; align-items:center; text-align:left;
+    border:none; background: var(--card-bg-dim); border-radius:6px; padding:10px 12px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink); margin-bottom:4px;
+  }
+  .monthhead .count{ color: var(--ink-soft); opacity:1; }
+  .monthbody{ padding-left:6px; margin-bottom:6px; }
+  .backbtn{
+    background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
+    color: var(--ink-soft); cursor:pointer; letter-spacing:0.05em; padding:0; margin-bottom:14px;
+  }
+  /* ---- Reusable "stacked page" pattern ----
+     A general-purpose pair for any view that should read as a distinct
+     sheet layered on top of whatever's beneath it, with its own tagged
+     way back, rather than a plain content swap within the same surface.
+     First used for the checklist list-detail/pending views, now also
+     Settings — reach for these two again (rather than inventing a new
+     one-off look) any time a future feature needs the same "opened a
+     page on top of this" feel: a drilldown, a modal-like panel, etc.
+
+     .stackedpage: a slightly different tint than plain --card-bg (the
+     second `background` line is the enhancement; color-mix()-
+     unsupporting browsers just keep the --card-bg fallback above it,
+     since an invalid declaration can't override the valid one before
+     it) plus its own shadow, a thin border for definition, and
+     fully-rounded corners (vs. .card's single squared "dog-ear" corner)
+     is what sells it as a separate sheet rather than a re-skinned
+     version of the same card. Not every view needs this — the plain
+     Claude-digest view stays on .backbtn's plain text link instead;
+     reach for .stackedpage specifically when the "opened a page on top"
+     feeling is wanted, as Daily's day-detail, its per-task detail page,
+     the checklist views, and Settings all do. */
+  .stackedpage{
+    background: var(--card-bg);
+    background: color-mix(in srgb, var(--card-bg) 95%, white 5%);
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    box-shadow: 0 10px 22px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08);
+    /* Extra padding-top reserves flow space for .pagetag below, which is
+       taken out of flow (position:absolute) so it can jut past the
+       page's own left edge instead of being confined to it. Bigger than
+       the tag alone needs, so the header content below has some visible
+       breathing room under the tag rather than butting right up against it. */
+    padding: 54px 14px 10px;
+    margin: -2px -4px 0;
+    position: relative;
+  }
+  /* .pagetag: a flag/tag shape instead of .backbtn's plain text, to go
+     with the "stacked page" look above — positioned to hang off the
+     page's top edge (position:absolute against .stackedpage, left in
+     negative territory) like a bookmark tab, rather than sitting fully
+     inside the page's own padding. .pagetagtip is a rounded square
+     rotated 45° — a simple rounded-triangle "arrow" tip, no SVG or
+     hand-drawn clip-path needed — positioned so its center sits exactly
+     at .pagetaglabel's flat left edge: the right half lands under
+     .pagetaglabel (lower z-index, so it's hidden behind its opaque
+     background) and only the left-pointing corner shows, which is what
+     actually crosses the page's edge and reads as "jutting out" rather
+     than just the tag's ordinary left margin. Works equally for a
+     "back" action (checklist detail/pending, Settings) or a forward
+     one (the checklist overview's pending-items trigger below) — the
+     shape doesn't imply a direction on its own, the label text does. */
+  .pagetag{
+    position:absolute; top:14px; left:-6px; z-index:3;
+    display:flex; align-items:center; border:none; background:none; cursor:pointer; padding:0;
+  }
+  .pagetagtip{
+    position:absolute; left:-8px; top:50%; width:16px; height:16px; z-index:1;
+    background: var(--brass); border-radius:5px; transform: translateY(-50%) rotate(45deg);
+  }
+  .pagetaglabel{
+    position:relative; z-index:2; background: var(--brass); color:white;
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;
+    padding:6px 14px 6px 18px; border-radius:0 9px 9px 0;
+  }
+  /* .pagetag.compact: a smaller variant for a tag that isn't anchored
+     to a .stackedpage — e.g. the checklist overview's "see all pending
+     items" trigger, which hangs off #appCard itself (the nearest
+     positioned ancestor of #checklistView, same trick .locbadge uses
+     against .masthead) rather than a page, and shouldn't be as visually
+     loud as an actual page's own back tag. Only `top` needs overriding
+     here (not `left`) since a compact tag's shallower host has less
+     padding above it than a .stackedpage's reserved 46px. */
+  .pagetag.compact{ top:2px; }
+  .pagetag.compact .pagetagtip{ width:13px; height:13px; left:-6.5px; }
+  .pagetag.compact .pagetaglabel{ font-size:0.6rem; padding:5px 10px 5px 11px; }
+  /* EXPERIMENTAL — Settings → Dev Settings (see defaultDevSettings() /
+     applyDevSettings() in <script>). Two alternate looks for where the
+     .pagetagtip meets .pagetaglabel, toggled independently so the
+     project owner can compare them (including together) before
+     deciding whether either is worth keeping for real. Safe to delete
+     this whole block (and its Dev Settings entry) if neither survives. */
+  body.devtag-seam .pagetaglabel{
+    box-shadow: inset 4px 0 5px -3px rgba(0,0,0,0.45);
+  }
+  /* Softer than a first pass: thinner (1px, not 1.5) and --ink-soft
+     rather than --ink, so it reads as a light pencil outline instead of
+     a hard, dark border. */
+  body.devtag-outline .pagetagtip{ border: 1px solid var(--ink-soft); }
+  body.devtag-outline .pagetaglabel{ border: 1px solid var(--ink-soft); border-left: none; }
+  /* EXPERIMENTAL — three alternate looks for the checklist overview's
+     "pending items" trigger specifically (.pagetag.compact), picked via
+     a <select> rather than checkboxes since they're mutually exclusive
+     redesigns of the same element, not independently layerable — see
+     body[data-pending-tag-style] below and setDevPendingTagStyle() in
+     <script>. "default" (the plain compact page tag) needs no rule
+     here since it's just the normal .pagetag.compact look with nothing
+     added. */
+  body[data-pending-tag-style="jetout"] .pagetag.compact{ left:-18px; }
+  body[data-pending-tag-style="jetout"] .pagetag.compact .pagetagtip,
+  body[data-pending-tag-style="jetout"] .pagetag.compact .pagetaglabel{ background: var(--estate); }
+  /* "sidebar": drops the diamond tip entirely and turns the label into
+     a vertical strip running down from near the top of the card, text
+     rotated to read top-to-bottom — a different affordance ("a strip
+     along the edge") rather than a variation on the tag shape. */
+  body[data-pending-tag-style="sidebar"] .pagetag.compact{ top:40px; }
+  body[data-pending-tag-style="sidebar"] .pagetag.compact .pagetagtip{ display:none; }
+  body[data-pending-tag-style="sidebar"] .pagetag.compact .pagetaglabel{
+    background: var(--estate);
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    padding: 14px 6px;
+    border-radius: 6px;
+  }
+  /* The large "header" version of a list's own progress indicator atop
+     its detail page (see renderChecklistDetail()) — same .checkcircle-
+     wrap/.checkcircle/.peg/.progressring markup and JS as the small one
+     next to each row in the overview, just visually scaled up via
+     transform rather than duplicated at a second set of sizes, so the
+     two can never drift out of sync with each other. .checklistheader
+     gives it an explicit box (rather than relying on the transform's
+     visual overflow) sized to actually fit the scaled-up result, so it
+     reserves real flow space instead of overlapping neighboring
+     content. Margin is negative on purpose (not just tight) — the
+     title right below should sit close enough to read as this header's
+     own caption sitting almost on top of it, not a separate block. */
+  .checklistheader{
+    display:flex; align-items:center; justify-content:center;
+    height:78px; margin: 4px 0 -8px;
+  }
+  .checklistheader .checkcircle-wrap{ transform: scale(2.2); }
+  /* Header atop the full-page task detail opened from Daily (see
+     renderTaskDetailPage) — just the completion check and category dot,
+     since the title/fields below (taskExpandFieldsHtml) carry the rest;
+     no separate title line here the way .checklistheader has one, since
+     the title is itself an editable field right underneath. */
+  .taskdetailhead{ display:flex; align-items:center; gap:8px; margin:4px 0 10px; }
+  /* A row, not a stack — the date on the left, progress + the "move
+     incomplete" button (when there's something to move) on the right.
+     That button used to sit on its own full-width row underneath
+     everything else in the header, which was one more vertical block
+     between opening a day and actually seeing its tasks; sharing the
+     date's row instead of adding a row of its own is the fix. Wraps on
+     narrow widths rather than clipping. */
+  .daydetailhead{ margin-bottom:14px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .daydetailhead h2{ font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.35rem; margin:0; color:var(--ink); }
+  .daydetailheadright{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+  .dayprogress{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); }
+  .pullbtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em;
+    background:transparent; border:1px solid var(--brass); color:var(--brass); border-radius:5px; padding:7px 12px; cursor:pointer; flex-shrink:0;
+  }
+  .dayaddtoggle{ width:100%; margin-bottom:14px; }
+  /* The "Add to this day" tree lives in its own visually distinct box —
+     a filled, bordered panel — rather than sitting flush against the
+     rest of the page, so it reads at a glance as a tool you've opened
+     rather than more of the day's own content. */
+  .dayaddpanel{
+    margin-bottom:14px; background: var(--card-bg-dim); border:1px solid var(--line);
+    border-radius:10px; padding:10px 12px;
+  }
+  .dayaddhead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px; }
+  .dayaddclose{ background:none; border:none; color:var(--ink-soft); font-size:1.05rem; line-height:1; cursor:pointer; padding:2px 8px; flex-shrink:0; }
+  /* Categories/checklists as collapsible headers (.daytreelabel,
+     disclosure triangle in its own span rather than a separate icon
+     element), tasks nested one level under a category (.daytreenode.sub),
+     steps nested one level further. Every row (task, step, or list) stays
+     visible whether or not it's already on the day — see toggleDayTree*()
+     in <script> — with a ✓ mark plus a matching toggle button on the
+     right (.daytreeleaf.whole for a whole task, .daytreeaddbtn for a
+     step/list) so "already added" reads as a state to flip back, not a
+     one-way trip. Echoes .monthgroup/.monthhead's existing expand/collapse
+     language rather than inventing a new one. */
+  .daytreesection{
+    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--ink-soft); margin:10px 0 4px;
+  }
+  .daytreenode{ margin-bottom:2px; }
+  .daytreenode.sub{ margin-left:14px; }
+  .daytreelabel{
+    display:block; width:100%; text-align:left; background:none; border:none; color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.84rem; padding:5px 2px; cursor:pointer; border-radius:4px;
+  }
+  .daytreelabel:hover{ background:var(--card-bg); }
+  .daytreetriangle{ display:inline-block; width:12px; color:var(--ink-soft); }
+  .daytreecat .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:7px; }
+  /* EXPERIMENTAL — Settings → Dev Settings. Off by default: a category
+     header is plain text next to its triangle/dot. On: it becomes a
+     rounded pill echoing .tab's own look (mono/uppercase, its own
+     background+border), so the tree's category level visually matches
+     the tab bar's. */
+  body.devtreebubble .daytreecat{
+    display:inline-flex; align-items:center; width:auto; border-radius:8px;
+    background: var(--card-bg); border:1px solid var(--line); padding:6px 14px 6px 10px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em;
+  }
+  body.devtreebubble .daytreecat:hover{ border-color: var(--brass); }
+  .daytreetaskrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:6px; position:relative; }
+  .daytreetaskrow .daytreelabel{ flex:1; min-width:0; }
+  .daytreemark{ color:var(--brass); font-weight:700; flex-shrink:0; margin:0 2px; }
+  .daytreechildren{ margin-left:16px; }
+  .daytreeleaf{
+    display:block; width:100%; text-align:left; background:none; border:none; color:var(--ink-soft);
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.8rem; padding:4px 6px; cursor:pointer; border-radius:4px;
+  }
+  .daytreeleaf:hover{ background:var(--card-bg); color:var(--ink); }
+  .daytreeleaf.whole,
+  .daytreeaddbtn{
+    width:auto; flex-shrink:0; font-family:'IBM Plex Mono', monospace; font-size:0.6rem; text-transform:uppercase;
+    letter-spacing:0.03em; border:1px solid var(--line); padding:5px 8px; border-radius:4px; background:none; color:var(--ink-soft); cursor:pointer;
+  }
+  .daytreeleaf.whole:hover, .daytreeaddbtn:hover{ background:var(--card-bg); }
+  .daytreeleaf.whole.added, .daytreeaddbtn.added{ background:var(--brass); color:white; border-color:var(--brass); }
+  .daytreeleafrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:6px; position:relative; }
+  .daytreeleafrow .daytreeleaf{ flex:1; min-width:0; width:auto; }
+  /* One-shot fade — plays once when a row is freshly rendered with this
+     class (see dayTreeFlashKey in <script>), on both the add and the
+     remove direction. Doesn't loop: renderDaily() rebuilds this row's DOM
+     node fresh, so the animation only replays if dayTreeFlashKey still
+     names this row on some later unrelated render, which the timeout in
+     the toggle functions prevents.
+     Painted as an absolutely-positioned ::after rather than animating the
+     row's own background directly — the row's background sits *behind*
+     its child buttons in paint order, so a hover state on the button the
+     user just clicked (which lingers, since the mouse is still over it)
+     would sit on top of and hide the flash. A positioned pseudo-element
+     with no explicit z-index still paints after its element's own
+     in-flow static children, so it lands above the hover fill regardless
+     of where the mouse is. pointer-events:none keeps it from blocking the
+     actual click target underneath. */
+  .flashtoggle::after{
+    content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+    background: var(--brass); opacity:0.4;
+    animation: daytreeflash 700ms ease-out forwards;
+  }
+  @keyframes daytreeflash{ from{ opacity:0.4; } to{ opacity:0; } }
+  .authform{ display:flex; flex-direction:column; gap:12px; margin-bottom:6px; }
+  .authform input{
+    border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim);
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.92rem; padding:10px 12px; color:var(--ink); outline:none;
+  }
+  .autherror{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; color: var(--estate); min-height:14px; margin-top:8px; }
+  .authsubmit{
+    width:100%; font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;
+    padding:12px 14px; border-radius:8px; border:none; background: var(--brass); color:white; cursor:pointer; margin-top:4px;
+  }
+  .signoutbtn{
+    background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase;
+    color: rgba(241,234,217,0.55); cursor:pointer; letter-spacing:0.05em;
+  }
+  .catrow{ display:flex; align-items:center; gap:8px; padding:10px 2px; border-bottom:1px dashed var(--line); flex-wrap:wrap; }
+  .catedit{
+    flex:1; min-width:120px; border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.9rem; padding:4px 2px; color:var(--ink); outline:none;
+  }
+  .catwarn{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--estate); flex-basis:100%; }
+  .catdelete, .catdeleteconfirm, .catcancel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
+    background:none; border:1px solid var(--line); border-radius:5px; padding:5px 8px; cursor:pointer; color: var(--ink-soft); flex-shrink:0;
+  }
+  .catdeleteconfirm{ border-color: var(--estate); color: var(--estate); }
+  .catdelete:disabled{ opacity:0.4; cursor:not-allowed; }
+  .catmove{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
+  .catmovebtn{
+    width:20px; height:15px; padding:0; border:1px solid var(--line); border-radius:3px;
+    background: var(--card-bg-dim); color: var(--ink-soft); font-size:0.55rem; line-height:1; cursor:pointer;
+  }
+  .catmovebtn:disabled{ opacity:0.3; cursor:not-allowed; }
+  .catlocs{ flex-basis:100%; display:flex; gap:16px; margin-top:2px; }
+  .catlocchk{
+    display:flex; align-items:center; gap:5px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; text-transform:uppercase;
+    letter-spacing:0.03em; color: var(--ink-soft);
+  }
+  .catlocchk input{ cursor:pointer; }
+  .settingslabel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--ink-soft); margin: 18px 0 6px;
+  }
+  .themerow{ display:flex; gap:20px; margin-bottom:12px; flex-wrap:wrap; }
+  .themeswatch{
+    display:flex; align-items:center; gap:8px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
+    letter-spacing:0.03em; color: var(--ink-soft);
+  }
+  .themeswatch input[type=color]{
+    width:28px; height:28px; padding:0; border:1px solid var(--line); border-radius:6px;
+    cursor:pointer; background:none;
+  }
+  .texturerow{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .texturebtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.03em;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:6px; padding:8px 12px;
+    color: var(--ink-soft); cursor:pointer;
+  }
+  .texturebtn.active{ background: var(--brass); border-color: var(--brass); color:white; }
+  .resetthemebtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.04em;
+    background:transparent; border:1px dashed var(--brass); color:var(--brass); border-radius:6px;
+    padding:8px 12px; cursor:pointer;
+  }
+  /* EXPERIMENTAL — see defaultDevSettings() in <script>. A plain <details>
+     rather than a JS-driven toggle so "usually obscured" needs no state
+     of its own — collapsed by default, native browser disclosure. */
+  .devsettings{ margin-top:18px; border-top:1px dashed var(--line); padding-top:10px; }
+  .devsettings summary{
+    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--ink-soft); cursor:pointer; margin-bottom:10px;
+  }
+  /* Plain, semantic text output for the Claude-readable view — no
+     decorative markup to strip, just a monospace block a page-reading
+     tool can grab in one pass. */
+  .claudepre{
+    white-space: pre-wrap; word-break: break-word; margin:0;
+    font-family:'IBM Plex Mono', monospace; font-size:0.76rem; line-height:1.55;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:8px;
+    padding:14px; max-height:65vh; overflow:auto; color:var(--ink);
+  }
+  .claudeviewrow{ display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  @media (max-width:480px){
+    .masthead h1{ font-size:1.9rem; }
+    .card{ padding: 18px 14px 10px; }
+    .locbadge{ width:44px; height:44px; top:-2px; }
+  }

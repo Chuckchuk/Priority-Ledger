@@ -1,0 +1,173 @@
+// Categories are per-user data (state.categories), not a fixed config, so
+// people can add/rename/remove their own tabs. CATEGORIES is a lookup index
+// rebuilt from state.categories on every load and mutation — kept as a
+// plain id-keyed object (via rebuildCategoriesIndex) so the many existing
+// `CATEGORIES[key]` / `Object.entries(CATEGORIES)` call sites didn't need
+// to change when categories became dynamic.
+const CATEGORY_PALETTE = ['#3C5A45','#3E4A6B','#9C4530','#A9782F','#5B6560','#6B4226','#2F6B5E','#7A4B6B'];
+// Used only when a task's category tab has been deleted — the task itself
+// is never touched, it just has nothing to look itself up as, and this
+// keeps that rendering path from breaking.
+const FALLBACK_CATEGORY = { id:'_orphan', label:'Uncategorized', hex:'#5B6560', locations:['MA','Argentina'], type:'standard' };
+// Generic on purpose — this seeds any brand-new account (see normalizeState()
+// below), not just the project owner's, so it stays a broadly relatable
+// three-way split (work life / home life / everything else personal)
+// rather than the owner's own specific tabs. Household is Home-only (the
+// one deliberate exception) so the location feature actually does
+// something visible out of the box, the same way "Estate Upkeep only
+// applies at MA" did for the owner's own accounts — Work and Personal
+// stay at both locations since neither maps to a single place. Hexes are
+// CATEGORY_PALETTE[0..2] in order — addCategory() colors a new tab from
+// CATEGORY_PALETTE[state.categories.length % length], so leaving these
+// three at indices 0-2 keeps a user's first added tab (index 3) from
+// landing on a color one of these already uses.
+function defaultCategories(){
+  return [
+    { id:'work',      label:'Work',      hex: CATEGORY_PALETTE[0], locations:['home','away'], type:'standard' },
+    { id:'household', label:'Household', hex: CATEGORY_PALETTE[1], locations:['home'],         type:'standard' },
+    { id:'personal',  label:'Personal',  hex: CATEGORY_PALETTE[2], locations:['home','away'],  type:'standard' },
+    // A checklist-type tab in the defaults, so a new account sees one
+    // without having to discover "Settings → add a tab → Checklist"
+    // first — "Lists" rather than "Purchase Lists" so it doesn't read as
+    // scoped to shopping specifically (packing, chores, anything).
+    { id:'lists',     label:'Lists',     hex: CATEGORY_PALETTE[3], locations:['home','away'],  type:'checklist' }
+  ];
+}
+let CATEGORIES = {};
+function rebuildCategoriesIndex(){
+  CATEGORIES = {};
+  state.categories.forEach(c => { CATEGORIES[c.id] = c; });
+}
+function tabOrder(){ return ['all', ...state.categories.map(c=>c.id), 'daily']; }
+
+// Category "type" is fixed at creation (see addCategory()) — there's no
+// UI to convert one after the fact, since a standard category's tasks
+// (due dates, priority) and a checklist's lists (name + items only) don't
+// map onto each other. 'standard' is the default/original behavior;
+// 'checklist' is the parallel, much simpler view (see the Checklist
+// section below) modeled on how the Daily tab is already a parallel view
+// rather than a real category.
+function isChecklistCategory(id){
+  const c = CATEGORIES[id];
+  return !!c && c.type === 'checklist';
+}
+// Category selects used for *standard* tasks (quick-add, "move to
+// category", the Daily quick-add) only ever offer standard categories —
+// a checklist category's "tasks" are really named lists with no due
+// date/priority fields, so dropping a standard task into one (or vice
+// versa) would produce a hybrid that neither view knows how to render.
+function standardCategoryEntries(){
+  return Object.entries(CATEGORIES).filter(([,v]) => v.type !== 'checklist');
+}
+
+// Locations are also per-user: two editable-label entries plus a switch to
+// turn the whole feature off. Ids stay fixed ('home'/'away') so category
+// .locations arrays never need migrating when someone just renames a
+// label — "Home"/"Away" is a generic default that still demonstrates the
+// feature immediately (a primary place vs. everywhere else) without
+// assuming any particular real-world setup the way "MA"/"B.A." did.
+function defaultLocations(){
+  return [
+    { id:'home', label:'Home' },
+    { id:'away', label:'Away' }
+  ];
+}
+
+// Appearance is per-user data too. Two colors is deliberately the whole
+// surface: "bg" (the desk behind everything) and "paper" (the ledger card
+// itself, incl. buttons/badges/inputs inside it via the derived -dim
+// tone) — not a full palette editor. --ink/--ink-soft/--line are derived
+// from "paper"'s lightness rather than user-set, so text stays legible
+// against a card color, not just the classic cream default. "gradient"
+// and the three textures ("grain"/"pages"/"leather") are independent
+// booleans, not a single exclusive choice — they're meant to layer (e.g.
+// textured AND pages together).
+function defaultTheme(){
+  return { bg:'#28362E', paper:'#F1EAD9', gradient:false, grain:false, pages:false, leather:false };
+}
+
+function clamp255(n){ return Math.max(0, Math.min(255, n)); }
+
+// Darkens (negative percent) or lightens (positive) a hex color by
+// scaling each channel multiplicatively rather than adding a flat offset.
+// Additive offsets clip dark colors to black almost immediately (e.g. the
+// classic desk green's channels are only ~40-54 to start with, so a flat
+// -70 offset floors everything to 0) — multiplicative scaling keeps the
+// color's own character at any base lightness, which is what makes the
+// derived "-dark"/"-dim" shade read as a gentle shade rather than a harsh
+// clip to near-black.
+function shadeHex(hex, percent){
+  const num = parseInt(hex.replace('#',''), 16);
+  const factor = 1 + percent;
+  const r = clamp255(Math.round(((num >> 16) & 0xFF) * factor));
+  const g = clamp255(Math.round(((num >> 8) & 0xFF) * factor));
+  const b = clamp255(Math.round((num & 0xFF) * factor));
+  return '#' + (0x1000000 + r*0x10000 + g*0x100 + b).toString(16).slice(1);
+}
+
+function relLuminance(hex){
+  const num = parseInt(hex.replace('#',''), 16);
+  const r = (num >> 16) / 255, g = ((num >> 8) & 0xFF) / 255, b = (num & 0xFF) / 255;
+  return 0.2126*r + 0.7152*g + 0.0722*b;
+}
+
+// Applies a theme object to the live page via CSS custom properties, plus
+// the texture classes on #appCard. Takes a plain object (not necessarily
+// state.theme) so signOut() can restore the classic look without needing
+// a logged-in state to read it from.
+function applyThemeObject(t){
+  const root = document.documentElement.style;
+  root.setProperty('--desk', t.bg);
+  // -0.30 multiplicatively on the classic desk green reproduces the
+  // original hand-picked --desk-dark almost exactly — this is "the same
+  // gradient it always had," not a new, more intense one.
+  root.setProperty('--desk-dark', t.gradient ? shadeHex(t.bg, -0.30) : t.bg);
+  root.setProperty('--card-bg', t.paper);
+  root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
+  const dark = relLuminance(t.paper) < 0.5;
+  root.setProperty('--ink', dark ? '#F1EAD9' : '#2A2318');
+  root.setProperty('--ink-soft', dark ? 'rgba(241,234,217,0.65)' : '#7A6E58');
+  root.setProperty('--line', dark ? 'rgba(241,234,217,0.18)' : 'rgba(42,35,24,0.16)');
+
+  const appCard = document.getElementById('appCard');
+  if(appCard){
+    appCard.classList.toggle('texture-grain', !!t.grain);
+    appCard.classList.toggle('texture-pages', !!t.pages);
+  }
+  const leatherCover = document.getElementById('leatherCover');
+  if(leatherCover) leatherCover.classList.toggle('leather-on', !!t.leather);
+}
+
+function applyTheme(){ applyThemeObject(state.theme); }
+
+// EXPERIMENTAL, see defaultDevSettings() above — toggles body classes
+// the body.devtag-seam/body.devtag-outline CSS reads, rather than a
+// per-element inline style, since .pagetag is used from several
+// different render functions and a body-level class lets all of them
+// pick it up without each one having to know these settings exist.
+function applyDevSettings(){
+  const d = state.devSettings || defaultDevSettings();
+  document.body.classList.toggle('devtag-seam', !!d.tagSeam);
+  document.body.classList.toggle('devtag-outline', !!d.tagOutline);
+  document.body.dataset.pendingTagStyle = d.pendingTagStyle || 'default';
+  document.body.classList.toggle('devlist-dates', !!d.showListDates);
+  document.body.classList.toggle('devtreebubble', !!d.dayTreeCatBubble);
+}
+
+async function toggleDevSetting(key, checked){
+  pushUndo(`${checked ? 'Enabled' : 'Disabled'} dev setting: ${key}`);
+  state.devSettings[key] = checked;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevPendingTagStyle(val){
+  pushUndo(`Changed dev pending-tag style to "${val}"`);
+  state.devSettings.pendingTagStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+

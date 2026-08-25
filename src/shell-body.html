@@ -1,0 +1,71 @@
+</style>
+</head>
+<body>
+<div class="shell" id="authShell" style="display:none;">
+  <div class="masthead">
+    <h1>The Ledger</h1>
+    <div class="tagline">sign in to your ledger</div>
+  </div>
+  <div class="card">
+    <div class="authform">
+      <input type="email" id="authEmail" placeholder="Email">
+      <input type="password" id="authPassword" placeholder="Password" onkeydown="if(event.key==='Enter') submitAuth()">
+    </div>
+    <div class="autherror" id="authError"></div>
+    <button class="authsubmit" id="authSubmitBtn" onclick="submitAuth()">Sign In</button>
+    <div class="footer-row"><button onclick="toggleAuthMode()" id="authModeToggle">Need an account? Create one</button></div>
+    <div class="footer-row"><button onclick="continueLocally()">Continue without an account (this device only)</button></div>
+  </div>
+</div>
+<div class="shell" id="appShell" style="display:none;">
+  <div class="masthead">
+    <button class="settingsbtn" id="settingsBtn" onclick="toggleSettings()" title="Settings">⚙</button>
+    <h1>The Ledger</h1>
+    <button class="locbadge" id="locBadge" onclick="toggleLocation()"></button>
+  </div>
+  <div class="status-line" id="statusLine"></div>
+  <div class="status-line" id="signOutRow" style="display:none;"><button class="signoutbtn" onclick="signOut()">Sign out (<span id="authEmailLabel"></span>)</button></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="leathercover" id="leatherCover">
+    <div class="card" id="appCard">
+      <div id="categoryView">
+        <div class="quickadd">
+          <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
+          <select id="quickCategory"></select>
+          <select id="quickTimeframe" title="Timeframe">
+            <option value="">Timeframe</option>
+            <option value="today">Today</option>
+            <option value="short">Short</option>
+            <option value="medium">Medium</option>
+            <option value="long">Long</option>
+            <option value="urgent">Urgent</option>
+          </select>
+          <select id="quickPriority" title="Priority">
+            <option value="0">Priority</option>
+            <option value="1">Low</option>
+            <option value="2">Medium</option>
+            <option value="3">High</option>
+          </select>
+          <button class="flagbtn" id="urgentToggle" onclick="toggleUrgentDraft()" title="Mark urgent">⚑</button>
+          <button class="addbtn" onclick="addTask()">+</button>
+        </div>
+        <div class="sortrow" id="sortRow"></div>
+        <ul class="tasks" id="taskList"></ul>
+        <div class="footer-row"><button id="showDoneBtn" onclick="toggleShowDone()"></button></div>
+      </div>
+      <div id="dailyView" style="display:none;"></div>
+      <div id="checklistView" style="display:none;"></div>
+      <div id="settingsView" style="display:none;"></div>
+      <div id="claudeView" style="display:none;"></div>
+    </div>
+  </div>
+  <div class="undoRow">
+    <button class="undobtn" id="undoBtn" onclick="undo()" title="Undo" disabled>↺</button>
+    <span class="undostatus" id="undoStatus"></span>
+    <button class="undobtn" id="redoBtn" onclick="redo()" title="Redo" disabled>↻</button>
+  </div>
+  <div class="savestatus" id="saveStatus"></div>
+  <div class="status-line"><button class="signoutbtn" onclick="refreshFromServer(true)" id="refreshBtn">Refresh</button></div>
+</div>
+
+<script>
