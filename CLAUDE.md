@@ -60,6 +60,8 @@ python3 -m http.server 8000
 
 `window.storage` won't exist outside claude.ai, so you'll land on the login screen. Either sign in with a real Supabase test account, or click "Continue without an account" to exercise the `localStorage` fallback — this is expected and is not something to "fix."
 
+To skip the login screen entirely (e.g. Claude Code testing a UI change), append `?localdev=1` to the URL — it's equivalent to clicking "Continue without an account" but lands in the app on first paint, no click/JS-eval needed. Gated by `isLocalDevHost()` (localhost/127.0.0.1/file:// only) so it can never do anything on the real hosted site even if someone appends it there by mistake — it's a dev convenience, not a feature.
+
 ## After making changes
 
 This repo's `main` branch is served directly by GitHub Pages. Pushing `priority-ledger.html` to `main` updates the live app at `https://chuckchuk.github.io/Priority-Ledger/priority-ledger.html` — always confirm with the project owner before pushing, since it's a real GitHub remote and the live site both users rely on.
