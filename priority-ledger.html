@@ -833,7 +833,12 @@ function defaultCategories(){
   return [
     { id:'work',      label:'Work',      hex: CATEGORY_PALETTE[0], locations:['home','away'], type:'standard' },
     { id:'household', label:'Household', hex: CATEGORY_PALETTE[1], locations:['home'],         type:'standard' },
-    { id:'personal',  label:'Personal',  hex: CATEGORY_PALETTE[2], locations:['home','away'],  type:'standard' }
+    { id:'personal',  label:'Personal',  hex: CATEGORY_PALETTE[2], locations:['home','away'],  type:'standard' },
+    // A checklist-type tab in the defaults, so a new account sees one
+    // without having to discover "Settings → add a tab → Checklist"
+    // first — "Lists" rather than "Purchase Lists" so it doesn't read as
+    // scoped to shopping specifically (packing, chores, anything).
+    { id:'lists',     label:'Lists',     hex: CATEGORY_PALETTE[3], locations:['home','away'],  type:'checklist' }
   ];
 }
 let CATEGORIES = {};
@@ -1445,6 +1450,16 @@ function redo(){
 
 function isOverdue(t){
   return t.dueDate && t.status !== 'done' && new Date(t.dueDate) < new Date(todayStr());
+}
+
+// Used to decide whether a due task is worth surfacing in a day's "pull
+// in an existing task" list — due today, already overdue (no lower
+// bound: overdue is exactly the case you'd most want to catch up on),
+// or due within the next `days`. A task due further out than that isn't
+// urgent enough yet to clutter a specific day's plan.
+function isDueWithinDays(dueDate, days){
+  const diffMs = new Date(dueDate) - new Date(todayStr());
+  return diffMs / 86400000 <= days;
 }
 
 function fmtDate(d){
@@ -2324,8 +2339,14 @@ function openClaudeView(mode){
   render();
 }
 
+// The only way into the Claude view is the "Open Claude-readable view"
+// button inside Settings (or the ?claude= URL param, which a page-reading
+// agent wouldn't be clicking a tag or pressing Esc from anyway) — so
+// closing it, whether via the page tag or Esc, goes back to Settings
+// rather than whatever category tab happened to be active underneath.
 function closeClaudeView(){
   claudeView = null;
+  settingsOpen = true;
   render();
 }
 
@@ -2623,7 +2644,16 @@ function renderDayDetail(dateStr){
   const sorted = applySortMode(allTasks);
   const doneCount = allTasks.filter(t=>t.status==='done').length;
   const unfinishedCount = allTasks.length - doneCount;
-  const unplanned = state.tasks.filter(t=>t.plannedDate!==dateStr && t.status!=='done' && !isChecklistCategory(t.category));
+  // Eligible to pull into *this* day: not already planned here, not
+  // done, a standard (non-checklist) task, and — if it has a due date —
+  // due today, overdue, or due within the next 3 days. A dateless task
+  // stays eligible unconditionally, since there's no due-date urgency
+  // window to apply; a task due weeks out just isn't relevant to a
+  // specific day's plan yet.
+  const unplanned = state.tasks.filter(t=>
+    t.plannedDate!==dateStr && t.status!=='done' && !isChecklistCategory(t.category) &&
+    (!t.dueDate || isDueWithinDays(t.dueDate, 3))
+  );
   const isPast = dateStr < todayStr();
   const nextDate = addDaysToDateStr(dateStr, 1);
 
@@ -2634,42 +2664,44 @@ function renderDayDetail(dateStr){
     : `<div class="empty">Nothing planned for this day yet.</div>`;
 
   return `
-    <button class="backbtn" onclick="closeDay()">‹ All Days</button>
-    <div class="daydetailhead">
-      <h2>${dayLabel(dateStr)}</h2>
-      <div class="dayprogress">${allTasks.length ? `${doneCount} of ${allTasks.length} done` : 'Nothing planned yet'}</div>
+    <div class="stackedpage">
+      ${pageTagHtml('closeDay()', 'All Days')}
+      <div class="daydetailhead">
+        <h2>${dayLabel(dateStr)}</h2>
+        <div class="dayprogress">${allTasks.length ? `${doneCount} of ${allTasks.length} done` : 'Nothing planned yet'}</div>
+      </div>
+      ${isPast ? `
+      <div class="lockednote">
+        <span>🔒 This day has passed — locked</span>
+        ${unfinishedCount>0 ? `<button class="pullbtn" onclick="cascadeUnfinished('${dateStr}')">Copy ${unfinishedCount} unfinished → ${fmtDate(nextDate)}</button>` : ''}
+      </div>` : `
+      <div class="reschedule">
+        <label class="fieldlabel">MOVE THIS DAY TO</label>
+        <input type="date" id="rescheduleInput" min="${todayStr()}" value="${dateStr}">
+        <button class="pullbtn" onclick="rescheduleDay('${dateStr}', document.getElementById('rescheduleInput').value)">Move</button>
+        <span class="reschedulemsg" id="rescheduleMsg"></span>
+      </div>`}
+      <div class="quickadd">
+        <input type="text" id="dayQuickInput" placeholder="Add a priority for this day…" onkeydown="if(event.key==='Enter') addDayTask('${dateStr}')">
+        <select id="dayQuickCategory">
+          ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${k==='personal'?'selected':''}>${v.label}</option>`).join('')}
+        </select>
+        <button class="addbtn" onclick="addDayTask('${dateStr}')">+</button>
+      </div>
+      ${unplanned.length ? `
+      <div class="pulladd">
+        <select id="pullTaskSelect">
+          <option value="">Pull in an existing task…</option>
+          ${unplanned.map(t=>`<option value="${t.id}">${escapeHtml((CATEGORIES[t.category]||FALLBACK_CATEGORY).label)} — ${escapeHtml(t.title)}</option>`).join('')}
+        </select>
+        <button class="pullbtn" onclick="pullTaskToDay('${dateStr}')">Add</button>
+      </div>` : ''}
+      <div class="sortrow">
+        <label class="fieldlabel">SORT</label>
+        <select onchange="setSortMode(this.value)">${sortModeOptionsHtml()}</select>
+      </div>
+      <ul class="tasks">${list}</ul>
     </div>
-    ${isPast ? `
-    <div class="lockednote">
-      <span>🔒 This day has passed — locked</span>
-      ${unfinishedCount>0 ? `<button class="pullbtn" onclick="cascadeUnfinished('${dateStr}')">Copy ${unfinishedCount} unfinished → ${fmtDate(nextDate)}</button>` : ''}
-    </div>` : `
-    <div class="reschedule">
-      <label class="fieldlabel">MOVE THIS DAY TO</label>
-      <input type="date" id="rescheduleInput" min="${todayStr()}" value="${dateStr}">
-      <button class="pullbtn" onclick="rescheduleDay('${dateStr}', document.getElementById('rescheduleInput').value)">Move</button>
-      <span class="reschedulemsg" id="rescheduleMsg"></span>
-    </div>`}
-    <div class="quickadd">
-      <input type="text" id="dayQuickInput" placeholder="Add a priority for this day…" onkeydown="if(event.key==='Enter') addDayTask('${dateStr}')">
-      <select id="dayQuickCategory">
-        ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${k==='personal'?'selected':''}>${v.label}</option>`).join('')}
-      </select>
-      <button class="addbtn" onclick="addDayTask('${dateStr}')">+</button>
-    </div>
-    ${unplanned.length ? `
-    <div class="pulladd">
-      <select id="pullTaskSelect">
-        <option value="">Pull in an existing task…</option>
-        ${unplanned.map(t=>`<option value="${t.id}">${escapeHtml((CATEGORIES[t.category]||FALLBACK_CATEGORY).label)} — ${escapeHtml(t.title)}</option>`).join('')}
-      </select>
-      <button class="pullbtn" onclick="pullTaskToDay('${dateStr}')">Add</button>
-    </div>` : ''}
-    <div class="sortrow">
-      <label class="fieldlabel">SORT</label>
-      <select onchange="setSortMode(this.value)">${sortModeOptionsHtml()}</select>
-    </div>
-    <ul class="tasks">${list}</ul>
   `;
 }
 
