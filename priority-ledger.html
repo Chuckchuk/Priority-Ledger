@@ -311,6 +311,35 @@
   .subpip.filled{ background: var(--ink); border-color: var(--ink); opacity:1; }
   .substack.bar{ gap:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:2px; overflow:hidden; }
   .substack.bar .subfill{ height:100%; background: var(--ink); }
+  /* Checklist-category list rows: a round checkbox (vs. the square .check
+     used everywhere else) with its items shown as small radial pegs
+     around it, like clock ticks, rather than the linear .substack used
+     under a standard task. .checkcircle-wrap is a fixed-size box
+     regardless of item count — pegs/ring sit absolutely inside it — so
+     rows stay column-aligned the same way .checkwrap does for .check. */
+  .checkcircle-wrap{ position:relative; width:34px; height:34px; flex-shrink:0; }
+  .checkcircle{
+    position:absolute; top:50%; left:50%; transform: translate(-50%,-50%); z-index:1;
+    width:18px; height:18px; border:1.5px solid var(--ink-soft); border-radius:50%;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; background: var(--card-bg);
+  }
+  .checkcircle.done{ background: var(--ink); border-color: var(--ink); }
+  .checkcircle.done::after{ content:'✓'; color: var(--card-bg); font-size:10px; }
+  /* Each peg is a short tick positioned at the container's center and
+     rotated around it (transform-origin sits back at that center point),
+     so at rotate(0) it points straight up at a fixed radius and swinging
+     it around the circle is just varying the rotation angle per item. */
+  .peg{
+    position:absolute; top:50%; left:50%; width:2px; height:5px;
+    margin:-13px 0 0 -1px; transform-origin: 1px 13px;
+    background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px; opacity:0.6;
+  }
+  .peg.filled{ background: var(--ink); border-color: var(--ink); opacity:1; }
+  /* Past the peg threshold, a conic-gradient ring takes over — the
+     opaque .checkcircle sitting centered on top of it (same z-index
+     trick as above) masks the middle, leaving only the outer ring
+     visible, so no separate donut-cutout element is needed. */
+  .progressring{ position:absolute; inset:0; border-radius:50%; }
   .cdot{ width:7px; height:7px; border-radius:50%; margin-top:7px; flex-shrink:0; }
   .title{ flex:1; font-size:0.97rem; line-height:1.4; }
   .title.done{ text-decoration: line-through; color: var(--ink-soft); }
@@ -2443,6 +2472,26 @@ function renderChecklistOverview(categoryId){
   `;
 }
 
+// Beyond this many items, discrete pegs around the circle would either
+// overlap or get too thin to read as ticks — a circular progress ring
+// reads better than clutter at that point. Mirrors subProgressHtml()'s
+// linear-pips-vs-bar threshold (also 6) for the same reason.
+const CHECKLIST_PEG_LIMIT = 6;
+
+function checklistProgressHtml(subs){
+  if(!subs.length) return '';
+  const done = subs.filter(s=>s.done).length;
+  const total = subs.length;
+  if(total <= CHECKLIST_PEG_LIMIT){
+    return subs.map((s,i)=>{
+      const angle = Math.round((360/total)*i);
+      return `<span class="peg ${s.done?'filled':''}" style="transform:rotate(${angle}deg)"></span>`;
+    }).join('');
+  }
+  const pct = Math.round(done/total*100);
+  return `<div class="progressring" style="background: conic-gradient(var(--ink) ${pct}%, var(--line) 0)"></div>`;
+}
+
 function checklistListRowHtml(t){
   const subs = t.subtasks || [];
   const done = subs.filter(s=>s.done).length;
@@ -2450,9 +2499,11 @@ function checklistListRowHtml(t){
   return `
   <li class="task" onclick="openChecklistList('${t.id}')">
     <div class="row">
-      <div class="check ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
+      <div class="checkcircle-wrap" title="${total ? `${done}/${total} items` : ''}">
+        ${checklistProgressHtml(subs)}
+        <div class="checkcircle ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
+      </div>
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}</div>
-      <div class="meta">${total ? `<span class="badge due">${done}/${total}</span>` : ''}</div>
     </div>
   </li>`;
 }
