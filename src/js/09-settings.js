@@ -155,6 +155,15 @@ function renderSettings(){
     </details>
   `;
 
+  // "Calendar" only shows as an addable type when the matching dev
+  // setting is on (see defaultDevSettings() in 02-storage-state.js) — the
+  // normal way to reach a calendar view is the "Calendar" tag on Daily's
+  // own day list (openDailyCalendar(), see 18-calendar.js), not a tab of
+  // its own.
+  const calendarTabTypeOption = state.devSettings.calendarTabTypeEnabled ? '<option value="calendar">Calendar</option>' : '';
+  const newCatTypeTooltip = "Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off."
+    + (state.devSettings.calendarTabTypeEnabled ? " Calendar tabs show a month grid of your Daily pages, with at-a-glance counts of what's due and done each day." : '');
+
   el.innerHTML = `
     <div class="stackedpage">
       ${pageTagHtml('toggleSettings()', 'Done')}
@@ -163,10 +172,10 @@ function renderSettings(){
       <div class="catrow">
         <input type="text" class="catedit" placeholder="+ add a new tab, enter to save" id="newCatNameInput"
           onkeydown="if(event.key==='Enter'){ addCategory(this.value, document.getElementById('newCatTypeSelect').value); this.value=''; }">
-        <select class="catselect" id="newCatTypeSelect" title="Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off. Calendar tabs show a month grid of your Daily pages, with at-a-glance counts of what's due and done each day.">
+        <select class="catselect" id="newCatTypeSelect" title="${newCatTypeTooltip}">
           <option value="standard">Standard</option>
           <option value="checklist">Checklist</option>
-          <option value="calendar">Calendar</option>
+          ${calendarTabTypeOption}
         </select>
       </div>
       ${locationSection}

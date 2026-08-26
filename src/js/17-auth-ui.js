@@ -64,6 +64,7 @@ function signOut(){
   claudeView = null;
   selectedListId = null;
   checklistPendingOpen = false;
+  dailyCalendarOpen = false;
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
   closeAllSettingsPopovers();
@@ -94,6 +95,7 @@ async function enterApp(){
   claudeView = null;
   selectedListId = null;
   checklistPendingOpen = false;
+  dailyCalendarOpen = false;
   document.getElementById('authShell').style.display = 'none';
   document.getElementById('appShell').style.display = '';
   const signOutRow = document.getElementById('signOutRow');

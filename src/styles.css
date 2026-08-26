@@ -1276,7 +1276,11 @@
     padding:14px; max-height:65vh; overflow:auto; color:var(--ink);
   }
   .claudeviewrow{ display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
-  /* ---------- Calendar category type ---------- */
+  /* ---------- Calendar view ---------- */
+  /* Shared by both entry points — the "Calendar" tag on Daily's own day
+     list (the normal path, see renderDailyCalendar() in 18-calendar.js)
+     and the optional dev-only 'calendar' category type (renderCalendar()
+     there). */
   /* Same row shape as .daynav above, reusing .navarrow — see the comment
      there for why the two share one button style instead of each
      defining a near-identical one. */
@@ -1306,13 +1310,20 @@
   }
   .calcell.calblank{ border:none; background:none; cursor:default; }
   .caldatenum{ font-size:0.8rem; }
-  /* A day with anything planned gets a slightly stronger card-bg tint
-     (barely — the border below is what actually carries the signal) so
-     an empty month doesn't read as "half broken," just quiet. */
-  .calcell.hasdata{ background: color-mix(in srgb, var(--card-bg-dim) 80%, var(--primary) 20%); }
+  /* Any day already in state.days gets a slightly stronger card-bg tint
+     (barely — the border below carries most of the signal), whether or
+     not it actually has anything planned — clicking a cell creates the
+     day (see openCalendarDay()), so an already-logged-but-empty day needs
+     to look different from an untouched one, or there's no way to tell
+     "nothing here yet" from "I checked, it's just empty" without
+     clicking through. .calexistsdot (a plain middle dot, standing in for
+     the ratio text a day with actual items shows) is what carries that
+     distinction for the empty case specifically. */
+  .calcell.exists{ background: color-mix(in srgb, var(--card-bg-dim) 80%, var(--primary) 20%); }
   .calratio{
     font-family:'IBM Plex Mono', monospace; font-size:0.58rem; color:var(--ink-soft); letter-spacing:0.02em;
   }
+  .calratio.calexistsdot{ opacity:0.55; }
   /* Today gets the same Primary-accent treatment .dayhero.today/.todaytag
      use elsewhere for "today," not a new one-off color, so "today" reads
      the same wherever it shows up in the app. */

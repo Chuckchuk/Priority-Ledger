@@ -223,7 +223,16 @@ function defaultDevSettings(){
   // color (state.theme.uiPreset, see UI_COLOR_PRESETS in
   // 01-categories-theme.js) shows through untouched. See the CSS comment
   // on .pagetag.compact's base rule for how the override rules relate.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false };
+  // calendarTabTypeEnabled: 'Calendar' started as its own category type
+  // (a whole addable tab), but the actual ask turned out to be a compact
+  // pagetag linking Daily's own day-list to a calendar view — see
+  // openDailyCalendar()/renderDailyCalendar() in 18-calendar.js, which is
+  // what a normal user reaches now. The category-type path still works
+  // (renderCalendar(), isCalendarCategory()) and is worth keeping rather
+  // than deleting working code, but it's gated behind this flag so it
+  // doesn't show up as a real option in Settings' "add a new tab" select
+  // unless explicitly opted into here.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false };
 }
 
 function defaultState(){
@@ -276,6 +285,7 @@ function normalizeState(){
   if(typeof state.devSettings.showListDates !== 'boolean') state.devSettings.showListDates = false;
   if(typeof state.devSettings.dayTreeCatBubble !== 'boolean') state.devSettings.dayTreeCatBubble = false;
   if(typeof state.devSettings.sidePanelEnabled !== 'boolean') state.devSettings.sidePanelEnabled = false;
+  if(typeof state.devSettings.calendarTabTypeEnabled !== 'boolean') state.devSettings.calendarTabTypeEnabled = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)

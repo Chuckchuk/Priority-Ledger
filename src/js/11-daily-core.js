@@ -12,6 +12,15 @@ function addDaysToDateStr(dateStr, n){
 
 let pickerOpen = false;
 
+// Whether Daily's own calendar view (opened via the "Calendar" tag on
+// renderDayList(), see openDailyCalendar()/renderDailyCalendar() in
+// 18-calendar.js) is showing in place of the day list — transient UI
+// state, not persisted, same idiom as pickerOpen. Deliberately NOT reset
+// by openDay()/closeDay(): opening a date from the calendar itself sets
+// this back to false (see openCalendarDay()) as part of the same
+// navigation, so there's no window where both would be true at once.
+let dailyCalendarOpen = false;
+
 // "Add to this day" tree picker state — transient UI state, not
 // persisted, same idiom as pickerOpen/expandedMonths above. Reset by
 // resetDayAddPicker() whenever a day is opened or closed.
@@ -191,7 +200,9 @@ function toggleMonthGroup(key){
 function renderDaily(){
   const el = document.getElementById('dailyView');
   if(taskDetailId && !state.tasks.find(t=>t.id===taskDetailId)) taskDetailId = null;
-  if(selectedDay && taskDetailId){
+  if(dailyCalendarOpen){
+    el.innerHTML = renderDailyCalendar();
+  } else if(selectedDay && taskDetailId){
     el.innerHTML = renderTaskDetailPage(taskDetailId, selectedDay);
   } else {
     el.innerHTML = selectedDay ? renderDayDetail(selectedDay) : renderDayList();
@@ -215,7 +226,13 @@ function dayHeaderTag(dateStr){
 
 function renderDayList(){
   const days = state.days.slice().sort((a,b)=> b.localeCompare(a));
-  let html = `
+  // Compact page tag, same component the checklist overview's "Pending"
+  // trigger uses — see openDailyCalendar()/renderDailyCalendar() in
+  // 18-calendar.js. Always shown (not gated behind "only if there's
+  // something to see," unlike the checklist's Pending count), since a
+  // calendar view is useful even for a currently-empty month.
+  let html = pageTagHtml('openDailyCalendar()', 'Calendar', true);
+  html += `
     <div class="adddayrow">
       <button class="addday" onclick="addDay()">+ Add a Day</button>
       <button class="pickdatebtn" onclick="togglePicker()">${pickerOpen ? 'Cancel' : 'Pick a date…'}</button>

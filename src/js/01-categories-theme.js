@@ -377,6 +377,10 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
       <input type="checkbox" ${dev.dayTreeCatBubble?'checked':''} onchange="toggleDevSetting('dayTreeCatBubble', this.checked)">
       "Add to day" tree: pill-shaped category bubbles (like the tab bar)
     </label>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.calendarTabTypeEnabled?'checked':''} onchange="toggleDevSetting('calendarTabTypeEnabled', this.checked)">
+      Offer "Calendar" as an addable tab type (the normal way to reach it is the "Calendar" tag on Daily's own day list)
+    </label>
   `;
 }
 
