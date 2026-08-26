@@ -255,18 +255,54 @@ function renderDaily(){
   }
 }
 
-// Large "which day is this" label shown centered atop a day's detail page
-// — distinct from the h2 (which always shows the full weekday+date). Today
-// and yesterday/tomorrow are unambiguous by name; 2-7 days out only reads
-// as a weekday, since "in 5 days" doesn't have a name people reach for;
-// beyond that window (or more than a day in the past) there's nothing
-// clarifying to say, so it renders nothing at all.
+// Spells out small numbers ("Two Weeks", not "2 Weeks") for the coarser
+// bands of dayHeaderTag() below — exact counts (8-13 days) stay digits,
+// since "Nine Days" doesn't read any better than "9 Days" and would need
+// a much longer word list.
+const DAY_TAG_NUMBER_WORDS = ['Zero','One','Two','Three','Four','Five','Six'];
+function dayTagNumberWord(n){
+  return DAY_TAG_NUMBER_WORDS[n] || String(n);
+}
+
+// Large "which day is this" label shown centered atop a day's detail
+// page — distinct from the h2 (which always shows the full weekday+date).
+// Graduated from exact (today/tomorrow/yesterday, a weekday name) to
+// increasingly rounded the further out a date is, on both sides of today:
+//   0/±1 day     Today / Tomorrow / Yesterday
+//   2-6 days     a weekday name — "Friday" / "Last Monday"
+//   7 days       One Week / Last Week — a bare weekday would just repeat
+//                today's own, which reads oddly ("last Wednesday" when
+//                today already is Wednesday)
+//   8-13 days    exact day count — "9 Days" / "9 Days Ago"
+//   14-27 days   rounded to the nearest week — "Two Weeks" / "Three Weeks Ago"
+//   ~1-6 months  rounded to the nearest ~30-day month — "Next Month" /
+//                "Two Months Away" / "Three Months Ago"
+//   beyond that  nothing — a date far enough out that a rounded label
+//                stops being useful context, same as the original 7-day
+//                cutoff this replaces.
 function dayHeaderTag(dateStr){
   const diffDays = Math.round((new Date(dateStr+'T00:00:00') - new Date(todayStr()+'T00:00:00')) / 86400000);
   if(diffDays === 0) return { text:'Today', today:true };
   if(diffDays === 1) return { text:'Tomorrow', today:false };
   if(diffDays === -1) return { text:'Yesterday', today:false };
-  if(diffDays >= 2 && diffDays <= 7) return { text: new Date(dateStr+'T00:00:00').toLocaleDateString('en-US', { weekday:'long' }), today:false };
+
+  const future = diffDays > 0;
+  const abs = Math.abs(diffDays);
+  const weekday = () => new Date(dateStr+'T00:00:00').toLocaleDateString('en-US', { weekday:'long' });
+
+  if(abs <= 6) return { text: future ? weekday() : `Last ${weekday()}`, today:false };
+  if(abs === 7) return { text: future ? 'One Week' : 'Last Week', today:false };
+  if(abs <= 13) return { text: future ? `${abs} Days` : `${abs} Days Ago`, today:false };
+  if(abs < 28){
+    const w = dayTagNumberWord(Math.round(abs / 7));
+    return { text: future ? `${w} Weeks` : `${w} Weeks Ago`, today:false };
+  }
+  const months = Math.round(abs / 30);
+  if(months >= 1 && months <= 6){
+    if(months === 1) return { text: future ? 'Next Month' : 'Last Month', today:false };
+    const w = dayTagNumberWord(months);
+    return { text: future ? `${w} Months Away` : `${w} Months Ago`, today:false };
+  }
   return null;
 }
 
