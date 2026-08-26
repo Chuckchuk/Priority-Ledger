@@ -608,14 +608,22 @@
   }
   .adddayrow{ display:flex; gap:8px; margin-bottom:16px; }
   .adddayrow .addday{ flex:1; width:auto; margin-bottom:0; }
-  .pickdatebtn{
-    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em;
-    background:transparent; border:1px dashed var(--line); color:var(--ink-soft); border-radius:8px; padding:11px 12px; cursor:pointer; flex-shrink:0;
+  /* Replaces the old "Pick a date…" toggle button + native <input
+     type=date> + separate "Add this day" button — a single always-
+     visible text field, parsed via parseNaturalDate() on Enter (see
+     addDayByText() in 11-daily-core.js), same idea as a step's own due-
+     date field. Dashed border echoes that old toggle button's look
+     rather than .quickadd's solid-underline style, so it still reads as
+     "secondary, optional" next to the quick-add button beside it — the
+     same visual language, just carried by the one control that's left
+     instead of two. flex:1 (not a fixed width) is what lets it take the
+     whole row on its own once showQuickAddBtn hides the button. */
+  .dayaddtext{
+    flex:1; min-width:140px; font-family:'IBM Plex Mono', monospace; font-size:0.75rem;
+    border:1px dashed var(--line); border-radius:8px; padding:11px 12px;
+    background:var(--card-bg-dim); color:var(--ink); outline:none;
   }
-  .pickerwrap{ display:flex; gap:8px; align-items:center; margin:10px 0 16px; flex-wrap:wrap; }
-  .pickerwrap input[type=date]{
-    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line); border-radius:5px; padding:6px; background:var(--card-bg-dim); color:var(--ink);
-  }
+  .dayaddtext::placeholder{ color: var(--ink-soft); opacity:0.8; }
   .lockednote{
     display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'IBM Plex Mono', monospace; font-size:0.68rem;
     color: var(--ink-soft); background: var(--card-bg-dim); border-radius:6px; padding:10px 12px; margin-bottom:14px; letter-spacing:0.03em;

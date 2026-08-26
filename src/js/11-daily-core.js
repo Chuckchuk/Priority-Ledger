@@ -10,19 +10,17 @@ function addDaysToDateStr(dateStr, n){
   return d.toISOString().slice(0,10);
 }
 
-let pickerOpen = false;
-
 // Whether Daily's own calendar view (opened via the "Calendar" tag on
 // renderDayList(), see openDailyCalendar()/renderDailyCalendar() in
 // 18-calendar.js) is showing in place of the day list — transient UI
-// state, not persisted, same idiom as pickerOpen. Deliberately NOT reset
-// by openDay()/closeDay(): opening a date from the calendar itself sets
-// this back to false (see openCalendarDay()) as part of the same
-// navigation, so there's no window where both would be true at once.
+// state, not persisted, same idiom as dayAddOpen just below. Deliberately
+// NOT reset by openDay()/closeDay(): opening a date from the calendar
+// itself sets this back to false (see openCalendarDay()) as part of the
+// same navigation, so there's no window where both would be true at once.
 let dailyCalendarOpen = false;
 
 // "Add to this day" tree picker state — transient UI state, not
-// persisted, same idiom as pickerOpen/expandedMonths above. Reset by
+// persisted, same idiom as expandedMonths above. Reset by
 // resetDayAddPicker() whenever a day is opened or closed.
 let dayAddOpen = false;
 let dayTreeExpanded = new Set(); // open nodes, keyed 'cat:<id>' / 'task:<id>' / 'cklist:<id>'
@@ -113,30 +111,43 @@ async function ensureDay(dateStr){
   }
 }
 
+// Today, or the next day after that not yet in state.days — what the
+// quick-add button in renderDayList() targets and labels itself after
+// (see showQuickAddBtn/quickAddLabel there), shared here so the two can
+// never disagree about which day is next.
+function nextOpenDay(){
+  let d = todayStr();
+  while(state.days.includes(d)) d = addDaysToDateStr(d, 1);
+  return d;
+}
+
 async function addDay(){
-  // Default is today — but if today (and however many days after it) already
-  // exist, roll forward to the next day that isn't taken yet, rather than
-  // trying to create a duplicate "Today".
-  let dateStr = todayStr();
-  while(state.days.includes(dateStr)){
-    dateStr = addDaysToDateStr(dateStr, 1);
-  }
+  const dateStr = nextOpenDay();
   pushUndo('Added a day');
   await ensureDay(dateStr);
   selectedDay = dateStr;
   render();
 }
 
-function togglePicker(){ pickerOpen = !pickerOpen; renderDaily(); }
-
-async function confirmPickDate(){
-  const input = document.getElementById('pickDateInput');
-  const val = input ? input.value : '';
-  if(!val) return;
-  pickerOpen = false;
-  pushUndo('Added a day');
-  await ensureDay(val); // no-op if that day already exists — never duplicates
-  selectedDay = val;
+// Replaces the old "Pick a date…" toggle + native <input type=date> +
+// separate "Add this day" button with a single always-visible text field,
+// parsed the same way a step's own due date is (see parseNaturalDate() in
+// 05-dates-sort.js and startEditSubtaskDate() in 15-subtask-edit.js) —
+// "tmrw", "tue", "9/1" all work, not just a literal calendar click.
+// The Calendar view (openDailyCalendar()) is the click-through-a-grid
+// alternative now, so this doesn't need to also cover that case itself.
+// Unparseable input is left in the field rather than cleared or guessed
+// at, same reasoning the subtask date editor already uses — the field
+// simply isn't cleared because render() never runs to replace it.
+async function addDayByText(){
+  const input = document.getElementById('dayAddTextInput');
+  const raw = input ? input.value.trim() : '';
+  if(!raw) return;
+  const parsed = parseNaturalDate(raw);
+  if(!parsed) return;
+  if(!state.days.includes(parsed)) pushUndo('Added a day');
+  await ensureDay(parsed);
+  selectedDay = parsed;
   render();
 }
 
@@ -267,16 +278,23 @@ function renderDayList(){
   // something to see," unlike the checklist's Pending count), since a
   // calendar view is useful even for a currently-empty month.
   let html = pageTagHtml('openDailyCalendar()', 'Calendar', true);
+  // The quick-add button only ever targets today or tomorrow (see
+  // nextOpenDay()) — once both are already logged, it would otherwise
+  // silently jump to whatever day comes after tomorrow, which is exactly
+  // the "vague, doesn't say what it'll actually do" problem the plain
+  // "+ Add a Day" label had. Simplest fix is to just stop offering it
+  // past that point rather than trying to keep labeling it accurately
+  // for an ever-further-out target — the text field below still covers
+  // any day, named or not.
+  const quickAddDate = nextOpenDay();
+  const quickAddDiffDays = Math.round((new Date(quickAddDate) - new Date(todayStr())) / 86400000);
+  const showQuickAddBtn = quickAddDiffDays <= 1;
+  const quickAddLabel = quickAddDiffDays === 0 ? '+ Add Today' : '+ Add Tomorrow';
   html += `
     <div class="adddayrow">
-      <button class="addday" onclick="addDay()">+ Add a Day</button>
-      <button class="pickdatebtn" onclick="togglePicker()">${pickerOpen ? 'Cancel' : 'Pick a date…'}</button>
+      ${showQuickAddBtn ? `<button class="addday" onclick="addDay()">${quickAddLabel}</button>` : ''}
+      <input type="text" class="dayaddtext" id="dayAddTextInput" placeholder="Add a day… (today, tmrw, 9/1, tue…)" onkeydown="if(event.key==='Enter') addDayByText()">
     </div>
-    ${pickerOpen ? `
-    <div class="pickerwrap">
-      <input type="date" id="pickDateInput" value="${todayStr()}">
-      <button class="pullbtn" onclick="confirmPickDate()">Add this day</button>
-    </div>` : ''}
   `;
 
   if(days.length===0){

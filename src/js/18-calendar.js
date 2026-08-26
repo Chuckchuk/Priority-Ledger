@@ -21,7 +21,7 @@
 //     was already-functional code, just no longer the primary path.
 
 // Which month is currently browsed — transient UI state, not persisted
-// (same idiom as pickerOpen/expandedMonths), so it always starts back on
+// (same idiom as expandedMonths), so it always starts back on
 // the current month on a fresh load. Deliberately NOT reset when the
 // calendar view closes: reopening it (either entry point) should still
 // show whatever month you were last looking at.
@@ -200,7 +200,7 @@ function closeDailyCalendar(){
 
 // Clicking any date — whether or not it already has a state.days entry —
 // jumps straight into that day's own detail page, same page Daily's own
-// day list opens. Mirrors addDay()/confirmPickDate()'s "only pushUndo if
+// day list opens. Mirrors addDay()/addDayByText()'s "only pushUndo if
 // this actually creates a new day" rule: ensureDay() itself is a no-op
 // (and ends up not calling queueSave()) for a date already in state.days,
 // so tracking an undo step for that case would record a change that
