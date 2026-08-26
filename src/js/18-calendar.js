@@ -75,12 +75,17 @@ function calendarMonthCells(monthKeyStr){
   const daysInMonth = new Date(y, m, 0).getDate();
   const startWeekday = new Date(y, m - 1, 1).getDay();
   const today = todayStr();
+  // dayCategoryIds() is only worth computing when the active
+  // calendarCellStyle actually shows category chips — the default
+  // ('ratio') never reads `cats`, so there's no reason to pay for it on
+  // every cell for every real user who hasn't opted into the dev variant.
+  const needsCats = (state.devSettings.calendarCellStyle || 'ratio') !== 'ratio';
   const cells = [];
   for(let i = 0; i < startWeekday; i++) cells.push({ blank: true });
   for(let d = 1; d <= daysInMonth; d++){
     const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const { total, done } = dayItemsSummary(dateStr);
-    cells.push({ blank: false, dateStr, dayNum: d, isToday: dateStr === today, exists: state.days.includes(dateStr), total, done });
+    cells.push({ blank: false, dateStr, dayNum: d, isToday: dateStr === today, exists: state.days.includes(dateStr), total, done, cats: needsCats ? dayCategoryIds(dateStr) : [] });
   }
   while(cells.length % 7 !== 0) cells.push({ blank: true });
   return cells;
@@ -100,6 +105,28 @@ function calendarMonthSummary(monthKeyStr){
 
 const CALENDAR_WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
+// Small category chips for the calendar's dev-only calendarCellStyle
+// variants — 'dots-top' (plain color swatches) or 'icons-below' (colored
+// glyphs, the same CATEGORY_ICON_GLYPHS every other category marker in
+// the app uses). Capped at CALENDAR_CELL_CAT_CAP with a "+N" overflow
+// chip rather than wrapping unbounded — a calendar cell is a fixed
+// aspect-ratio:1 box (see .calcell in <style>), so more chips than fit
+// would spill past the cell's own edges on a narrow (phone-width) card
+// instead of growing it; .calcell's own overflow:hidden is the last-
+// resort backstop if this cap is ever raised too far.
+const CALENDAR_CELL_CAT_CAP = 3;
+function calendarCatChipsHtml(cats, iconMode){
+  if(!cats.length) return '';
+  const shown = cats.slice(0, CALENDAR_CELL_CAT_CAP);
+  const overflow = cats.length - shown.length;
+  const chips = shown.map(c => iconMode
+    ? `<span class="calcatchip icon" style="color:${c.hex}">${CATEGORY_ICON_GLYPHS[c.icon] || CATEGORY_ICON_GLYPHS.dot}</span>`
+    : `<span class="calcatchip dot" style="background:${c.hex}"></span>`
+  ).join('');
+  const overflowHtml = overflow > 0 ? `<span class="calcatchip more">+${overflow}</span>` : '';
+  return `<span class="calcatchips">${chips}${overflowHtml}</span>`;
+}
+
 // The nav row + summary + grid — everything both hosts share. Neither
 // host's own tag(s) live in here, since the label/action differs per host
 // (a compact "Today" shortcut for the category-tab overview vs. a compact
@@ -107,6 +134,7 @@ const CALENDAR_WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 function calendarBodyHtml(monthKeyStr){
   const cells = calendarMonthCells(monthKeyStr);
   const summary = calendarMonthSummary(monthKeyStr);
+  const cellStyle = state.devSettings.calendarCellStyle || 'ratio';
   return `
     <div class="calnav">
       <button class="navarrow" onclick="calendarShiftMonth(-1)" title="Previous month">‹</button>
@@ -119,8 +147,10 @@ function calendarBodyHtml(monthKeyStr){
       ${cells.map(c => c.blank
         ? `<div class="calcell calblank"></div>`
         : `<button class="calcell ${c.isToday ? 'today' : ''} ${c.exists ? 'exists' : ''}" onclick="openCalendarDay('${c.dateStr}')" title="${c.exists ? 'This day is already logged' : 'Not logged yet'}">
+             ${cellStyle==='dots-top' ? calendarCatChipsHtml(c.cats, false) : ''}
              <span class="caldatenum">${c.dayNum}</span>
              ${c.total ? `<span class="calratio">${c.done}/${c.total}</span>` : (c.exists ? `<span class="calratio calexistsdot">·</span>` : '')}
+             ${cellStyle==='icons-below' ? calendarCatChipsHtml(c.cats, true) : ''}
            </button>`
       ).join('')}
     </div>

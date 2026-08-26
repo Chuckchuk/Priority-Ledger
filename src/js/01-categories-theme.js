@@ -278,6 +278,12 @@ function applyDevSettings(){
   document.body.dataset.pendingTagColor = d.pendingTagColor || 'theme';
   document.body.classList.toggle('devlist-dates', !!d.showListDates);
   document.body.classList.toggle('devtreebubble', !!d.dayTreeCatBubble);
+  // calendarCellStyle is read directly by calendarBodyHtml() in
+  // 18-calendar.js instead of going through a body class/CSS selector —
+  // unlike a boolean toggle, its variants need genuinely different markup
+  // per cell (icon glyphs vs. plain color chips), not just a CSS-level
+  // show/hide of markup that's always rendered the same way.
+  document.body.classList.toggle('devtoday-ornate', !!d.calendarTodayOrnate);
   // The floating side panel (see renderDevPanel()/toggleDevPanel() below)
   // is itself gated behind a dev setting now, rather than always available
   // whenever the viewport is wide enough — sidePanelEnabled defaults to
@@ -310,6 +316,13 @@ async function setDevPendingTagColor(val){
   pushUndo(`Changed dev pending-tag color to "${val}"`);
   state.devSettings.pendingTagColor = val;
   applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevCalendarCellStyle(val){
+  pushUndo(`Changed dev calendar cell style to "${val}"`);
+  state.devSettings.calendarCellStyle = val;
   render();
   queueSave();
 }
@@ -391,6 +404,18 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
     <label class="${rowClass}">
       <input type="checkbox" ${dev.calendarTabTypeEnabled?'checked':''} onchange="toggleDevSetting('calendarTabTypeEnabled', this.checked)">
       Offer "Calendar" as an addable tab type (the normal way to reach it is the "Calendar" tag on Daily's own day list)
+    </label>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Calendar cell info</span>
+      <select class="${selectClass}" onchange="setDevCalendarCellStyle(this.value)">
+        <option value="ratio" ${dev.calendarCellStyle==='ratio'?'selected':''}>Default (just the done/total ratio)</option>
+        <option value="dots-top" ${dev.calendarCellStyle==='dots-top'?'selected':''}>+ category color dots, above the date</option>
+        <option value="icons-below" ${dev.calendarCellStyle==='icons-below'?'selected':''}>+ category icons, listed below</option>
+      </select>
+    </div>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.calendarTodayOrnate?'checked':''} onchange="toggleDevSetting('calendarTodayOrnate', this.checked)">
+      Calendar: ornate (double-line) border on today's cell
     </label>
   `;
 }

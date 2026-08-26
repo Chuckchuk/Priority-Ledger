@@ -91,6 +91,21 @@ function dayItemsSummary(dateStr){
   };
 }
 
+// Distinct categories touching a day, in state.categories' own display
+// order (not task-insertion order, so the same category always shows in
+// the same relative position regardless of which of its tasks happens to
+// be first) — EXPERIMENTAL, feeds the Calendar's dev-only calendarCellStyle
+// variants (see calendarCatChipsHtml() in 18-calendar.js). A step's own
+// category is its parent task's, same as everywhere else steps are
+// treated as belonging to that task rather than tracked separately.
+function dayCategoryIds(dateStr){
+  const ids = new Set();
+  standardTasksForDay(dateStr).forEach(t=>ids.add(t.category));
+  checklistDailyItemsForDay(dateStr).forEach(t=>ids.add(t.category));
+  subDailyItemsForDay(dateStr).forEach(x=>ids.add(x.task.category));
+  return state.categories.filter(c=>ids.has(c.id));
+}
+
 async function ensureDay(dateStr){
   if(!state.days.includes(dateStr)){
     state.days.unshift(dateStr);

@@ -1307,6 +1307,13 @@
     aspect-ratio:1; border-radius:6px; border:1px solid var(--line); background: var(--card-bg-dim);
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
     cursor:pointer; padding:2px; font-family:'IBM Plex Sans',sans-serif; color:var(--ink);
+    /* Backstop for the EXPERIMENTAL calendarCellStyle category-chip
+       variants below (and CALENDAR_CELL_CAT_CAP, its own primary defense)
+       — a fixed aspect-ratio:1 box can't grow to fit more content, so
+       anything that doesn't fit should clip rather than spill past the
+       cell's own edges into its neighbors, especially on a phone-width
+       card where cells are smallest. */
+    overflow:hidden;
   }
   .calcell.calblank{ border:none; background:none; cursor:default; }
   .caldatenum{ font-size:0.8rem; }
@@ -1326,9 +1333,32 @@
   .calratio.calexistsdot{ opacity:0.55; }
   /* Today gets the same Primary-accent treatment .dayhero.today/.todaytag
      use elsewhere for "today," not a new one-off color, so "today" reads
-     the same wherever it shows up in the app. */
-  .calcell.today{ border-color:var(--primary); border-width:2px; }
+     the same wherever it shows up in the app. border-width:3px (up from
+     an original 2px) so it reads clearly even at a phone-width card's
+     smaller cell size. */
+  .calcell.today{ border-color:var(--primary); border-width:3px; }
   .calcell.today .caldatenum{ color:var(--primary); font-weight:700; }
+  /* EXPERIMENTAL — Settings → Dev Settings → "Calendar: ornate border on
+     today's cell". CSS's own border-style:double draws two parallel
+     lines with a gap between them from a single border declaration — no
+     pseudo-elements or extra box-shadow layers needed for the "engraved
+     picture-frame" look, and it needs border-width:4px (double needs a
+     little more room than a solid border to read as two distinct lines
+     rather than one thick blur). Independent of calendarCellStyle above;
+     either can be on with either. */
+  body.devtoday-ornate .calcell.today{ border-style:double; border-width:4px; }
+  /* EXPERIMENTAL — Settings → Dev Settings → "Calendar cell info". Chips
+     row for a cell's dayCategoryIds() (11-daily-core.js) — either plain
+     color dots ('dots-top', above the date number) or colored category
+     icon glyphs ('icons-below', under the ratio/dot). Sized deliberately
+     tiny (see the comment on CALENDAR_CELL_CAT_CAP in 18-calendar.js for
+     why the count itself is capped) — this is the piece that actually
+     has to survive a phone-width card's smallest cells without forcing
+     .calcell's overflow:hidden backstop to kick in under normal use. */
+  .calcatchips{ display:flex; align-items:center; justify-content:center; gap:2px; line-height:1; }
+  .calcatchip.dot{ width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+  .calcatchip.icon{ font-size:0.55rem; flex-shrink:0; }
+  .calcatchip.more{ font-family:'IBM Plex Mono', monospace; font-size:0.5rem; color:var(--ink-soft); flex-shrink:0; }
   @media (max-width:480px){
     .masthead h1{ font-size:1.9rem; }
     .card{ padding: 18px 14px 10px; }

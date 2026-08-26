@@ -242,7 +242,15 @@ function defaultDevSettings(){
   // than deleting working code, but it's gated behind this flag so it
   // doesn't show up as a real option in Settings' "add a new tab" select
   // unless explicitly opted into here.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false };
+  // calendarCellStyle: how much a calendar cell shows beyond the plain
+  // done/total ratio — 'ratio' (the original, still the default) shows
+  // nothing more; 'dots-top'/'icons-below' add a row of that day's
+  // category chips (see dayCategoryIds() in 11-daily-core.js and
+  // calendarCatChipsHtml() in 18-calendar.js) above or below the existing
+  // content. calendarTodayOrnate is a separate, independent toggle (like
+  // tagSeam/tagOutline above) for a double-line border on today's cell,
+  // not tied to any particular calendarCellStyle choice.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false };
 }
 
 function defaultState(){
@@ -296,6 +304,8 @@ function normalizeState(){
   if(typeof state.devSettings.dayTreeCatBubble !== 'boolean') state.devSettings.dayTreeCatBubble = false;
   if(typeof state.devSettings.sidePanelEnabled !== 'boolean') state.devSettings.sidePanelEnabled = false;
   if(typeof state.devSettings.calendarTabTypeEnabled !== 'boolean') state.devSettings.calendarTabTypeEnabled = false;
+  if(typeof state.devSettings.calendarCellStyle !== 'string') state.devSettings.calendarCellStyle = 'ratio';
+  if(typeof state.devSettings.calendarTodayOrnate !== 'boolean') state.devSettings.calendarTodayOrnate = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)
