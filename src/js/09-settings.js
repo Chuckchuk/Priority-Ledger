@@ -4,7 +4,6 @@ function toggleSettings(){
   settingsOpen = !settingsOpen;
   if(settingsOpen) claudeView = null;
   pendingDeleteCategoryId = null;
-  pendingDeleteLocationId = null;
   closeAllSettingsPopovers();
   render();
 }
@@ -47,39 +46,30 @@ function renderSettings(){
     </div>`;
   }).join('');
 
-  const locationRows = state.locations.map(l=>{
-    const confirmingLoc = pendingDeleteLocationId === l.id;
-    const locDeleteControls = confirmingLoc
-      ? `<span class="catwarn">Any tab checked for it just stops offering it as an option.</span>
-         <button class="catdeleteconfirm" onclick="deleteLocation('${l.id}')">Yes, delete</button>
-         <button class="catcancel" onclick="cancelDeleteLocation()">Cancel</button>`
-      : `<button class="catdelete" ${state.locations.length<=1?'disabled title="At least one location must stay"':''} onclick="askDeleteLocation('${l.id}')">Delete</button>`;
-    return `
-    <div class="catrow">
-      <input type="text" class="catedit" value="${escapeHtml(l.label)}"
-        onblur="renameLocation('${l.id}', this.value)"
-        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
-      ${locDeleteControls}
-    </div>`;
-  }).join('');
+  const locationBubbles = state.locations.map(l=>`
+    <span class="locbubblewrap">
+      <button class="locbubble" onclick="toggleLocationEditor('${l.id}')">${escapeHtml(l.label)}</button>
+      ${locationEditorOpenId === l.id ? locationEditorHtml(l) : ''}
+    </span>`
+  ).join('');
 
   const locationSection = `
-    <div class="settingslabel">Locations</div>
     <label class="catlocchk" style="margin-bottom:10px;">
       <input type="checkbox" ${state.locationEnabled?'checked':''} onchange="toggleLocationFeature(this.checked)">
       Use multiple locations
     </label>
     ${state.locationEnabled ? `
-      ${locationRows}
-      <div class="catrow">
-        <input type="text" class="catedit" placeholder="+ add a location, enter to save" id="newLocNameInput"
-          onkeydown="if(event.key==='Enter'){ addLocation(this.value); this.value=''; }">
+      <div class="locbubblerow">
+        ${locationBubbles}
+        <span class="locbubblewrap">
+          <button class="locbubble locbubbleadd" onclick="toggleLocationEditor('_new')" title="Add a location">+</button>
+          ${locationEditorOpenId === '_new' ? newLocationEditorHtml() : ''}
+        </span>
       </div>
     ` : ''}
   `;
 
   const taskFieldsSection = `
-    <div class="settingslabel">Task Fields</div>
     <label class="catlocchk" style="margin-bottom:10px;">
       <input type="checkbox" ${state.advancedTaskFields?'checked':''} onchange="toggleAdvancedTaskFields(this.checked)">
       Show timeframe & priority (uncheck for the simpler flag-only view)
@@ -109,18 +99,18 @@ function renderSettings(){
         </button>
         ${deskPaperPickerOpen ? deskPaperPickerHtml() : ''}
       </span>
-      <span class="uicolorlabel">Desk & Ledger Presets</span>
+      <span class="uicolorlabel">Desk & Ledger — ${escapeHtml(activeDeskPaperPresetLabel())}</span>
     </div>
   `;
 
   const appearanceSection = `
-    <div class="settingslabel">Appearance</div>
     <div class="themerow">
       ${themeSwatchHtml('bg', 'Background')}
       ${themeSwatchHtml('paper', 'Ledger')}
     </div>
     ${deskPaperSection}
     ${uiColorSection}
+    <div class="settingsdivider"></div>
     <label class="catlocchk" style="margin-bottom:10px;">
       <input type="checkbox" ${state.theme.gradient?'checked':''} onchange="toggleThemeGradient(this.checked)">
       Background gradient
@@ -134,26 +124,21 @@ function renderSettings(){
   `;
 
   const claudeSection = `
-    <div class="settingslabel">Claude Access</div>
     <button class="resetthemebtn" onclick="openClaudeView('digest')">Open Claude-readable view</button>
   `;
 
-  // EXPERIMENTAL — see defaultDevSettings() in 02-storage-state.js. Back
-  // in a <details> here (collapsed by default, native browser disclosure)
-  // AND in the floating side panel (see renderDevPanel() in
-  // 01-categories-theme.js) — the side panel is the one that lets a
-  // toggle be checked against the live page underneath it, but it only
-  // exists once "Show the floating dev panel" (the last field below) is
-  // turned on, and this section is the only place that checkbox lives, so
-  // it always needs to stay reachable from here even when the panel
-  // itself is off. devSettingsFieldsHtml() is the single shared source
-  // for both hosts' fields.
-  const devSection = `
-    <details class="devsettings">
-      <summary>Dev Settings</summary>
-      ${devSettingsFieldsHtml('catlocchk devsettingsrow', 'devpanelfield', 'devpanelcaption', 'devpanelselect')}
-    </details>
-  `;
+  // EXPERIMENTAL — see defaultDevSettings() in 02-storage-state.js. Its
+  // own section here (collapsed by default — 'dev' starts in
+  // settingsCollapsedSections, see that var's comment) AND in the
+  // floating side panel (see renderDevPanel() in 01-categories-theme.js)
+  // — the side panel is the one that lets a toggle be checked against the
+  // live page underneath it, but it only exists once "Show the floating
+  // dev panel" (the first field below) is turned on, and this section is
+  // the only place that checkbox lives, so it always needs to stay
+  // reachable from here even when the panel itself is off.
+  // devSettingsFieldsHtml() is the single shared source for both hosts'
+  // fields.
+  const devSection = devSettingsFieldsHtml('catlocchk devsettingsrow', 'devpanelfield', 'devpanelcaption', 'devpanelselect');
 
   // "Calendar" only shows as an addable type when the matching dev
   // setting is on (see defaultDevSettings() in 02-storage-state.js) — the
@@ -164,27 +149,56 @@ function renderSettings(){
   const newCatTypeTooltip = "Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off."
     + (state.devSettings.calendarTabTypeEnabled ? " Calendar tabs show a month grid of your Daily pages, with at-a-glance counts of what's due and done each day." : '');
 
+  const tabsSection = `
+    ${rows}
+    <div class="catrow">
+      <input type="text" class="catedit" placeholder="+ add a new tab, enter to save" id="newCatNameInput"
+        onkeydown="if(event.key==='Enter'){ addCategory(this.value, document.getElementById('newCatTypeSelect').value); this.value=''; }">
+      <select class="catselect" id="newCatTypeSelect" title="${newCatTypeTooltip}">
+        <option value="standard">Standard</option>
+        <option value="checklist">Checklist</option>
+        ${calendarTabTypeOption}
+      </select>
+    </div>
+  `;
+
   el.innerHTML = `
     <div class="stackedpage">
       ${pageTagHtml('toggleSettings()', 'Done')}
-      <div class="daylistlabel">Manage Tabs</div>
-      ${rows}
-      <div class="catrow">
-        <input type="text" class="catedit" placeholder="+ add a new tab, enter to save" id="newCatNameInput"
-          onkeydown="if(event.key==='Enter'){ addCategory(this.value, document.getElementById('newCatTypeSelect').value); this.value=''; }">
-        <select class="catselect" id="newCatTypeSelect" title="${newCatTypeTooltip}">
-          <option value="standard">Standard</option>
-          <option value="checklist">Checklist</option>
-          ${calendarTabTypeOption}
-        </select>
-      </div>
-      ${locationSection}
-      ${taskFieldsSection}
-      ${appearanceSection}
-      ${claudeSection}
-      ${devSection}
+      ${settingsSectionHtml('tabs', 'Manage Tabs', tabsSection)}
+      ${settingsSectionHtml('locations', 'Locations', locationSection)}
+      ${settingsSectionHtml('taskFields', 'Task Fields', taskFieldsSection)}
+      ${settingsSectionHtml('appearance', 'Appearance', appearanceSection)}
+      ${settingsSectionHtml('claude', 'Claude Access', claudeSection)}
+      ${settingsSectionHtml('dev', 'Dev Settings', devSection)}
     </div>
   `;
+}
+
+// Each of Settings' areas (Manage Tabs, Locations, ...) gets its own
+// card with a clickable header, both so it visually reads as its own
+// section at a glance and so it can be collapsed independently — see
+// settingsCollapsedSections in 02-storage-state.js for why that state
+// lives outside the DOM (a native <details> per section would reset
+// itself shut on every render(), which is exactly the bug Dev Settings
+// used to have).
+function settingsSectionHtml(key, title, bodyHtml){
+  const collapsed = settingsCollapsedSections.has(key);
+  return `
+    <div class="settingssection">
+      <button class="settingssectionhead" onclick="toggleSettingsSection('${key}')">
+        <span class="settingssectiontitle">${title}</span>
+        <span class="settingssectionchevron">${collapsed ? '▸' : '▾'}</span>
+      </button>
+      ${collapsed ? '' : `<div class="settingssectionbody">${bodyHtml}</div>`}
+    </div>`;
+}
+
+// Pure UI navigation, like every other Settings toggle — no pushUndo.
+function toggleSettingsSection(key){
+  if(settingsCollapsedSections.has(key)) settingsCollapsedSections.delete(key);
+  else settingsCollapsedSections.add(key);
+  render();
 }
 
 async function renameCategory(id, val){
@@ -335,6 +349,8 @@ function closeAllSettingsPopovers(){
   uiColorPickerOpen = false;
   deskPaperPickerOpen = false;
   themeColorWheelKey = null;
+  locationEditorOpenId = null;
+  pendingDeleteLocationId = null;
   catWheelCancelDrag();
 }
 
@@ -598,10 +614,66 @@ async function deleteLocation(id){
   // never equal a deleted id (reassigned below if it currently did).
   state.locations = state.locations.filter(l=>l.id!==id);
   pendingDeleteLocationId = null;
+  locationEditorOpenId = null;
   if(state.location === id) state.location = state.locations[0].id;
   if(!visibleTabs().includes(activeTab)) activeTab = 'all';
   render();
   queueSave();
+}
+
+// ---------- Location bubbles ----------
+// Locations show as a horizontal row of small pill buttons (like a
+// compact version of .locbadge, the workspace switcher badge) rather
+// than the old vertical list of full-width rename-inputs-with-a-Delete-
+// button — clicking one opens a little popover (same .catpicker chrome
+// as everywhere else in Settings) with the rename field and delete
+// control, instead of spending a whole row per location all the time.
+function locationEditorHtml(l){
+  const confirming = pendingDeleteLocationId === l.id;
+  const deleteControls = confirming
+    ? `<span class="catwarn">Any tab checked for it just stops offering it as an option.</span>
+       <button class="catdeleteconfirm" onclick="deleteLocation('${l.id}')">Yes, delete</button>
+       <button class="catcancel" onclick="cancelDeleteLocation()">Cancel</button>`
+    : `<button class="catdelete" ${state.locations.length<=1?'disabled title="At least one location must stay"':''} onclick="askDeleteLocation('${l.id}')">Delete</button>`;
+  return `
+    <div class="catpicker locbubblepicker">
+      <button class="catpickerclose" onclick="toggleLocationEditor('${l.id}')" title="Close">×</button>
+      <input type="text" class="catcustomhex locbubbleinput" value="${escapeHtml(l.label)}"
+        onblur="renameLocation('${l.id}', this.value)"
+        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+      <div class="locbubbleactions">${deleteControls}</div>
+    </div>`;
+}
+
+function newLocationEditorHtml(){
+  return `
+    <div class="catpicker locbubblepicker">
+      <button class="catpickerclose" onclick="toggleLocationEditor('_new')" title="Close">×</button>
+      <input type="text" class="catcustomhex locbubbleinput" placeholder="Location name" id="newLocBubbleInput"
+        onkeydown="if(event.key==='Enter'){ event.preventDefault(); addLocationFromBubble(this.value); }">
+    </div>`;
+}
+
+// `id` is either a real location's id or the '_new' sentinel for the "+"
+// bubble's own popover. Focuses the new-location field on open, same
+// reasoning focusVisibleSubadd()/#checklistQuickInput's own refocus have
+// elsewhere — render() just replaced this input, so nothing has focus
+// yet unless something explicitly gives it some.
+function toggleLocationEditor(id){
+  const wasOpen = locationEditorOpenId === id;
+  closeAllSettingsPopovers();
+  if(!wasOpen) locationEditorOpenId = id;
+  render();
+  if(!wasOpen && id === '_new'){
+    const input = document.getElementById('newLocBubbleInput');
+    if(input) input.focus();
+  }
+}
+
+async function addLocationFromBubble(val){
+  await addLocation(val);
+  locationEditorOpenId = null;
+  render();
 }
 
 async function updateThemeColor(key, val){
@@ -687,6 +759,15 @@ function deskPaperPickerHtml(){
 
 function deskPaperPresetActive(p){
   return state.theme.bg.toLowerCase()===p.bg.toLowerCase() && state.theme.paper.toLowerCase()===p.paper.toLowerCase();
+}
+
+// Same "— <name>" trigger-label pattern as UI Colors, even though (unlike
+// UI Colors) there's no stored preset id to read back — bg/paper are
+// freely editable on their own, so this just checks whether they
+// currently happen to match one of the presets exactly.
+function activeDeskPaperPresetLabel(){
+  const match = DESK_PAPER_PRESETS.find(deskPaperPresetActive);
+  return match ? match.label : 'Custom';
 }
 
 function toggleDeskPaperPicker(){

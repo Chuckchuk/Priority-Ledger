@@ -88,6 +88,23 @@ let themeColorWheelKey = null;
 // that actually commits it via setCategoryColor(), on "Done" or Enter.
 let customColorOpen = false;
 let customColorDraft = { h:0, s:0, v:0 };
+// Which location's little edit popover is open (its id, or the '_new'
+// sentinel for the "+" bubble's own add-a-location popover), or null.
+// Same single-value/mutual-exclusion treatment as the other Settings
+// popovers — see closeAllSettingsPopovers() in 09-settings.js.
+let locationEditorOpenId = null;
+// Settings section keys currently collapsed (Manage Tabs/Locations/Task
+// Fields/Appearance/Claude Access/Dev Settings) — 'dev' starts collapsed
+// to match its old default (a plain <details> with no `open` attribute),
+// everything else starts expanded. A Set here (not a native <details>
+// per section) is what actually fixes a real bug the old <details>-based
+// Dev Settings had: renderSettings() rebuilds #settingsView's whole
+// innerHTML on every single render (any checkbox flip included), and a
+// fresh <details> element has no memory of being open — so the section
+// silently collapsed itself back shut after every change made inside it.
+// Tracking "which sections are collapsed" here, outside the DOM, is what
+// survives that rebuild.
+let settingsCollapsedSections = new Set(['dev']);
 // Set only while a pointer drag on the hue ring or the SV square is in
 // progress — {type:'hue'|'sv', rect}. See catWheelCancelDrag() for why
 // this (and the document-level listeners it implies) must be torn down

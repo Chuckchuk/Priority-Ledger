@@ -1221,25 +1221,35 @@
     letter-spacing:0.03em; color: var(--ink-soft);
   }
   .catlocchk input{ cursor:pointer; }
+  /* Locations as a horizontal row of small pills — echoes .locbadge (the
+     round workspace-switcher badge in the masthead) rather than the old
+     one-full-width-row-per-location list, which read as sparse for
+     something that's usually just 2-3 short words. Clicking a bubble
+     opens the same .catpicker popover chrome as everywhere else in
+     Settings, with the rename field + delete control — see
+     locationEditorHtml() in 09-settings.js. */
+  .locbubblerow{ display:flex; flex-wrap:wrap; gap:8px; }
+  .locbubblewrap{ position:relative; display:inline-flex; }
+  .locbubble{
+    font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.03em;
+    background: var(--card-bg); border:1px solid var(--line); border-radius:999px;
+    padding:7px 16px; color: var(--ink); cursor:pointer;
+  }
+  .locbubbleadd{
+    padding:7px 12px; color: var(--primary); border-color: var(--primary); font-weight:700;
+  }
+  .locbubblepicker{ width:180px; }
+  .locbubbleinput{
+    display:block; width:100%; margin-bottom:10px;
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.85rem;
+  }
+  .locbubbleactions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   /* Just the "reused margin-bottom:10px" that used to be an inline style
      on each dev-settings row when it lived only in this panel — kept as
      its own class (rather than restoring the inline style) since it now
      also has to apply wherever devSettingsFieldsHtml() is called from the
      floating side panel's own narrower rows. */
   .devsettingsrow{ margin-bottom:10px; }
-  /* The <details class="devsettings"> wrapper itself and its <summary> —
-     dropped by accident when this block got repurposed for the floating
-     panel's own CSS while the section briefly lived only in that panel;
-     restored now that it's back in Settings too. Without these the
-     <summary> falls back to browser-default styling (serif, larger,
-     no top margin), which is exactly why it suddenly looked like a
-     different font at a different size sitting right on top of the
-     button above it. */
-  .devsettings{ margin-top:18px; border-top:1px dashed var(--line); padding-top:10px; }
-  .devsettings summary{
-    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
-    color: var(--ink-soft); cursor:pointer; margin-bottom:10px;
-  }
   /* The color/icon popover anchors to this one row's dot specifically
      (not the row as a whole), so it needs its own positioning context —
      .catrow itself can't be it, since with flex-wrap the popover would
@@ -1381,10 +1391,28 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase;
     letter-spacing:0.02em; color: var(--ink);
   }
-  .settingslabel{
-    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
-    color: var(--ink-soft); margin: 18px 0 6px;
+  /* Each Settings area (Manage Tabs, Locations, ...) as its own card —
+     see settingsSectionHtml() in 09-settings.js. Replaces the old flat
+     .settingslabel-per-area layout, where every section just ran
+     straight into the next with a small caption and no visual boundary. */
+  .settingssection{
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:10px;
+    margin-bottom:12px;
   }
+  .settingssectionhead{
+    width:100%; display:flex; align-items:center; justify-content:space-between;
+    background:none; border:none; cursor:pointer; padding:12px 14px; text-align:left;
+  }
+  .settingssectiontitle{
+    font-family:'IBM Plex Mono', monospace; font-size:0.66rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--ink); font-weight:600;
+  }
+  .settingssectionchevron{ color: var(--ink-soft); font-size:0.62rem; flex-shrink:0; margin-left:8px; }
+  .settingssectionbody{ padding:0 14px 14px; }
+  /* A plain rule between the color pickers and the gradient/texture
+     controls within Appearance — enough to separate "pick colors" from
+     "pick a surface finish" without a second nested card. */
+  .settingsdivider{ border-top:1px dashed var(--line); margin:4px 0 14px; }
   .themerow{ display:flex; gap:20px; margin-bottom:12px; flex-wrap:wrap; }
   /* Background/Ledger — same wheel popover as a category's custom color
      (see themeSwatchHtml()/themeColorWheelHtml() in 09-settings.js),

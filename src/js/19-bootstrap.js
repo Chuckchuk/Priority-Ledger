@@ -19,7 +19,7 @@ document.addEventListener('keydown', (e) => {
   const appShell = document.getElementById('appShell');
   if(!appShell || appShell.style.display === 'none') return;
 
-  const popoverOpen = openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || themeColorWheelKey;
+  const popoverOpen = openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || themeColorWheelKey || locationEditorOpenId;
 
   if(e.key === 'Escape' || e.key === 'Enter'){
     if(popoverOpen){ closeAllSettingsPopovers(); render(); return; }

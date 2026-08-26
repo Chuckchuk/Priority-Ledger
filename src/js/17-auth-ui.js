@@ -67,7 +67,6 @@ function signOut(){
   dailyCalendarOpen = false;
   dayReturnToCalendar = false;
   pendingDeleteCategoryId = null;
-  pendingDeleteLocationId = null;
   closeAllSettingsPopovers();
   undoStack = [];
   redoStack = [];

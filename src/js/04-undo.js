@@ -44,7 +44,6 @@ function afterStateRestore(){
   if(!selectedDay) dayReturnToCalendar = false;
   if(selectedListId && !state.tasks.some(t=>t.id===selectedListId)) selectedListId = null;
   pendingDeleteCategoryId = null;
-  pendingDeleteLocationId = null;
   closeAllSettingsPopovers();
 }
 

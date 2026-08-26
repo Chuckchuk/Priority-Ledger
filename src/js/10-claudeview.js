@@ -9,7 +9,6 @@ function openClaudeView(mode){
   claudeView = mode === 'full' ? 'full' : 'digest';
   settingsOpen = false;
   pendingDeleteCategoryId = null;
-  pendingDeleteLocationId = null;
   closeAllSettingsPopovers();
   render();
 }
