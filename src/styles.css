@@ -757,8 +757,15 @@
      same fill the default page tag and the tab bar's active pill already
      use), not an off-palette accent, so the overlap reads as "part of
      this app's existing tab language poking up," not a new decorative
-     idiom the rest of the app doesn't share. */
-  body[data-pending-tag-style="booktab"] .pagetag.compact{ top:-14px; left:-14px; right:auto; }
+     idiom the rest of the app doesn't share. `top:-7px` (not deeper) is
+     tuned against the actual tab pill's own box: its label text bottoms
+     out ~168px from viewport top at this layout with ~11px of empty
+     padding below it before the pill's own bottom edge — -7px lands the
+     tag's top inside that empty padding band, so it still visibly rides
+     up into the pill but never covers any of its label text. Don't push
+     this deeper without re-measuring; the pill's text baseline is the
+     hard limit, not a number to eyeball. */
+  body[data-pending-tag-style="booktab"] .pagetag.compact{ top:-7px; left:-14px; right:auto; }
   body[data-pending-tag-style="booktab"] .pagetag.compact .pagetagtip{ display:none; }
   body[data-pending-tag-style="booktab"] .pagetag.compact .pagetaglabel{
     background: var(--brass);
@@ -767,23 +774,52 @@
     box-shadow: -2px 3px 8px rgba(0,0,0,0.3);
   }
   /* "cornerpeek": stays clear of the tab row (top:56px, same lane
-     jetout/sidebar already use) and instead of overlapping anything,
-     goes bigger on the one part of the shape that actually reads as
-     "jutting" regardless of how few pixels it has to work with — the
-     diamond tip. Scaling that up (not just nudging `left` further, which
-     runs out of room past roughly -14px on a phone-width card) is what
-     makes it look like more of a wedge without needing more real
-     estate. Same `--brass` fill as booktab above, for the same reason. */
+     jetout/sidebar already use) rather than overlapping it like booktab
+     does. No diamond tip at all — plain squared-off corners on the label
+     itself (border-radius:0, overriding the base .pagetaglabel's rounded
+     right corners) reads more like an actual index tab card than the
+     tip's pointed wedge does. Same `--brass` fill as booktab above (see
+     the pendingTagColor swatches below for other options), for the same
+     reason. */
   body[data-pending-tag-style="cornerpeek"] .pagetag.compact{ top:56px; left:-14px; right:auto; }
-  body[data-pending-tag-style="cornerpeek"] .pagetag.compact .pagetagtip{
-    width:22px; height:22px; left:-11px;
-    background: var(--brass);
-  }
+  body[data-pending-tag-style="cornerpeek"] .pagetag.compact .pagetagtip{ display:none; }
   body[data-pending-tag-style="cornerpeek"] .pagetag.compact .pagetaglabel{
     background: var(--brass);
-    padding: 9px 14px 9px 16px;
+    border-radius: 0;
+    padding: 9px 14px;
     box-shadow: -2px 3px 7px rgba(0,0,0,0.28);
   }
+  /* Checklist overview only: a touch more breathing room between the
+     "Name a new list…" quickadd row and the first list row below it —
+     scoped to #checklistView (not a blanket change to .quickadd's own
+     margin, which is shared with every other tab's add-task row) since
+     it only matters here, where the "cornerpeek" pending tag sits right
+     in that gap and read as cramped against both neighbors without it. */
+  #checklistView .quickadd{ margin-bottom: 22px; }
+  /* EXPERIMENTAL — pendingTagColor: a color swatch picker for the
+     pending-items tag, independent of which shape style above is active
+     (any style × any color). Exists because "default" leaves the
+     pending tag the same `--brass` as every .pagetag "back" tag
+     elsewhere in the app (Settings, checklist detail, Daily's day
+     detail…) — a forward-navigation trigger reading identically to a
+     back button is exactly the confusable case this is for. Placed
+     after every style block above and matched on `data-pending-tag-
+     color` alone (not chained to `data-pending-tag-style`) so it always
+     wins the cascade at equal specificity, regardless of which style
+     rule ran before it — see setDevPendingTagColor() in <script>.
+     "brass" still needs its own rule here despite being the palette's
+     existing default, since jetout/sidebar hardcode `--estate` — without
+     it those two styles couldn't actually be set back to brass. */
+  body[data-pending-tag-color="brass"] .pagetag.compact .pagetagtip,
+  body[data-pending-tag-color="brass"] .pagetag.compact .pagetaglabel{ background: var(--brass); }
+  body[data-pending-tag-color="rust"] .pagetag.compact .pagetagtip,
+  body[data-pending-tag-color="rust"] .pagetag.compact .pagetaglabel{ background: var(--estate); }
+  body[data-pending-tag-color="forest"] .pagetag.compact .pagetagtip,
+  body[data-pending-tag-color="forest"] .pagetag.compact .pagetaglabel{ background: var(--family); }
+  body[data-pending-tag-color="slate"] .pagetag.compact .pagetagtip,
+  body[data-pending-tag-color="slate"] .pagetag.compact .pagetaglabel{ background: var(--projects); }
+  body[data-pending-tag-color="charcoal"] .pagetag.compact .pagetagtip,
+  body[data-pending-tag-color="charcoal"] .pagetag.compact .pagetaglabel{ background: var(--ink); }
   /* The large "header" version of a list's own progress indicator atop
      its detail page (see renderChecklistDetail()) — same .checkcircle-
      wrap/.checkcircle/.peg/.progressring markup and JS as the small one

@@ -193,7 +193,7 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 // its own state key and its own commit specifically so it's trivial to
 // rip out later without touching anything else.
 function defaultDevSettings(){
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false };
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'brass', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false };
 }
 
 function defaultState(){
@@ -241,6 +241,7 @@ function normalizeState(){
   if(typeof state.devSettings.tagSeam !== 'boolean') state.devSettings.tagSeam = false;
   if(typeof state.devSettings.tagOutline !== 'boolean') state.devSettings.tagOutline = false;
   if(typeof state.devSettings.pendingTagStyle !== 'string') state.devSettings.pendingTagStyle = 'default';
+  if(typeof state.devSettings.pendingTagColor !== 'string') state.devSettings.pendingTagColor = 'brass';
   if(typeof state.devSettings.showListDates !== 'boolean') state.devSettings.showListDates = false;
   if(typeof state.devSettings.dayTreeCatBubble !== 'boolean') state.devSettings.dayTreeCatBubble = false;
   if(typeof state.devSettings.sidePanelEnabled !== 'boolean') state.devSettings.sidePanelEnabled = false;

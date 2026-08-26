@@ -172,6 +172,7 @@ function applyDevSettings(){
   document.body.classList.toggle('devtag-seam', !!d.tagSeam);
   document.body.classList.toggle('devtag-outline', !!d.tagOutline);
   document.body.dataset.pendingTagStyle = d.pendingTagStyle || 'default';
+  document.body.dataset.pendingTagColor = d.pendingTagColor || 'brass';
   document.body.classList.toggle('devlist-dates', !!d.showListDates);
   document.body.classList.toggle('devtreebubble', !!d.dayTreeCatBubble);
   // The floating side panel (see renderDevPanel()/toggleDevPanel() below)
@@ -197,6 +198,14 @@ async function toggleDevSetting(key, checked){
 async function setDevPendingTagStyle(val){
   pushUndo(`Changed dev pending-tag style to "${val}"`);
   state.devSettings.pendingTagStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevPendingTagColor(val){
+  pushUndo(`Changed dev pending-tag color to "${val}"`);
+  state.devSettings.pendingTagColor = val;
   applyDevSettings();
   render();
   queueSave();
@@ -243,7 +252,17 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
         <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Redder, jets out further</option>
         <option value="sidebar" ${dev.pendingTagStyle==='sidebar'?'selected':''}>Vertical sidebar strip</option>
         <option value="booktab" ${dev.pendingTagStyle==='booktab'?'selected':''}>Left edge, overlapping up into the tab row</option>
-        <option value="cornerpeek" ${dev.pendingTagStyle==='cornerpeek'?'selected':''}>Left edge, bigger diamond tip</option>
+        <option value="cornerpeek" ${dev.pendingTagStyle==='cornerpeek'?'selected':''}>Left edge, square (no tip)</option>
+      </select>
+    </div>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Pending-items tag color</span>
+      <select class="${selectClass}" onchange="setDevPendingTagColor(this.value)">
+        <option value="brass" ${dev.pendingTagColor==='brass'?'selected':''}>Brass (same as the back tag)</option>
+        <option value="rust" ${dev.pendingTagColor==='rust'?'selected':''}>Rust</option>
+        <option value="forest" ${dev.pendingTagColor==='forest'?'selected':''}>Forest green</option>
+        <option value="slate" ${dev.pendingTagColor==='slate'?'selected':''}>Slate blue</option>
+        <option value="charcoal" ${dev.pendingTagColor==='charcoal'?'selected':''}>Charcoal</option>
       </select>
     </div>
     <label class="${rowClass}">
