@@ -44,6 +44,7 @@ function renderSettings(){
         onblur="renameCategory('${c.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
       ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
+      ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
       ${deleteControls}
       ${locChecks}
     </div>`;
@@ -157,9 +158,10 @@ function renderSettings(){
       <div class="catrow">
         <input type="text" class="catedit" placeholder="+ add a new tab, enter to save" id="newCatNameInput"
           onkeydown="if(event.key==='Enter'){ addCategory(this.value, document.getElementById('newCatTypeSelect').value); this.value=''; }">
-        <select class="catselect" id="newCatTypeSelect" title="Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off.">
+        <select class="catselect" id="newCatTypeSelect" title="Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off. Calendar tabs show a month grid of your Daily pages, with at-a-glance counts of what's due and done each day.">
           <option value="standard">Standard</option>
           <option value="checklist">Checklist</option>
+          <option value="calendar">Calendar</option>
         </select>
       </div>
       ${locationSection}
@@ -227,7 +229,8 @@ async function addCategory(text, type){
   // existing tab (toggleCategoryLocation). Irrelevant when locations are
   // off (visibleTabs() ignores .locations entirely in that case), so no
   // need to branch on state.locationEnabled here.
-  state.categories.push({ id: newId('cat'), label, hex, locations: [state.location], type: type==='checklist' ? 'checklist' : 'standard' });
+  const catType = type==='checklist' ? 'checklist' : type==='calendar' ? 'calendar' : 'standard';
+  state.categories.push({ id: newId('cat'), label, hex, locations: [state.location], type: catType });
   rebuildCategoriesIndex();
   render();
   queueSave();

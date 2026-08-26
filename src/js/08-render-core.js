@@ -220,18 +220,21 @@ function render(){
   const catView = document.getElementById('categoryView');
   const dayView = document.getElementById('dailyView');
   const chkView = document.getElementById('checklistView');
+  const calView = document.getElementById('calendarView');
   const setView = document.getElementById('settingsView');
   const cldView = document.getElementById('claudeView');
   if(claudeView){
     catView.style.display = 'none';
     dayView.style.display = 'none';
     chkView.style.display = 'none';
+    calView.style.display = 'none';
     setView.style.display = 'none';
     cldView.style.display = '';
     renderClaudeView();
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     dayView.innerHTML = '';
     chkView.innerHTML = '';
+    calView.innerHTML = '';
     setView.innerHTML = '';
     return;
   }
@@ -241,33 +244,45 @@ function render(){
     catView.style.display = 'none';
     dayView.style.display = 'none';
     chkView.style.display = 'none';
+    calView.style.display = 'none';
     setView.style.display = '';
     renderSettings();
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     dayView.innerHTML = '';
     chkView.innerHTML = '';
+    calView.innerHTML = '';
     return;
   }
   setView.style.display = 'none';
   setView.innerHTML = '';
   const isDaily = activeTab==='daily';
   const isChecklist = isChecklistCategory(activeTab);
-  catView.style.display = (isDaily || isChecklist) ? 'none' : '';
+  const isCalendar = isCalendarCategory(activeTab);
+  catView.style.display = (isDaily || isChecklist || isCalendar) ? 'none' : '';
   dayView.style.display = isDaily ? '' : 'none';
   chkView.style.display = isChecklist ? '' : 'none';
+  calView.style.display = isCalendar ? '' : 'none';
   if(isDaily){
     renderDaily();
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     chkView.innerHTML = '';
+    calView.innerHTML = '';
   } else if(isChecklist){
     renderChecklist();
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     dayView.innerHTML = '';
+    calView.innerHTML = '';
+  } else if(isCalendar){
+    renderCalendar();
+    document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
+    dayView.innerHTML = '';
+    chkView.innerHTML = '';
   } else {
     renderQuickCategory();
     renderList();
     dayView.innerHTML = ''; // avoid stale duplicate ids
     chkView.innerHTML = '';
+    calView.innerHTML = '';
   }
 }
 

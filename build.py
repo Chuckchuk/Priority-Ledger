@@ -18,7 +18,7 @@ OUT = ROOT / 'priority-ledger.html'
 # Order matters here: JS is one shared <script> scope, so function
 # declarations can live in any module (hoisting), but top-level side
 # effects must stay in their original relative order — in particular
-# 18-bootstrap.js (event listeners + the init() IIFE) must stay last.
+# 19-bootstrap.js (event listeners + the init() IIFE) must stay last.
 JS_MODULES = [
     '01-categories-theme.js',
     '02-storage-state.js',
@@ -37,7 +37,8 @@ JS_MODULES = [
     '15-subtask-edit.js',
     '16-task-crud.js',
     '17-auth-ui.js',
-    '18-bootstrap.js',
+    '18-calendar.js',
+    '19-bootstrap.js',
 ]
 
 def read(path):

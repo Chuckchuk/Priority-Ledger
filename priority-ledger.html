@@ -893,6 +893,19 @@
      narrow widths rather than clipping. */
   .daydetailhead{ margin-bottom:14px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; }
   .daydetailhead h2{ font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.35rem; margin:0; color:var(--ink); }
+  /* Left/right quick-access to the closest logged day in either direction
+     — see adjacentDayStr()/goToAdjacentDay() in 11-daily-core.js. Shares
+     .navarrow with the Calendar tab's own month-nav arrows (see the
+     Calendar section below) rather than each defining its own near-
+     identical button; a disabled arrow (no earlier/later day exists)
+     just dims via the shared :disabled rule, no separate markup needed. */
+  .daynav{ display:flex; align-items:center; gap:10px; }
+  .navarrow{
+    font-family:'IBM Plex Mono', monospace; font-size:1rem; line-height:1; width:26px; height:26px;
+    border-radius:50%; border:1px solid var(--line); background: var(--card-bg-dim); color:var(--ink);
+    cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  .navarrow:disabled{ opacity:0.35; cursor:default; }
   .daydetailheadright{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
   .dayprogress{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); }
   .pullbtn{
@@ -1267,6 +1280,48 @@
     padding:14px; max-height:65vh; overflow:auto; color:var(--ink);
   }
   .claudeviewrow{ display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  /* ---------- Calendar category type ---------- */
+  /* Same row shape as .daynav above, reusing .navarrow — see the comment
+     there for why the two share one button style instead of each
+     defining a near-identical one. */
+  .calnav{ display:flex; align-items:center; justify-content:center; gap:16px; margin:2px 0 10px; }
+  .calmonthlabel{
+    font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.15rem; color:var(--ink);
+    background:none; border:none; cursor:pointer; padding:0; min-width:150px; text-align:center;
+  }
+  .calsummary{
+    text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
+    letter-spacing:0.05em; color:var(--ink-soft); margin-bottom:12px;
+  }
+  .calweekdays{
+    display:grid; grid-template-columns:repeat(7,1fr); text-align:center; margin-bottom:4px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; color:var(--ink-soft); letter-spacing:0.04em;
+  }
+  .calgrid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  /* Every cell (blank or real) is a fixed-ratio box via aspect-ratio, not
+     a hardcoded height — that's what keeps the grid looking like an
+     actual calendar (square-ish cells) at any card width, phone included,
+     rather than a fixed pixel height that either wastes space on a wide
+     card or gets cramped on a narrow one. */
+  .calcell{
+    aspect-ratio:1; border-radius:6px; border:1px solid var(--line); background: var(--card-bg-dim);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    cursor:pointer; padding:2px; font-family:'IBM Plex Sans',sans-serif; color:var(--ink);
+  }
+  .calcell.calblank{ border:none; background:none; cursor:default; }
+  .caldatenum{ font-size:0.8rem; }
+  /* A day with anything planned gets a slightly stronger card-bg tint
+     (barely — the border below is what actually carries the signal) so
+     an empty month doesn't read as "half broken," just quiet. */
+  .calcell.hasdata{ background: color-mix(in srgb, var(--card-bg-dim) 80%, var(--primary) 20%); }
+  .calratio{
+    font-family:'IBM Plex Mono', monospace; font-size:0.58rem; color:var(--ink-soft); letter-spacing:0.02em;
+  }
+  /* Today gets the same Primary-accent treatment .dayhero.today/.todaytag
+     use elsewhere for "today," not a new one-off color, so "today" reads
+     the same wherever it shows up in the app. */
+  .calcell.today{ border-color:var(--primary); border-width:2px; }
+  .calcell.today .caldatenum{ color:var(--primary); font-weight:700; }
   @media (max-width:480px){
     .masthead h1{ font-size:1.9rem; }
     .card{ padding: 18px 14px 10px; }
@@ -1329,6 +1384,7 @@
       </div>
       <div id="dailyView" style="display:none;"></div>
       <div id="checklistView" style="display:none;"></div>
+      <div id="calendarView" style="display:none;"></div>
       <div id="settingsView" style="display:none;"></div>
       <div id="claudeView" style="display:none;"></div>
     </div>
@@ -1423,13 +1479,28 @@ function isChecklistCategory(id){
   const c = CATEGORIES[id];
   return !!c && c.type === 'checklist';
 }
+// 'calendar' is a third type (see renderCalendar() in 18-calendar.js) —
+// unlike 'checklist', a calendar tab doesn't own any tasks of its own
+// (there's no `t.category === thisId` data anywhere); it's a whole
+// second view onto the same global state.days/plannedDates data the
+// Daily tab already reads, just gridded by month instead of listed by
+// day. Made a real category type (rather than a second fixed tab like
+// Daily itself) specifically so it's addable/renameable/reorderable/
+// deletable/colorable the same way a checklist tab is, instead of being
+// permanently pinned into every account whether or not someone wants it.
+function isCalendarCategory(id){
+  const c = CATEGORIES[id];
+  return !!c && c.type === 'calendar';
+}
 // Category selects used for *standard* tasks (quick-add, "move to
 // category", the Daily quick-add) only ever offer standard categories —
 // a checklist category's "tasks" are really named lists with no due
-// date/priority fields, so dropping a standard task into one (or vice
-// versa) would produce a hybrid that neither view knows how to render.
+// date/priority fields (and a calendar category has no tasks of its own
+// at all), so dropping a standard task into either would produce a
+// hybrid neither view knows how to render, or vanish into a tab with no
+// task list at all.
 function standardCategoryEntries(){
-  return Object.entries(CATEGORIES).filter(([,v]) => v.type !== 'checklist');
+  return Object.entries(CATEGORIES).filter(([,v]) => v.type !== 'checklist' && v.type !== 'calendar');
 }
 
 // Locations are also per-user: two editable-label entries plus a switch to
@@ -2480,7 +2551,12 @@ function renderLocBadge(){
 // useful number for that kind of tab. "All" excludes checklist-owned
 // tasks entirely, matching what renderList() actually shows there.
 function tabOpenCount(key){
-  if(key==='daily'){
+  // A calendar tab has no tasks of its own to count (see
+  // isCalendarCategory()'s comment) — today's own open count is the most
+  // relevant single number to show on its tab, same reasoning as 'daily'
+  // itself, and the two intentionally share this branch rather than each
+  // recomputing it.
+  if(key==='daily' || isCalendarCategory(key)){
     const s = dayItemsSummary(todayStr());
     return s.total - s.done;
   }
@@ -2945,18 +3021,21 @@ function render(){
   const catView = document.getElementById('categoryView');
   const dayView = document.getElementById('dailyView');
   const chkView = document.getElementById('checklistView');
+  const calView = document.getElementById('calendarView');
   const setView = document.getElementById('settingsView');
   const cldView = document.getElementById('claudeView');
   if(claudeView){
     catView.style.display = 'none';
     dayView.style.display = 'none';
     chkView.style.display = 'none';
+    calView.style.display = 'none';
     setView.style.display = 'none';
     cldView.style.display = '';
     renderClaudeView();
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     dayView.innerHTML = '';
     chkView.innerHTML = '';
+    calView.innerHTML = '';
     setView.innerHTML = '';
     return;
   }
@@ -2966,33 +3045,45 @@ function render(){
     catView.style.display = 'none';
     dayView.style.display = 'none';
     chkView.style.display = 'none';
+    calView.style.display = 'none';
     setView.style.display = '';
     renderSettings();
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     dayView.innerHTML = '';
     chkView.innerHTML = '';
+    calView.innerHTML = '';
     return;
   }
   setView.style.display = 'none';
   setView.innerHTML = '';
   const isDaily = activeTab==='daily';
   const isChecklist = isChecklistCategory(activeTab);
-  catView.style.display = (isDaily || isChecklist) ? 'none' : '';
+  const isCalendar = isCalendarCategory(activeTab);
+  catView.style.display = (isDaily || isChecklist || isCalendar) ? 'none' : '';
   dayView.style.display = isDaily ? '' : 'none';
   chkView.style.display = isChecklist ? '' : 'none';
+  calView.style.display = isCalendar ? '' : 'none';
   if(isDaily){
     renderDaily();
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     chkView.innerHTML = '';
+    calView.innerHTML = '';
   } else if(isChecklist){
     renderChecklist();
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     dayView.innerHTML = '';
+    calView.innerHTML = '';
+  } else if(isCalendar){
+    renderCalendar();
+    document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
+    dayView.innerHTML = '';
+    chkView.innerHTML = '';
   } else {
     renderQuickCategory();
     renderList();
     dayView.innerHTML = ''; // avoid stale duplicate ids
     chkView.innerHTML = '';
+    calView.innerHTML = '';
   }
 }
 
@@ -3095,6 +3186,7 @@ function renderSettings(){
         onblur="renameCategory('${c.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
       ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
+      ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
       ${deleteControls}
       ${locChecks}
     </div>`;
@@ -3208,9 +3300,10 @@ function renderSettings(){
       <div class="catrow">
         <input type="text" class="catedit" placeholder="+ add a new tab, enter to save" id="newCatNameInput"
           onkeydown="if(event.key==='Enter'){ addCategory(this.value, document.getElementById('newCatTypeSelect').value); this.value=''; }">
-        <select class="catselect" id="newCatTypeSelect" title="Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off.">
+        <select class="catselect" id="newCatTypeSelect" title="Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off. Calendar tabs show a month grid of your Daily pages, with at-a-glance counts of what's due and done each day.">
           <option value="standard">Standard</option>
           <option value="checklist">Checklist</option>
+          <option value="calendar">Calendar</option>
         </select>
       </div>
       ${locationSection}
@@ -3278,7 +3371,8 @@ async function addCategory(text, type){
   // existing tab (toggleCategoryLocation). Irrelevant when locations are
   // off (visibleTabs() ignores .locations entirely in that case), so no
   // need to branch on state.locationEnabled here.
-  state.categories.push({ id: newId('cat'), label, hex, locations: [state.location], type: type==='checklist' ? 'checklist' : 'standard' });
+  const catType = type==='checklist' ? 'checklist' : type==='calendar' ? 'calendar' : 'standard';
+  state.categories.push({ id: newId('cat'), label, hex, locations: [state.location], type: catType });
   rebuildCategoriesIndex();
   render();
   queueSave();
@@ -3972,6 +4066,33 @@ function resetDayAddPicker(){
 function openDay(dateStr){ selectedDay = dateStr; resetDayAddPicker(); render(); }
 function closeDay(){ selectedDay = null; resetDayAddPicker(); render(); }
 
+// Chronological, not state.days' own insertion order (state.days.unshift()
+// in ensureDay() means the array itself is newest-first) — "previous"/
+// "next" on a day-detail page should mean the closest earlier/later day
+// you've actually logged, matching what the left/right arrows visually
+// promise, not whichever day happened to be added most recently.
+function sortedDayList(){ return state.days.slice().sort((a,b)=>a.localeCompare(b)); }
+
+// null when `dateStr` isn't in state.days at all, or sits at either end
+// of the list — both cases the day-detail page's arrow just renders
+// disabled rather than erroring or wrapping around.
+function adjacentDayStr(dateStr, dir){
+  const days = sortedDayList();
+  const idx = days.indexOf(dateStr);
+  if(idx === -1) return null;
+  const target = days[idx + dir];
+  return target === undefined ? null : target;
+}
+
+// Pure navigation (openDay() itself isn't undo-tracked either) — moving
+// to an adjacent day you've already logged isn't a content change, same
+// reasoning switchTab()/toggleLocation() already lean on elsewhere.
+function goToAdjacentDay(dir){
+  const target = adjacentDayStr(selectedDay, dir);
+  if(!target) return;
+  openDay(target);
+}
+
 function toggleMonthGroup(key){
   if(expandedMonths.has(key)) expandedMonths.delete(key); else expandedMonths.add(key);
   renderDaily();
@@ -4287,6 +4408,11 @@ function renderDayDetail(dateStr){
   const isPast = dateStr < todayStr();
   const nextDate = addDaysToDateStr(dateStr, 1);
   const headerTag = dayHeaderTag(dateStr);
+  // For the prev/next arrows flanking the h2 below — null when this day
+  // sits at either end of your logged days (see adjacentDayStr()), which
+  // just renders as a disabled arrow rather than wrapping or erroring.
+  const prevDayStr = adjacentDayStr(dateStr, -1);
+  const nextDayStr = adjacentDayStr(dateStr, 1);
 
   // Whole tasks and steps share one list — a step planned onto a day is
   // just as much "on today's list" as a whole task is, so there's no
@@ -4335,7 +4461,11 @@ function renderDayDetail(dateStr){
       ${pageTagHtml('closeDay()', 'All Days')}
       ${headerTag ? `<div class="dayherorow"><span class="dayhero ${headerTag.today?'today':''}">${headerTag.text}</span></div>` : ''}
       <div class="daydetailhead">
-        <h2>${dayLabel(dateStr)}</h2>
+        <div class="daynav">
+          <button class="navarrow" ${prevDayStr ? `onclick="goToAdjacentDay(-1)"` : 'disabled'} title="Previous day">‹</button>
+          <h2>${dayLabel(dateStr)}</h2>
+          <button class="navarrow" ${nextDayStr ? `onclick="goToAdjacentDay(1)"` : 'disabled'} title="Next day">›</button>
+        </div>
         <div class="daydetailheadright">
           <div class="dayprogress">${total ? `${done} of ${total} done` : 'Nothing planned yet'}</div>
           ${unfinishedCount>0 && dateStr<=todayStr() ? `<button class="pullbtn" onclick="moveIncompleteToTomorrow('${dateStr}')">Move ${unfinishedCount} incomplete → ${fmtDate(nextDate)}</button>` : ''}
@@ -5182,6 +5312,134 @@ async function enterApp(){
   if(claudeParam) openClaudeView(claudeParam);
 }
 
+// ---------- Calendar category type ----------
+// A calendar category's whole "content" is a month grid over the exact
+// same state.days/plannedDates data the Daily tab lists day-by-day — see
+// isCalendarCategory()'s comment in 01-categories-theme.js for why this
+// is a category type rather than a second fixed tab. Nothing here owns
+// or duplicates any data; every number on the grid comes straight from
+// dayItemsSummary(), the same function Daily's own day-list/day-detail
+// already use, so the two views can never disagree about what's on a
+// given day.
+
+// Which month is currently browsed — transient UI state, not persisted
+// (same idiom as pickerOpen/expandedMonths), so it always starts back on
+// the current month on a fresh load. Deliberately NOT reset by
+// switchTab(): coming back to a calendar tab after a detour to some day's
+// detail page should still show whatever month you were last looking at.
+let calendarViewMonth = null;
+
+function calendarMonth(){
+  if(!calendarViewMonth) calendarViewMonth = monthKey(todayStr());
+  return calendarViewMonth;
+}
+
+function shiftMonthKey(key, n){
+  const [y, m] = key.split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+function calendarShiftMonth(delta){
+  calendarViewMonth = shiftMonthKey(calendarMonth(), delta);
+  renderCalendar();
+}
+
+function calendarJumpToday(){
+  calendarViewMonth = monthKey(todayStr());
+  renderCalendar();
+}
+
+// One cell per calendar day in the visible month, padded with blank
+// leading/trailing cells so the grid always fills complete weeks (a
+// ragged final row reads as a bug, not a design choice). Every day's
+// total/done comes from dayItemsSummary() regardless of whether that
+// date happens to be in state.days yet — a date with nothing planned
+// just comes back {total:0, done:0}, no separate "does this day exist"
+// branch needed.
+function calendarMonthCells(monthKeyStr){
+  const [y, m] = monthKeyStr.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const startWeekday = new Date(y, m - 1, 1).getDay();
+  const today = todayStr();
+  const cells = [];
+  for(let i = 0; i < startWeekday; i++) cells.push({ blank: true });
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const { total, done } = dayItemsSummary(dateStr);
+    cells.push({ blank: false, dateStr, dayNum: d, isToday: dateStr === today, total, done });
+  }
+  while(cells.length % 7 !== 0) cells.push({ blank: true });
+  return cells;
+}
+
+function calendarMonthSummary(monthKeyStr){
+  const [y, m] = monthKeyStr.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  let total = 0, done = 0;
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const s = dayItemsSummary(dateStr);
+    total += s.total; done += s.done;
+  }
+  return { total, done };
+}
+
+const CALENDAR_WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+function renderCalendar(){
+  const el = document.getElementById('calendarView');
+  const monthKeyStr = calendarMonth();
+  const cells = calendarMonthCells(monthKeyStr);
+  const summary = calendarMonthSummary(monthKeyStr);
+  const todayOpen = tabOpenCount('daily');
+  // A compact page tag, same component the checklist overview's "Pending"
+  // trigger uses — matched purely by sharing the .pagetag.compact class,
+  // so it automatically picks up whatever dev pendingTagStyle/
+  // pendingTagColor is set, no calendar-specific wiring needed (this is
+  // the "linked dev options" the tag styling was asked for). Doubles as
+  // a genuine "jump to today" shortcut, which a month grid benefits from
+  // more than a single overview list does — you can be several months
+  // away from today after browsing.
+  el.innerHTML = `
+    ${pageTagHtml(`openCalendarDay('${todayStr()}')`, todayOpen > 0 ? `Today · ${todayOpen}` : 'Today', true)}
+    <div class="calnav">
+      <button class="navarrow" onclick="calendarShiftMonth(-1)" title="Previous month">‹</button>
+      <button class="calmonthlabel" onclick="calendarJumpToday()" title="Jump to the current month">${monthLabel(monthKeyStr)}</button>
+      <button class="navarrow" onclick="calendarShiftMonth(1)" title="Next month">›</button>
+    </div>
+    <div class="calsummary">${summary.total ? `${summary.done} of ${summary.total} done this month` : 'Nothing planned this month yet'}</div>
+    <div class="calweekdays">${CALENDAR_WEEKDAY_LABELS.map(d => `<span>${d}</span>`).join('')}</div>
+    <div class="calgrid">
+      ${cells.map(c => c.blank
+        ? `<div class="calcell calblank"></div>`
+        : `<button class="calcell ${c.isToday ? 'today' : ''} ${c.total ? 'hasdata' : ''}" onclick="openCalendarDay('${c.dateStr}')">
+             <span class="caldatenum">${c.dayNum}</span>
+             ${c.total ? `<span class="calratio">${c.done}/${c.total}</span>` : ''}
+           </button>`
+      ).join('')}
+    </div>
+  `;
+}
+
+// Clicking any date — whether or not it already has a state.days entry —
+// jumps straight into that day's own detail page, same page Daily's own
+// day list opens. Mirrors addDay()/confirmPickDate()'s "only pushUndo if
+// this actually creates a new day" rule: ensureDay() itself is a no-op
+// (and ends up not calling queueSave()) for a date already in state.days,
+// so tracking an undo step for that case would record a change that
+// never happened. Actually switching tabs to 'daily' (rather than
+// building a calendar-local day-detail path) is deliberate — it's what
+// the prev/next day arrows, "move incomplete to tomorrow", and every
+// other piece of the day-detail page already assume they're running
+// under, so reusing it here for free is both less code and exactly what
+// "opens up the Page for the Daily" describes.
+async function openCalendarDay(dateStr){
+  if(!state.days.includes(dateStr)) pushUndo('Added a day');
+  await ensureDay(dateStr);
+  switchTab('daily');
+  openDay(dateStr);
+}
 // Esc: close whatever's most local first (a task's expanded detail, then
 // the Settings panel), and only fall back to jumping to the All tab if
 // neither of those was open. Cmd/Ctrl+Z / Shift+Z (or Ctrl+Y) drive

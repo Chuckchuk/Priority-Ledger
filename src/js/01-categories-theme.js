@@ -73,13 +73,28 @@ function isChecklistCategory(id){
   const c = CATEGORIES[id];
   return !!c && c.type === 'checklist';
 }
+// 'calendar' is a third type (see renderCalendar() in 18-calendar.js) —
+// unlike 'checklist', a calendar tab doesn't own any tasks of its own
+// (there's no `t.category === thisId` data anywhere); it's a whole
+// second view onto the same global state.days/plannedDates data the
+// Daily tab already reads, just gridded by month instead of listed by
+// day. Made a real category type (rather than a second fixed tab like
+// Daily itself) specifically so it's addable/renameable/reorderable/
+// deletable/colorable the same way a checklist tab is, instead of being
+// permanently pinned into every account whether or not someone wants it.
+function isCalendarCategory(id){
+  const c = CATEGORIES[id];
+  return !!c && c.type === 'calendar';
+}
 // Category selects used for *standard* tasks (quick-add, "move to
 // category", the Daily quick-add) only ever offer standard categories —
 // a checklist category's "tasks" are really named lists with no due
-// date/priority fields, so dropping a standard task into one (or vice
-// versa) would produce a hybrid that neither view knows how to render.
+// date/priority fields (and a calendar category has no tasks of its own
+// at all), so dropping a standard task into either would produce a
+// hybrid neither view knows how to render, or vanish into a tab with no
+// task list at all.
 function standardCategoryEntries(){
-  return Object.entries(CATEGORIES).filter(([,v]) => v.type !== 'checklist');
+  return Object.entries(CATEGORIES).filter(([,v]) => v.type !== 'checklist' && v.type !== 'calendar');
 }
 
 // Locations are also per-user: two editable-label entries plus a switch to

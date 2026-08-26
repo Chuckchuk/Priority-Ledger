@@ -156,6 +156,33 @@ function resetDayAddPicker(){
 function openDay(dateStr){ selectedDay = dateStr; resetDayAddPicker(); render(); }
 function closeDay(){ selectedDay = null; resetDayAddPicker(); render(); }
 
+// Chronological, not state.days' own insertion order (state.days.unshift()
+// in ensureDay() means the array itself is newest-first) — "previous"/
+// "next" on a day-detail page should mean the closest earlier/later day
+// you've actually logged, matching what the left/right arrows visually
+// promise, not whichever day happened to be added most recently.
+function sortedDayList(){ return state.days.slice().sort((a,b)=>a.localeCompare(b)); }
+
+// null when `dateStr` isn't in state.days at all, or sits at either end
+// of the list — both cases the day-detail page's arrow just renders
+// disabled rather than erroring or wrapping around.
+function adjacentDayStr(dateStr, dir){
+  const days = sortedDayList();
+  const idx = days.indexOf(dateStr);
+  if(idx === -1) return null;
+  const target = days[idx + dir];
+  return target === undefined ? null : target;
+}
+
+// Pure navigation (openDay() itself isn't undo-tracked either) — moving
+// to an adjacent day you've already logged isn't a content change, same
+// reasoning switchTab()/toggleLocation() already lean on elsewhere.
+function goToAdjacentDay(dir){
+  const target = adjacentDayStr(selectedDay, dir);
+  if(!target) return;
+  openDay(target);
+}
+
 function toggleMonthGroup(key){
   if(expandedMonths.has(key)) expandedMonths.delete(key); else expandedMonths.add(key);
   renderDaily();

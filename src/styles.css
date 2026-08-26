@@ -876,6 +876,19 @@
      narrow widths rather than clipping. */
   .daydetailhead{ margin-bottom:14px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; }
   .daydetailhead h2{ font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.35rem; margin:0; color:var(--ink); }
+  /* Left/right quick-access to the closest logged day in either direction
+     — see adjacentDayStr()/goToAdjacentDay() in 11-daily-core.js. Shares
+     .navarrow with the Calendar tab's own month-nav arrows (see the
+     Calendar section below) rather than each defining its own near-
+     identical button; a disabled arrow (no earlier/later day exists)
+     just dims via the shared :disabled rule, no separate markup needed. */
+  .daynav{ display:flex; align-items:center; gap:10px; }
+  .navarrow{
+    font-family:'IBM Plex Mono', monospace; font-size:1rem; line-height:1; width:26px; height:26px;
+    border-radius:50%; border:1px solid var(--line); background: var(--card-bg-dim); color:var(--ink);
+    cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  .navarrow:disabled{ opacity:0.35; cursor:default; }
   .daydetailheadright{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
   .dayprogress{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); }
   .pullbtn{
@@ -1250,6 +1263,48 @@
     padding:14px; max-height:65vh; overflow:auto; color:var(--ink);
   }
   .claudeviewrow{ display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  /* ---------- Calendar category type ---------- */
+  /* Same row shape as .daynav above, reusing .navarrow — see the comment
+     there for why the two share one button style instead of each
+     defining a near-identical one. */
+  .calnav{ display:flex; align-items:center; justify-content:center; gap:16px; margin:2px 0 10px; }
+  .calmonthlabel{
+    font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.15rem; color:var(--ink);
+    background:none; border:none; cursor:pointer; padding:0; min-width:150px; text-align:center;
+  }
+  .calsummary{
+    text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
+    letter-spacing:0.05em; color:var(--ink-soft); margin-bottom:12px;
+  }
+  .calweekdays{
+    display:grid; grid-template-columns:repeat(7,1fr); text-align:center; margin-bottom:4px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; color:var(--ink-soft); letter-spacing:0.04em;
+  }
+  .calgrid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  /* Every cell (blank or real) is a fixed-ratio box via aspect-ratio, not
+     a hardcoded height — that's what keeps the grid looking like an
+     actual calendar (square-ish cells) at any card width, phone included,
+     rather than a fixed pixel height that either wastes space on a wide
+     card or gets cramped on a narrow one. */
+  .calcell{
+    aspect-ratio:1; border-radius:6px; border:1px solid var(--line); background: var(--card-bg-dim);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    cursor:pointer; padding:2px; font-family:'IBM Plex Sans',sans-serif; color:var(--ink);
+  }
+  .calcell.calblank{ border:none; background:none; cursor:default; }
+  .caldatenum{ font-size:0.8rem; }
+  /* A day with anything planned gets a slightly stronger card-bg tint
+     (barely — the border below is what actually carries the signal) so
+     an empty month doesn't read as "half broken," just quiet. */
+  .calcell.hasdata{ background: color-mix(in srgb, var(--card-bg-dim) 80%, var(--primary) 20%); }
+  .calratio{
+    font-family:'IBM Plex Mono', monospace; font-size:0.58rem; color:var(--ink-soft); letter-spacing:0.02em;
+  }
+  /* Today gets the same Primary-accent treatment .dayhero.today/.todaytag
+     use elsewhere for "today," not a new one-off color, so "today" reads
+     the same wherever it shows up in the app. */
+  .calcell.today{ border-color:var(--primary); border-width:2px; }
+  .calcell.today .caldatenum{ color:var(--primary); font-weight:700; }
   @media (max-width:480px){
     .masthead h1{ font-size:1.9rem; }
     .card{ padding: 18px 14px 10px; }

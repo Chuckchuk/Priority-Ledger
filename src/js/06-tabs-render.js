@@ -50,7 +50,12 @@ function renderLocBadge(){
 // useful number for that kind of tab. "All" excludes checklist-owned
 // tasks entirely, matching what renderList() actually shows there.
 function tabOpenCount(key){
-  if(key==='daily'){
+  // A calendar tab has no tasks of its own to count (see
+  // isCalendarCategory()'s comment) — today's own open count is the most
+  // relevant single number to show on its tab, same reasoning as 'daily'
+  // itself, and the two intentionally share this branch rather than each
+  // recomputing it.
+  if(key==='daily' || isCalendarCategory(key)){
     const s = dayItemsSummary(todayStr());
     return s.total - s.done;
   }

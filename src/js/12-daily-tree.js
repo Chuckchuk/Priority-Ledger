@@ -209,6 +209,11 @@ function renderDayDetail(dateStr){
   const isPast = dateStr < todayStr();
   const nextDate = addDaysToDateStr(dateStr, 1);
   const headerTag = dayHeaderTag(dateStr);
+  // For the prev/next arrows flanking the h2 below — null when this day
+  // sits at either end of your logged days (see adjacentDayStr()), which
+  // just renders as a disabled arrow rather than wrapping or erroring.
+  const prevDayStr = adjacentDayStr(dateStr, -1);
+  const nextDayStr = adjacentDayStr(dateStr, 1);
 
   // Whole tasks and steps share one list — a step planned onto a day is
   // just as much "on today's list" as a whole task is, so there's no
@@ -257,7 +262,11 @@ function renderDayDetail(dateStr){
       ${pageTagHtml('closeDay()', 'All Days')}
       ${headerTag ? `<div class="dayherorow"><span class="dayhero ${headerTag.today?'today':''}">${headerTag.text}</span></div>` : ''}
       <div class="daydetailhead">
-        <h2>${dayLabel(dateStr)}</h2>
+        <div class="daynav">
+          <button class="navarrow" ${prevDayStr ? `onclick="goToAdjacentDay(-1)"` : 'disabled'} title="Previous day">‹</button>
+          <h2>${dayLabel(dateStr)}</h2>
+          <button class="navarrow" ${nextDayStr ? `onclick="goToAdjacentDay(1)"` : 'disabled'} title="Next day">›</button>
+        </div>
         <div class="daydetailheadright">
           <div class="dayprogress">${total ? `${done} of ${total} done` : 'Nothing planned yet'}</div>
           ${unfinishedCount>0 && dateStr<=todayStr() ? `<button class="pullbtn" onclick="moveIncompleteToTomorrow('${dateStr}')">Move ${unfinishedCount} incomplete → ${fmtDate(nextDate)}</button>` : ''}
