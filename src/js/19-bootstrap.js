@@ -1,13 +1,26 @@
-// Esc: close whatever's most local first (a task's expanded detail, then
-// the Settings panel), and only fall back to jumping to the All tab if
-// neither of those was open. Cmd/Ctrl+Z / Shift+Z (or Ctrl+Y) drive
-// undo/redo, but only when focus isn't in a text field — typing needs its
-// own native undo, not this app's content-level one.
+// Esc: close whatever's most local first — a Settings popover (a
+// category's color/icon picker incl. its own custom-wheel sub-view, UI
+// Colors, Desk & Ledger, or a theme swatch's wheel — see
+// closeAllSettingsPopovers() in 09-settings.js) beats the Settings panel
+// itself beats a task's expanded detail, and only falls back to jumping
+// to the All tab if none of those was open. Enter does the same one
+// thing Esc does for a popover specifically (closes it) — checked before
+// the inField guard below, since the wheel's own hex field is itself a
+// text input and needs Enter to reach here too; its own onkeydown
+// already commits the color first (no stopPropagation), so by the time
+// this runs the popover is just along for the ride, closing on top of
+// that. Cmd/Ctrl+Z / Shift+Z (or Ctrl+Y) drive undo/redo, but only when
+// focus isn't in a text field — typing needs its own native undo, not
+// this app's content-level one.
 document.addEventListener('keydown', (e) => {
   const appShell = document.getElementById('appShell');
   if(!appShell || appShell.style.display === 'none') return;
 
-  if(e.key === 'Escape'){
+  const popoverOpen = openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || themeColorWheelKey;
+
+  if(e.key === 'Escape' || e.key === 'Enter'){
+    if(popoverOpen){ closeAllSettingsPopovers(); render(); return; }
+    if(e.key !== 'Escape') return; // Enter has nothing else to do app-wide
     if(claudeView){ closeClaudeView(); return; }
     if(settingsOpen){ toggleSettings(); return; }
     if(checklistPendingOpen){ closeChecklistPending(); return; }

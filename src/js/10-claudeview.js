@@ -10,10 +10,7 @@ function openClaudeView(mode){
   settingsOpen = false;
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
-  openCategoryPickerId = null;
-  uiColorPickerOpen = false;
-  customColorOpen = false;
-  catWheelCancelDrag();
+  closeAllSettingsPopovers();
   render();
 }
 

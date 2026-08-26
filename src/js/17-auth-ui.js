@@ -66,10 +66,7 @@ function signOut(){
   checklistPendingOpen = false;
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
-  openCategoryPickerId = null;
-  uiColorPickerOpen = false;
-  customColorOpen = false;
-  catWheelCancelDrag();
+  closeAllSettingsPopovers();
   undoStack = [];
   redoStack = [];
   expandedTaskIds = new Set();

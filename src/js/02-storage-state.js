@@ -61,6 +61,14 @@ let openCategoryPickerId = null;
 // pairs) popover is open — a single boolean, not a per-id map like
 // openCategoryPickerId, since there's only ever one of these in Settings.
 let uiColorPickerOpen = false;
+// Same idea for the Desk & Ledger (Background/Ledger) preset-pair popover.
+let deskPaperPickerOpen = false;
+// Which theme color's own wheel popover is open — 'bg' | 'paper' | null.
+// A separate var from customColorOpen (the category wheel) since it's a
+// wholly separate popover anchored to a different trigger; see
+// closeAllSettingsPopovers() in 09-settings.js for why only one of any of
+// these may be open at once (they share the wheel's DOM ids).
+let themeColorWheelKey = null;
 // The category color/icon popover's "Custom" sub-panel (a hue ring + a
 // saturation/value square, see catWheelPointerDown() in 09-settings.js) —
 // only meaningful while openCategoryPickerId names a category.

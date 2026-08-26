@@ -1106,9 +1106,20 @@
     position:absolute; width:14px; height:14px; margin:-7px; border-radius:50%;
     background:white; border:2px solid var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.4); pointer-events:none;
   }
+  /* clip-path, not border-radius+overflow:hidden — this box is a square
+     (108x108) sitting on top of .catwheelring's own conic-gradient disc,
+     and border-radius only clips PAINTING, not hit-testing: the square's
+     invisible corners would keep intercepting pointerdown for whatever's
+     visually the ring's diagonal band underneath, making that part of
+     the ring un-draggable. clip-path restricts hit-testing to the actual
+     circle too, so a click on a visually-ring pixel always reaches the
+     ring. It also avoids the double-antialiased-circle seam
+     border-radius+overflow left between this shape's edge and the
+     ring's own — clip-path's rasterized edge blends into whatever's
+     beneath instead of needing an opaque background to hide a gap. */
   .catwheelsquarewrap{
     position:absolute; top:16px; left:16px; width:108px; height:108px;
-    border-radius:50%; overflow:hidden; background: var(--card-bg);
+    clip-path: circle(50%);
   }
   .catwheelsquare{
     position:relative; width:100%; height:100%; touch-action:none;
@@ -1172,14 +1183,16 @@
     color: var(--ink-soft); margin: 18px 0 6px;
   }
   .themerow{ display:flex; gap:20px; margin-bottom:12px; flex-wrap:wrap; }
-  .themeswatch{
-    display:flex; align-items:center; gap:8px; cursor:pointer;
+  /* Background/Ledger — same wheel popover as a category's custom color
+     (see themeSwatchHtml()/themeColorWheelHtml() in 09-settings.js),
+     replacing the plain native <input type=color> this used to be. */
+  .themeswatchwrap{ position:relative; display:flex; align-items:center; gap:8px; }
+  .themeswatchbtn{
+    width:28px; height:28px; padding:0; border:1px solid var(--line); border-radius:6px; cursor:pointer;
+  }
+  .themeswatchlabel{
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
     letter-spacing:0.03em; color: var(--ink-soft);
-  }
-  .themeswatch input[type=color]{
-    width:28px; height:28px; padding:0; border:1px solid var(--line); border-radius:6px;
-    cursor:pointer; background:none;
   }
   .texturerow{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
   .texturebtn{

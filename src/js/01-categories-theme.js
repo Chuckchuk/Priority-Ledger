@@ -156,6 +156,22 @@ const UI_COLOR_PRESETS = [
 ];
 function uiColorPreset(id){ return UI_COLOR_PRESETS.find(p=>p.id===id) || UI_COLOR_PRESETS[0]; }
 
+// Desk & Ledger presets (Settings → Appearance) — a quick-start pair for
+// state.theme.bg/paper, the same two fields the individual Background/
+// Ledger wheels edit directly (see themeSwatchHtml() in 09-settings.js).
+// Picking one is just "set both fields to these two values" — there's no
+// separate "which preset is active" field to store or migrate, and no
+// reason there should be: once picked, bg/paper are exactly as free to
+// keep customizing as if they'd been dragged to by hand.
+// 'classic' reproduces the app's original literal bg/paper hexes.
+const DESK_PAPER_PRESETS = [
+  { id:'classic',  label:'Classic',          bg:'#28362E', paper:'#F1EAD9' },
+  { id:'oak',      label:'Oak & Ivory',      bg:'#3D2B1F', paper:'#F5EFE0' },
+  { id:'navy',     label:'Navy & Parchment', bg:'#1F2937', paper:'#EFDDB0' },
+  { id:'plum',     label:'Plum & Linen',     bg:'#3B2A44', paper:'#EDE6DC' },
+  { id:'charcoal', label:'Charcoal & Birch', bg:'#26241F', paper:'#F2ECE0' }
+];
+
 function clamp255(n){ return Math.max(0, Math.min(255, n)); }
 
 // Darkens (negative percent) or lightens (positive) a hex color by

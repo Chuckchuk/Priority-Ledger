@@ -44,10 +44,7 @@ function afterStateRestore(){
   if(selectedListId && !state.tasks.some(t=>t.id===selectedListId)) selectedListId = null;
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
-  openCategoryPickerId = null;
-  uiColorPickerOpen = false;
-  customColorOpen = false;
-  catWheelCancelDrag();
+  closeAllSettingsPopovers();
 }
 
 function undo(){
