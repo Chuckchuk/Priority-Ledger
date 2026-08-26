@@ -348,8 +348,19 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
       <input type="checkbox" ${dev.tagOutline?'checked':''} onchange="toggleDevSetting('tagOutline', this.checked)">
       Page tag: full outline
     </label>
+    <!-- "Compact tag" is the general name for .pagetag.compact — the
+         small variant used for Checklist's "Pending", Daily's "Calendar",
+         and Calendar's "Daily"/"Today" tags, as opposed to a full-size
+         "Page Tag" (.pagetag without .compact), which is always a "back"
+         out of an actual drilldown (Settings' "Done", a task detail's
+         "Daily", etc.). Internal field names (pendingTagStyle/
+         pendingTagColor, setDevPendingTagStyle()/setDevPendingTagColor())
+         still say "pending" since that was the original, single use case
+         these settings were built for — left as-is rather than renamed
+         throughout, since only the user-facing label needed to stop
+         implying "just for Checklist's Pending tag." -->
     <div class="${fieldClass}">
-      <span class="${captionClass}">Pending-items tag style</span>
+      <span class="${captionClass}">Compact tag style</span>
       <select class="${selectClass}" onchange="setDevPendingTagStyle(this.value)">
         <option value="default" ${dev.pendingTagStyle==='default'?'selected':''}>Default (small page tag)</option>
         <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Redder, jets out further</option>
@@ -359,7 +370,7 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
       </select>
     </div>
     <div class="${fieldClass}">
-      <span class="${captionClass}">Pending-items tag color override</span>
+      <span class="${captionClass}">Compact tag color override</span>
       <select class="${selectClass}" onchange="setDevPendingTagColor(this.value)">
         <option value="theme" ${dev.pendingTagColor==='theme'?'selected':''}>Default (use Secondary color)</option>
         <option value="brass" ${dev.pendingTagColor==='brass'?'selected':''}>Force Primary</option>

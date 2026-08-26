@@ -7,10 +7,13 @@
 //
 // Two entry points share this same grid markup (see calendarBodyHtml()):
 //   - renderDailyCalendar() — a compact "Calendar" tag on Daily's own day
-//     list (see renderDayList() in 11-daily-core.js) opens this, and it
-//     wraps in .stackedpage with a plain "Daily" back tag, the same
-//     pattern the checklist's list-detail/pending views use. This is the
-//     normal way anyone reaches a calendar view.
+//     list (see renderDayList() in 11-daily-core.js) opens this. Deliberately
+//     NOT wrapped in .stackedpage, and its own tag back to the day list is
+//     compact too (a "Daily" tag, same component as "Calendar"/"Pending") —
+//     the day list and the calendar are two peer views of the one Daily
+//     tab, not a page and a drilldown on top of it, so neither should read
+//     as "stacked over" the other. This is the normal way anyone reaches a
+//     calendar view.
 //   - renderCalendar() — an optional 'calendar' category type
 //     (isCalendarCategory() in 01-categories-theme.js), gated behind the
 //     calendarTabTypeEnabled dev setting (see devSettingsFieldsHtml() in
@@ -98,9 +101,9 @@ function calendarMonthSummary(monthKeyStr){
 const CALENDAR_WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 // The nav row + summary + grid — everything both hosts share. Neither
-// host's own page-tag(s) live in here, since those differ per host (a
-// compact forward tag for the category-tab overview vs. a plain back tag
-// for the Daily-embedded stacked page).
+// host's own tag(s) live in here, since the label/action differs per host
+// (a compact "Today" shortcut for the category-tab overview vs. a compact
+// "Daily" tag back to the day list for the normal, Daily-embedded path).
 function calendarBodyHtml(monthKeyStr){
   const cells = calendarMonthCells(monthKeyStr);
   const summary = calendarMonthSummary(monthKeyStr);
@@ -144,17 +147,15 @@ function renderCalendar(){
 
 // The normal way to reach a calendar view — a compact "Calendar" tag on
 // Daily's own day list (renderDayList() in 11-daily-core.js), mirroring
-// the checklist overview's "Pending" trigger. Wrapped in .stackedpage
-// with a plain back tag to Daily, same pattern renderChecklistPending()
-// uses — one page-tag per page, unlike renderCalendar() above (which is
-// itself a base view, not a drilldown, so its compact tag is a forward
-// shortcut rather than a "back").
+// the checklist overview's "Pending" trigger. Its own tag back to the day
+// list is compact too (no .stackedpage) — see the file-header comment
+// above for why: the day list and this are peer views of the same Daily
+// tab, so both link to each other the same small way, rather than one
+// treating the other as a "back" destination out of a drilldown.
 function renderDailyCalendar(){
   return `
-    <div class="stackedpage">
-      ${pageTagHtml('closeDailyCalendar()', 'Daily')}
-      ${calendarBodyHtml(calendarMonth())}
-    </div>
+    ${pageTagHtml('closeDailyCalendar()', 'Daily', true)}
+    ${calendarBodyHtml(calendarMonth())}
   `;
 }
 
