@@ -77,7 +77,12 @@
        .pagetag juts left out of .stackedpage's own edge (see .pagetag's
        `left:-6px`), so the left side always keeps more room than the
        others regardless of preset, rather than the tag risking spilling
-       past #appCard's own edge at the tighter ones. */
+       past #appCard's own edge at the tighter ones.
+       Design direction from the project owner: a small-to-nothing top
+       margin reads well and should be leaned into further in future
+       tuning (possibly the bottom margin too) — "leftheavy"'s top has
+       already been pushed twice for this reason, most recently to -21px.
+       Don't casually round these back up toward classic's -2px. */
     --stackpage-margin-top: -2px;
     --stackpage-margin-right: -4px;
     --stackpage-margin-bottom: 0px;
@@ -867,7 +872,18 @@
      same as leatherInsetPreset above. --stackpage-radius shrinks with the
      margins in each one for the same reason --leather-radius does: a
      rounding noticeably bigger than the frame it's cut from reads as the
-     page's corner overlapping #appCard's rather than sitting inside it. */
+     page's corner overlapping #appCard's rather than sitting inside it —
+     "leftheavy" and "slim" give their bottom-right corner specifically
+     a little more than the other three for the opposite reason: at a
+     frame that thin, a *smaller* stackedpage radius than #appCard's own
+     (2px 2px 10px 10px, see #appCard below) reads as a visible seam
+     between two different curves right where they're closest together.
+     "slim" matches #appCard's bottom-right radius (10px) exactly, since
+     its frame is thin enough there to be barely more than a hairline;
+     "leftheavy" only nudges it up slightly (7px, still short of 10px) —
+     its frame has a bit more breathing room on that side than "slim"'s
+     does, so the mismatch was smaller to begin with and didn't need a
+     full match to stop reading as a seam. */
   body[data-stackedpage-inset="roomier"]{
     --stackpage-margin-top: -14px;
     --stackpage-margin-right: -14px;
@@ -876,18 +892,21 @@
     --stackpage-radius: 8px;
   }
   body[data-stackedpage-inset="leftheavy"]{
-    --stackpage-margin-top: -19px;
+    /* Top pushed from -19px to -21px (frame: 3px -> 1px) per the project
+       owner's explicit "take out even more margin from the top" — see
+       the design-direction note on --stackpage-margin-top above. */
+    --stackpage-margin-top: -21px;
     --stackpage-margin-right: -16px;
     --stackpage-margin-bottom: -8px;
     --stackpage-margin-left: -8px;
-    --stackpage-radius: 5px;
+    --stackpage-radius: 5px 5px 7px 5px;
   }
   body[data-stackedpage-inset="slim"]{
     --stackpage-margin-top: -20px;
     --stackpage-margin-right: -19px;
     --stackpage-margin-bottom: -11px;
     --stackpage-margin-left: -13px;
-    --stackpage-radius: 3px;
+    --stackpage-radius: 3px 3px 10px 3px;
   }
   /* .pagetag: a flag/tag shape instead of .backbtn's plain text, to go
      with the "stacked page" look above — positioned to hang off the
