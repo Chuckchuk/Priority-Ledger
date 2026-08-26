@@ -100,7 +100,7 @@ function renderAddToDayPicker(dateStr){
     return `
       <div class="daytreenode">
         <button class="daytreelabel daytreecat" onclick="toggleDayTreeNode('${key}')">
-          <span class="daytreetriangle">${open?'▾':'▸'}</span><span class="dot" style="background:${v.hex}"></span>${escapeHtml(v.label)}
+          <span class="daytreetriangle">${open?'▾':'▸'}</span>${categoryDotHtml(v, 'dot')}${escapeHtml(v.label)}
         </button>
         ${open ? `<div class="daytreechildren">
           ${tasks.length ? tasks.map(t=>dayTreeTaskHtml(t, dateStr)).join('') : `<div class="empty" style="padding:4px 0;">Nothing eligible here.</div>`}
@@ -117,7 +117,7 @@ function renderAddToDayPicker(dateStr){
     return `
       <div class="daytreenode">
         <button class="daytreelabel daytreecat" onclick="toggleDayTreeNode('${key}')">
-          <span class="daytreetriangle">${open?'▾':'▸'}</span><span class="dot" style="background:${v.hex}"></span>${escapeHtml(v.label)}
+          <span class="daytreetriangle">${open?'▾':'▸'}</span>${categoryDotHtml(v, 'dot')}${escapeHtml(v.label)}
         </button>
         ${open ? `<div class="daytreechildren">
           ${lists.length ? lists.map(t=>dayTreeChecklistLeafHtml(t, dateStr)).join('') : `<div class="empty" style="padding:4px 0;">No lists here.</div>`}

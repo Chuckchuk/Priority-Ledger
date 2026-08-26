@@ -43,6 +43,8 @@ function afterStateRestore(){
   if(selectedDay && !state.days.includes(selectedDay)) selectedDay = null;
   if(selectedListId && !state.tasks.some(t=>t.id===selectedListId)) selectedListId = null;
   pendingDeleteCategoryId = null;
+  pendingDeleteLocationId = null;
+  openCategoryPickerId = null;
 }
 
 function undo(){

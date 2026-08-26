@@ -8,7 +8,7 @@ const CATEGORY_PALETTE = ['#3C5A45','#3E4A6B','#9C4530','#A9782F','#5B6560','#6B
 // Used only when a task's category tab has been deleted — the task itself
 // is never touched, it just has nothing to look itself up as, and this
 // keeps that rendering path from breaking.
-const FALLBACK_CATEGORY = { id:'_orphan', label:'Uncategorized', hex:'#5B6560', locations:['MA','Argentina'], type:'standard' };
+const FALLBACK_CATEGORY = { id:'_orphan', label:'Uncategorized', hex:'#5B6560', locations:['home','away'], type:'standard' };
 // Generic on purpose — this seeds any brand-new account (see normalizeState()
 // below), not just the project owner's, so it stays a broadly relatable
 // three-way split (work life / home life / everything else personal)
@@ -33,6 +33,28 @@ function defaultCategories(){
     { id:'lists',     label:'Lists',     hex: CATEGORY_PALETTE[3], locations:['home','away'],  type:'checklist' }
   ];
 }
+// A category's marker is a single glyph colored via its own hex — 'dot'
+// (a plain bullet) is the default and the only option before this feature
+// existed, so every pre-existing category (no `.icon` field saved yet)
+// renders exactly as it always did. Deliberately plain text-presentation
+// symbols, not color emoji: an emoji glyph ignores `color:` in most
+// fonts/browsers, which would break "shows in the category's own color"
+// for every choice but the default. Order here is the order offered in
+// categoryPickerHtml()'s icon row.
+const CATEGORY_ICON_ORDER = ['dot','star','flag','house','diamond','square','ring','check'];
+const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⌂', diamond:'◆', square:'■', ring:'○', check:'✓' };
+// Single shared renderer for every place a category's marker shows up
+// (task rows, the task detail page, the tab bar, the day-tree picker, the
+// Settings row) — same reasoning as taskRowHtml being the one place a
+// task row renders: edit the glyph logic once, everywhere picks it up.
+// `cls` is the site's existing dot class (`cdot` or `dot`) so each call
+// site keeps its own layout/spacing rules; only the glyph-vs-background
+// rendering is unified here.
+function categoryDotHtml(c, cls){
+  const glyph = CATEGORY_ICON_GLYPHS[c.icon] || CATEGORY_ICON_GLYPHS.dot;
+  return `<span class="${cls}" style="color:${c.hex}">${glyph}</span>`;
+}
+
 let CATEGORIES = {};
 function rebuildCategoriesIndex(){
   CATEGORIES = {};
@@ -152,6 +174,16 @@ function applyDevSettings(){
   document.body.dataset.pendingTagStyle = d.pendingTagStyle || 'default';
   document.body.classList.toggle('devlist-dates', !!d.showListDates);
   document.body.classList.toggle('devtreebubble', !!d.dayTreeCatBubble);
+  // The floating side panel (see renderDevPanel()/toggleDevPanel() below)
+  // is itself gated behind a dev setting now, rather than always available
+  // whenever the viewport is wide enough — sidePanelEnabled defaults to
+  // false, so it stays fully out of the way until someone opts in from
+  // the normal Settings panel's Dev Settings section (the only place this
+  // checkbox lives; there'd be no way to turn the panel back on from
+  // inside itself once hidden). This runs on every enterApp()/undo/redo/
+  // dev-setting-change, so the panel's visibility can never go stale.
+  const panel = document.getElementById('devPanel');
+  if(panel) panel.style.display = d.sidePanelEnabled ? '' : 'none';
 }
 
 async function toggleDevSetting(key, checked){
@@ -181,40 +213,61 @@ function toggleDevPanel(){
   if(panel) panel.classList.toggle('open', devPanelOpen);
 }
 
-// Called unconditionally at the top of render() (see 08-render-core.js) —
-// unlike the rest of render()'s branches, this must run no matter which
-// view (category/daily/checklist/Settings/Claude view) is active, so the
-// panel's checkbox states never go stale regardless of what's on screen.
-function renderDevPanel(){
-  const body = document.getElementById('devPanelBody');
-  if(!body) return;
+// Shared between the floating side panel (renderDevPanel(), below) and
+// the normal Settings panel's own Dev Settings section (renderSettings()
+// in 09-settings.js) — the two are just different chrome around the same
+// underlying state.devSettings fields, so the fields themselves (and the
+// row/select classes they use) live in exactly one place. `rowClass`/
+// `fieldClass`/`captionClass`/`selectClass` let each host supply its own
+// styling (the side panel's narrow `.devpanel*` classes vs. Settings'
+// existing `.catlocchk`) without duplicating the markup or the values.
+function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
   const dev = state.devSettings || defaultDevSettings();
-  body.innerHTML = `
-    <div class="devpanellabel">Dev Settings</div>
-    <label class="devpanelrow">
+  return `
+    <label class="${rowClass}">
       <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
       Page tag: seam shadow (tip reads as receding behind the label)
     </label>
-    <label class="devpanelrow">
+    <label class="${rowClass}">
       <input type="checkbox" ${dev.tagOutline?'checked':''} onchange="toggleDevSetting('tagOutline', this.checked)">
       Page tag: full outline
     </label>
-    <div class="devpanelfield">
-      <span class="devpanelcaption">Pending-items tag style</span>
-      <select class="devpanelselect" onchange="setDevPendingTagStyle(this.value)">
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Pending-items tag style</span>
+      <select class="${selectClass}" onchange="setDevPendingTagStyle(this.value)">
         <option value="default" ${dev.pendingTagStyle==='default'?'selected':''}>Default (small page tag)</option>
         <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Redder, jets out further</option>
         <option value="sidebar" ${dev.pendingTagStyle==='sidebar'?'selected':''}>Vertical sidebar strip</option>
       </select>
     </div>
-    <label class="devpanelrow">
+    <label class="${rowClass}">
       <input type="checkbox" ${dev.showListDates?'checked':''} onchange="toggleDevSetting('showListDates', this.checked)">
       Show a faded created-date next to each checklist's title
     </label>
-    <label class="devpanelrow">
+    <label class="${rowClass}">
       <input type="checkbox" ${dev.dayTreeCatBubble?'checked':''} onchange="toggleDevSetting('dayTreeCatBubble', this.checked)">
       "Add to day" tree: pill-shaped category bubbles (like the tab bar)
     </label>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.sidePanelEnabled?'checked':''} onchange="toggleDevSetting('sidePanelEnabled', this.checked)">
+      Show the floating dev panel (left edge, desktop only)
+    </label>
+  `;
+}
+
+// Called unconditionally at the top of render() (see 08-render-core.js) —
+// unlike the rest of render()'s branches, this must run no matter which
+// view (category/daily/checklist/Settings/Claude view) is active, so the
+// panel's checkbox states never go stale regardless of what's on screen.
+// Only rebuilds #devPanelBody's innerHTML, never the .open class on
+// #devPanel itself (see toggleDevPanel()) — so a checkbox flip in here
+// can't collapse the panel it just changed.
+function renderDevPanel(){
+  const body = document.getElementById('devPanelBody');
+  if(!body) return;
+  body.innerHTML = `
+    <div class="devpanellabel">Dev Settings</div>
+    ${devSettingsFieldsHtml('devpanelrow', 'devpanelfield', 'devpanelcaption', 'devpanelselect')}
   `;
 }
 

@@ -64,6 +64,8 @@ function signOut(){
   selectedListId = null;
   checklistPendingOpen = false;
   pendingDeleteCategoryId = null;
+  pendingDeleteLocationId = null;
+  openCategoryPickerId = null;
   undoStack = [];
   redoStack = [];
   devPanelOpen = false;
@@ -91,8 +93,6 @@ async function enterApp(){
   checklistPendingOpen = false;
   document.getElementById('authShell').style.display = 'none';
   document.getElementById('appShell').style.display = '';
-  const devPanel = document.getElementById('devPanel');
-  if(devPanel) devPanel.style.display = '';
   const signOutRow = document.getElementById('signOutRow');
   if(signOutRow){
     signOutRow.style.display = (window.storage || !session) ? 'none' : '';

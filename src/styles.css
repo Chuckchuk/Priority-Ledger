@@ -100,7 +100,13 @@
     cursor:pointer; border:none; background: rgba(0,0,0,0.18); color: rgba(241,234,217,0.65);
     transition: all .15s ease; display:flex; align-items:center; gap:6px;
   }
-  .tab .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
+  /* A category's marker is a colored text glyph now (categoryDotHtml() in
+     01-categories-theme.js), not a plain CSS circle — the default 'dot'
+     icon is itself the glyph '●', so no background-color circle is drawn
+     here anymore. Sized a touch larger than the old 7px circle (which
+     had no readability requirement of its own) so a star/flag/etc. glyph
+     is actually legible at this scale. */
+  .tab .dot{ width:10px; height:10px; display:inline-flex; align-items:center; justify-content:center; font-size:0.62rem; line-height:1; }
   .tab.active{ background: var(--card-bg); color: var(--ink); font-weight:500; }
   .tab .count{ opacity:0.6; font-size:0.65rem; }
   /* When tabs wrap to more than one row, only the bottom row was ever
@@ -385,7 +391,7 @@
      (not 0) keeps the visible band thin (~3px against the 18px
      .checkcircle) — inset:0 was the "way too thick" original version. */
   .progressring{ position:absolute; inset:5px; border-radius:50%; }
-  .cdot{ width:7px; height:7px; border-radius:50%; margin-top:7px; flex-shrink:0; }
+  .cdot{ width:10px; height:10px; margin-top:5px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:0.62rem; line-height:1; }
   .title{ flex:1; font-size:0.97rem; line-height:1.4; }
   .title.done{ text-decoration: line-through; color: var(--ink-soft); }
   /* EXPERIMENTAL — Settings → Dev Settings. Always rendered by
@@ -799,7 +805,7 @@
   }
   .daytreelabel:hover{ background:var(--card-bg); }
   .daytreetriangle{ display:inline-block; width:12px; color:var(--ink-soft); }
-  .daytreecat .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:7px; }
+  .daytreecat .dot{ width:10px; height:10px; display:inline-flex; align-items:center; justify-content:center; margin-right:7px; font-size:0.62rem; line-height:1; }
   /* EXPERIMENTAL — Settings → Dev Settings. Off by default: a category
      header is plain text next to its triangle/dot. On: it becomes a
      rounded pill echoing .tab's own look (mono/uppercase, its own
@@ -889,6 +895,56 @@
     letter-spacing:0.03em; color: var(--ink-soft);
   }
   .catlocchk input{ cursor:pointer; }
+  /* Just the "reused margin-bottom:10px" that used to be an inline style
+     on each dev-settings row when it lived only in this panel — kept as
+     its own class (rather than restoring the inline style) since it now
+     also has to apply wherever devSettingsFieldsHtml() is called from the
+     floating side panel's own narrower rows. */
+  .devsettingsrow{ margin-bottom:10px; }
+  /* The color/icon popover anchors to this one row's dot specifically
+     (not the row as a whole), so it needs its own positioning context —
+     .catrow itself can't be it, since with flex-wrap the popover would
+     end up positioned against the wrong edge once locChecks below it
+     wraps to a new line. */
+  .catdotwrap{ position:relative; display:inline-flex; }
+  /* Padding+negative-margin trick: gives the button a comfortable click
+     target well past the tiny 10px glyph itself, without changing where
+     that glyph actually sits in the row's layout (the negative margin
+     cancels the padding's effect on flow). */
+  .catdotbtn{
+    background:none; border:none; padding:6px; margin:-6px; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; border-radius:50%;
+  }
+  .catdotbtn:hover{ background: var(--card-bg-dim); }
+  .catpicker{
+    position:absolute; top:calc(100% + 6px); left:0; z-index:20;
+    width:188px; background: var(--card-bg); border:1px solid var(--line); border-radius:8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.28); padding:12px; text-align:left;
+  }
+  .catpickerclose{
+    position:absolute; top:4px; right:6px; background:none; border:none; cursor:pointer;
+    font-size:0.95rem; color: var(--ink-soft); line-height:1; padding:4px;
+  }
+  .catpickerlabel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.58rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--ink-soft); margin:0 0 6px;
+  }
+  .catswatchrow{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .catswatch{
+    width:20px; height:20px; border-radius:50%; border:2px solid transparent; padding:0; cursor:pointer;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+  }
+  .catswatch.active{ border-color: var(--ink); }
+  .catswatchcustom{ position:relative; overflow:hidden; display:inline-block; }
+  .catswatchcustom input{
+    position:absolute; inset:0; opacity:0; cursor:pointer; border:none; padding:0; width:100%; height:100%;
+  }
+  .caticonrow{ display:flex; flex-wrap:wrap; gap:6px; }
+  .caticonbtn{
+    width:24px; height:24px; border-radius:6px; border:1px solid var(--line); background: var(--card-bg-dim);
+    cursor:pointer; font-size:0.85rem; line-height:1; display:flex; align-items:center; justify-content:center;
+  }
+  .caticonbtn.active{ border-color: var(--brass); background: var(--card-bg); box-shadow: 0 0 0 1px var(--brass); }
   .settingslabel{
     font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
     color: var(--ink-soft); margin: 18px 0 6px;

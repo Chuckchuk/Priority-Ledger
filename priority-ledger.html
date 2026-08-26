@@ -117,7 +117,13 @@
     cursor:pointer; border:none; background: rgba(0,0,0,0.18); color: rgba(241,234,217,0.65);
     transition: all .15s ease; display:flex; align-items:center; gap:6px;
   }
-  .tab .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; }
+  /* A category's marker is a colored text glyph now (categoryDotHtml() in
+     01-categories-theme.js), not a plain CSS circle — the default 'dot'
+     icon is itself the glyph '●', so no background-color circle is drawn
+     here anymore. Sized a touch larger than the old 7px circle (which
+     had no readability requirement of its own) so a star/flag/etc. glyph
+     is actually legible at this scale. */
+  .tab .dot{ width:10px; height:10px; display:inline-flex; align-items:center; justify-content:center; font-size:0.62rem; line-height:1; }
   .tab.active{ background: var(--card-bg); color: var(--ink); font-weight:500; }
   .tab .count{ opacity:0.6; font-size:0.65rem; }
   /* When tabs wrap to more than one row, only the bottom row was ever
@@ -402,7 +408,7 @@
      (not 0) keeps the visible band thin (~3px against the 18px
      .checkcircle) — inset:0 was the "way too thick" original version. */
   .progressring{ position:absolute; inset:5px; border-radius:50%; }
-  .cdot{ width:7px; height:7px; border-radius:50%; margin-top:7px; flex-shrink:0; }
+  .cdot{ width:10px; height:10px; margin-top:5px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:0.62rem; line-height:1; }
   .title{ flex:1; font-size:0.97rem; line-height:1.4; }
   .title.done{ text-decoration: line-through; color: var(--ink-soft); }
   /* EXPERIMENTAL — Settings → Dev Settings. Always rendered by
@@ -816,7 +822,7 @@
   }
   .daytreelabel:hover{ background:var(--card-bg); }
   .daytreetriangle{ display:inline-block; width:12px; color:var(--ink-soft); }
-  .daytreecat .dot{ width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:7px; }
+  .daytreecat .dot{ width:10px; height:10px; display:inline-flex; align-items:center; justify-content:center; margin-right:7px; font-size:0.62rem; line-height:1; }
   /* EXPERIMENTAL — Settings → Dev Settings. Off by default: a category
      header is plain text next to its triangle/dot. On: it becomes a
      rounded pill echoing .tab's own look (mono/uppercase, its own
@@ -906,6 +912,56 @@
     letter-spacing:0.03em; color: var(--ink-soft);
   }
   .catlocchk input{ cursor:pointer; }
+  /* Just the "reused margin-bottom:10px" that used to be an inline style
+     on each dev-settings row when it lived only in this panel — kept as
+     its own class (rather than restoring the inline style) since it now
+     also has to apply wherever devSettingsFieldsHtml() is called from the
+     floating side panel's own narrower rows. */
+  .devsettingsrow{ margin-bottom:10px; }
+  /* The color/icon popover anchors to this one row's dot specifically
+     (not the row as a whole), so it needs its own positioning context —
+     .catrow itself can't be it, since with flex-wrap the popover would
+     end up positioned against the wrong edge once locChecks below it
+     wraps to a new line. */
+  .catdotwrap{ position:relative; display:inline-flex; }
+  /* Padding+negative-margin trick: gives the button a comfortable click
+     target well past the tiny 10px glyph itself, without changing where
+     that glyph actually sits in the row's layout (the negative margin
+     cancels the padding's effect on flow). */
+  .catdotbtn{
+    background:none; border:none; padding:6px; margin:-6px; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; border-radius:50%;
+  }
+  .catdotbtn:hover{ background: var(--card-bg-dim); }
+  .catpicker{
+    position:absolute; top:calc(100% + 6px); left:0; z-index:20;
+    width:188px; background: var(--card-bg); border:1px solid var(--line); border-radius:8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.28); padding:12px; text-align:left;
+  }
+  .catpickerclose{
+    position:absolute; top:4px; right:6px; background:none; border:none; cursor:pointer;
+    font-size:0.95rem; color: var(--ink-soft); line-height:1; padding:4px;
+  }
+  .catpickerlabel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.58rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--ink-soft); margin:0 0 6px;
+  }
+  .catswatchrow{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .catswatch{
+    width:20px; height:20px; border-radius:50%; border:2px solid transparent; padding:0; cursor:pointer;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+  }
+  .catswatch.active{ border-color: var(--ink); }
+  .catswatchcustom{ position:relative; overflow:hidden; display:inline-block; }
+  .catswatchcustom input{
+    position:absolute; inset:0; opacity:0; cursor:pointer; border:none; padding:0; width:100%; height:100%;
+  }
+  .caticonrow{ display:flex; flex-wrap:wrap; gap:6px; }
+  .caticonbtn{
+    width:24px; height:24px; border-radius:6px; border:1px solid var(--line); background: var(--card-bg-dim);
+    cursor:pointer; font-size:0.85rem; line-height:1; display:flex; align-items:center; justify-content:center;
+  }
+  .caticonbtn.active{ border-color: var(--brass); background: var(--card-bg); box-shadow: 0 0 0 1px var(--brass); }
   .settingslabel{
     font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
     color: var(--ink-soft); margin: 18px 0 6px;
@@ -1093,7 +1149,7 @@ const CATEGORY_PALETTE = ['#3C5A45','#3E4A6B','#9C4530','#A9782F','#5B6560','#6B
 // Used only when a task's category tab has been deleted — the task itself
 // is never touched, it just has nothing to look itself up as, and this
 // keeps that rendering path from breaking.
-const FALLBACK_CATEGORY = { id:'_orphan', label:'Uncategorized', hex:'#5B6560', locations:['MA','Argentina'], type:'standard' };
+const FALLBACK_CATEGORY = { id:'_orphan', label:'Uncategorized', hex:'#5B6560', locations:['home','away'], type:'standard' };
 // Generic on purpose — this seeds any brand-new account (see normalizeState()
 // below), not just the project owner's, so it stays a broadly relatable
 // three-way split (work life / home life / everything else personal)
@@ -1118,6 +1174,28 @@ function defaultCategories(){
     { id:'lists',     label:'Lists',     hex: CATEGORY_PALETTE[3], locations:['home','away'],  type:'checklist' }
   ];
 }
+// A category's marker is a single glyph colored via its own hex — 'dot'
+// (a plain bullet) is the default and the only option before this feature
+// existed, so every pre-existing category (no `.icon` field saved yet)
+// renders exactly as it always did. Deliberately plain text-presentation
+// symbols, not color emoji: an emoji glyph ignores `color:` in most
+// fonts/browsers, which would break "shows in the category's own color"
+// for every choice but the default. Order here is the order offered in
+// categoryPickerHtml()'s icon row.
+const CATEGORY_ICON_ORDER = ['dot','star','flag','house','diamond','square','ring','check'];
+const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⌂', diamond:'◆', square:'■', ring:'○', check:'✓' };
+// Single shared renderer for every place a category's marker shows up
+// (task rows, the task detail page, the tab bar, the day-tree picker, the
+// Settings row) — same reasoning as taskRowHtml being the one place a
+// task row renders: edit the glyph logic once, everywhere picks it up.
+// `cls` is the site's existing dot class (`cdot` or `dot`) so each call
+// site keeps its own layout/spacing rules; only the glyph-vs-background
+// rendering is unified here.
+function categoryDotHtml(c, cls){
+  const glyph = CATEGORY_ICON_GLYPHS[c.icon] || CATEGORY_ICON_GLYPHS.dot;
+  return `<span class="${cls}" style="color:${c.hex}">${glyph}</span>`;
+}
+
 let CATEGORIES = {};
 function rebuildCategoriesIndex(){
   CATEGORIES = {};
@@ -1237,6 +1315,16 @@ function applyDevSettings(){
   document.body.dataset.pendingTagStyle = d.pendingTagStyle || 'default';
   document.body.classList.toggle('devlist-dates', !!d.showListDates);
   document.body.classList.toggle('devtreebubble', !!d.dayTreeCatBubble);
+  // The floating side panel (see renderDevPanel()/toggleDevPanel() below)
+  // is itself gated behind a dev setting now, rather than always available
+  // whenever the viewport is wide enough — sidePanelEnabled defaults to
+  // false, so it stays fully out of the way until someone opts in from
+  // the normal Settings panel's Dev Settings section (the only place this
+  // checkbox lives; there'd be no way to turn the panel back on from
+  // inside itself once hidden). This runs on every enterApp()/undo/redo/
+  // dev-setting-change, so the panel's visibility can never go stale.
+  const panel = document.getElementById('devPanel');
+  if(panel) panel.style.display = d.sidePanelEnabled ? '' : 'none';
 }
 
 async function toggleDevSetting(key, checked){
@@ -1266,40 +1354,61 @@ function toggleDevPanel(){
   if(panel) panel.classList.toggle('open', devPanelOpen);
 }
 
-// Called unconditionally at the top of render() (see 08-render-core.js) —
-// unlike the rest of render()'s branches, this must run no matter which
-// view (category/daily/checklist/Settings/Claude view) is active, so the
-// panel's checkbox states never go stale regardless of what's on screen.
-function renderDevPanel(){
-  const body = document.getElementById('devPanelBody');
-  if(!body) return;
+// Shared between the floating side panel (renderDevPanel(), below) and
+// the normal Settings panel's own Dev Settings section (renderSettings()
+// in 09-settings.js) — the two are just different chrome around the same
+// underlying state.devSettings fields, so the fields themselves (and the
+// row/select classes they use) live in exactly one place. `rowClass`/
+// `fieldClass`/`captionClass`/`selectClass` let each host supply its own
+// styling (the side panel's narrow `.devpanel*` classes vs. Settings'
+// existing `.catlocchk`) without duplicating the markup or the values.
+function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
   const dev = state.devSettings || defaultDevSettings();
-  body.innerHTML = `
-    <div class="devpanellabel">Dev Settings</div>
-    <label class="devpanelrow">
+  return `
+    <label class="${rowClass}">
       <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
       Page tag: seam shadow (tip reads as receding behind the label)
     </label>
-    <label class="devpanelrow">
+    <label class="${rowClass}">
       <input type="checkbox" ${dev.tagOutline?'checked':''} onchange="toggleDevSetting('tagOutline', this.checked)">
       Page tag: full outline
     </label>
-    <div class="devpanelfield">
-      <span class="devpanelcaption">Pending-items tag style</span>
-      <select class="devpanelselect" onchange="setDevPendingTagStyle(this.value)">
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Pending-items tag style</span>
+      <select class="${selectClass}" onchange="setDevPendingTagStyle(this.value)">
         <option value="default" ${dev.pendingTagStyle==='default'?'selected':''}>Default (small page tag)</option>
         <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Redder, jets out further</option>
         <option value="sidebar" ${dev.pendingTagStyle==='sidebar'?'selected':''}>Vertical sidebar strip</option>
       </select>
     </div>
-    <label class="devpanelrow">
+    <label class="${rowClass}">
       <input type="checkbox" ${dev.showListDates?'checked':''} onchange="toggleDevSetting('showListDates', this.checked)">
       Show a faded created-date next to each checklist's title
     </label>
-    <label class="devpanelrow">
+    <label class="${rowClass}">
       <input type="checkbox" ${dev.dayTreeCatBubble?'checked':''} onchange="toggleDevSetting('dayTreeCatBubble', this.checked)">
       "Add to day" tree: pill-shaped category bubbles (like the tab bar)
     </label>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.sidePanelEnabled?'checked':''} onchange="toggleDevSetting('sidePanelEnabled', this.checked)">
+      Show the floating dev panel (left edge, desktop only)
+    </label>
+  `;
+}
+
+// Called unconditionally at the top of render() (see 08-render-core.js) —
+// unlike the rest of render()'s branches, this must run no matter which
+// view (category/daily/checklist/Settings/Claude view) is active, so the
+// panel's checkbox states never go stale regardless of what's on screen.
+// Only rebuilds #devPanelBody's innerHTML, never the .open class on
+// #devPanel itself (see toggleDevPanel()) — so a checkbox flip in here
+// can't collapse the panel it just changed.
+function renderDevPanel(){
+  const body = document.getElementById('devPanelBody');
+  if(!body) return;
+  body.innerHTML = `
+    <div class="devpanellabel">Dev Settings</div>
+    ${devSettingsFieldsHtml('devpanelrow', 'devpanelfield', 'devpanelcaption', 'devpanelselect')}
   `;
 }
 
@@ -1347,6 +1456,11 @@ let settingsOpen = false;
 let devPanelOpen = false;
 let claudeView = null; // null | 'digest' | 'full' — a plain-text view meant for a page-reading agent, not a category/day view
 let pendingDeleteCategoryId = null;
+let pendingDeleteLocationId = null;
+// id of the category whose color/icon popover (see categoryPickerHtml() in
+// 01-categories-theme.js) is currently open, or null — only one open at a
+// time, same "single id, not a Set" pattern as pendingDeleteCategoryId.
+let openCategoryPickerId = null;
 let session = null; // { access_token, refresh_token, expires_at, user_id, email }
 let localOnlyMode = false; // explicit opt-out of an account, chosen on the auth screen
 let authMode = 'signin';
@@ -1483,7 +1597,7 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 // its own state key and its own commit specifically so it's trivial to
 // rip out later without touching anything else.
 function defaultDevSettings(){
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', showListDates:false, dayTreeCatBubble:false };
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false };
 }
 
 function defaultState(){
@@ -1533,6 +1647,7 @@ function normalizeState(){
   if(typeof state.devSettings.pendingTagStyle !== 'string') state.devSettings.pendingTagStyle = 'default';
   if(typeof state.devSettings.showListDates !== 'boolean') state.devSettings.showListDates = false;
   if(typeof state.devSettings.dayTreeCatBubble !== 'boolean') state.devSettings.dayTreeCatBubble = false;
+  if(typeof state.devSettings.sidePanelEnabled !== 'boolean') state.devSettings.sidePanelEnabled = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)
@@ -1792,6 +1907,8 @@ function afterStateRestore(){
   if(selectedDay && !state.days.includes(selectedDay)) selectedDay = null;
   if(selectedListId && !state.tasks.some(t=>t.id===selectedListId)) selectedListId = null;
   pendingDeleteCategoryId = null;
+  pendingDeleteLocationId = null;
+  openCategoryPickerId = null;
 }
 
 function undo(){
@@ -2035,7 +2152,7 @@ function renderTabs(){
   const wrap = document.getElementById('tabs');
   wrap.innerHTML = visibleTabs().map(key=>{
     const openCount = tabOpenCount(key);
-    const dot = (key==='all'||key==='daily') ? '' : `<span class="dot" style="background:${CATEGORIES[key].hex}"></span>`;
+    const dot = (key==='all'||key==='daily') ? '' : categoryDotHtml(CATEGORIES[key], 'dot');
     const label = key==='all' ? 'All' : key==='daily' ? 'Daily' : CATEGORIES[key].label;
     return `<button class="tab ${activeTab===key?'active':''}" onclick="switchTab('${key}')">${dot}${label} <span class="count">${openCount}</span></button>`;
   }).join('');
@@ -2354,7 +2471,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   if(state.advancedTaskFields && t.timeframe){
     timeframeBadge = `<span class="badge timeframe">${TIMEFRAME_LABELS[t.timeframe]}</span>`;
   }
-  const dotHtml = showDot ? `<span class="cdot" style="background:${cat.hex}"></span>` : '';
+  const dotHtml = showDot ? categoryDotHtml(cat, 'cdot') : '';
   const subs = t.subtasks || [];
   // Drag-to-reorder is only meaningful in 'default' sort mode — every
   // other mode derives the row's position from a sort key, so a drag
@@ -2407,7 +2524,7 @@ function renderTaskDetailPage(taskId, dateStr){
       ${pageTagHtml('closeTaskDetail()', 'Daily')}
       <div class="taskdetailhead">
         <div class="check ${t.status==='done'?'done':''}" onclick="toggleStatus('${t.id}')"></div>
-        <span class="cdot" style="background:${cat.hex}"></span>
+        ${categoryDotHtml(cat, 'cdot')}
       </div>
       ${taskExpandFieldsHtml(t, canRemoveHere)}
     </div>
@@ -2584,6 +2701,8 @@ function toggleSettings(){
   settingsOpen = !settingsOpen;
   if(settingsOpen) claudeView = null;
   pendingDeleteCategoryId = null;
+  pendingDeleteLocationId = null;
+  openCategoryPickerId = null;
   render();
 }
 
@@ -2611,7 +2730,10 @@ function renderSettings(){
         <button class="catmovebtn" ${idx===0?'disabled':''} onclick="moveCategory('${c.id}', -1)" title="Move up">▲</button>
         <button class="catmovebtn" ${idx===state.categories.length-1?'disabled':''} onclick="moveCategory('${c.id}', 1)" title="Move down">▼</button>
       </div>
-      <span class="cdot" style="background:${c.hex}"></span>
+      <span class="catdotwrap">
+        <button class="catdotbtn" onclick="toggleCategoryPicker('${c.id}')" title="Change color & icon">${categoryDotHtml(c, 'cdot')}</button>
+        ${openCategoryPickerId === c.id ? categoryPickerHtml(c) : ''}
+      </span>
       <input type="text" class="catedit" value="${escapeHtml(c.label)}"
         onblur="renameCategory('${c.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
@@ -2621,18 +2743,35 @@ function renderSettings(){
     </div>`;
   }).join('');
 
+  const locationRows = state.locations.map(l=>{
+    const confirmingLoc = pendingDeleteLocationId === l.id;
+    const locDeleteControls = confirmingLoc
+      ? `<span class="catwarn">Any tab checked for it just stops offering it as an option.</span>
+         <button class="catdeleteconfirm" onclick="deleteLocation('${l.id}')">Yes, delete</button>
+         <button class="catcancel" onclick="cancelDeleteLocation()">Cancel</button>`
+      : `<button class="catdelete" ${state.locations.length<=1?'disabled title="At least one location must stay"':''} onclick="askDeleteLocation('${l.id}')">Delete</button>`;
+    return `
+    <div class="catrow">
+      <input type="text" class="catedit" value="${escapeHtml(l.label)}"
+        onblur="renameLocation('${l.id}', this.value)"
+        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+      ${locDeleteControls}
+    </div>`;
+  }).join('');
+
   const locationSection = `
     <div class="settingslabel">Locations</div>
     <label class="catlocchk" style="margin-bottom:10px;">
       <input type="checkbox" ${state.locationEnabled?'checked':''} onchange="toggleLocationFeature(this.checked)">
       Use multiple locations
     </label>
-    ${state.locationEnabled ? state.locations.map(l=>`
-    <div class="catrow">
-      <input type="text" class="catedit" value="${escapeHtml(l.label)}"
-        onblur="renameLocation('${l.id}', this.value)"
-        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
-    </div>`).join('') : ''}
+    ${state.locationEnabled ? `
+      ${locationRows}
+      <div class="catrow">
+        <input type="text" class="catedit" placeholder="+ add a location, enter to save" id="newLocNameInput"
+          onkeydown="if(event.key==='Enter'){ addLocation(this.value); this.value=''; }">
+      </div>
+    ` : ''}
   `;
 
   const taskFieldsSection = `
@@ -2672,6 +2811,23 @@ function renderSettings(){
     <button class="resetthemebtn" onclick="openClaudeView('digest')">Open Claude-readable view</button>
   `;
 
+  // EXPERIMENTAL — see defaultDevSettings() in 02-storage-state.js. Back
+  // in a <details> here (collapsed by default, native browser disclosure)
+  // AND in the floating side panel (see renderDevPanel() in
+  // 01-categories-theme.js) — the side panel is the one that lets a
+  // toggle be checked against the live page underneath it, but it only
+  // exists once "Show the floating dev panel" (the last field below) is
+  // turned on, and this section is the only place that checkbox lives, so
+  // it always needs to stay reachable from here even when the panel
+  // itself is off. devSettingsFieldsHtml() is the single shared source
+  // for both hosts' fields.
+  const devSection = `
+    <details class="devsettings">
+      <summary>Dev Settings</summary>
+      ${devSettingsFieldsHtml('catlocchk devsettingsrow', 'devpanelfield', 'devpanelcaption', 'devpanelselect')}
+    </details>
+  `;
+
   el.innerHTML = `
     <div class="stackedpage">
       ${pageTagHtml('toggleSettings()', 'Done')}
@@ -2689,6 +2845,7 @@ function renderSettings(){
       ${taskFieldsSection}
       ${appearanceSection}
       ${claudeSection}
+      ${devSection}
     </div>
   `;
 }
@@ -2743,7 +2900,13 @@ async function addCategory(text, type){
   if(!label) return;
   pushUndo(`Added tab "${label}"`);
   const hex = CATEGORY_PALETTE[state.categories.length % CATEGORY_PALETTE.length];
-  state.categories.push({ id: newId('cat'), label, hex, locations: state.locations.map(l=>l.id), type: type==='checklist' ? 'checklist' : 'standard' });
+  // Only the workspace you're currently in gets checked by default — you
+  // add a tab while thinking about the location you're actually at, and
+  // can check any others afterward the same way you would for an
+  // existing tab (toggleCategoryLocation). Irrelevant when locations are
+  // off (visibleTabs() ignores .locations entirely in that case), so no
+  // need to branch on state.locationEnabled here.
+  state.categories.push({ id: newId('cat'), label, hex, locations: [state.location], type: type==='checklist' ? 'checklist' : 'standard' });
   rebuildCategoriesIndex();
   render();
   queueSave();
@@ -2770,6 +2933,63 @@ async function toggleCategoryLocation(catId, locId, checked){
   } else {
     c.locations = c.locations.filter(id=>id!==locId);
   }
+  rebuildCategoriesIndex();
+  render();
+  queueSave();
+}
+
+// The whole popover this row's .cdot button opens (see the catrow
+// template above) — a small in-place card, not a real page like
+// .stackedpage, since it belongs to one specific row and should feel
+// anchored to the dot you clicked, not a full drilldown. Only one can be
+// open at a time (openCategoryPickerId is a single id, not a Set), so
+// opening a different row's picker implicitly closes whichever was open.
+function categoryPickerHtml(c){
+  const swatches = CATEGORY_PALETTE.map(hex=>`
+    <button class="catswatch ${c.hex.toLowerCase()===hex.toLowerCase()?'active':''}" style="background:${hex}" onclick="setCategoryColor('${c.id}','${hex}')" title="${hex}"></button>`
+  ).join('');
+  const icons = CATEGORY_ICON_ORDER.map(id=>`
+    <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}">${CATEGORY_ICON_GLYPHS[id]}</button>`
+  ).join('');
+  return `
+    <div class="catpicker">
+      <button class="catpickerclose" onclick="toggleCategoryPicker('${c.id}')" title="Close">×</button>
+      <div class="catpickerlabel">Color</div>
+      <div class="catswatchrow">
+        ${swatches}
+        <label class="catswatch catswatchcustom" style="background:${c.hex}" title="Custom color">
+          <input type="color" value="${c.hex}" onchange="setCategoryColor('${c.id}', this.value)">
+        </label>
+      </div>
+      <div class="catpickerlabel">Icon</div>
+      <div class="caticonrow">${icons}</div>
+    </div>`;
+}
+
+// Pure UI navigation, like askDeleteCategory — no pushUndo, opening/
+// closing the popover isn't a content change. Reset alongside
+// pendingDeleteCategoryId everywhere that already resets that (see
+// toggleSettings(), afterStateRestore(), openClaudeView(), signOut()).
+function toggleCategoryPicker(id){
+  openCategoryPickerId = openCategoryPickerId === id ? null : id;
+  render();
+}
+
+async function setCategoryColor(id, hex){
+  const c = state.categories.find(c=>c.id===id);
+  if(!c || c.hex.toLowerCase()===hex.toLowerCase()) return;
+  pushUndo(`Changed "${c.label}" color`);
+  c.hex = hex;
+  rebuildCategoriesIndex();
+  render();
+  queueSave();
+}
+
+async function setCategoryIcon(id, icon){
+  const c = state.categories.find(c=>c.id===id);
+  if(!c || (c.icon||'dot')===icon) return;
+  pushUndo(`Changed "${c.label}" icon`);
+  c.icon = icon;
   rebuildCategoriesIndex();
   render();
   queueSave();
@@ -2803,6 +3023,42 @@ async function renameLocation(id, val){
     queueSave();
   }
   render();
+}
+
+async function addLocation(text){
+  const label = (text||'').trim();
+  if(!label) return;
+  pushUndo(`Added location "${label}"`);
+  state.locations.push({ id: newId('loc'), label });
+  render();
+  queueSave();
+}
+
+function askDeleteLocation(id){
+  pendingDeleteLocationId = id;
+  render();
+}
+
+function cancelDeleteLocation(){
+  pendingDeleteLocationId = null;
+  render();
+}
+
+async function deleteLocation(id){
+  if(state.locations.length <= 1) return;
+  const l = state.locations.find(l=>l.id===id);
+  pushUndo(`Deleted location "${l ? l.label : ''}"`);
+  // Same "leave dangling references alone, let them just stop matching"
+  // approach deleteCategory() takes for tasks' category ids — a category
+  // still checked for this location keeps that id in its .locations array
+  // untouched; it simply can never match again since state.location can
+  // never equal a deleted id (reassigned below if it currently did).
+  state.locations = state.locations.filter(l=>l.id!==id);
+  pendingDeleteLocationId = null;
+  if(state.location === id) state.location = state.locations[0].id;
+  if(!visibleTabs().includes(activeTab)) activeTab = 'all';
+  render();
+  queueSave();
 }
 
 async function updateThemeColor(key, val){
@@ -2851,6 +3107,8 @@ function openClaudeView(mode){
   claudeView = mode === 'full' ? 'full' : 'digest';
   settingsOpen = false;
   pendingDeleteCategoryId = null;
+  pendingDeleteLocationId = null;
+  openCategoryPickerId = null;
   render();
 }
 
@@ -3335,7 +3593,7 @@ function renderAddToDayPicker(dateStr){
     return `
       <div class="daytreenode">
         <button class="daytreelabel daytreecat" onclick="toggleDayTreeNode('${key}')">
-          <span class="daytreetriangle">${open?'▾':'▸'}</span><span class="dot" style="background:${v.hex}"></span>${escapeHtml(v.label)}
+          <span class="daytreetriangle">${open?'▾':'▸'}</span>${categoryDotHtml(v, 'dot')}${escapeHtml(v.label)}
         </button>
         ${open ? `<div class="daytreechildren">
           ${tasks.length ? tasks.map(t=>dayTreeTaskHtml(t, dateStr)).join('') : `<div class="empty" style="padding:4px 0;">Nothing eligible here.</div>`}
@@ -3352,7 +3610,7 @@ function renderAddToDayPicker(dateStr){
     return `
       <div class="daytreenode">
         <button class="daytreelabel daytreecat" onclick="toggleDayTreeNode('${key}')">
-          <span class="daytreetriangle">${open?'▾':'▸'}</span><span class="dot" style="background:${v.hex}"></span>${escapeHtml(v.label)}
+          <span class="daytreetriangle">${open?'▾':'▸'}</span>${categoryDotHtml(v, 'dot')}${escapeHtml(v.label)}
         </button>
         ${open ? `<div class="daytreechildren">
           ${lists.length ? lists.map(t=>dayTreeChecklistLeafHtml(t, dateStr)).join('') : `<div class="empty" style="padding:4px 0;">No lists here.</div>`}
@@ -4276,6 +4534,8 @@ function signOut(){
   selectedListId = null;
   checklistPendingOpen = false;
   pendingDeleteCategoryId = null;
+  pendingDeleteLocationId = null;
+  openCategoryPickerId = null;
   undoStack = [];
   redoStack = [];
   devPanelOpen = false;
@@ -4303,8 +4563,6 @@ async function enterApp(){
   checklistPendingOpen = false;
   document.getElementById('authShell').style.display = 'none';
   document.getElementById('appShell').style.display = '';
-  const devPanel = document.getElementById('devPanel');
-  if(devPanel) devPanel.style.display = '';
   const signOutRow = document.getElementById('signOutRow');
   if(signOutRow){
     signOutRow.style.display = (window.storage || !session) ? 'none' : '';

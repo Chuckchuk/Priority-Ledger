@@ -95,7 +95,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   if(state.advancedTaskFields && t.timeframe){
     timeframeBadge = `<span class="badge timeframe">${TIMEFRAME_LABELS[t.timeframe]}</span>`;
   }
-  const dotHtml = showDot ? `<span class="cdot" style="background:${cat.hex}"></span>` : '';
+  const dotHtml = showDot ? categoryDotHtml(cat, 'cdot') : '';
   const subs = t.subtasks || [];
   // Drag-to-reorder is only meaningful in 'default' sort mode — every
   // other mode derives the row's position from a sort key, so a drag
@@ -148,7 +148,7 @@ function renderTaskDetailPage(taskId, dateStr){
       ${pageTagHtml('closeTaskDetail()', 'Daily')}
       <div class="taskdetailhead">
         <div class="check ${t.status==='done'?'done':''}" onclick="toggleStatus('${t.id}')"></div>
-        <span class="cdot" style="background:${cat.hex}"></span>
+        ${categoryDotHtml(cat, 'cdot')}
       </div>
       ${taskExpandFieldsHtml(t, canRemoveHere)}
     </div>

@@ -41,6 +41,11 @@ let settingsOpen = false;
 let devPanelOpen = false;
 let claudeView = null; // null | 'digest' | 'full' — a plain-text view meant for a page-reading agent, not a category/day view
 let pendingDeleteCategoryId = null;
+let pendingDeleteLocationId = null;
+// id of the category whose color/icon popover (see categoryPickerHtml() in
+// 01-categories-theme.js) is currently open, or null — only one open at a
+// time, same "single id, not a Set" pattern as pendingDeleteCategoryId.
+let openCategoryPickerId = null;
 let session = null; // { access_token, refresh_token, expires_at, user_id, email }
 let localOnlyMode = false; // explicit opt-out of an account, chosen on the auth screen
 let authMode = 'signin';
@@ -177,7 +182,7 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 // its own state key and its own commit specifically so it's trivial to
 // rip out later without touching anything else.
 function defaultDevSettings(){
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', showListDates:false, dayTreeCatBubble:false };
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false };
 }
 
 function defaultState(){
@@ -227,6 +232,7 @@ function normalizeState(){
   if(typeof state.devSettings.pendingTagStyle !== 'string') state.devSettings.pendingTagStyle = 'default';
   if(typeof state.devSettings.showListDates !== 'boolean') state.devSettings.showListDates = false;
   if(typeof state.devSettings.dayTreeCatBubble !== 'boolean') state.devSettings.dayTreeCatBubble = false;
+  if(typeof state.devSettings.sidePanelEnabled !== 'boolean') state.devSettings.sidePanelEnabled = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)
