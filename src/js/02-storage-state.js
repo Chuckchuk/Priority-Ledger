@@ -288,7 +288,16 @@ function defaultDevSettings(){
   // the leather cover around the whole master view, the other governs
   // stacked pages layered on top of that view; either, both, or neither
   // can be non-classic at once.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic' };
+  // fullPageSwipeNav: widens the day/month swipe-nav gesture (see
+  // classifySwipeZone() in 19-bootstrap.js) from its default reserved
+  // strip — .daynavrow / .calnav, the row the prev/next arrows and the
+  // Today/weekday label sit in — to the entire day-detail or calendar
+  // page. Off by default because that same whole-page area is also where
+  // swipe-right-to-go-back (any .stackedpage's own non-compact .pagetag)
+  // normally lives; turning this on makes day/month nav win that contest
+  // everywhere on those two pages specifically, rather than the two
+  // gestures fighting over the same touch.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false };
 }
 
 function defaultState(){
@@ -346,6 +355,7 @@ function normalizeState(){
   if(typeof state.devSettings.calendarTodayOrnate !== 'boolean') state.devSettings.calendarTodayOrnate = false;
   if(typeof state.devSettings.leatherInsetPreset !== 'string') state.devSettings.leatherInsetPreset = 'classic';
   if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'classic';
+  if(typeof state.devSettings.fullPageSwipeNav !== 'boolean') state.devSettings.fullPageSwipeNav = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)

@@ -70,6 +70,165 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ---------- Swipe navigation (touch) ----------
+// A left/right finger drag steps between days (Daily) or months
+// (Calendar), mirroring the ArrowLeft/ArrowRight handling above; a
+// rightward drag on any drilldown page triggers that page's own .pagetag
+// "back" action, mirroring a tap on the tag itself. See
+// defaultDevSettings()'s fullPageSwipeNav comment in 02-storage-state.js
+// for how the day/month-nav zone and the swipe-back zone are kept from
+// fighting over the same touch — classifySwipeZone() below is the single
+// place that decides which (if either) a given touch belongs to.
+
+let swipeGesture = null; // { mode:'day'|'month'|'back', card, backTag?, startX, startY, startT, lastX, axis:null|'x'|'y' }
+
+const SWIPE_AXIS_PX = 10;      // movement before committing to horizontal vs. vertical
+const SWIPE_COMMIT_PX = 90;    // drag distance that commits the action on release
+const SWIPE_COMMIT_VPX = 0.55; // px/ms — a fast short flick commits even under that distance
+
+// Checked in this order: the day-nav row (.daynavrow) or the calendar's
+// own nav row (.calnav) claim the gesture either when the touch actually
+// started inside that row, or — with fullPageSwipeNav on — anywhere on
+// that page at all. Only once neither claims it does swipe-right-to-
+// go-back get a chance, and only against a *non-compact* .pagetag (see
+// the Page Tag vs. Compact Tag distinction in devSettingsFieldsHtml()'s
+// comment in 01-categories-theme.js) — a compact tag links two peer
+// views (Daily's day-list<->Calendar, a checklist's own Pending view),
+// not a "back" out of a drilldown, so a directional swipe doesn't have
+// one obvious meaning there the way it does for a real back tag. A
+// Settings popover (color wheel, icon/location picker) opts out entirely
+// — those are their own drag surfaces and shouldn't have a page-level
+// swipe competing with them.
+function classifySwipeZone(target){
+  if(!target || !target.closest) return null;
+  if(openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || themeColorWheelKey || locationEditorOpenId) return null;
+  const dev = state.devSettings || {};
+  const daynav = document.querySelector('.daynavrow');
+  if(daynav && (dev.fullPageSwipeNav || daynav.contains(target))){
+    return { mode:'day', card: daynav.parentElement };
+  }
+  const calnav = document.querySelector('.calnav');
+  if(calnav && (dev.fullPageSwipeNav || calnav.contains(target))){
+    return { mode:'month', card: calnav.parentElement };
+  }
+  const stackedpage = target.closest('.stackedpage');
+  if(stackedpage){
+    const backTag = stackedpage.querySelector('.pagetag:not(.compact)');
+    if(backTag) return { mode:'back', card: stackedpage, backTag };
+  }
+  return null;
+}
+
+// Follows the finger 1:1 — translateX plus a light rotate/fade so the
+// card reads as a physical thing being pushed, not just sliding. A
+// back-swipe only means anything moving right; dragging the wrong way
+// gives a little rubber-band resistance instead of doing nothing, so the
+// card still feels attached to your finger either direction.
+function swipeApplyDrag(g, dx){
+  const eff = (g.mode === 'back' && dx < 0) ? dx * 0.15 : dx;
+  g.card.style.transform = `translateX(${eff}px) rotate(${eff / 26}deg)`;
+  g.card.style.opacity = String(Math.max(1 - Math.abs(eff) / 700, 0.55));
+}
+
+function swipeSnapBack(card){
+  card.style.transition = 'transform 220ms cubic-bezier(.2,.8,.3,1), opacity 220ms ease';
+  card.style.transform = '';
+  card.style.opacity = '';
+  setTimeout(() => { card.style.transition = ''; }, 220);
+}
+
+// Continues the card the rest of the way off-screen in the direction it
+// was already being dragged, then hands off to `after` (the actual
+// navigation) once it's clear. Clears the inline style back off *before*
+// calling `after`, not just after — for 'day'/'back' the card (.stackedpage)
+// gets discarded by the next render anyway so this is a no-op, but for
+// 'month' the card is #dailyView/#calendarView itself, which render()
+// only ever replaces the *contents* of, never the element — left
+// untouched, the fly-off transform/opacity would still be sitting on
+// that element when the new month's markup lands inside it a moment
+// later, hiding it off-screen exactly like the swipe never ended.
+function swipeFlyAway(card, dir, after){
+  card.style.transition = 'transform 200ms ease-in, opacity 200ms ease-in';
+  card.style.transform = `translateX(${dir * Math.max(window.innerWidth, 320)}px) rotate(${dir * 12}deg)`;
+  card.style.opacity = '0';
+  setTimeout(() => {
+    card.style.transition = '';
+    card.style.transform = '';
+    card.style.opacity = '';
+    after();
+  }, 200);
+}
+
+document.addEventListener('touchstart', (e) => {
+  const appShell = document.getElementById('appShell');
+  if(!appShell || appShell.style.display === 'none' || e.touches.length !== 1){
+    swipeGesture = null;
+    return;
+  }
+  const zone = classifySwipeZone(e.touches[0].target);
+  if(!zone){ swipeGesture = null; return; }
+  const t = e.touches[0];
+  swipeGesture = { ...zone, startX: t.clientX, startY: t.clientY, lastX: t.clientX, startT: Date.now(), axis: null };
+}, { passive: true });
+
+// Not passive — once a gesture has locked onto the horizontal axis this
+// needs to preventDefault() so the page doesn't also scroll/rubber-band
+// underneath the drag. Before that lock, nothing is prevented at all, so
+// an ordinary vertical scroll starting anywhere in a swipe zone (the
+// day-detail task list, most obviously, once fullPageSwipeNav is on)
+// behaves exactly as if this listener didn't exist.
+document.addEventListener('touchmove', (e) => {
+  if(!swipeGesture) return;
+  const t = e.touches[0];
+  const dx = t.clientX - swipeGesture.startX;
+  const dy = t.clientY - swipeGesture.startY;
+  if(swipeGesture.axis === null){
+    if(Math.abs(dx) < SWIPE_AXIS_PX && Math.abs(dy) < SWIPE_AXIS_PX) return;
+    swipeGesture.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    if(swipeGesture.axis === 'y'){ swipeGesture = null; return; } // hand off to native scroll
+    swipeGesture.card.style.transition = 'none';
+  }
+  if(swipeGesture.axis !== 'x') return;
+  e.preventDefault();
+  swipeGesture.lastX = t.clientX;
+  swipeApplyDrag(swipeGesture, dx);
+}, { passive: false });
+
+function swipeEnd(){
+  const g = swipeGesture;
+  swipeGesture = null;
+  if(!g || g.axis !== 'x') return;
+  const dx = g.lastX - g.startX;
+  const elapsed = Math.max(Date.now() - g.startT, 1);
+  const committed = Math.abs(dx) > SWIPE_COMMIT_PX || Math.abs(dx) / elapsed > SWIPE_COMMIT_VPX;
+
+  if(g.mode === 'back'){
+    if(committed && dx > 0) swipeFlyAway(g.card, 1, () => g.backTag.click());
+    else swipeSnapBack(g.card);
+    return;
+  }
+
+  // Swipe left (negative dx) advances forward, same convention as a
+  // photo carousel — swipe right steps back. This is the opposite sign
+  // from the ArrowLeft/ArrowRight keys above on purpose: a right *arrow
+  // key* means "go right, i.e. forward," but a right *swipe* pushes the
+  // current card away to reveal the previous one, same direction .pagetag
+  // back-swipes already use above.
+  const dir = dx < 0 ? 1 : -1;
+  const canGo = g.mode === 'month' || !!adjacentDayStr(selectedDay, dir);
+  if(committed && canGo){
+    swipeFlyAway(g.card, dir, () => {
+      if(g.mode === 'day') goToAdjacentDay(dir);
+      else calendarShiftMonth(dir);
+    });
+  } else {
+    swipeSnapBack(g.card);
+  }
+}
+
+document.addEventListener('touchend', swipeEnd);
+document.addEventListener('touchcancel', swipeEnd);
+
 // Resizing the window can change how tabs wrap into rows even with no
 // state change (nothing else calls render() in that case), which would
 // leave renderTabRowLines()'s shelf lines stale — so re-measure on resize.

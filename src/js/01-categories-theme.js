@@ -447,6 +447,10 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <input type="checkbox" ${dev.calendarTodayOrnate?'checked':''} onchange="toggleDevSetting('calendarTodayOrnate', this.checked)">
       Calendar: ornate (double-line) border on today's cell
     </label>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.fullPageSwipeNav?'checked':''} onchange="toggleDevSetting('fullPageSwipeNav', this.checked)">
+      Swipe day/month nav: whole page (not just the arrows row) — competes with swipe-right-to-go-back on those two pages; day/month nav wins when this is on
+    </label>
     <div class="${fieldClass}">
       <span class="${captionClass}">Leather cover size</span>
       <select class="${selectClass}" onchange="setDevLeatherInset(this.value)">
