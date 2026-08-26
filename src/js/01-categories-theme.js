@@ -242,6 +242,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
         <option value="default" ${dev.pendingTagStyle==='default'?'selected':''}>Default (small page tag)</option>
         <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Redder, jets out further</option>
         <option value="sidebar" ${dev.pendingTagStyle==='sidebar'?'selected':''}>Vertical sidebar strip</option>
+        <option value="booktab" ${dev.pendingTagStyle==='booktab'?'selected':''}>Left edge, overlapping up into the tab row</option>
+        <option value="cornerpeek" ${dev.pendingTagStyle==='cornerpeek'?'selected':''}>Left edge, bigger diamond tip</option>
       </select>
     </div>
     <label class="${rowClass}">

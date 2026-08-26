@@ -762,6 +762,45 @@
     padding: 14px 6px;
     border-radius: 6px;
   }
+  /* "booktab": rooted to the card's top-LEFT corner (not the right — a
+     phone-width card has almost no free margin on either side, roughly
+     14-20px at this app's actual breakpoints, so there's no side where a
+     tag can jut out far; putting it on the left instead just matches
+     where the default/jetout tags already live) and deliberately allowed
+     to ride up into the tab row above rather than staying clear of it —
+     real book/journal index tabs overlap each other in exactly this way,
+     and there's more free vertical room to borrow from the tab row than
+     there is horizontal room past the card's edge. Uses `--brass` (the
+     same fill the default page tag and the tab bar's active pill already
+     use), not an off-palette accent, so the overlap reads as "part of
+     this app's existing tab language poking up," not a new decorative
+     idiom the rest of the app doesn't share. */
+  body[data-pending-tag-style="booktab"] .pagetag.compact{ top:-14px; left:-14px; right:auto; }
+  body[data-pending-tag-style="booktab"] .pagetag.compact .pagetagtip{ display:none; }
+  body[data-pending-tag-style="booktab"] .pagetag.compact .pagetaglabel{
+    background: var(--brass);
+    border-radius: 8px 8px 8px 0;
+    padding: 8px 14px 8px 12px;
+    box-shadow: -2px 3px 8px rgba(0,0,0,0.3);
+  }
+  /* "cornerpeek": stays clear of the tab row (top:56px, same lane
+     jetout/sidebar already use) and instead of overlapping anything,
+     goes bigger on the one part of the shape that actually reads as
+     "jutting" regardless of how few pixels it has to work with — the
+     diamond tip. Scaling that up (not just nudging `left` further, which
+     runs out of room past roughly -14px on a phone-width card) is what
+     makes it look like more of a wedge without needing more real
+     estate. Same `--brass` fill as booktab above, for the same reason. */
+  body[data-pending-tag-style="cornerpeek"] .pagetag.compact{ top:56px; left:-14px; right:auto; }
+  body[data-pending-tag-style="cornerpeek"] .pagetag.compact .pagetagtip{
+    width:22px; height:22px; left:-11px;
+    background: var(--brass);
+  }
+  body[data-pending-tag-style="cornerpeek"] .pagetag.compact .pagetaglabel{
+    background: var(--brass);
+    padding: 9px 14px 9px 16px;
+    box-shadow: -2px 3px 7px rgba(0,0,0,0.28);
+  }
   /* The large "header" version of a list's own progress indicator atop
      its detail page (see renderChecklistDetail()) — same .checkcircle-
      wrap/.checkcircle/.peg/.progressring markup and JS as the small one
@@ -1407,6 +1446,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
         <option value="default" ${dev.pendingTagStyle==='default'?'selected':''}>Default (small page tag)</option>
         <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Redder, jets out further</option>
         <option value="sidebar" ${dev.pendingTagStyle==='sidebar'?'selected':''}>Vertical sidebar strip</option>
+        <option value="booktab" ${dev.pendingTagStyle==='booktab'?'selected':''}>Left edge, overlapping up into the tab row</option>
+        <option value="cornerpeek" ${dev.pendingTagStyle==='cornerpeek'?'selected':''}>Left edge, bigger diamond tip</option>
       </select>
     </div>
     <label class="${rowClass}">
