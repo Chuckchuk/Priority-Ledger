@@ -800,15 +800,31 @@
     display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'IBM Plex Mono', monospace; font-size:0.68rem;
     color: var(--ink-soft); background: var(--card-bg-dim); border-radius:6px; padding:10px 12px; margin-bottom:14px; letter-spacing:0.03em;
   }
-  /* Large "which day is this" label centered atop a day's detail page —
-     see dayHeaderTag() in <script>. Plain text for Yesterday/Tomorrow/a
-     weekday name; Today gets its own larger, Primary-colored treatment so
-     it's unmistakable at a glance which day you're looking at, echoing
-     .todaytag's Primary accent used for "today" everywhere else. */
-  .dayherorow{ display:flex; justify-content:center; margin:2px 0 6px; }
+  /* Left/right day navigation shares one fixed-width row with the
+     optional large "which day is this" label (see dayHeaderTag()) instead
+     of the arrows sitting right next to the date text the way they used
+     to — a longer weekday name pushed the right arrow further right, so
+     its position depended on which day you happened to be looking at.
+     Grid's two fixed-width outer columns pin both arrows to the same spot
+     regardless of what's (or isn't — most days don't get a hero label at
+     all) in the middle column; min-height keeps the row's own height
+     steady across both cases so the arrows don't shift vertically either.
+     "Further out" than sitting flush against the label, but not all the
+     way to the page's own edges — still reads as one row at a glance. */
+  .daynavrow{
+    display:grid; grid-template-columns: 34px 1fr 34px; align-items:center;
+    gap:10px; margin:2px 0 10px; min-height:34px;
+  }
+  .daynavrow .navarrow{ justify-self:center; }
+  /* Plain text for Yesterday/Tomorrow/a weekday name; Today gets its own
+     larger, Primary-colored treatment so it's unmistakable at a glance
+     which day you're looking at, echoing .todaytag's Primary accent used
+     for "today" everywhere else. Empty (no text at all) on the many days
+     outside dayHeaderTag()'s window — the grid cell still reserves its
+     row space either way. */
   .dayhero{
     font-family:'Fraunces', serif; font-weight:600; font-size:1.15rem;
-    color:var(--ink-soft); letter-spacing:0.02em;
+    color:var(--ink-soft); letter-spacing:0.02em; text-align:center;
   }
   .dayhero.today{ font-size:1.9rem; font-weight:700; color:var(--primary); }
   .daylistlabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin: 4px 0 6px; }
@@ -1085,12 +1101,12 @@
   .daydetailhead{ margin-bottom:14px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; }
   .daydetailhead h2{ font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.35rem; margin:0; color:var(--ink); }
   /* Left/right quick-access to the closest logged day in either direction
-     — see adjacentDayStr()/goToAdjacentDay() in 11-daily-core.js. Shares
-     .navarrow with the Calendar tab's own month-nav arrows (see the
-     Calendar section below) rather than each defining its own near-
-     identical button; a disabled arrow (no earlier/later day exists)
-     just dims via the shared :disabled rule, no separate markup needed. */
-  .daynav{ display:flex; align-items:center; gap:10px; }
+     — see adjacentDayStr()/goToAdjacentDay() in 11-daily-core.js, laid
+     out in .daynavrow above. Shares .navarrow with the Calendar tab's own
+     month-nav arrows (see the Calendar section below) rather than each
+     defining its own near-identical button; a disabled arrow (no
+     earlier/later day exists) just dims via the shared :disabled rule,
+     no separate markup needed. */
   .navarrow{
     font-family:'IBM Plex Mono', monospace; font-size:1rem; line-height:1; width:26px; height:26px;
     border-radius:50%; border:1px solid var(--line); background: var(--card-bg-dim); color:var(--ink);
@@ -1492,7 +1508,7 @@
      list (the normal path, see renderDailyCalendar() in 18-calendar.js)
      and the optional dev-only 'calendar' category type (renderCalendar()
      there). */
-  /* Same row shape as .daynav above, reusing .navarrow — see the comment
+  /* Same idea as .daynavrow above, reusing .navarrow — see the comment
      there for why the two share one button style instead of each
      defining a near-identical one. */
   .calnav{ display:flex; align-items:center; justify-content:center; gap:16px; margin:2px 0 10px; }
@@ -5086,13 +5102,13 @@ function renderDayDetail(dateStr){
   return `
     <div class="stackedpage">
       ${pageTagHtml('closeDay()', dayReturnToCalendar ? 'Calendar' : 'All Days')}
-      ${headerTag ? `<div class="dayherorow"><span class="dayhero ${headerTag.today?'today':''}">${headerTag.text}</span></div>` : ''}
+      <div class="daynavrow">
+        <button class="navarrow" ${prevDayStr ? `onclick="goToAdjacentDay(-1)"` : 'disabled'} title="Previous day">‹</button>
+        <span class="dayhero ${headerTag && headerTag.today?'today':''}">${headerTag ? headerTag.text : ''}</span>
+        <button class="navarrow" ${nextDayStr ? `onclick="goToAdjacentDay(1)"` : 'disabled'} title="Next day">›</button>
+      </div>
       <div class="daydetailhead">
-        <div class="daynav">
-          <button class="navarrow" ${prevDayStr ? `onclick="goToAdjacentDay(-1)"` : 'disabled'} title="Previous day">‹</button>
-          <h2>${dayLabel(dateStr)}</h2>
-          <button class="navarrow" ${nextDayStr ? `onclick="goToAdjacentDay(1)"` : 'disabled'} title="Next day">›</button>
-        </div>
+        <h2>${dayLabel(dateStr)}</h2>
         <div class="daydetailheadright">
           <div class="dayprogress">${total ? `${done} of ${total} done` : 'Nothing planned yet'}</div>
           ${unfinishedCount>0 && dateStr<=todayStr() ? `<button class="pullbtn" onclick="moveIncompleteToTomorrow('${dateStr}')">Move ${unfinishedCount} incomplete → ${fmtDate(nextDate)}</button>` : ''}
@@ -6207,6 +6223,21 @@ document.addEventListener('keydown', (e) => {
   const target = document.activeElement;
   const inField = target && ['INPUT','TEXTAREA','SELECT'].includes(target.tagName);
   if(inField) return;
+
+  // Left/right steps to the adjacent logged day, mirroring the .navarrow
+  // pair in .daynavrow — gated on that row actually being on screen
+  // (rather than enumerating every overlay flag — settingsOpen, taskDetailId,
+  // selectedListId, dailyCalendarOpen, etc. — that could otherwise be
+  // hiding the day-detail page even while selectedDay is still set from
+  // before) so the keys only ever act on the day you're actually looking
+  // at. goToAdjacentDay() itself already no-ops at either end of your
+  // logged days, same as clicking a disabled arrow would.
+  if(e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+    if(document.querySelector('.daynavrow')){
+      goToAdjacentDay(e.key === 'ArrowLeft' ? -1 : 1);
+      return;
+    }
+  }
 
   const meta = e.metaKey || e.ctrlKey;
   if(meta && e.key.toLowerCase()==='z'){

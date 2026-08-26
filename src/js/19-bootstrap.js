@@ -45,6 +45,21 @@ document.addEventListener('keydown', (e) => {
   const inField = target && ['INPUT','TEXTAREA','SELECT'].includes(target.tagName);
   if(inField) return;
 
+  // Left/right steps to the adjacent logged day, mirroring the .navarrow
+  // pair in .daynavrow — gated on that row actually being on screen
+  // (rather than enumerating every overlay flag — settingsOpen, taskDetailId,
+  // selectedListId, dailyCalendarOpen, etc. — that could otherwise be
+  // hiding the day-detail page even while selectedDay is still set from
+  // before) so the keys only ever act on the day you're actually looking
+  // at. goToAdjacentDay() itself already no-ops at either end of your
+  // logged days, same as clicking a disabled arrow would.
+  if(e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+    if(document.querySelector('.daynavrow')){
+      goToAdjacentDay(e.key === 'ArrowLeft' ? -1 : 1);
+      return;
+    }
+  }
+
   const meta = e.metaKey || e.ctrlKey;
   if(meta && e.key.toLowerCase()==='z'){
     e.preventDefault();

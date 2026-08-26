@@ -260,13 +260,13 @@ function renderDayDetail(dateStr){
   return `
     <div class="stackedpage">
       ${pageTagHtml('closeDay()', dayReturnToCalendar ? 'Calendar' : 'All Days')}
-      ${headerTag ? `<div class="dayherorow"><span class="dayhero ${headerTag.today?'today':''}">${headerTag.text}</span></div>` : ''}
+      <div class="daynavrow">
+        <button class="navarrow" ${prevDayStr ? `onclick="goToAdjacentDay(-1)"` : 'disabled'} title="Previous day">‹</button>
+        <span class="dayhero ${headerTag && headerTag.today?'today':''}">${headerTag ? headerTag.text : ''}</span>
+        <button class="navarrow" ${nextDayStr ? `onclick="goToAdjacentDay(1)"` : 'disabled'} title="Next day">›</button>
+      </div>
       <div class="daydetailhead">
-        <div class="daynav">
-          <button class="navarrow" ${prevDayStr ? `onclick="goToAdjacentDay(-1)"` : 'disabled'} title="Previous day">‹</button>
-          <h2>${dayLabel(dateStr)}</h2>
-          <button class="navarrow" ${nextDayStr ? `onclick="goToAdjacentDay(1)"` : 'disabled'} title="Next day">›</button>
-        </div>
+        <h2>${dayLabel(dateStr)}</h2>
         <div class="daydetailheadright">
           <div class="dayprogress">${total ? `${done} of ${total} done` : 'Nothing planned yet'}</div>
           ${unfinishedCount>0 && dateStr<=todayStr() ? `<button class="pullbtn" onclick="moveIncompleteToTomorrow('${dateStr}')">Move ${unfinishedCount} incomplete → ${fmtDate(nextDate)}</button>` : ''}
