@@ -212,6 +212,7 @@ function pageTagHtml(onclick, label, compact){
 }
 
 function render(){
+  renderDevPanel();
   renderLocBadge();
   renderTabs();
   refreshUndoButtons();

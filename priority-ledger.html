@@ -787,12 +787,9 @@
   /* The "Add to this day" tree lives in its own visually distinct box —
      a filled, bordered panel — rather than sitting flush against the
      rest of the page, so it reads at a glance as a tool you've opened
-     rather than more of the day's own content. Brass border + faint
-     brass tint match .dayaddtoggle (the .pullbtn that opens it) on
-     purpose — the panel should read as that same button's contents
-     unfolded, not an unrelated box that happens to appear underneath it. */
+     rather than more of the day's own content. */
   .dayaddpanel{
-    margin-bottom:14px; background: rgba(169,120,47,0.08); border:1px solid var(--brass);
+    margin-bottom:14px; background: var(--card-bg-dim); border:1px solid var(--line);
     border-radius:10px; padding:10px 12px;
   }
   .dayaddhead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px; }
@@ -935,13 +932,65 @@
     background:transparent; border:1px dashed var(--brass); color:var(--brass); border-radius:6px;
     padding:8px 12px; cursor:pointer;
   }
-  /* EXPERIMENTAL — see defaultDevSettings() in <script>. A plain <details>
-     rather than a JS-driven toggle so "usually obscured" needs no state
-     of its own — collapsed by default, native browser disclosure. */
-  .devsettings{ margin-top:18px; border-top:1px dashed var(--line); padding-top:10px; }
-  .devsettings summary{
-    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
-    color: var(--ink-soft); cursor:pointer; margin-bottom:10px;
+  /* EXPERIMENTAL — see defaultDevSettings() in <script>. A floating panel
+     pinned to the far left of the viewport rather than folded into the
+     Settings stacked-page: Settings fully covers the app while open (see
+     render()'s settingsOpen branch), so a toggle buried in there can never
+     be checked against the live page it affects. This panel renders
+     unconditionally on every render() call (see renderDevPanel(), called
+     first thing in render()) and lives outside .shell entirely, so it
+     stays on screen — and stays open, see devPanelOpen in
+     02-storage-state.js — no matter what view is showing underneath.
+     Desktop-only on purpose (see the media query below): there's no room
+     for a fixed left-edge strip on a narrow or touch screen, and this is a
+     Claude Code development aid, not a real end-user feature. */
+  .devpanel{
+    position:fixed; top:50%; left:0; transform:translateY(-50%);
+    display:flex; align-items:stretch; z-index:200;
+  }
+  .devpaneltab{
+    writing-mode: vertical-rl; text-orientation: mixed;
+    font-family:'IBM Plex Mono', monospace; font-size:0.66rem; letter-spacing:0.08em;
+    text-transform:uppercase; color: var(--brass-light); background: var(--desk-dark);
+    border:1px solid var(--brass); border-left:none; border-radius:0 8px 8px 0;
+    padding:14px 6px; cursor:pointer;
+  }
+  .devpaneltab:hover{ color:white; }
+  .devpanelbody{
+    width:0; max-height:80vh; overflow:hidden; opacity:0;
+    background: var(--card-bg); border:1px solid transparent; border-left:none;
+    border-radius:0 8px 8px 0; transition: width .15s ease, opacity .15s ease;
+  }
+  /* .open is toggled only by toggleDevPanel() — never by renderDevPanel(),
+     which only replaces #devPanelBody's innerHTML. That split is what lets
+     flipping a checkbox re-render the panel's contents without ever
+     touching this class, so the panel can't auto-collapse on a change. */
+  .devpanel.open .devpanelbody{
+    width:210px; opacity:1; overflow-y:auto; padding:14px 12px;
+    border-color: var(--brass);
+  }
+  .devpanellabel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--ink-soft); margin: 0 0 12px;
+  }
+  .devpanelfield{ margin-bottom:12px; }
+  .devpanelcaption{
+    display:block; font-family:'IBM Plex Mono', monospace; font-size:0.6rem;
+    letter-spacing:0.04em; text-transform:uppercase; color: var(--ink-soft); margin-bottom:4px;
+  }
+  .devpanelrow{
+    display:flex; align-items:flex-start; gap:6px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; line-height:1.35;
+    letter-spacing:0.02em; color: var(--ink-soft); margin-bottom:12px;
+  }
+  .devpanelrow input{ cursor:pointer; margin-top:2px; flex-shrink:0; }
+  .devpanelselect{
+    display:block; width:100%; font-family:'IBM Plex Mono', monospace; font-size:0.62rem;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px;
+    color: var(--ink); padding:4px;
+  }
+  @media (max-width:1250px), (pointer:coarse){
+    .devpanel{ display:none !important; }
   }
   /* Plain, semantic text output for the Claude-readable view — no
      decorative markup to strip, just a monospace block a page-reading
@@ -1026,6 +1075,11 @@
   </div>
   <div class="savestatus" id="saveStatus"></div>
   <div class="status-line"><button class="signoutbtn" onclick="refreshFromServer(true)" id="refreshBtn">Refresh</button></div>
+</div>
+
+<div class="devpanel" id="devPanel" style="display:none;">
+  <button class="devpaneltab" id="devPanelTab" onclick="toggleDevPanel()" title="Dev settings">DEV</button>
+  <div class="devpanelbody" id="devPanelBody"></div>
 </div>
 
 <script>
@@ -1201,6 +1255,54 @@ async function setDevPendingTagStyle(val){
   queueSave();
 }
 
+// Pure UI chrome, not a content mutation — no pushUndo, and deliberately
+// doesn't call render(). See devPanelOpen in 02-storage-state.js for why:
+// this is the ONLY thing allowed to touch the .open class, so a dev
+// setting toggling (which does call render() -> renderDevPanel()) can
+// rebuild the panel's checkboxes without ever collapsing it.
+function toggleDevPanel(){
+  devPanelOpen = !devPanelOpen;
+  const panel = document.getElementById('devPanel');
+  if(panel) panel.classList.toggle('open', devPanelOpen);
+}
+
+// Called unconditionally at the top of render() (see 08-render-core.js) —
+// unlike the rest of render()'s branches, this must run no matter which
+// view (category/daily/checklist/Settings/Claude view) is active, so the
+// panel's checkbox states never go stale regardless of what's on screen.
+function renderDevPanel(){
+  const body = document.getElementById('devPanelBody');
+  if(!body) return;
+  const dev = state.devSettings || defaultDevSettings();
+  body.innerHTML = `
+    <div class="devpanellabel">Dev Settings</div>
+    <label class="devpanelrow">
+      <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
+      Page tag: seam shadow (tip reads as receding behind the label)
+    </label>
+    <label class="devpanelrow">
+      <input type="checkbox" ${dev.tagOutline?'checked':''} onchange="toggleDevSetting('tagOutline', this.checked)">
+      Page tag: full outline
+    </label>
+    <div class="devpanelfield">
+      <span class="devpanelcaption">Pending-items tag style</span>
+      <select class="devpanelselect" onchange="setDevPendingTagStyle(this.value)">
+        <option value="default" ${dev.pendingTagStyle==='default'?'selected':''}>Default (small page tag)</option>
+        <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Redder, jets out further</option>
+        <option value="sidebar" ${dev.pendingTagStyle==='sidebar'?'selected':''}>Vertical sidebar strip</option>
+      </select>
+    </div>
+    <label class="devpanelrow">
+      <input type="checkbox" ${dev.showListDates?'checked':''} onchange="toggleDevSetting('showListDates', this.checked)">
+      Show a faded created-date next to each checklist's title
+    </label>
+    <label class="devpanelrow">
+      <input type="checkbox" ${dev.dayTreeCatBubble?'checked':''} onchange="toggleDevSetting('dayTreeCatBubble', this.checked)">
+      "Add to day" tree: pill-shaped category bubbles (like the tab bar)
+    </label>
+  `;
+}
+
 
 // Filled in once the project exists — see CLAUDE.md for setup steps.
 const SUPABASE_URL = 'https://kyswrzkgiphsniepahje.supabase.co';
@@ -1235,6 +1337,14 @@ let checklistReturnDay = null;
 let checklistPendingOpen = false; // showing the "all pending items" view for the active checklist category
 let expandedMonths = new Set();
 let settingsOpen = false;
+// Pure UI chrome for the floating dev panel (see renderDevPanel()/
+// toggleDevPanel() in 01-categories-theme.js) — deliberately NOT reset by
+// switchTab()/toggleSettings()/Esc the way settingsOpen/claudeView are.
+// The whole point of the panel is that it stays open while you navigate
+// around the app checking a toggle's effect, so only an explicit click on
+// its own tab (toggleDevPanel()) may change this. Never persisted —
+// always starts closed on a fresh load, and signOut() resets it.
+let devPanelOpen = false;
 let claudeView = null; // null | 'digest' | 'full' — a plain-text view meant for a page-reading agent, not a category/day view
 let pendingDeleteCategoryId = null;
 let session = null; // { access_token, refresh_token, expires_at, user_id, email }
@@ -1649,15 +1759,6 @@ function queueSave(){
 let undoStack = [];
 let redoStack = [];
 const UNDO_LIMIT = 50;
-
-// Which tasks' inline .expand rows are open — render() rebuilds every
-// row's markup from scratch on every mutation (see taskRowHtml), which
-// would otherwise silently collapse every *other* expanded task back to
-// closed the moment you acted on any one of them, since a plain DOM
-// classList.toggle() doesn't survive its element being torn down and
-// recreated. Tracking which ids are open here (independent of any single
-// task's own action) is what lets several stay expanded at once.
-let expandedTaskIds = new Set();
 
 function pushUndo(label){
   undoStack.push({ label, snapshot: JSON.parse(JSON.stringify(state)) });
@@ -2288,7 +2389,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
       ` : ''}
     </div>
-    ${inDaily ? '' : `<div class="expand ${expandedTaskIds.has(t.id)?'open':''}" id="exp-${t.id}">${taskExpandFieldsHtml(t, canRemoveHere)}</div>`}
+    ${inDaily ? '' : `<div class="expand" id="exp-${t.id}">${taskExpandFieldsHtml(t, canRemoveHere)}</div>`}
   </li>`;
 }
 
@@ -2370,6 +2471,7 @@ function pageTagHtml(onclick, label, compact){
 }
 
 function render(){
+  renderDevPanel();
   renderLocBadge();
   renderTabs();
   refreshUndoButtons();
@@ -2570,40 +2672,6 @@ function renderSettings(){
     <button class="resetthemebtn" onclick="openClaudeView('digest')">Open Claude-readable view</button>
   `;
 
-  // EXPERIMENTAL — see defaultDevSettings() above. Kept in its own
-  // <details> specifically so it's obscured by default rather than
-  // sitting in the main settings flow.
-  const dev = state.devSettings || defaultDevSettings();
-  const devSection = `
-    <details class="devsettings">
-      <summary>Dev Settings</summary>
-      <label class="catlocchk" style="margin-bottom:10px;">
-        <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
-        Page tag: seam shadow (tip reads as receding behind the label)
-      </label>
-      <label class="catlocchk" style="margin-bottom:10px;">
-        <input type="checkbox" ${dev.tagOutline?'checked':''} onchange="toggleDevSetting('tagOutline', this.checked)">
-        Page tag: full outline
-      </label>
-      <label class="catlocchk" style="margin-bottom:10px;">
-        Pending-items tag style
-        <select onchange="setDevPendingTagStyle(this.value)">
-          <option value="default" ${dev.pendingTagStyle==='default'?'selected':''}>Default (small page tag)</option>
-          <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Redder, jets out further</option>
-          <option value="sidebar" ${dev.pendingTagStyle==='sidebar'?'selected':''}>Vertical sidebar strip</option>
-        </select>
-      </label>
-      <label class="catlocchk" style="margin-bottom:10px;">
-        <input type="checkbox" ${dev.showListDates?'checked':''} onchange="toggleDevSetting('showListDates', this.checked)">
-        Show a faded created-date next to each checklist's title
-      </label>
-      <label class="catlocchk" style="margin-bottom:10px;">
-        <input type="checkbox" ${dev.dayTreeCatBubble?'checked':''} onchange="toggleDevSetting('dayTreeCatBubble', this.checked)">
-        "Add to day" tree: pill-shaped category bubbles (like the tab bar)
-      </label>
-    </details>
-  `;
-
   el.innerHTML = `
     <div class="stackedpage">
       ${pageTagHtml('toggleSettings()', 'Done')}
@@ -2621,7 +2689,6 @@ function renderSettings(){
       ${taskFieldsSection}
       ${appearanceSection}
       ${claudeSection}
-      ${devSection}
     </div>
   `;
 }
@@ -3259,7 +3326,7 @@ function dayTreeChecklistLeafHtml(t, dateStr){
 
 function renderAddToDayPicker(dateStr){
   if(!dayAddOpen){
-    return `<button class="pullbtn dayaddtoggle" onclick="toggleDayAdd()">+ Add an existing task to this day</button>`;
+    return `<button class="pullbtn dayaddtoggle" onclick="toggleDayAdd()">+ Add to this day</button>`;
   }
   const taskCatsHtml = standardCategoryEntries().map(([k,v])=>{
     const key = 'cat:'+k;
@@ -4047,7 +4114,6 @@ async function updateDueDate(id, val){
 }
 
 function reopen(id){
-  expandedTaskIds.add(id);
   const exp = document.getElementById('exp-' + id);
   if(exp) exp.classList.add('open');
 }
@@ -4145,7 +4211,6 @@ async function deleteTask(id){
 }
 
 function toggleExpand(evt, id){
-  if(expandedTaskIds.has(id)) expandedTaskIds.delete(id); else expandedTaskIds.add(id);
   const exp = document.getElementById('exp-' + id);
   exp.classList.toggle('open');
 }
@@ -4213,12 +4278,14 @@ function signOut(){
   pendingDeleteCategoryId = null;
   undoStack = [];
   redoStack = [];
-  expandedTaskIds = new Set();
+  devPanelOpen = false;
   applyThemeObject(defaultTheme()); // login screen always shows the classic look
   document.getElementById('authEmail').value = '';
   document.getElementById('authPassword').value = '';
   document.getElementById('appShell').style.display = 'none';
   document.getElementById('authShell').style.display = '';
+  const devPanel = document.getElementById('devPanel');
+  if(devPanel){ devPanel.style.display = 'none'; devPanel.classList.remove('open'); }
 }
 
 function continueLocally(){
@@ -4231,12 +4298,13 @@ async function enterApp(){
   // undo into a different account's data, or across a page reload.
   undoStack = [];
   redoStack = [];
-  expandedTaskIds = new Set();
   claudeView = null;
   selectedListId = null;
   checklistPendingOpen = false;
   document.getElementById('authShell').style.display = 'none';
   document.getElementById('appShell').style.display = '';
+  const devPanel = document.getElementById('devPanel');
+  if(devPanel) devPanel.style.display = '';
   const signOutRow = document.getElementById('signOutRow');
   if(signOutRow){
     signOutRow.style.display = (window.storage || !session) ? 'none' : '';
@@ -4280,11 +4348,7 @@ document.addEventListener('keydown', (e) => {
     if(selectedListId){ closeChecklistList(); return; }
     if(taskDetailId){ closeTaskDetail(); return; }
     const openExpand = document.querySelector('.expand.open');
-    if(openExpand){
-      expandedTaskIds.delete(openExpand.id.replace('exp-', ''));
-      openExpand.classList.remove('open');
-      return;
-    }
+    if(openExpand){ openExpand.classList.remove('open'); return; }
     if(activeTab !== 'all'){ switchTab('all'); }
     return;
   }

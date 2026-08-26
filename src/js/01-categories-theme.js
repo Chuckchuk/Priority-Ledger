@@ -170,4 +170,52 @@ async function setDevPendingTagStyle(val){
   queueSave();
 }
 
+// Pure UI chrome, not a content mutation — no pushUndo, and deliberately
+// doesn't call render(). See devPanelOpen in 02-storage-state.js for why:
+// this is the ONLY thing allowed to touch the .open class, so a dev
+// setting toggling (which does call render() -> renderDevPanel()) can
+// rebuild the panel's checkboxes without ever collapsing it.
+function toggleDevPanel(){
+  devPanelOpen = !devPanelOpen;
+  const panel = document.getElementById('devPanel');
+  if(panel) panel.classList.toggle('open', devPanelOpen);
+}
+
+// Called unconditionally at the top of render() (see 08-render-core.js) —
+// unlike the rest of render()'s branches, this must run no matter which
+// view (category/daily/checklist/Settings/Claude view) is active, so the
+// panel's checkbox states never go stale regardless of what's on screen.
+function renderDevPanel(){
+  const body = document.getElementById('devPanelBody');
+  if(!body) return;
+  const dev = state.devSettings || defaultDevSettings();
+  body.innerHTML = `
+    <div class="devpanellabel">Dev Settings</div>
+    <label class="devpanelrow">
+      <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
+      Page tag: seam shadow (tip reads as receding behind the label)
+    </label>
+    <label class="devpanelrow">
+      <input type="checkbox" ${dev.tagOutline?'checked':''} onchange="toggleDevSetting('tagOutline', this.checked)">
+      Page tag: full outline
+    </label>
+    <div class="devpanelfield">
+      <span class="devpanelcaption">Pending-items tag style</span>
+      <select class="devpanelselect" onchange="setDevPendingTagStyle(this.value)">
+        <option value="default" ${dev.pendingTagStyle==='default'?'selected':''}>Default (small page tag)</option>
+        <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Redder, jets out further</option>
+        <option value="sidebar" ${dev.pendingTagStyle==='sidebar'?'selected':''}>Vertical sidebar strip</option>
+      </select>
+    </div>
+    <label class="devpanelrow">
+      <input type="checkbox" ${dev.showListDates?'checked':''} onchange="toggleDevSetting('showListDates', this.checked)">
+      Show a faded created-date next to each checklist's title
+    </label>
+    <label class="devpanelrow">
+      <input type="checkbox" ${dev.dayTreeCatBubble?'checked':''} onchange="toggleDevSetting('dayTreeCatBubble', this.checked)">
+      "Add to day" tree: pill-shaped category bubbles (like the tab bar)
+    </label>
+  `;
+}
+
 

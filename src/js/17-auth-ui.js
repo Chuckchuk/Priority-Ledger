@@ -66,11 +66,14 @@ function signOut(){
   pendingDeleteCategoryId = null;
   undoStack = [];
   redoStack = [];
+  devPanelOpen = false;
   applyThemeObject(defaultTheme()); // login screen always shows the classic look
   document.getElementById('authEmail').value = '';
   document.getElementById('authPassword').value = '';
   document.getElementById('appShell').style.display = 'none';
   document.getElementById('authShell').style.display = '';
+  const devPanel = document.getElementById('devPanel');
+  if(devPanel){ devPanel.style.display = 'none'; devPanel.classList.remove('open'); }
 }
 
 function continueLocally(){
@@ -88,6 +91,8 @@ async function enterApp(){
   checklistPendingOpen = false;
   document.getElementById('authShell').style.display = 'none';
   document.getElementById('appShell').style.display = '';
+  const devPanel = document.getElementById('devPanel');
+  if(devPanel) devPanel.style.display = '';
   const signOutRow = document.getElementById('signOutRow');
   if(signOutRow){
     signOutRow.style.display = (window.storage || !session) ? 'none' : '';

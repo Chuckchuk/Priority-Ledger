@@ -915,13 +915,65 @@
     background:transparent; border:1px dashed var(--brass); color:var(--brass); border-radius:6px;
     padding:8px 12px; cursor:pointer;
   }
-  /* EXPERIMENTAL — see defaultDevSettings() in <script>. A plain <details>
-     rather than a JS-driven toggle so "usually obscured" needs no state
-     of its own — collapsed by default, native browser disclosure. */
-  .devsettings{ margin-top:18px; border-top:1px dashed var(--line); padding-top:10px; }
-  .devsettings summary{
-    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
-    color: var(--ink-soft); cursor:pointer; margin-bottom:10px;
+  /* EXPERIMENTAL — see defaultDevSettings() in <script>. A floating panel
+     pinned to the far left of the viewport rather than folded into the
+     Settings stacked-page: Settings fully covers the app while open (see
+     render()'s settingsOpen branch), so a toggle buried in there can never
+     be checked against the live page it affects. This panel renders
+     unconditionally on every render() call (see renderDevPanel(), called
+     first thing in render()) and lives outside .shell entirely, so it
+     stays on screen — and stays open, see devPanelOpen in
+     02-storage-state.js — no matter what view is showing underneath.
+     Desktop-only on purpose (see the media query below): there's no room
+     for a fixed left-edge strip on a narrow or touch screen, and this is a
+     Claude Code development aid, not a real end-user feature. */
+  .devpanel{
+    position:fixed; top:50%; left:0; transform:translateY(-50%);
+    display:flex; align-items:stretch; z-index:200;
+  }
+  .devpaneltab{
+    writing-mode: vertical-rl; text-orientation: mixed;
+    font-family:'IBM Plex Mono', monospace; font-size:0.66rem; letter-spacing:0.08em;
+    text-transform:uppercase; color: var(--brass-light); background: var(--desk-dark);
+    border:1px solid var(--brass); border-left:none; border-radius:0 8px 8px 0;
+    padding:14px 6px; cursor:pointer;
+  }
+  .devpaneltab:hover{ color:white; }
+  .devpanelbody{
+    width:0; max-height:80vh; overflow:hidden; opacity:0;
+    background: var(--card-bg); border:1px solid transparent; border-left:none;
+    border-radius:0 8px 8px 0; transition: width .15s ease, opacity .15s ease;
+  }
+  /* .open is toggled only by toggleDevPanel() — never by renderDevPanel(),
+     which only replaces #devPanelBody's innerHTML. That split is what lets
+     flipping a checkbox re-render the panel's contents without ever
+     touching this class, so the panel can't auto-collapse on a change. */
+  .devpanel.open .devpanelbody{
+    width:210px; opacity:1; overflow-y:auto; padding:14px 12px;
+    border-color: var(--brass);
+  }
+  .devpanellabel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--ink-soft); margin: 0 0 12px;
+  }
+  .devpanelfield{ margin-bottom:12px; }
+  .devpanelcaption{
+    display:block; font-family:'IBM Plex Mono', monospace; font-size:0.6rem;
+    letter-spacing:0.04em; text-transform:uppercase; color: var(--ink-soft); margin-bottom:4px;
+  }
+  .devpanelrow{
+    display:flex; align-items:flex-start; gap:6px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; line-height:1.35;
+    letter-spacing:0.02em; color: var(--ink-soft); margin-bottom:12px;
+  }
+  .devpanelrow input{ cursor:pointer; margin-top:2px; flex-shrink:0; }
+  .devpanelselect{
+    display:block; width:100%; font-family:'IBM Plex Mono', monospace; font-size:0.62rem;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px;
+    color: var(--ink); padding:4px;
+  }
+  @media (max-width:1250px), (pointer:coarse){
+    .devpanel{ display:none !important; }
   }
   /* Plain, semantic text output for the Claude-readable view — no
      decorative markup to strip, just a monospace block a page-reading

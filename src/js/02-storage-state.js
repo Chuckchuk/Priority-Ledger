@@ -31,6 +31,14 @@ let checklistReturnDay = null;
 let checklistPendingOpen = false; // showing the "all pending items" view for the active checklist category
 let expandedMonths = new Set();
 let settingsOpen = false;
+// Pure UI chrome for the floating dev panel (see renderDevPanel()/
+// toggleDevPanel() in 01-categories-theme.js) — deliberately NOT reset by
+// switchTab()/toggleSettings()/Esc the way settingsOpen/claudeView are.
+// The whole point of the panel is that it stays open while you navigate
+// around the app checking a toggle's effect, so only an explicit click on
+// its own tab (toggleDevPanel()) may change this. Never persisted —
+// always starts closed on a fresh load, and signOut() resets it.
+let devPanelOpen = false;
 let claudeView = null; // null | 'digest' | 'full' — a plain-text view meant for a page-reading agent, not a category/day view
 let pendingDeleteCategoryId = null;
 let session = null; // { access_token, refresh_token, expires_at, user_id, email }

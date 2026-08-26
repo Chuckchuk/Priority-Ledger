@@ -92,40 +92,6 @@ function renderSettings(){
     <button class="resetthemebtn" onclick="openClaudeView('digest')">Open Claude-readable view</button>
   `;
 
-  // EXPERIMENTAL — see defaultDevSettings() above. Kept in its own
-  // <details> specifically so it's obscured by default rather than
-  // sitting in the main settings flow.
-  const dev = state.devSettings || defaultDevSettings();
-  const devSection = `
-    <details class="devsettings">
-      <summary>Dev Settings</summary>
-      <label class="catlocchk" style="margin-bottom:10px;">
-        <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
-        Page tag: seam shadow (tip reads as receding behind the label)
-      </label>
-      <label class="catlocchk" style="margin-bottom:10px;">
-        <input type="checkbox" ${dev.tagOutline?'checked':''} onchange="toggleDevSetting('tagOutline', this.checked)">
-        Page tag: full outline
-      </label>
-      <label class="catlocchk" style="margin-bottom:10px;">
-        Pending-items tag style
-        <select onchange="setDevPendingTagStyle(this.value)">
-          <option value="default" ${dev.pendingTagStyle==='default'?'selected':''}>Default (small page tag)</option>
-          <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Redder, jets out further</option>
-          <option value="sidebar" ${dev.pendingTagStyle==='sidebar'?'selected':''}>Vertical sidebar strip</option>
-        </select>
-      </label>
-      <label class="catlocchk" style="margin-bottom:10px;">
-        <input type="checkbox" ${dev.showListDates?'checked':''} onchange="toggleDevSetting('showListDates', this.checked)">
-        Show a faded created-date next to each checklist's title
-      </label>
-      <label class="catlocchk" style="margin-bottom:10px;">
-        <input type="checkbox" ${dev.dayTreeCatBubble?'checked':''} onchange="toggleDevSetting('dayTreeCatBubble', this.checked)">
-        "Add to day" tree: pill-shaped category bubbles (like the tab bar)
-      </label>
-    </details>
-  `;
-
   el.innerHTML = `
     <div class="stackedpage">
       ${pageTagHtml('toggleSettings()', 'Done')}
@@ -143,7 +109,6 @@ function renderSettings(){
       ${taskFieldsSection}
       ${appearanceSection}
       ${claudeSection}
-      ${devSection}
     </div>
   `;
 }
