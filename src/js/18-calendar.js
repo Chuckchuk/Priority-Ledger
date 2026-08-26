@@ -177,11 +177,14 @@ function closeDailyCalendar(){
 // already false, e.g. reached via the category-tab path instead) and
 // switches to 'daily' — both hosts land on the exact same day-detail
 // page this way, which is what "opens up the Page for the Daily" asked
-// for either way you got here.
+// for either way you got here. openDay(dateStr, true) marks the day as
+// reached from the calendar (see dayReturnToCalendar in
+// 02-storage-state.js) so its own back tag — and Esc — return to the
+// calendar instead of the plain day list.
 async function openCalendarDay(dateStr){
   if(!state.days.includes(dateStr)) pushUndo('Added a day');
   await ensureDay(dateStr);
   dailyCalendarOpen = false;
   switchTab('daily');
-  openDay(dateStr);
+  openDay(dateStr, true);
 }

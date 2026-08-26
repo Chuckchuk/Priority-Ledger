@@ -20,6 +20,16 @@ let activeTab = 'all';
 let showDone = false;
 let urgentDraft = false;
 let selectedDay = null;
+// True when the currently-open day (selectedDay) was reached via a
+// calendar date click (openCalendarDay() in 18-calendar.js) rather than
+// the plain day list or "+ Add a Day" — lets the day-detail page's own
+// back tag (and Esc) return to the calendar view it came from instead of
+// always landing on "All Days". Same idiom as checklistReturnDay just
+// below (a boolean here rather than a stored date, since there's only
+// one calendar view to return to, not a specific day). Threaded through
+// goToAdjacentDay()'s own openDay() call so browsing via the prev/next
+// arrows stays inside the same "came from the calendar" context.
+let dayReturnToCalendar = false;
 let selectedListId = null; // id of the checklist "list" (a task) currently drilled into, or null for the overview
 // Set only when a list was opened via openChecklistList's optional second
 // argument (currently just openChecklistListFromDay) — the dateStr of the

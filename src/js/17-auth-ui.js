@@ -65,6 +65,7 @@ function signOut(){
   selectedListId = null;
   checklistPendingOpen = false;
   dailyCalendarOpen = false;
+  dayReturnToCalendar = false;
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
   closeAllSettingsPopovers();
@@ -96,6 +97,7 @@ async function enterApp(){
   selectedListId = null;
   checklistPendingOpen = false;
   dailyCalendarOpen = false;
+  dayReturnToCalendar = false;
   document.getElementById('authShell').style.display = 'none';
   document.getElementById('appShell').style.display = '';
   const signOutRow = document.getElementById('signOutRow');

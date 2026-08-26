@@ -259,7 +259,7 @@ function renderDayDetail(dateStr){
 
   return `
     <div class="stackedpage">
-      ${pageTagHtml('closeDay()', 'All Days')}
+      ${pageTagHtml('closeDay()', dayReturnToCalendar ? 'Calendar' : 'All Days')}
       ${headerTag ? `<div class="dayherorow"><span class="dayhero ${headerTag.today?'today':''}">${headerTag.text}</span></div>` : ''}
       <div class="daydetailhead">
         <div class="daynav">

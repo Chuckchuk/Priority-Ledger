@@ -1853,6 +1853,16 @@ let activeTab = 'all';
 let showDone = false;
 let urgentDraft = false;
 let selectedDay = null;
+// True when the currently-open day (selectedDay) was reached via a
+// calendar date click (openCalendarDay() in 18-calendar.js) rather than
+// the plain day list or "+ Add a Day" — lets the day-detail page's own
+// back tag (and Esc) return to the calendar view it came from instead of
+// always landing on "All Days". Same idiom as checklistReturnDay just
+// below (a boolean here rather than a stored date, since there's only
+// one calendar view to return to, not a specific day). Threaded through
+// goToAdjacentDay()'s own openDay() call so browsing via the prev/next
+// arrows stays inside the same "came from the calendar" context.
+let dayReturnToCalendar = false;
 let selectedListId = null; // id of the checklist "list" (a task) currently drilled into, or null for the overview
 // Set only when a list was opened via openChecklistList's optional second
 // argument (currently just openChecklistListFromDay) — the dateStr of the
@@ -2376,6 +2386,7 @@ function afterStateRestore(){
   applyDevSettings();
   if(!visibleTabs().includes(activeTab)) activeTab = 'all';
   if(selectedDay && !state.days.includes(selectedDay)) selectedDay = null;
+  if(!selectedDay) dayReturnToCalendar = false;
   if(selectedListId && !state.tasks.some(t=>t.id===selectedListId)) selectedListId = null;
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
@@ -4273,8 +4284,28 @@ function resetDayAddPicker(){
   taskDetailId = null;
 }
 
-function openDay(dateStr){ selectedDay = dateStr; resetDayAddPicker(); render(); }
-function closeDay(){ selectedDay = null; resetDayAddPicker(); render(); }
+// `fromCalendar` is optional — only openCalendarDay() (and goToAdjacentDay(),
+// threading the already-open day's own value through) ever pass it.
+// Every other call site (the plain day-list row, "+ Add a Day", the date
+// picker) omits it, which resets dayReturnToCalendar to false even if an
+// earlier day had left it true, so "opened from the calendar" can never
+// leak into an unrelated later day the way checklistReturnDay guards
+// against the same thing for checklist lists.
+function openDay(dateStr, fromCalendar){
+  selectedDay = dateStr;
+  dayReturnToCalendar = !!fromCalendar;
+  resetDayAddPicker();
+  render();
+}
+function closeDay(){
+  selectedDay = null;
+  resetDayAddPicker();
+  if(dayReturnToCalendar){
+    dayReturnToCalendar = false;
+    dailyCalendarOpen = true;
+  }
+  render();
+}
 
 // Chronological, not state.days' own insertion order (state.days.unshift()
 // in ensureDay() means the array itself is newest-first) — "previous"/
@@ -4300,7 +4331,7 @@ function adjacentDayStr(dateStr, dir){
 function goToAdjacentDay(dir){
   const target = adjacentDayStr(selectedDay, dir);
   if(!target) return;
-  openDay(target);
+  openDay(target, dayReturnToCalendar);
 }
 
 function toggleMonthGroup(key){
@@ -4676,7 +4707,7 @@ function renderDayDetail(dateStr){
 
   return `
     <div class="stackedpage">
-      ${pageTagHtml('closeDay()', 'All Days')}
+      ${pageTagHtml('closeDay()', dayReturnToCalendar ? 'Calendar' : 'All Days')}
       ${headerTag ? `<div class="dayherorow"><span class="dayhero ${headerTag.today?'today':''}">${headerTag.text}</span></div>` : ''}
       <div class="daydetailhead">
         <div class="daynav">
@@ -5469,6 +5500,7 @@ function signOut(){
   selectedListId = null;
   checklistPendingOpen = false;
   dailyCalendarOpen = false;
+  dayReturnToCalendar = false;
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
   closeAllSettingsPopovers();
@@ -5500,6 +5532,7 @@ async function enterApp(){
   selectedListId = null;
   checklistPendingOpen = false;
   dailyCalendarOpen = false;
+  dayReturnToCalendar = false;
   document.getElementById('authShell').style.display = 'none';
   document.getElementById('appShell').style.display = '';
   const signOutRow = document.getElementById('signOutRow');
@@ -5708,20 +5741,26 @@ function closeDailyCalendar(){
 // already false, e.g. reached via the category-tab path instead) and
 // switches to 'daily' — both hosts land on the exact same day-detail
 // page this way, which is what "opens up the Page for the Daily" asked
-// for either way you got here.
+// for either way you got here. openDay(dateStr, true) marks the day as
+// reached from the calendar (see dayReturnToCalendar in
+// 02-storage-state.js) so its own back tag — and Esc — return to the
+// calendar instead of the plain day list.
 async function openCalendarDay(dateStr){
   if(!state.days.includes(dateStr)) pushUndo('Added a day');
   await ensureDay(dateStr);
   dailyCalendarOpen = false;
   switchTab('daily');
-  openDay(dateStr);
+  openDay(dateStr, true);
 }
 // Esc: close whatever's most local first — a Settings popover (a
 // category's color/icon picker incl. its own custom-wheel sub-view, UI
 // Colors, Desk & Ledger, or a theme swatch's wheel — see
 // closeAllSettingsPopovers() in 09-settings.js) beats the Settings panel
-// itself beats a task's expanded detail, and only falls back to jumping
-// to the All tab if none of those was open. Enter does the same one
+// itself beats a task's expanded detail beats an open day (closeDay(),
+// which returns to the calendar instead of the plain day list when the
+// day was reached that way — see dayReturnToCalendar in
+// 02-storage-state.js) beats the calendar view itself, and only falls
+// back to jumping to the All tab if none of those was open. Enter does the same one
 // thing Esc does for a popover specifically (closes it) — checked before
 // the inField guard below, since the wheel's own hex field is itself a
 // text input and needs Enter to reach here too; its own onkeydown
@@ -5744,6 +5783,8 @@ document.addEventListener('keydown', (e) => {
     if(checklistPendingOpen){ closeChecklistPending(); return; }
     if(selectedListId){ closeChecklistList(); return; }
     if(taskDetailId){ closeTaskDetail(); return; }
+    if(selectedDay){ closeDay(); return; }
+    if(dailyCalendarOpen){ closeDailyCalendar(); return; }
     const openExpand = document.querySelector('.expand.open');
     if(openExpand){
       expandedTaskIds.delete(openExpand.id.replace('exp-', ''));

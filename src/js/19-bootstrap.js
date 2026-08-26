@@ -2,8 +2,11 @@
 // category's color/icon picker incl. its own custom-wheel sub-view, UI
 // Colors, Desk & Ledger, or a theme swatch's wheel — see
 // closeAllSettingsPopovers() in 09-settings.js) beats the Settings panel
-// itself beats a task's expanded detail, and only falls back to jumping
-// to the All tab if none of those was open. Enter does the same one
+// itself beats a task's expanded detail beats an open day (closeDay(),
+// which returns to the calendar instead of the plain day list when the
+// day was reached that way — see dayReturnToCalendar in
+// 02-storage-state.js) beats the calendar view itself, and only falls
+// back to jumping to the All tab if none of those was open. Enter does the same one
 // thing Esc does for a popover specifically (closes it) — checked before
 // the inField guard below, since the wheel's own hex field is itself a
 // text input and needs Enter to reach here too; its own onkeydown
@@ -26,6 +29,8 @@ document.addEventListener('keydown', (e) => {
     if(checklistPendingOpen){ closeChecklistPending(); return; }
     if(selectedListId){ closeChecklistList(); return; }
     if(taskDetailId){ closeTaskDetail(); return; }
+    if(selectedDay){ closeDay(); return; }
+    if(dailyCalendarOpen){ closeDailyCalendar(); return; }
     const openExpand = document.querySelector('.expand.open');
     if(openExpand){
       expandedTaskIds.delete(openExpand.id.replace('exp-', ''));

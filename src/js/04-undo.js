@@ -41,6 +41,7 @@ function afterStateRestore(){
   applyDevSettings();
   if(!visibleTabs().includes(activeTab)) activeTab = 'all';
   if(selectedDay && !state.days.includes(selectedDay)) selectedDay = null;
+  if(!selectedDay) dayReturnToCalendar = false;
   if(selectedListId && !state.tasks.some(t=>t.id===selectedListId)) selectedListId = null;
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;

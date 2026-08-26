@@ -162,8 +162,28 @@ function resetDayAddPicker(){
   taskDetailId = null;
 }
 
-function openDay(dateStr){ selectedDay = dateStr; resetDayAddPicker(); render(); }
-function closeDay(){ selectedDay = null; resetDayAddPicker(); render(); }
+// `fromCalendar` is optional — only openCalendarDay() (and goToAdjacentDay(),
+// threading the already-open day's own value through) ever pass it.
+// Every other call site (the plain day-list row, "+ Add a Day", the date
+// picker) omits it, which resets dayReturnToCalendar to false even if an
+// earlier day had left it true, so "opened from the calendar" can never
+// leak into an unrelated later day the way checklistReturnDay guards
+// against the same thing for checklist lists.
+function openDay(dateStr, fromCalendar){
+  selectedDay = dateStr;
+  dayReturnToCalendar = !!fromCalendar;
+  resetDayAddPicker();
+  render();
+}
+function closeDay(){
+  selectedDay = null;
+  resetDayAddPicker();
+  if(dayReturnToCalendar){
+    dayReturnToCalendar = false;
+    dailyCalendarOpen = true;
+  }
+  render();
+}
 
 // Chronological, not state.days' own insertion order (state.days.unshift()
 // in ensureDay() means the array itself is newest-first) — "previous"/
@@ -189,7 +209,7 @@ function adjacentDayStr(dateStr, dir){
 function goToAdjacentDay(dir){
   const target = adjacentDayStr(selectedDay, dir);
   if(!target) return;
-  openDay(target);
+  openDay(target, dayReturnToCalendar);
 }
 
 function toggleMonthGroup(key){
