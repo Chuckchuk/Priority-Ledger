@@ -41,7 +41,7 @@ function parseNaturalDate(raw){
   if(!str) return '';
   const today = new Date(todayStr()+'T00:00:00');
   if(str==='today') return todayStr();
-  if(str==='tomorrow') return addDaysToDateStr(todayStr(), 1);
+  if(str==='tomorrow' || str==='tmrw' || str==='tmr' || str==='tmrrw') return addDaysToDateStr(todayStr(), 1);
   if(str==='yesterday') return addDaysToDateStr(todayStr(), -1);
 
   for(let i=0;i<WEEKDAY_NAMES.length;i++){
@@ -117,7 +117,7 @@ function daysBetween(a, b){ return Math.round((new Date(b) - new Date(a)) / 8640
 // spec-guaranteed stable — that's what keeps 'default' mode a pure
 // reflection of array order with only the done/open split imposed on it.
 let sortMode = 'default';
-const SORT_MODE_LABELS = { default:'My Order', mixed:'Mixed', timeframe:'Timeframe', timestamp:'Oldest First', priority:'Priority', category:'Category' };
+const SORT_MODE_LABELS = { default:'My Order', mixed:'Mixed', timeframe:'Timeframe', newest:'Newest First', timestamp:'Oldest First', priority:'Priority', category:'Category' };
 const TIMEFRAME_ORDER = { urgent:0, today:1, short:2, medium:3, long:4, '':5 };
 
 function setSortMode(val){
@@ -131,6 +131,7 @@ function applySortMode(list){
     case 'mixed': return sortTasks(list);
     case 'timeframe': return list.slice().sort((a,b)=> doneLast(a,b) || (TIMEFRAME_ORDER[a.timeframe||''] - TIMEFRAME_ORDER[b.timeframe||'']));
     case 'timestamp': return list.slice().sort((a,b)=> doneLast(a,b) || (new Date(a.createdAt) - new Date(b.createdAt)));
+    case 'newest': return list.slice().sort((a,b)=> doneLast(a,b) || (new Date(b.createdAt) - new Date(a.createdAt)));
     case 'priority': return list.slice().sort((a,b)=> doneLast(a,b) || ((b.priority||0) - (a.priority||0)));
     case 'category': {
       const order = state.categories.map(c=>c.id);
@@ -140,7 +141,14 @@ function applySortMode(list){
   }
 }
 
-function sortModeOptionsHtml(){
-  return Object.entries(SORT_MODE_LABELS).map(([k,label])=>`<option value="${k}" ${sortMode===k?'selected':''}>${label}</option>`).join('');
+// `includeCategory` gates the "Category" option — meaningful only where a
+// list can mix multiple categories at once (the "All" tab, Daily's day
+// detail). Inside a single category tab every visible task already shares
+// that one category, so sorting "by category" is a silent no-op — omit
+// the option there rather than offer a sort that does nothing.
+function sortModeOptionsHtml(includeCategory){
+  return Object.entries(SORT_MODE_LABELS)
+    .filter(([k])=> includeCategory || k !== 'category')
+    .map(([k,label])=>`<option value="${k}" ${sortMode===k?'selected':''}>${label}</option>`).join('');
 }
 

@@ -152,6 +152,17 @@
        card's content, including a poking "pages" sheet. */
     z-index: 1;
   }
+  /* #appCard specifically (not the login screen's plain .card, which has
+     no tab bar above it and keeps the single dog-eared top-left corner)
+     squares off the top-right corner too. .tabs sits flush on top of this
+     card via its own margin-bottom:-1px, and .tabs's bottom-right corner
+     is already square (border-radius: 10px 10px 0 0) — leaving the card's
+     top-right at the base 10px rounded it away from that flat edge right
+     at the seam, reading as a gap/notch instead of one continuous shelf.
+     Matching it to the same 2px as the top-left keeps both top corners
+     reading as flush with the tab bar, while the two bottom corners (not
+     touching anything above) stay fully rounded. */
+  #appCard{ border-radius: 2px 2px 10px 10px; }
   /* "Textured" — a noise overlay (::before, inline SVG feTurbulence, no
      external asset) plus an inset box-shadow vignette that darkens toward
      the edges, so it reads as an aged/uneven page rather than a flat tint.
@@ -652,7 +663,7 @@
      unsupporting browsers just keep the --card-bg fallback above it,
      since an invalid declaration can't override the valid one before
      it) plus its own shadow, a thin border for definition, and
-     fully-rounded corners (vs. .card's single squared "dog-ear" corner)
+     fully-rounded corners (vs. .card's squared "dog-ear" top corner(s))
      is what sells it as a separate sheet rather than a re-skinned
      version of the same card. Not every view needs this — the plain
      Claude-digest view stays on .backbtn's plain text link instead;
@@ -1444,6 +1455,17 @@ let selectedListId = null; // id of the checklist "list" (a task) currently dril
 // unrelated later visit to the same checklist list.
 let checklistReturnDay = null;
 let checklistPendingOpen = false; // showing the "all pending items" view for the active checklist category
+// Which tasks' inline .expand rows are open — render() rebuilds every row's
+// markup from scratch on every mutation (see taskRowHtml), which would
+// otherwise silently collapse every *other* expanded task back to closed
+// the moment you acted on any one of them, since a plain DOM
+// classList.toggle() doesn't survive its element being torn down and
+// recreated. Tracking which ids are open here (independent of any single
+// task's own action) is what lets several stay expanded at once.
+// switchTab() clears this on an actual tab change (not a re-click of the
+// already-active tab, which can happen while closing an overlay) —
+// leaving a category is meant to reset every task in it back to collapsed.
+let expandedTaskIds = new Set();
 let expandedMonths = new Set();
 let settingsOpen = false;
 // Pure UI chrome for the floating dev panel (see renderDevPanel()/
@@ -1976,7 +1998,7 @@ function parseNaturalDate(raw){
   if(!str) return '';
   const today = new Date(todayStr()+'T00:00:00');
   if(str==='today') return todayStr();
-  if(str==='tomorrow') return addDaysToDateStr(todayStr(), 1);
+  if(str==='tomorrow' || str==='tmrw' || str==='tmr' || str==='tmrrw') return addDaysToDateStr(todayStr(), 1);
   if(str==='yesterday') return addDaysToDateStr(todayStr(), -1);
 
   for(let i=0;i<WEEKDAY_NAMES.length;i++){
@@ -2052,7 +2074,7 @@ function daysBetween(a, b){ return Math.round((new Date(b) - new Date(a)) / 8640
 // spec-guaranteed stable — that's what keeps 'default' mode a pure
 // reflection of array order with only the done/open split imposed on it.
 let sortMode = 'default';
-const SORT_MODE_LABELS = { default:'My Order', mixed:'Mixed', timeframe:'Timeframe', timestamp:'Oldest First', priority:'Priority', category:'Category' };
+const SORT_MODE_LABELS = { default:'My Order', mixed:'Mixed', timeframe:'Timeframe', newest:'Newest First', timestamp:'Oldest First', priority:'Priority', category:'Category' };
 const TIMEFRAME_ORDER = { urgent:0, today:1, short:2, medium:3, long:4, '':5 };
 
 function setSortMode(val){
@@ -2066,6 +2088,7 @@ function applySortMode(list){
     case 'mixed': return sortTasks(list);
     case 'timeframe': return list.slice().sort((a,b)=> doneLast(a,b) || (TIMEFRAME_ORDER[a.timeframe||''] - TIMEFRAME_ORDER[b.timeframe||'']));
     case 'timestamp': return list.slice().sort((a,b)=> doneLast(a,b) || (new Date(a.createdAt) - new Date(b.createdAt)));
+    case 'newest': return list.slice().sort((a,b)=> doneLast(a,b) || (new Date(b.createdAt) - new Date(a.createdAt)));
     case 'priority': return list.slice().sort((a,b)=> doneLast(a,b) || ((b.priority||0) - (a.priority||0)));
     case 'category': {
       const order = state.categories.map(c=>c.id);
@@ -2075,8 +2098,15 @@ function applySortMode(list){
   }
 }
 
-function sortModeOptionsHtml(){
-  return Object.entries(SORT_MODE_LABELS).map(([k,label])=>`<option value="${k}" ${sortMode===k?'selected':''}>${label}</option>`).join('');
+// `includeCategory` gates the "Category" option — meaningful only where a
+// list can mix multiple categories at once (the "All" tab, Daily's day
+// detail). Inside a single category tab every visible task already shares
+// that one category, so sorting "by category" is a silent no-op — omit
+// the option there rather than offer a sort that does nothing.
+function sortModeOptionsHtml(includeCategory){
+  return Object.entries(SORT_MODE_LABELS)
+    .filter(([k])=> includeCategory || k !== 'category')
+    .map(([k,label])=>`<option value="${k}" ${sortMode===k?'selected':''}>${label}</option>`).join('');
 }
 
 function visibleTabs(){
@@ -2506,7 +2536,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
       ` : ''}
     </div>
-    ${inDaily ? '' : `<div class="expand" id="exp-${t.id}">${taskExpandFieldsHtml(t, canRemoveHere)}</div>`}
+    ${inDaily ? '' : `<div class="expand ${expandedTaskIds.has(t.id)?'open':''}" id="exp-${t.id}">${taskExpandFieldsHtml(t, canRemoveHere)}</div>`}
   </li>`;
 }
 
@@ -2556,7 +2586,7 @@ function renderList(){
 
   document.getElementById('sortRow').innerHTML = `
     <label class="fieldlabel">SORT</label>
-    <select onchange="setSortMode(this.value)">${sortModeOptionsHtml()}</select>
+    <select onchange="setSortMode(this.value)">${sortModeOptionsHtml(activeTab==='all')}</select>
   `;
 
   const el = document.getElementById('taskList');
@@ -2678,6 +2708,11 @@ function switchTab(key){
   checklistReturnDay = null;
   claudeView = null;
   settingsOpen = false;
+  // Only an actual change of category counts as "leaving" it — re-clicking
+  // the tab you're already on (which still runs this whole function, to
+  // exit an open overlay per the note above) must not collapse tasks you
+  // have expanded right now in that same category.
+  if(key !== activeTab) expandedTaskIds = new Set();
   activeTab = key;
   // Device-local only (plain localStorage, not the synced storage adapter)
   // — which tab you're looking at isn't ledger data, so it doesn't belong
@@ -3767,7 +3802,7 @@ function renderDayDetail(dateStr){
       ${renderAddToDayPicker(dateStr)}
       <div class="sortrow">
         <label class="fieldlabel">SORT</label>
-        <select onchange="setSortMode(this.value)">${sortModeOptionsHtml()}</select>
+        <select onchange="setSortMode(this.value)">${sortModeOptionsHtml(true)}</select>
       </div>
       ${emptyMsg}
       ${mainListHtml}
@@ -4237,7 +4272,7 @@ function startEditSubtaskDate(el, taskId, subId){
   input.type = 'text';
   input.className = 'subdateedit';
   input.value = s.dueDate ? fmtDateShort(s.dueDate) : '';
-  input.placeholder = 'today, tomorrow, 9/1, tue…';
+  input.placeholder = 'today, tmrw, 9/1, tue…';
   el.replaceWith(input);
   input.focus();
   input.select();
@@ -4372,6 +4407,7 @@ async function updateDueDate(id, val){
 }
 
 function reopen(id){
+  expandedTaskIds.add(id);
   const exp = document.getElementById('exp-' + id);
   if(exp) exp.classList.add('open');
 }
@@ -4469,6 +4505,7 @@ async function deleteTask(id){
 }
 
 function toggleExpand(evt, id){
+  if(expandedTaskIds.has(id)) expandedTaskIds.delete(id); else expandedTaskIds.add(id);
   const exp = document.getElementById('exp-' + id);
   exp.classList.toggle('open');
 }
@@ -4538,6 +4575,7 @@ function signOut(){
   openCategoryPickerId = null;
   undoStack = [];
   redoStack = [];
+  expandedTaskIds = new Set();
   devPanelOpen = false;
   applyThemeObject(defaultTheme()); // login screen always shows the classic look
   document.getElementById('authEmail').value = '';
@@ -4558,6 +4596,7 @@ async function enterApp(){
   // undo into a different account's data, or across a page reload.
   undoStack = [];
   redoStack = [];
+  expandedTaskIds = new Set();
   claudeView = null;
   selectedListId = null;
   checklistPendingOpen = false;
@@ -4606,7 +4645,11 @@ document.addEventListener('keydown', (e) => {
     if(selectedListId){ closeChecklistList(); return; }
     if(taskDetailId){ closeTaskDetail(); return; }
     const openExpand = document.querySelector('.expand.open');
-    if(openExpand){ openExpand.classList.remove('open'); return; }
+    if(openExpand){
+      expandedTaskIds.delete(openExpand.id.replace('exp-', ''));
+      openExpand.classList.remove('open');
+      return;
+    }
     if(activeTab !== 'all'){ switchTab('all'); }
     return;
   }

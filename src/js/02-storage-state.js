@@ -29,6 +29,17 @@ let selectedListId = null; // id of the checklist "list" (a task) currently dril
 // unrelated later visit to the same checklist list.
 let checklistReturnDay = null;
 let checklistPendingOpen = false; // showing the "all pending items" view for the active checklist category
+// Which tasks' inline .expand rows are open — render() rebuilds every row's
+// markup from scratch on every mutation (see taskRowHtml), which would
+// otherwise silently collapse every *other* expanded task back to closed
+// the moment you acted on any one of them, since a plain DOM
+// classList.toggle() doesn't survive its element being torn down and
+// recreated. Tracking which ids are open here (independent of any single
+// task's own action) is what lets several stay expanded at once.
+// switchTab() clears this on an actual tab change (not a re-click of the
+// already-active tab, which can happen while closing an overlay) —
+// leaving a category is meant to reset every task in it back to collapsed.
+let expandedTaskIds = new Set();
 let expandedMonths = new Set();
 let settingsOpen = false;
 // Pure UI chrome for the floating dev panel (see renderDevPanel()/

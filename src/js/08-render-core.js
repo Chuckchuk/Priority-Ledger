@@ -130,7 +130,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
       ` : ''}
     </div>
-    ${inDaily ? '' : `<div class="expand" id="exp-${t.id}">${taskExpandFieldsHtml(t, canRemoveHere)}</div>`}
+    ${inDaily ? '' : `<div class="expand ${expandedTaskIds.has(t.id)?'open':''}" id="exp-${t.id}">${taskExpandFieldsHtml(t, canRemoveHere)}</div>`}
   </li>`;
 }
 
@@ -180,7 +180,7 @@ function renderList(){
 
   document.getElementById('sortRow').innerHTML = `
     <label class="fieldlabel">SORT</label>
-    <select onchange="setSortMode(this.value)">${sortModeOptionsHtml()}</select>
+    <select onchange="setSortMode(this.value)">${sortModeOptionsHtml(activeTab==='all')}</select>
   `;
 
   const el = document.getElementById('taskList');
@@ -302,6 +302,11 @@ function switchTab(key){
   checklistReturnDay = null;
   claudeView = null;
   settingsOpen = false;
+  // Only an actual change of category counts as "leaving" it — re-clicking
+  // the tab you're already on (which still runs this whole function, to
+  // exit an open overlay per the note above) must not collapse tasks you
+  // have expanded right now in that same category.
+  if(key !== activeTab) expandedTaskIds = new Set();
   activeTab = key;
   // Device-local only (plain localStorage, not the synced storage adapter)
   // — which tab you're looking at isn't ledger data, so it doesn't belong

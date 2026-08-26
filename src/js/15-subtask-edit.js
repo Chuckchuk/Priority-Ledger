@@ -39,7 +39,7 @@ function startEditSubtaskDate(el, taskId, subId){
   input.type = 'text';
   input.className = 'subdateedit';
   input.value = s.dueDate ? fmtDateShort(s.dueDate) : '';
-  input.placeholder = 'today, tomorrow, 9/1, tue…';
+  input.placeholder = 'today, tmrw, 9/1, tue…';
   el.replaceWith(input);
   input.focus();
   input.select();

@@ -14,7 +14,11 @@ document.addEventListener('keydown', (e) => {
     if(selectedListId){ closeChecklistList(); return; }
     if(taskDetailId){ closeTaskDetail(); return; }
     const openExpand = document.querySelector('.expand.open');
-    if(openExpand){ openExpand.classList.remove('open'); return; }
+    if(openExpand){
+      expandedTaskIds.delete(openExpand.id.replace('exp-', ''));
+      openExpand.classList.remove('open');
+      return;
+    }
     if(activeTab !== 'all'){ switchTab('all'); }
     return;
   }

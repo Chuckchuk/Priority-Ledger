@@ -75,6 +75,7 @@ async function updateDueDate(id, val){
 }
 
 function reopen(id){
+  expandedTaskIds.add(id);
   const exp = document.getElementById('exp-' + id);
   if(exp) exp.classList.add('open');
 }

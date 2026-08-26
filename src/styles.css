@@ -135,6 +135,17 @@
        card's content, including a poking "pages" sheet. */
     z-index: 1;
   }
+  /* #appCard specifically (not the login screen's plain .card, which has
+     no tab bar above it and keeps the single dog-eared top-left corner)
+     squares off the top-right corner too. .tabs sits flush on top of this
+     card via its own margin-bottom:-1px, and .tabs's bottom-right corner
+     is already square (border-radius: 10px 10px 0 0) — leaving the card's
+     top-right at the base 10px rounded it away from that flat edge right
+     at the seam, reading as a gap/notch instead of one continuous shelf.
+     Matching it to the same 2px as the top-left keeps both top corners
+     reading as flush with the tab bar, while the two bottom corners (not
+     touching anything above) stay fully rounded. */
+  #appCard{ border-radius: 2px 2px 10px 10px; }
   /* "Textured" — a noise overlay (::before, inline SVG feTurbulence, no
      external asset) plus an inset box-shadow vignette that darkens toward
      the edges, so it reads as an aged/uneven page rather than a flat tint.
@@ -635,7 +646,7 @@
      unsupporting browsers just keep the --card-bg fallback above it,
      since an invalid declaration can't override the valid one before
      it) plus its own shadow, a thin border for definition, and
-     fully-rounded corners (vs. .card's single squared "dog-ear" corner)
+     fully-rounded corners (vs. .card's squared "dog-ear" top corner(s))
      is what sells it as a separate sheet rather than a re-skinned
      version of the same card. Not every view needs this — the plain
      Claude-digest view stays on .backbtn's plain text link instead;

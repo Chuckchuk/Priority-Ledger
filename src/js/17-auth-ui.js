@@ -1,4 +1,5 @@
 function toggleExpand(evt, id){
+  if(expandedTaskIds.has(id)) expandedTaskIds.delete(id); else expandedTaskIds.add(id);
   const exp = document.getElementById('exp-' + id);
   exp.classList.toggle('open');
 }
@@ -68,6 +69,7 @@ function signOut(){
   openCategoryPickerId = null;
   undoStack = [];
   redoStack = [];
+  expandedTaskIds = new Set();
   devPanelOpen = false;
   applyThemeObject(defaultTheme()); // login screen always shows the classic look
   document.getElementById('authEmail').value = '';
@@ -88,6 +90,7 @@ async function enterApp(){
   // undo into a different account's data, or across a page reload.
   undoStack = [];
   redoStack = [];
+  expandedTaskIds = new Set();
   claudeView = null;
   selectedListId = null;
   checklistPendingOpen = false;

@@ -274,7 +274,7 @@ function renderDayDetail(dateStr){
       ${renderAddToDayPicker(dateStr)}
       <div class="sortrow">
         <label class="fieldlabel">SORT</label>
-        <select onchange="setSortMode(this.value)">${sortModeOptionsHtml()}</select>
+        <select onchange="setSortMode(this.value)">${sortModeOptionsHtml(true)}</select>
       </div>
       ${emptyMsg}
       ${mainListHtml}
