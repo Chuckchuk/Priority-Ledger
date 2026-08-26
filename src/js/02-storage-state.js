@@ -250,7 +250,16 @@ function defaultDevSettings(){
   // content. calendarTodayOrnate is a separate, independent toggle (like
   // tagSeam/tagOutline above) for a double-line border on today's cell,
   // not tied to any particular calendarCellStyle choice.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false };
+  // pageInsetPreset: how much leather cover shows around #appCard when
+  // "Leather" is on — 'classic' (the original amount) needs no CSS
+  // override (see :root's --leather-* vars in <style>); 'roomier',
+  // 'leftheavy' (per the project owner's own suggestion — more margin on
+  // the left than the right/bottom, and less on top than either), and
+  // 'slim' each swap in a smaller/differently-balanced set of those vars
+  // via body[data-page-inset="…"]. Independent of texture-grain/
+  // texture-pages/leather themselves — it only affects how big #appCard
+  // reads *within* the leather cover, not whether any of them are on.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, pageInsetPreset:'classic' };
 }
 
 function defaultState(){
@@ -306,6 +315,7 @@ function normalizeState(){
   if(typeof state.devSettings.calendarTabTypeEnabled !== 'boolean') state.devSettings.calendarTabTypeEnabled = false;
   if(typeof state.devSettings.calendarCellStyle !== 'string') state.devSettings.calendarCellStyle = 'ratio';
   if(typeof state.devSettings.calendarTodayOrnate !== 'boolean') state.devSettings.calendarTodayOrnate = false;
+  if(typeof state.devSettings.pageInsetPreset !== 'string') state.devSettings.pageInsetPreset = 'classic';
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)
