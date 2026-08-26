@@ -1,3 +1,9 @@
+<!--
+  GENERATED FILE — DO NOT EDIT DIRECTLY.
+  This is built from src/ by build.py. Any change made only here will be
+  silently overwritten by the next `python3 build.py` run. Edit the
+  matching file under src/ instead (see CLAUDE.md), then rebuild.
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,6 +21,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,340;0,9..144,500;0,9..144,600;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+/* GENERATED — edit src/styles.css, not this file. See CLAUDE.md. */
   :root{
     --desk:#28362E;
     --desk-dark:#1B2620;
@@ -1044,9 +1051,12 @@
   /* The "Add to this day" tree lives in its own visually distinct box —
      a filled, bordered panel — rather than sitting flush against the
      rest of the page, so it reads at a glance as a tool you've opened
-     rather than more of the day's own content. */
+     rather than more of the day's own content. Primary border + faint
+     primary tint match .dayaddtoggle (the .pullbtn that opens it) on
+     purpose — the panel should read as that same button's contents
+     unfolded, not an unrelated box that happens to appear underneath it. */
   .dayaddpanel{
-    margin-bottom:14px; background: var(--card-bg-dim); border:1px solid var(--line);
+    margin-bottom:14px; background: color-mix(in srgb, var(--primary) 8%, transparent); border:1px solid var(--primary);
     border-radius:10px; padding:10px 12px;
   }
   .dayaddhead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px; }
@@ -1587,6 +1597,7 @@
 </div>
 
 <script>
+// GENERATED — edit src/js/*.js, not this file. See CLAUDE.md.
 // Categories are per-user data (state.categories), not a fixed config, so
 // people can add/rename/remove their own tabs. CATEGORIES is a lookup index
 // rebuilt from state.categories on every load and mutation — kept as a
@@ -4808,7 +4819,7 @@ function dayTreeChecklistLeafHtml(t, dateStr){
 
 function renderAddToDayPicker(dateStr){
   if(!dayAddOpen){
-    return `<button class="pullbtn dayaddtoggle" onclick="toggleDayAdd()">+ Add to this day</button>`;
+    return `<button class="pullbtn dayaddtoggle" onclick="toggleDayAdd()">+ Add an existing task to this day</button>`;
   }
   const taskCatsHtml = standardCategoryEntries().map(([k,v])=>{
     const key = 'cat:'+k;

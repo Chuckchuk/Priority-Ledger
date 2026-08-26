@@ -1027,9 +1027,12 @@
   /* The "Add to this day" tree lives in its own visually distinct box —
      a filled, bordered panel — rather than sitting flush against the
      rest of the page, so it reads at a glance as a tool you've opened
-     rather than more of the day's own content. */
+     rather than more of the day's own content. Primary border + faint
+     primary tint match .dayaddtoggle (the .pullbtn that opens it) on
+     purpose — the panel should read as that same button's contents
+     unfolded, not an unrelated box that happens to appear underneath it. */
   .dayaddpanel{
-    margin-bottom:14px; background: var(--card-bg-dim); border:1px solid var(--line);
+    margin-bottom:14px; background: color-mix(in srgb, var(--primary) 8%, transparent); border:1px solid var(--primary);
     border-radius:10px; padding:10px 12px;
   }
   .dayaddhead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px; }

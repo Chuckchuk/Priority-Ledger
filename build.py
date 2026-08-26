@@ -44,11 +44,36 @@ JS_MODULES = [
 def read(path):
     return path.read_text()
 
+# Injected at the top of the file itself and again right at the start of
+# the <style> and <script> blocks, so the warning is visible whichever
+# section someone (or an agent) jumps to first — e.g. via grep landing
+# mid-file — not just to someone who reads from line 1. This file has been
+# hand-edited directly at least twice despite CLAUDE.md saying not to
+# (see the "Deployed HTML drift incident" — those edits were silently
+# clobbered by the next real build), so the warning lives in-file too.
+WARN_HTML = (
+    "<!--\n"
+    "  GENERATED FILE — DO NOT EDIT DIRECTLY.\n"
+    "  This is built from src/ by build.py. Any change made only here will be\n"
+    "  silently overwritten by the next `python3 build.py` run. Edit the\n"
+    "  matching file under src/ instead (see CLAUDE.md), then rebuild.\n"
+    "-->\n"
+)
+WARN_CSS = (
+    "/* GENERATED — edit src/styles.css, not this file. See CLAUDE.md. */\n"
+)
+WARN_JS = (
+    "// GENERATED — edit src/js/*.js, not this file. See CLAUDE.md.\n"
+)
+
 def main():
     parts = [
+        WARN_HTML,
         read(SRC / 'shell-head.html'),
+        WARN_CSS,
         read(SRC / 'styles.css'),
         read(SRC / 'shell-body.html'),
+        WARN_JS,
     ]
     for name in JS_MODULES:
         parts.append(read(SRC / 'js' / name))

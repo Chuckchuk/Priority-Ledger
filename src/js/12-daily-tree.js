@@ -91,7 +91,7 @@ function dayTreeChecklistLeafHtml(t, dateStr){
 
 function renderAddToDayPicker(dateStr){
   if(!dayAddOpen){
-    return `<button class="pullbtn dayaddtoggle" onclick="toggleDayAdd()">+ Add to this day</button>`;
+    return `<button class="pullbtn dayaddtoggle" onclick="toggleDayAdd()">+ Add an existing task to this day</button>`;
   }
   const taskCatsHtml = standardCategoryEntries().map(([k,v])=>{
     const key = 'cat:'+k;
