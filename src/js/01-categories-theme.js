@@ -225,6 +225,10 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
   const dev = state.devSettings || defaultDevSettings();
   return `
     <label class="${rowClass}">
+      <input type="checkbox" ${dev.sidePanelEnabled?'checked':''} onchange="toggleDevSetting('sidePanelEnabled', this.checked)">
+      Show the floating dev panel (left edge, desktop only)
+    </label>
+    <label class="${rowClass}">
       <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
       Page tag: seam shadow (tip reads as receding behind the label)
     </label>
@@ -247,10 +251,6 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
     <label class="${rowClass}">
       <input type="checkbox" ${dev.dayTreeCatBubble?'checked':''} onchange="toggleDevSetting('dayTreeCatBubble', this.checked)">
       "Add to day" tree: pill-shaped category bubbles (like the tab bar)
-    </label>
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.sidePanelEnabled?'checked':''} onchange="toggleDevSetting('sidePanelEnabled', this.checked)">
-      Show the floating dev panel (left edge, desktop only)
     </label>
   `;
 }

@@ -106,7 +106,7 @@
      here anymore. Sized a touch larger than the old 7px circle (which
      had no readability requirement of its own) so a star/flag/etc. glyph
      is actually legible at this scale. */
-  .tab .dot{ width:10px; height:10px; display:inline-flex; align-items:center; justify-content:center; font-size:0.62rem; line-height:1; }
+  .tab .dot{ width:11px; height:11px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; line-height:1; }
   .tab.active{ background: var(--card-bg); color: var(--ink); font-weight:500; }
   .tab .count{ opacity:0.6; font-size:0.65rem; }
   /* When tabs wrap to more than one row, only the bottom row was ever
@@ -402,7 +402,7 @@
      (not 0) keeps the visible band thin (~3px against the 18px
      .checkcircle) — inset:0 was the "way too thick" original version. */
   .progressring{ position:absolute; inset:5px; border-radius:50%; }
-  .cdot{ width:10px; height:10px; margin-top:5px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:0.62rem; line-height:1; }
+  .cdot{ width:13px; height:13px; margin-top:4px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:0.86rem; line-height:1; }
   .title{ flex:1; font-size:0.97rem; line-height:1.4; }
   .title.done{ text-decoration: line-through; color: var(--ink-soft); }
   /* EXPERIMENTAL — Settings → Dev Settings. Always rendered by
@@ -816,7 +816,7 @@
   }
   .daytreelabel:hover{ background:var(--card-bg); }
   .daytreetriangle{ display:inline-block; width:12px; color:var(--ink-soft); }
-  .daytreecat .dot{ width:10px; height:10px; display:inline-flex; align-items:center; justify-content:center; margin-right:7px; font-size:0.62rem; line-height:1; }
+  .daytreecat .dot{ width:13px; height:13px; display:inline-flex; align-items:center; justify-content:center; margin-right:7px; font-size:0.86rem; line-height:1; }
   /* EXPERIMENTAL — Settings → Dev Settings. Off by default: a category
      header is plain text next to its triangle/dot. On: it becomes a
      rounded pill echoing .tab's own look (mono/uppercase, its own
@@ -912,6 +912,19 @@
      also has to apply wherever devSettingsFieldsHtml() is called from the
      floating side panel's own narrower rows. */
   .devsettingsrow{ margin-bottom:10px; }
+  /* The <details class="devsettings"> wrapper itself and its <summary> —
+     dropped by accident when this block got repurposed for the floating
+     panel's own CSS while the section briefly lived only in that panel;
+     restored now that it's back in Settings too. Without these the
+     <summary> falls back to browser-default styling (serif, larger,
+     no top margin), which is exactly why it suddenly looked like a
+     different font at a different size sitting right on top of the
+     button above it. */
+  .devsettings{ margin-top:18px; border-top:1px dashed var(--line); padding-top:10px; }
+  .devsettings summary{
+    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--ink-soft); cursor:pointer; margin-bottom:10px;
+  }
   /* The color/icon popover anchors to this one row's dot specifically
      (not the row as a whole), so it needs its own positioning context —
      .catrow itself can't be it, since with flex-wrap the popover would
