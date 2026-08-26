@@ -250,16 +250,28 @@ function defaultDevSettings(){
   // content. calendarTodayOrnate is a separate, independent toggle (like
   // tagSeam/tagOutline above) for a double-line border on today's cell,
   // not tied to any particular calendarCellStyle choice.
-  // pageInsetPreset: how much leather cover shows around #appCard when
+  // leatherInsetPreset: how much leather cover shows around #appCard when
   // "Leather" is on — 'classic' (the original amount) needs no CSS
   // override (see :root's --leather-* vars in <style>); 'roomier',
   // 'leftheavy' (per the project owner's own suggestion — more margin on
   // the left than the right/bottom, and less on top than either), and
   // 'slim' each swap in a smaller/differently-balanced set of those vars
-  // via body[data-page-inset="…"]. Independent of texture-grain/
+  // via body[data-leather-inset="…"]. Independent of texture-grain/
   // texture-pages/leather themselves — it only affects how big #appCard
   // reads *within* the leather cover, not whether any of them are on.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, pageInsetPreset:'classic' };
+  // Named leather- specifically (this field was briefly called
+  // pageInsetPreset) to stay unambiguous from stackedPageInsetPreset
+  // below, which is the unrelated *inner* drilldown pages (Settings,
+  // checklist detail, a day's own detail — .stackedpage), not this outer
+  // cover — "inner page" in conversation turned out to mean the latter.
+  // stackedPageInsetPreset: the .stackedpage analog of the above — how
+  // far a drilldown page's own edge sits from #appCard's edge (see the
+  // --stackpage-* vars in <style>). Same four preset names/meanings as
+  // leatherInsetPreset, and also fully independent of it — one governs
+  // the leather cover around the whole master view, the other governs
+  // stacked pages layered on top of that view; either, both, or neither
+  // can be non-classic at once.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic' };
 }
 
 function defaultState(){
@@ -315,7 +327,8 @@ function normalizeState(){
   if(typeof state.devSettings.calendarTabTypeEnabled !== 'boolean') state.devSettings.calendarTabTypeEnabled = false;
   if(typeof state.devSettings.calendarCellStyle !== 'string') state.devSettings.calendarCellStyle = 'ratio';
   if(typeof state.devSettings.calendarTodayOrnate !== 'boolean') state.devSettings.calendarTodayOrnate = false;
-  if(typeof state.devSettings.pageInsetPreset !== 'string') state.devSettings.pageInsetPreset = 'classic';
+  if(typeof state.devSettings.leatherInsetPreset !== 'string') state.devSettings.leatherInsetPreset = 'classic';
+  if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'classic';
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)

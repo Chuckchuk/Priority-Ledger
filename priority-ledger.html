@@ -65,13 +65,21 @@
     --misc:#5B6560;
     --line: rgba(42,35,24,0.16);
     /* EXPERIMENTAL — how much of the leather cover shows around #appCard
-       when "Leather" is on (Settings → Dev Settings → "Inner page size").
-       Longhand vars (not one padding shorthand) specifically so .bookmark
-       below can read --leather-pad-right on its own to keep itself
-       centered in whatever that margin ends up being, preset to preset.
-       "classic" is the default and lives here on :root with no attribute
-       needed; the other presets override these via body[data-page-inset]
-       right below the leathercover rules. */
+       when "Leather" is on (Settings → Dev Settings → "Leather cover
+       size"). Named leather-* specifically (not the more generic
+       "page-inset" this started as) to keep it unambiguous from
+       --stackpage-* below: this is the *outer* cover wrapping the whole
+       master category/Daily/etc. view, not the inner drilldown pages
+       (Settings, checklist detail, a day's own detail — .stackedpage)
+       that appear *on top of* that master view. "Inner page" in
+       conversation with the project owner turned out to mean the latter,
+       not this — see the .stackedpage bullet in CLAUDE.md if this comes
+       up again. Longhand vars (not one padding shorthand) specifically so
+       .bookmark below can read --leather-pad-right on its own to keep
+       itself centered in whatever that margin ends up being, preset to
+       preset. "classic" is the default and lives here on :root with no
+       attribute needed; the other presets override these via
+       body[data-leather-inset] right below the leathercover rules. */
     --leather-pad-top: 4px;
     --leather-pad-right: 18px;
     --leather-pad-bottom: 18px;
@@ -79,6 +87,26 @@
     --leather-radius: 2px 2px 18px 18px;
     --stitch-inset: 2px 8px 8px 8px;
     --stitch-radius: 1px 1px 12px 12px;
+    /* EXPERIMENTAL — the .stackedpage analog of --leather-* above: how far
+       a drilldown page's own edge sits from #appCard's edge (Settings →
+       Dev Settings → "Stacked-page size"). Longhand margins (not a
+       shorthand) so each side can move independently per preset — see
+       body[data-stackedpage-inset] right below .stackedpage's own rule.
+       These are negative because .stackedpage sits inside #appCard's own
+       22px/22px/14px padding (top/sides/bottom, see .card) and reclaims
+       some of it via negative margin rather than #appCard's padding
+       itself changing; "classic" reclaims a little, the other presets
+       reclaim more. Every preset here (including "slim") keeps
+       margin-left less negative than margin-right/-bottom on purpose —
+       .pagetag juts left out of .stackedpage's own edge (see .pagetag's
+       `left:-6px`), so the left side always keeps more room than the
+       others regardless of preset, rather than the tag risking spilling
+       past #appCard's own edge at the tighter ones. */
+    --stackpage-margin-top: -2px;
+    --stackpage-margin-right: -4px;
+    --stackpage-margin-bottom: 0px;
+    --stackpage-margin-left: -4px;
+    --stackpage-radius: 10px;
   }
   *{box-sizing:border-box;}
   body{
@@ -313,7 +341,7 @@
      overflow:hidden here either, same reasoning as .card — so a poking
      "Pages" sheet underneath isn't clipped by the cover around it.
      Padding/radius read from the --leather-* custom properties (see
-     :root, and the body[data-page-inset] overrides right below) rather
+     :root, and the body[data-leather-inset] overrides right below) rather
      than being hardcoded, so Dev Settings' "Inner page size" can swap
      between a few different insets without duplicating this whole rule
      per preset. The default ("classic") shape is small — 4px — on top
@@ -364,7 +392,7 @@
      as the corner overlapping the card underneath rather than wrapping
      it — tried once already at "slim" with the classic 18px radius, and
      the rounded leather corner visibly clipped past #appCard's own. */
-  body[data-page-inset="roomier"]{
+  body[data-leather-inset="roomier"]{
     --leather-pad-top: 3px;
     --leather-pad-right: 10px;
     --leather-pad-bottom: 10px;
@@ -373,7 +401,7 @@
     --stitch-inset: 1px 4px 4px 5px;
     --stitch-radius: 1px 1px 8px 8px;
   }
-  body[data-page-inset="leftheavy"]{
+  body[data-leather-inset="leftheavy"]{
     --leather-pad-top: 2px;
     --leather-pad-right: 8px;
     --leather-pad-bottom: 10px;
@@ -382,7 +410,7 @@
     --stitch-inset: 1px 3px 4px 9px;
     --stitch-radius: 1px 1px 7px 7px;
   }
-  body[data-page-inset="slim"]{
+  body[data-leather-inset="slim"]{
     --leather-pad-top: 2px;
     --leather-pad-right: 6px;
     --leather-pad-bottom: 7px;
@@ -829,7 +857,7 @@
   .stackedpage{
     background: var(--card-bg);
     background: color-mix(in srgb, var(--card-bg) 95%, white 5%);
-    border-radius: 10px;
+    border-radius: var(--stackpage-radius);
     border: 1px solid var(--line);
     box-shadow: 0 10px 22px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08);
     /* Extra padding-top reserves flow space for .pagetag below, which is
@@ -838,8 +866,36 @@
        the tag alone needs, so the header content below has some visible
        breathing room under the tag rather than butting right up against it. */
     padding: 54px 14px 10px;
-    margin: -2px -4px 0;
+    margin: var(--stackpage-margin-top) var(--stackpage-margin-right) var(--stackpage-margin-bottom) var(--stackpage-margin-left);
     position: relative;
+  }
+  /* EXPERIMENTAL — Dev Settings' "Stacked-page size" (state.devSettings.
+     stackedPageInsetPreset, applied via document.body.dataset.
+     stackedpageInset in applyDevSettings()). "classic" needs no override,
+     same as leatherInsetPreset above. --stackpage-radius shrinks with the
+     margins in each one for the same reason --leather-radius does: a
+     rounding noticeably bigger than the frame it's cut from reads as the
+     page's corner overlapping #appCard's rather than sitting inside it. */
+  body[data-stackedpage-inset="roomier"]{
+    --stackpage-margin-top: -14px;
+    --stackpage-margin-right: -14px;
+    --stackpage-margin-bottom: -6px;
+    --stackpage-margin-left: -12px;
+    --stackpage-radius: 8px;
+  }
+  body[data-stackedpage-inset="leftheavy"]{
+    --stackpage-margin-top: -19px;
+    --stackpage-margin-right: -16px;
+    --stackpage-margin-bottom: -8px;
+    --stackpage-margin-left: -8px;
+    --stackpage-radius: 5px;
+  }
+  body[data-stackedpage-inset="slim"]{
+    --stackpage-margin-top: -20px;
+    --stackpage-margin-right: -19px;
+    --stackpage-margin-bottom: -11px;
+    --stackpage-margin-left: -13px;
+    --stackpage-radius: 3px;
   }
   /* .pagetag: a flag/tag shape instead of .backbtn's plain text, to go
      with the "stacked page" look above — positioned to hang off the
@@ -1885,9 +1941,12 @@ function applyDevSettings(){
   // show/hide of markup that's always rendered the same way.
   document.body.classList.toggle('devtoday-ornate', !!d.calendarTodayOrnate);
   // Read by the --leather-* custom property overrides in <style> (see
-  // :root and the body[data-page-inset="…"] blocks) — 'classic' needs no
-  // matching selector since its values are the plain :root defaults.
-  document.body.dataset.pageInset = d.pageInsetPreset || 'classic';
+  // :root and the body[data-leather-inset="…"] blocks) — 'classic' needs
+  // no matching selector since its values are the plain :root defaults.
+  document.body.dataset.leatherInset = d.leatherInsetPreset || 'classic';
+  // Same idea for .stackedpage's own --stackpage-* vars — see the
+  // body[data-stackedpage-inset="…"] blocks in <style>.
+  document.body.dataset.stackedpageInset = d.stackedPageInsetPreset || 'classic';
   // The floating side panel (see renderDevPanel()/toggleDevPanel() below)
   // is itself gated behind a dev setting now, rather than always available
   // whenever the viewport is wide enough — sidePanelEnabled defaults to
@@ -1931,9 +1990,17 @@ async function setDevCalendarCellStyle(val){
   queueSave();
 }
 
-async function setDevPageInset(val){
-  pushUndo(`Changed dev inner page size to "${val}"`);
-  state.devSettings.pageInsetPreset = val;
+async function setDevLeatherInset(val){
+  pushUndo(`Changed dev leather cover size to "${val}"`);
+  state.devSettings.leatherInsetPreset = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevStackedPageInset(val){
+  pushUndo(`Changed dev stacked-page size to "${val}"`);
+  state.devSettings.stackedPageInsetPreset = val;
   applyDevSettings();
   render();
   queueSave();
@@ -2030,12 +2097,30 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
       Calendar: ornate (double-line) border on today's cell
     </label>
     <div class="${fieldClass}">
-      <span class="${captionClass}">Inner page size (Leather cover)</span>
-      <select class="${selectClass}" onchange="setDevPageInset(this.value)">
-        <option value="classic" ${dev.pageInsetPreset==='classic'?'selected':''}>Default</option>
-        <option value="roomier" ${dev.pageInsetPreset==='roomier'?'selected':''}>Roomier — thinner cover all around</option>
-        <option value="leftheavy" ${dev.pageInsetPreset==='leftheavy'?'selected':''}>Left-heavy — wide left margin, thin top</option>
-        <option value="slim" ${dev.pageInsetPreset==='slim'?'selected':''}>Slim — barely a lip of leather</option>
+      <span class="${captionClass}">Leather cover size</span>
+      <select class="${selectClass}" onchange="setDevLeatherInset(this.value)">
+        <option value="classic" ${dev.leatherInsetPreset==='classic'?'selected':''}>Default</option>
+        <option value="roomier" ${dev.leatherInsetPreset==='roomier'?'selected':''}>Roomier — thinner cover all around</option>
+        <option value="leftheavy" ${dev.leatherInsetPreset==='leftheavy'?'selected':''}>Left-heavy — wide left margin, thin top</option>
+        <option value="slim" ${dev.leatherInsetPreset==='slim'?'selected':''}>Slim — barely a lip of leather</option>
+      </select>
+    </div>
+    <!-- The .stackedpage analog of the leather-cover setting above — how
+         big a drilldown page (Settings, checklist detail, a day's own
+         detail, etc.) reads relative to #appCard, independent of whether
+         Leather itself is on. Same four preset names/meanings, same
+         "left gets more room than right/bottom, top gets least" idea for
+         leftheavy, deliberately keeping a left-side floor across every
+         preset (see the --stackpage-* comment in <style>) so .pagetag —
+         which juts left out of the page's own edge — always has room to
+         do that no matter how far a preset reclaims elsewhere. -->
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Stacked-page size (Settings, day/task detail, etc.)</span>
+      <select class="${selectClass}" onchange="setDevStackedPageInset(this.value)">
+        <option value="classic" ${dev.stackedPageInsetPreset==='classic'?'selected':''}>Default</option>
+        <option value="roomier" ${dev.stackedPageInsetPreset==='roomier'?'selected':''}>Roomier — thinner frame all around</option>
+        <option value="leftheavy" ${dev.stackedPageInsetPreset==='leftheavy'?'selected':''}>Left-heavy — wide left margin, thin top</option>
+        <option value="slim" ${dev.stackedPageInsetPreset==='slim'?'selected':''}>Slim — nearly flush with #appCard</option>
       </select>
     </div>
   `;
@@ -2310,16 +2395,28 @@ function defaultDevSettings(){
   // content. calendarTodayOrnate is a separate, independent toggle (like
   // tagSeam/tagOutline above) for a double-line border on today's cell,
   // not tied to any particular calendarCellStyle choice.
-  // pageInsetPreset: how much leather cover shows around #appCard when
+  // leatherInsetPreset: how much leather cover shows around #appCard when
   // "Leather" is on — 'classic' (the original amount) needs no CSS
   // override (see :root's --leather-* vars in <style>); 'roomier',
   // 'leftheavy' (per the project owner's own suggestion — more margin on
   // the left than the right/bottom, and less on top than either), and
   // 'slim' each swap in a smaller/differently-balanced set of those vars
-  // via body[data-page-inset="…"]. Independent of texture-grain/
+  // via body[data-leather-inset="…"]. Independent of texture-grain/
   // texture-pages/leather themselves — it only affects how big #appCard
   // reads *within* the leather cover, not whether any of them are on.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, pageInsetPreset:'classic' };
+  // Named leather- specifically (this field was briefly called
+  // pageInsetPreset) to stay unambiguous from stackedPageInsetPreset
+  // below, which is the unrelated *inner* drilldown pages (Settings,
+  // checklist detail, a day's own detail — .stackedpage), not this outer
+  // cover — "inner page" in conversation turned out to mean the latter.
+  // stackedPageInsetPreset: the .stackedpage analog of the above — how
+  // far a drilldown page's own edge sits from #appCard's edge (see the
+  // --stackpage-* vars in <style>). Same four preset names/meanings as
+  // leatherInsetPreset, and also fully independent of it — one governs
+  // the leather cover around the whole master view, the other governs
+  // stacked pages layered on top of that view; either, both, or neither
+  // can be non-classic at once.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic' };
 }
 
 function defaultState(){
@@ -2375,7 +2472,8 @@ function normalizeState(){
   if(typeof state.devSettings.calendarTabTypeEnabled !== 'boolean') state.devSettings.calendarTabTypeEnabled = false;
   if(typeof state.devSettings.calendarCellStyle !== 'string') state.devSettings.calendarCellStyle = 'ratio';
   if(typeof state.devSettings.calendarTodayOrnate !== 'boolean') state.devSettings.calendarTodayOrnate = false;
-  if(typeof state.devSettings.pageInsetPreset !== 'string') state.devSettings.pageInsetPreset = 'classic';
+  if(typeof state.devSettings.leatherInsetPreset !== 'string') state.devSettings.leatherInsetPreset = 'classic';
+  if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'classic';
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)

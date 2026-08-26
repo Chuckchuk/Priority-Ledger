@@ -285,9 +285,12 @@ function applyDevSettings(){
   // show/hide of markup that's always rendered the same way.
   document.body.classList.toggle('devtoday-ornate', !!d.calendarTodayOrnate);
   // Read by the --leather-* custom property overrides in <style> (see
-  // :root and the body[data-page-inset="…"] blocks) — 'classic' needs no
-  // matching selector since its values are the plain :root defaults.
-  document.body.dataset.pageInset = d.pageInsetPreset || 'classic';
+  // :root and the body[data-leather-inset="…"] blocks) — 'classic' needs
+  // no matching selector since its values are the plain :root defaults.
+  document.body.dataset.leatherInset = d.leatherInsetPreset || 'classic';
+  // Same idea for .stackedpage's own --stackpage-* vars — see the
+  // body[data-stackedpage-inset="…"] blocks in <style>.
+  document.body.dataset.stackedpageInset = d.stackedPageInsetPreset || 'classic';
   // The floating side panel (see renderDevPanel()/toggleDevPanel() below)
   // is itself gated behind a dev setting now, rather than always available
   // whenever the viewport is wide enough — sidePanelEnabled defaults to
@@ -331,9 +334,17 @@ async function setDevCalendarCellStyle(val){
   queueSave();
 }
 
-async function setDevPageInset(val){
-  pushUndo(`Changed dev inner page size to "${val}"`);
-  state.devSettings.pageInsetPreset = val;
+async function setDevLeatherInset(val){
+  pushUndo(`Changed dev leather cover size to "${val}"`);
+  state.devSettings.leatherInsetPreset = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevStackedPageInset(val){
+  pushUndo(`Changed dev stacked-page size to "${val}"`);
+  state.devSettings.stackedPageInsetPreset = val;
   applyDevSettings();
   render();
   queueSave();
@@ -430,12 +441,30 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
       Calendar: ornate (double-line) border on today's cell
     </label>
     <div class="${fieldClass}">
-      <span class="${captionClass}">Inner page size (Leather cover)</span>
-      <select class="${selectClass}" onchange="setDevPageInset(this.value)">
-        <option value="classic" ${dev.pageInsetPreset==='classic'?'selected':''}>Default</option>
-        <option value="roomier" ${dev.pageInsetPreset==='roomier'?'selected':''}>Roomier — thinner cover all around</option>
-        <option value="leftheavy" ${dev.pageInsetPreset==='leftheavy'?'selected':''}>Left-heavy — wide left margin, thin top</option>
-        <option value="slim" ${dev.pageInsetPreset==='slim'?'selected':''}>Slim — barely a lip of leather</option>
+      <span class="${captionClass}">Leather cover size</span>
+      <select class="${selectClass}" onchange="setDevLeatherInset(this.value)">
+        <option value="classic" ${dev.leatherInsetPreset==='classic'?'selected':''}>Default</option>
+        <option value="roomier" ${dev.leatherInsetPreset==='roomier'?'selected':''}>Roomier — thinner cover all around</option>
+        <option value="leftheavy" ${dev.leatherInsetPreset==='leftheavy'?'selected':''}>Left-heavy — wide left margin, thin top</option>
+        <option value="slim" ${dev.leatherInsetPreset==='slim'?'selected':''}>Slim — barely a lip of leather</option>
+      </select>
+    </div>
+    <!-- The .stackedpage analog of the leather-cover setting above — how
+         big a drilldown page (Settings, checklist detail, a day's own
+         detail, etc.) reads relative to #appCard, independent of whether
+         Leather itself is on. Same four preset names/meanings, same
+         "left gets more room than right/bottom, top gets least" idea for
+         leftheavy, deliberately keeping a left-side floor across every
+         preset (see the --stackpage-* comment in <style>) so .pagetag —
+         which juts left out of the page's own edge — always has room to
+         do that no matter how far a preset reclaims elsewhere. -->
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Stacked-page size (Settings, day/task detail, etc.)</span>
+      <select class="${selectClass}" onchange="setDevStackedPageInset(this.value)">
+        <option value="classic" ${dev.stackedPageInsetPreset==='classic'?'selected':''}>Default</option>
+        <option value="roomier" ${dev.stackedPageInsetPreset==='roomier'?'selected':''}>Roomier — thinner frame all around</option>
+        <option value="leftheavy" ${dev.stackedPageInsetPreset==='leftheavy'?'selected':''}>Left-heavy — wide left margin, thin top</option>
+        <option value="slim" ${dev.stackedPageInsetPreset==='slim'?'selected':''}>Slim — nearly flush with #appCard</option>
       </select>
     </div>
   `;
