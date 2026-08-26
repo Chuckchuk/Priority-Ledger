@@ -369,13 +369,20 @@ function toggleDevPanel(){
 // `fieldClass`/`captionClass`/`selectClass` let each host supply its own
 // styling (the side panel's narrow `.devpanel*` classes vs. Settings'
 // existing `.catlocchk`) without duplicating the markup or the values.
-function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
+// `includeSidePanelToggle` (default true) leaves out the "Show the
+// floating dev panel" checkbox for the panel itself — Settings is the
+// only place that field belongs, since unchecking it from inside the
+// panel it controls immediately hides the very checkbox you'd need to
+// turn it back on again, and was a real recurring mis-click.
+function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, includeSidePanelToggle){
   const dev = state.devSettings || defaultDevSettings();
-  return `
+  const sidePanelToggleHtml = includeSidePanelToggle === false ? '' : `
     <label class="${rowClass}">
       <input type="checkbox" ${dev.sidePanelEnabled?'checked':''} onchange="toggleDevSetting('sidePanelEnabled', this.checked)">
       Show the floating dev panel (left edge, desktop only)
-    </label>
+    </label>`;
+  return `
+    ${sidePanelToggleHtml}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
       Page tag: seam shadow (tip reads as receding behind the label)
@@ -482,7 +489,7 @@ function renderDevPanel(){
   if(!body) return;
   body.innerHTML = `
     <div class="devpanellabel">Dev Settings</div>
-    ${devSettingsFieldsHtml('devpanelrow', 'devpanelfield', 'devpanelcaption', 'devpanelselect')}
+    ${devSettingsFieldsHtml('devpanelrow', 'devpanelfield', 'devpanelcaption', 'devpanelselect', false)}
   `;
 }
 
