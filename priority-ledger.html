@@ -169,18 +169,34 @@
      ::before uses border-radius:inherit (not parent overflow:hidden) to
      stay clipped to the card's rounded corners — .card has no
      overflow:hidden, which is what leaves room for .texture-pages's
-     ::after to extend past the card's edges below. */
+     ::after to extend past the card's edges below.
+     z-index:5 (both here and pulling the vignette off the card's own
+     box-shadow and onto this same layer) is what makes the texture show
+     on every "stacked page" (Settings, checklist detail, Daily's day
+     detail, a task's own detail view) and not just the base category
+     view. Without it, this ::before paints as generated content in the
+     z-index:auto layer — i.e. *first*, since it's logically the card's
+     first child — so any later, opaque-background sibling like
+     .stackedpage (also z-index:auto, but later in DOM order) painted
+     right over it, and a plain box-shadow on #appCard itself is always
+     behind its own children regardless of z-index. Lifting this one
+     pseudo-element to a positive z-index moves it into the topmost
+     paint step, above every z-index:auto descendant no matter which
+     "page" is currently showing. pointer-events:none keeps it purely
+     visual either way. */
   #appCard.texture-grain::before{
     content:'';
     position:absolute; inset:0;
+    z-index: 5;
     border-radius: inherit;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     opacity: 0.16;
     mix-blend-mode: multiply;
+    box-shadow: inset 0 0 46px rgba(0,0,0,0.16);
     pointer-events: none;
   }
   #appCard.texture-grain{
-    box-shadow: 0 24px 55px rgba(0,0,0,0.4), inset 0 0 46px rgba(0,0,0,0.16);
+    box-shadow: 0 24px 55px rgba(0,0,0,0.4);
   }
   /* "Pages" — a single rotated sheet (::after) peeking out from behind the
      card at an angle, with its own two box-shadow layers suggesting a
@@ -245,14 +261,29 @@
      doesn't affect layout unless enabled. On: a leather-brown cover with
      its own noise texture (coarser/marbled vs. the paper grain's fine
      fractalNoise — leather and paper shouldn't look like the same
-     material) and a dashed inset border suggesting hand-stitching. No
+     material), a couple of soft radial patches suggesting an unevenly
+     worn hide rather than a flat gradient, a dashed inset border for
+     hand-stitching, and a ribbon bookmark (see .bookmark below). No
      overflow:hidden here either, same reasoning as .card — so a poking
-     "Pages" sheet underneath isn't clipped by the cover around it. */
+     "Pages" sheet underneath isn't clipped by the cover around it.
+     Padding/radius are asymmetric on purpose: only 4px of cover shows
+     above #appCard (vs 18px on the other three sides) and that top edge
+     stays nearly square (2px, matching #appCard's own top corners) rather
+     than the full 18px rounding — .tabs sits flush on top of whatever's
+     directly below it via its own margin-bottom:-1px, and a fully rounded
+     18px collar there put visibly rounded corners right under the
+     square-bottomed tab bar, reading as a gap at each corner instead of
+     one continuous surface. A thin, square-topped lip fixes that while
+     still reading as a cover wrapping the card, the same way #appCard
+     itself squares its own top corners to meet the tabs. */
   .leathercover{ position:relative; }
   .leathercover.leather-on{
-    border-radius: 18px;
-    padding: 18px;
-    background: linear-gradient(160deg, #6b4226 0%, #3d2716 100%);
+    border-radius: 2px 2px 18px 18px;
+    padding: 4px 18px 18px;
+    background:
+      radial-gradient(ellipse at 18% 12%, rgba(255,255,255,0.09), transparent 42%),
+      radial-gradient(ellipse at 88% 94%, rgba(0,0,0,0.28), transparent 55%),
+      linear-gradient(160deg, #6b4226 0%, #3d2716 100%);
     box-shadow:
       0 30px 60px rgba(0,0,0,0.5),
       inset 0 2px 3px rgba(255,255,255,0.10),
@@ -269,9 +300,34 @@
   }
   .leathercover.leather-on::after{
     content:'';
-    position:absolute; inset:8px;
-    border-radius: 12px;
+    position:absolute; inset: 2px 8px 8px 8px;
+    border-radius: 1px 1px 12px 12px;
     border: 1.5px dashed rgba(0,0,0,0.35);
+    pointer-events: none;
+  }
+  /* Ribbon bookmark — an actual element (not a third pseudo-element;
+     .leathercover's ::before/::after are already the noise and the
+     stitching border) tucked into the cover's right-hand margin, never
+     overlapping #appCard itself since that margin is otherwise empty
+     space. Sized/positioned only under .leather-on; the bare .bookmark
+     stays display:none the rest of the time so it's inert markup when
+     leather is off. Runs the full height of the cover plus a bit more
+     (calc(100% + 26px)) so the cut point hangs visibly past the bottom
+     edge, like a ribbon marking a page deeper in the book. The V-notch
+     is cut with fixed px offsets, not percentages, so its depth stays
+     constant regardless of how tall the cover ends up (a %-based notch
+     on an element this much taller than it is wide would carve a notch
+     many times deeper than the ribbon is wide). */
+  .bookmark{ display:none; }
+  .leathercover.leather-on .bookmark{
+    display:block;
+    position:absolute;
+    top:0; right:3px;
+    width:14px;
+    height:calc(100% + 26px);
+    background: linear-gradient(90deg, #7a2330, #9c3a44 45%, #6d1f2a);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), 50% 100%, 0 calc(100% - 16px));
     pointer-events: none;
   }
   .quickadd{ display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
@@ -1103,6 +1159,7 @@
   <div class="status-line" id="signOutRow" style="display:none;"><button class="signoutbtn" onclick="signOut()">Sign out (<span id="authEmailLabel"></span>)</button></div>
   <div class="tabs" id="tabs"></div>
   <div class="leathercover" id="leatherCover">
+    <div class="bookmark"></div>
     <div class="card" id="appCard">
       <div id="categoryView">
         <div class="quickadd">
