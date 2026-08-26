@@ -57,6 +57,24 @@ let pendingDeleteLocationId = null;
 // 01-categories-theme.js) is currently open, or null — only one open at a
 // time, same "single id, not a Set" pattern as pendingDeleteCategoryId.
 let openCategoryPickerId = null;
+// Whether the Appearance section's UI Colors (Primary/Secondary preset
+// pairs) popover is open — a single boolean, not a per-id map like
+// openCategoryPickerId, since there's only ever one of these in Settings.
+let uiColorPickerOpen = false;
+// The category color/icon popover's "Custom" sub-panel (a hue ring + a
+// saturation/value square, see catWheelPointerDown() in 09-settings.js) —
+// only meaningful while openCategoryPickerId names a category.
+// customColorDraft is deliberately NOT applied to state.categories while
+// dragging (see updateCatWheelUI() — it only touches specific DOM nodes
+// directly, never calls render()); confirmCustomColor() is the one place
+// that actually commits it via setCategoryColor(), on "Done" or Enter.
+let customColorOpen = false;
+let customColorDraft = { h:0, s:0, v:0 };
+// Set only while a pointer drag on the hue ring or the SV square is in
+// progress — {type:'hue'|'sv', rect}. See catWheelCancelDrag() for why
+// this (and the document-level listeners it implies) must be torn down
+// whenever the popover closes, not just on pointerup.
+let catWheelDragCtx = null;
 let session = null; // { access_token, refresh_token, expires_at, user_id, email }
 let localOnlyMode = false; // explicit opt-out of an account, chosen on the auth screen
 let authMode = 'signin';
@@ -193,7 +211,11 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 // its own state key and its own commit specifically so it's trivial to
 // rip out later without touching anything else.
 function defaultDevSettings(){
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'brass', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false };
+  // pendingTagColor:'theme' means "no override" — the real Secondary
+  // color (state.theme.uiPreset, see UI_COLOR_PRESETS in
+  // 01-categories-theme.js) shows through untouched. See the CSS comment
+  // on .pagetag.compact's base rule for how the override rules relate.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false };
 }
 
 function defaultState(){
@@ -236,12 +258,13 @@ function normalizeState(){
   if(typeof state.theme.grain !== 'boolean') state.theme.grain = false;
   if(typeof state.theme.pages !== 'boolean') state.theme.pages = false;
   if(typeof state.theme.leather !== 'boolean') state.theme.leather = false;
+  if(typeof state.theme.uiPreset !== 'string' || !UI_COLOR_PRESETS.some(p=>p.id===state.theme.uiPreset)) state.theme.uiPreset = 'classic';
   if(typeof state.advancedTaskFields !== 'boolean') state.advancedTaskFields = true;
   if(!state.devSettings) state.devSettings = defaultDevSettings();
   if(typeof state.devSettings.tagSeam !== 'boolean') state.devSettings.tagSeam = false;
   if(typeof state.devSettings.tagOutline !== 'boolean') state.devSettings.tagOutline = false;
   if(typeof state.devSettings.pendingTagStyle !== 'string') state.devSettings.pendingTagStyle = 'default';
-  if(typeof state.devSettings.pendingTagColor !== 'string') state.devSettings.pendingTagColor = 'brass';
+  if(typeof state.devSettings.pendingTagColor !== 'string') state.devSettings.pendingTagColor = 'theme';
   if(typeof state.devSettings.showListDates !== 'boolean') state.devSettings.showListDates = false;
   if(typeof state.devSettings.dayTreeCatBubble !== 'boolean') state.devSettings.dayTreeCatBubble = false;
   if(typeof state.devSettings.sidePanelEnabled !== 'boolean') state.devSettings.sidePanelEnabled = false;

@@ -67,6 +67,9 @@ function signOut(){
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
   openCategoryPickerId = null;
+  uiColorPickerOpen = false;
+  customColorOpen = false;
+  catWheelCancelDrag();
   undoStack = [];
   redoStack = [];
   expandedTaskIds = new Set();

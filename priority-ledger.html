@@ -28,8 +28,29 @@
     --card-bg-dim:#E7DDC5;
     --ink:#2A2318;
     --ink-soft:#7A6E58;
-    --brass:#A9782F;
-    --brass-light:#C99A4E;
+    /* --primary/--secondary are the "two-pair" general-UI accent colors
+       (Settings → Appearance → UI Colors, applyThemeObject() below reads
+       state.theme.uiPreset from UI_COLOR_PRESETS in 01-categories-theme.js
+       and overrides these at runtime) — the literal values here are just
+       the "classic" preset (identical to the app's original hardcoded
+       brass, which --primary fully replaces) so nothing looks different
+       before JS runs or for anyone who's never touched the setting.
+       --primary covers page tags, the workspace/location button, the
+       quick-add "+" button, selection/drag feedback, and general active-
+       state accents — essentially everywhere the app used to hardcode a
+       brass color. --secondary is for "needs your attention, tap to see
+       it" indicators — today that's only the pending-items tag (see
+       .pagetag.compact below), but any future indicator in that same
+       spirit (a badge you tap to reveal a backlog, not a status label)
+       should reach for --secondary too. Deliberately NOT extended to
+       .badge.overdue / .badge.priority-high (--estate, hardcoded rust) —
+       those are a fixed "danger" signal, not a themeable accent; recoloring
+       them to whatever a user picks as Secondary (which might not read as
+       urgent at all) would undermine that. */
+    --primary:#A9782F;
+    --primary-light:#C99A4E;
+    --secondary:#A9782F;
+    --secondary-light:#C99A4E;
     --family:#3C5A45;
     --projects:#3E4A6B;
     --estate:#9C4530;
@@ -67,7 +88,7 @@
   .locbadge{
     position:absolute; top:-6px; right: 0;
     width:52px; height:52px; border-radius:50%;
-    background: radial-gradient(circle at 35% 30%, var(--brass-light), var(--brass) 70%);
+    background: radial-gradient(circle at 35% 30%, var(--primary-light), var(--primary) 70%);
     color: var(--ink);
     font-family:'IBM Plex Mono', monospace;
     font-weight:500; font-size:0.68rem;
@@ -85,7 +106,7 @@
     cursor:pointer; border:none; transition: all .15s ease;
   }
   .settingsbtn:hover{ transform: scale(1.06); }
-  .settingsbtn.on{ background: var(--brass); color:white; }
+  .settingsbtn.on{ background: var(--primary); color:white; }
   .status-line{
     text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
     color: rgba(241,234,217,0.7); margin-bottom: 18px;
@@ -291,14 +312,14 @@
   }
   .flagbtn.on{ background: var(--estate); color:white; border-color: var(--estate); }
   /* The "add to today" pin reuses .flagbtn's box but its own accent
-     color when on — --brass rather than --estate, so it doesn't read as
+     color when on — --primary rather than --estate, so it doesn't read as
      an alert state sitting right next to the urgent flag. .small is the
      subtask-row version, sized down to sit comfortably next to .subtext. */
-  .daybtn.on{ background: var(--brass); color:white; border-color: var(--brass); }
+  .daybtn.on{ background: var(--primary); color:white; border-color: var(--primary); }
   .daybtn.small{ width:26px; height:26px; font-size:0.72rem; }
   .addbtn{
     width:34px; height:34px; border-radius:50%; border:none; flex-shrink:0;
-    background: radial-gradient(circle at 35% 30%, var(--brass-light), var(--brass) 70%);
+    background: radial-gradient(circle at 35% 30%, var(--primary-light), var(--primary) 70%);
     color: var(--ink); font-size:1.1rem; cursor:pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
   }
   .sortrow{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
@@ -309,9 +330,9 @@
   ul.tasks{ list-style:none; margin:0; padding:0; }
   li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
   li.task.dragging{ opacity:0.4; }
-  li.task.dragover{ border-top: 2px solid var(--brass); }
+  li.task.dragover{ border-top: 2px solid var(--primary); }
   .dropend{ height:16px; list-style:none; }
-  .dropend.dragover{ border-top: 2px solid var(--brass); }
+  .dropend.dragover{ border-top: 2px solid var(--primary); }
   .row{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
   /* Drag reordering is scoped to this small handle rather than the whole
      row — the row already has its own click-to-expand and a checkbox
@@ -437,7 +458,7 @@
   .badge.due{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
   .badge.timeframe{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
   .badge.priority-low{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
-  .badge.priority-medium{ background: var(--brass); color:white; }
+  .badge.priority-medium{ background: var(--primary); color:white; }
   .badge.priority-high{ background: var(--estate); color:white; }
   .expand{ margin: 10px 0 2px 28px; display:none; }
   .expand.open{ display:block; }
@@ -473,7 +494,7 @@
   .pendinggroup{ margin-bottom:16px; }
   .subrow{ display:flex; align-items:center; gap:8px; padding:3px 0; }
   .subrow.dragging{ opacity:0.4; }
-  .subrow.dragover{ border-top: 2px solid var(--brass); }
+  .subrow.dragover{ border-top: 2px solid var(--primary); }
   /* Once a checklist's own list is marked complete, every item in it
      reads as done too, whether or not that specific item was ever
      individually checked off — dims the whole row (checkbox included,
@@ -483,7 +504,7 @@
   .subrow.listdone{ opacity:0.5; }
   .subrow.listdone .subtext{ text-decoration: line-through; }
   .subdropend{ height:10px; }
-  .subdropend.dragover{ border-top: 2px solid var(--brass); }
+  .subdropend.dragover{ border-top: 2px solid var(--primary); }
   .draghandle.sub{ font-size:0.78rem; }
   .subcheck{
     width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
@@ -526,7 +547,7 @@
     font-size:0.78rem; cursor:pointer; border-radius:5px;
     background:none; border:1px solid var(--line); color: var(--ink-soft);
   }
-  .movetmrw:hover{ border-color: var(--brass); color: var(--brass); }
+  .movetmrw:hover{ border-color: var(--primary); color: var(--primary); }
   .dayremove:hover{ border-color: var(--estate); color: var(--estate); }
   .movetmrw:disabled{ opacity:0.35; cursor:default; }
   .movetmrw:disabled:hover{ border-color: var(--line); color: var(--ink-soft); }
@@ -599,8 +620,8 @@
   }
   .addday{
     width:100%; text-align:left; font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
-    letter-spacing:0.05em; padding:11px 14px; border-radius:8px; border:1px dashed var(--brass);
-    background: rgba(169,120,47,0.08); color: var(--brass); cursor:pointer; margin-bottom:16px;
+    letter-spacing:0.05em; padding:11px 14px; border-radius:8px; border:1px dashed var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent); color: var(--primary); cursor:pointer; margin-bottom:16px;
   }
   .adddayrow{ display:flex; gap:8px; margin-bottom:16px; }
   .adddayrow .addday{ flex:1; width:auto; margin-bottom:0; }
@@ -618,15 +639,15 @@
   }
   /* Large "which day is this" label centered atop a day's detail page —
      see dayHeaderTag() in <script>. Plain text for Yesterday/Tomorrow/a
-     weekday name; Today gets its own larger, brass-colored treatment so
+     weekday name; Today gets its own larger, Primary-colored treatment so
      it's unmistakable at a glance which day you're looking at, echoing
-     .todaytag's brass accent used for "today" everywhere else. */
+     .todaytag's Primary accent used for "today" everywhere else. */
   .dayherorow{ display:flex; justify-content:center; margin:2px 0 6px; }
   .dayhero{
     font-family:'Fraunces', serif; font-weight:600; font-size:1.15rem;
     color:var(--ink-soft); letter-spacing:0.02em;
   }
-  .dayhero.today{ font-size:1.9rem; font-weight:700; color:var(--brass); }
+  .dayhero.today{ font-size:1.9rem; font-weight:700; color:var(--primary); }
   .daylistlabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin: 4px 0 6px; }
   .dayitem{
     width:100%; display:flex; justify-content:space-between; align-items:center; text-align:left;
@@ -634,7 +655,7 @@
     font-family:'IBM Plex Sans',sans-serif; font-size:0.92rem; color:var(--ink);
   }
   .todaytag{
-    font-family:'IBM Plex Mono', monospace; font-size:0.58rem; text-transform:uppercase; background:var(--brass);
+    font-family:'IBM Plex Mono', monospace; font-size:0.58rem; text-transform:uppercase; background:var(--primary);
     color:white; padding:2px 6px; border-radius:4px; margin-left:8px; letter-spacing:0.04em;
   }
   .monthgroup{ margin-bottom:4px; }
@@ -706,10 +727,10 @@
   }
   .pagetagtip{
     position:absolute; left:-8px; top:50%; width:16px; height:16px; z-index:1;
-    background: var(--brass); border-radius:5px; transform: translateY(-50%) rotate(45deg);
+    background: var(--primary); border-radius:5px; transform: translateY(-50%) rotate(45deg);
   }
   .pagetaglabel{
-    position:relative; z-index:2; background: var(--brass); color:white;
+    position:relative; z-index:2; background: var(--primary); color:white;
     font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;
     padding:6px 14px 6px 18px; border-radius:0 9px 9px 0;
   }
@@ -724,6 +745,15 @@
   .pagetag.compact{ top:2px; }
   .pagetag.compact .pagetagtip{ width:13px; height:13px; left:-6.5px; }
   .pagetag.compact .pagetaglabel{ font-size:0.6rem; padding:5px 10px 5px 11px; }
+  /* The pending-items tag is the one place in the app that's Secondary-
+     colored by default, not Primary — see the --primary/--secondary note
+     in :root above. Every style variant below (jetout/sidebar/booktab/
+     cornerpeek) relies on this base rule rather than repeating its own
+     background, so they can't drift out of sync with each other; the
+     data-pending-tag-color dev overrides below win over this regardless,
+     since an attribute-selector rule always out-specifies this plain
+     two-class one. */
+  .pagetag.compact .pagetagtip, .pagetag.compact .pagetaglabel{ background: var(--secondary); }
   /* EXPERIMENTAL — Settings → Dev Settings (see defaultDevSettings() /
      applyDevSettings() in <script>). Two alternate looks for where the
      .pagetagtip meets .pagetaglabel, toggled independently so the
@@ -747,8 +777,6 @@
      here since it's just the normal .pagetag.compact look with nothing
      added. */
   body[data-pending-tag-style="jetout"] .pagetag.compact{ left:-18px; }
-  body[data-pending-tag-style="jetout"] .pagetag.compact .pagetagtip,
-  body[data-pending-tag-style="jetout"] .pagetag.compact .pagetaglabel{ background: var(--estate); }
   /* "sidebar": drops the diamond tip entirely and turns the label into
      a vertical strip running down from near the top of the card, text
      rotated to read top-to-bottom — a different affordance ("a strip
@@ -756,7 +784,6 @@
   body[data-pending-tag-style="sidebar"] .pagetag.compact{ top:40px; }
   body[data-pending-tag-style="sidebar"] .pagetag.compact .pagetagtip{ display:none; }
   body[data-pending-tag-style="sidebar"] .pagetag.compact .pagetaglabel{
-    background: var(--estate);
     writing-mode: vertical-rl;
     transform: rotate(180deg);
     padding: 14px 6px;
@@ -770,22 +797,19 @@
      to ride up into the tab row above rather than staying clear of it —
      real book/journal index tabs overlap each other in exactly this way,
      and there's more free vertical room to borrow from the tab row than
-     there is horizontal room past the card's edge. Uses `--brass` (the
-     same fill the default page tag and the tab bar's active pill already
-     use), not an off-palette accent, so the overlap reads as "part of
-     this app's existing tab language poking up," not a new decorative
-     idiom the rest of the app doesn't share. `top:-7px` (not deeper) is
-     tuned against the actual tab pill's own box: its label text bottoms
-     out ~168px from viewport top at this layout with ~11px of empty
-     padding below it before the pill's own bottom edge — -7px lands the
-     tag's top inside that empty padding band, so it still visibly rides
-     up into the pill but never covers any of its label text. Don't push
-     this deeper without re-measuring; the pill's text baseline is the
-     hard limit, not a number to eyeball. */
+     there is horizontal room past the card's edge. Fill comes from the
+     base .pagetag.compact rule above (--secondary) like every other
+     style variant — no background of its own here. `top:-7px` (not
+     deeper) is tuned against the actual tab pill's own box: its label
+     text bottoms out ~168px from viewport top at this layout with ~11px
+     of empty padding below it before the pill's own bottom edge — -7px
+     lands the tag's top inside that empty padding band, so it still
+     visibly rides up into the pill but never covers any of its label
+     text. Don't push this deeper without re-measuring; the pill's text
+     baseline is the hard limit, not a number to eyeball. */
   body[data-pending-tag-style="booktab"] .pagetag.compact{ top:-7px; left:-14px; right:auto; }
   body[data-pending-tag-style="booktab"] .pagetag.compact .pagetagtip{ display:none; }
   body[data-pending-tag-style="booktab"] .pagetag.compact .pagetaglabel{
-    background: var(--brass);
     border-radius: 8px 8px 8px 0;
     padding: 8px 14px 8px 12px;
     box-shadow: -2px 3px 8px rgba(0,0,0,0.3);
@@ -795,13 +819,12 @@
      does. No diamond tip at all — plain squared-off corners on the label
      itself (border-radius:0, overriding the base .pagetaglabel's rounded
      right corners) reads more like an actual index tab card than the
-     tip's pointed wedge does. Same `--brass` fill as booktab above (see
-     the pendingTagColor swatches below for other options), for the same
-     reason. */
+     tip's pointed wedge does. Same base-rule --secondary fill as booktab
+     above (see the pendingTagColor swatches below for override options),
+     for the same reason. */
   body[data-pending-tag-style="cornerpeek"] .pagetag.compact{ top:56px; left:-14px; right:auto; }
   body[data-pending-tag-style="cornerpeek"] .pagetag.compact .pagetagtip{ display:none; }
   body[data-pending-tag-style="cornerpeek"] .pagetag.compact .pagetaglabel{
-    background: var(--brass);
     border-radius: 0;
     padding: 9px 14px;
     box-shadow: -2px 3px 7px rgba(0,0,0,0.28);
@@ -813,22 +836,23 @@
      it only matters here, where the "cornerpeek" pending tag sits right
      in that gap and read as cramped against both neighbors without it. */
   #checklistView .quickadd{ margin-bottom: 22px; }
-  /* EXPERIMENTAL — pendingTagColor: a color swatch picker for the
-     pending-items tag, independent of which shape style above is active
-     (any style × any color). Exists because "default" leaves the
-     pending tag the same `--brass` as every .pagetag "back" tag
-     elsewhere in the app (Settings, checklist detail, Daily's day
-     detail…) — a forward-navigation trigger reading identically to a
-     back button is exactly the confusable case this is for. Placed
-     after every style block above and matched on `data-pending-tag-
-     color` alone (not chained to `data-pending-tag-style`) so it always
-     wins the cascade at equal specificity, regardless of which style
-     rule ran before it — see setDevPendingTagColor() in <script>.
-     "brass" still needs its own rule here despite being the palette's
-     existing default, since jetout/sidebar hardcode `--estate` — without
-     it those two styles couldn't actually be set back to brass. */
+  /* EXPERIMENTAL — pendingTagColor: a dev-only OVERRIDE on top of the
+     real Secondary color (Settings → Appearance → UI Colors), for
+     quickly A/B-testing a color regardless of whichever preset someone's
+     actually chosen. "theme" (the default — see defaultDevSettings() in
+     02-storage-state.js) means "no override," so the base
+     .pagetag.compact rule above (--secondary) shows through untouched;
+     it deliberately has no rule here for that reason. Every other option
+     is a fixed color, "brass" included — it now means "match Primary"
+     specifically (not literally brass), for whenever someone wants the
+     pending tag to blend back in with the rest of the UI regardless of
+     what Secondary is set to. Placed after every style block above and
+     matched on `data-pending-tag-color` alone (not chained to
+     `data-pending-tag-style`) so it always wins the cascade at equal
+     specificity, regardless of which style rule ran before it — see
+     setDevPendingTagColor() in <script>. */
   body[data-pending-tag-color="brass"] .pagetag.compact .pagetagtip,
-  body[data-pending-tag-color="brass"] .pagetag.compact .pagetaglabel{ background: var(--brass); }
+  body[data-pending-tag-color="brass"] .pagetag.compact .pagetaglabel{ background: var(--primary); }
   body[data-pending-tag-color="rust"] .pagetag.compact .pagetagtip,
   body[data-pending-tag-color="rust"] .pagetag.compact .pagetaglabel{ background: var(--estate); }
   body[data-pending-tag-color="forest"] .pagetag.compact .pagetagtip,
@@ -873,7 +897,7 @@
   .dayprogress{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); }
   .pullbtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em;
-    background:transparent; border:1px solid var(--brass); color:var(--brass); border-radius:5px; padding:7px 12px; cursor:pointer; flex-shrink:0;
+    background:transparent; border:1px solid var(--primary); color:var(--primary); border-radius:5px; padding:7px 12px; cursor:pointer; flex-shrink:0;
   }
   .dayaddtoggle{ width:100%; margin-bottom:14px; }
   /* The "Add to this day" tree lives in its own visually distinct box —
@@ -919,10 +943,10 @@
     background: var(--card-bg); border:1px solid var(--line); padding:6px 14px 6px 10px;
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em;
   }
-  body.devtreebubble .daytreecat:hover{ border-color: var(--brass); }
+  body.devtreebubble .daytreecat:hover{ border-color: var(--primary); }
   .daytreetaskrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:6px; position:relative; }
   .daytreetaskrow .daytreelabel{ flex:1; min-width:0; }
-  .daytreemark{ color:var(--brass); font-weight:700; flex-shrink:0; margin:0 2px; }
+  .daytreemark{ color:var(--primary); font-weight:700; flex-shrink:0; margin:0 2px; }
   .daytreechildren{ margin-left:16px; }
   .daytreeleaf{
     display:block; width:100%; text-align:left; background:none; border:none; color:var(--ink-soft);
@@ -935,7 +959,7 @@
     letter-spacing:0.03em; border:1px solid var(--line); padding:5px 8px; border-radius:4px; background:none; color:var(--ink-soft); cursor:pointer;
   }
   .daytreeleaf.whole:hover, .daytreeaddbtn:hover{ background:var(--card-bg); }
-  .daytreeleaf.whole.added, .daytreeaddbtn.added{ background:var(--brass); color:white; border-color:var(--brass); }
+  .daytreeleaf.whole.added, .daytreeaddbtn.added{ background:var(--primary); color:white; border-color:var(--primary); }
   .daytreeleafrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:6px; position:relative; }
   .daytreeleafrow .daytreeleaf{ flex:1; min-width:0; width:auto; }
   /* One-shot fade — plays once when a row is freshly rendered with this
@@ -955,7 +979,7 @@
      actual click target underneath. */
   .flashtoggle::after{
     content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
-    background: var(--brass); opacity:0.4;
+    background: var(--primary); opacity:0.4;
     animation: daytreeflash 700ms ease-out forwards;
   }
   @keyframes daytreeflash{ from{ opacity:0.4; } to{ opacity:0; } }
@@ -967,7 +991,7 @@
   .autherror{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; color: var(--estate); min-height:14px; margin-top:8px; }
   .authsubmit{
     width:100%; font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;
-    padding:12px 14px; border-radius:8px; border:none; background: var(--brass); color:white; cursor:pointer; margin-top:4px;
+    padding:12px 14px; border-radius:8px; border:none; background: var(--primary); color:white; cursor:pointer; margin-top:4px;
   }
   .signoutbtn{
     background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase;
@@ -1034,7 +1058,7 @@
   .catdotbtn:hover{ background: var(--card-bg-dim); }
   .catpicker{
     position:absolute; top:calc(100% + 6px); left:0; z-index:20;
-    width:188px; background: var(--card-bg); border:1px solid var(--line); border-radius:8px;
+    width:196px; background: var(--card-bg); border:1px solid var(--line); border-radius:8px;
     box-shadow: 0 6px 18px rgba(0,0,0,0.28); padding:12px; text-align:left;
   }
   .catpickerclose{
@@ -1051,16 +1075,102 @@
     box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
   }
   .catswatch.active{ border-color: var(--ink); }
-  .catswatchcustom{ position:relative; overflow:hidden; display:inline-block; }
-  .catswatchcustom input{
-    position:absolute; inset:0; opacity:0; cursor:pointer; border:none; padding:0; width:100%; height:100%;
+  /* A fixed little rainbow rather than a preview of the current color —
+     see the comment above customIsActive in categoryPickerHtml() for why
+     it reads its "active" state from that instead of ever changing its
+     own background. Opens the wheel sub-panel (customColorWheelHtml())
+     in place of this whole swatch row + icon row. */
+  .catswatchcustom{
+    background: conic-gradient(from 0deg, #e0442f, #e0c92f, #4fbf4f, #3fb6c9, #4a5fd6, #a13fc9, #e0442f);
   }
   .caticonrow{ display:flex; flex-wrap:wrap; gap:6px; }
   .caticonbtn{
     width:24px; height:24px; border-radius:6px; border:1px solid var(--line); background: var(--card-bg-dim);
     cursor:pointer; font-size:0.85rem; line-height:1; display:flex; align-items:center; justify-content:center;
   }
-  .caticonbtn.active{ border-color: var(--brass); background: var(--card-bg); box-shadow: 0 0 0 1px var(--brass); }
+  .caticonbtn.active{ border-color: var(--primary); background: var(--card-bg); box-shadow: 0 0 0 1px var(--primary); }
+  /* Custom color wheel (categoryPickerHtml()'s "Custom" swatch) — a hue
+     ring (CAT_WHEEL_SIZE/BAND/HOLE/RADIUS in 09-settings.js, kept in sync
+     with these literal pixel sizes) with a saturation/value square
+     inscribed in its hole. .catwheelsquarewrap is what actually creates
+     the "ring": it's an opaque circle sized to the hole, layered on top
+     of .catwheelring's own conic-gradient disc, so only a band around the
+     rim stays visible — no separate donut/mask needed. */
+  .catwheelback{
+    background:none; border:none; cursor:pointer; padding:0; margin-bottom:8px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.6rem; letter-spacing:0.04em; text-transform:uppercase;
+    color: var(--ink-soft);
+  }
+  .catwheelring{
+    position:relative; width:140px; height:140px; margin:0 auto 12px; border-radius:50%;
+    background: conic-gradient(hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%));
+    touch-action:none;
+  }
+  .catwheelknob{
+    position:absolute; width:14px; height:14px; margin:-7px; border-radius:50%;
+    background:white; border:2px solid var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.4); pointer-events:none;
+  }
+  .catwheelsquarewrap{
+    position:absolute; top:16px; left:16px; width:108px; height:108px;
+    border-radius:50%; overflow:hidden; background: var(--card-bg);
+  }
+  .catwheelsquare{
+    position:relative; width:100%; height:100%; touch-action:none;
+    /* Two layered gradients over the JS-set hue background-color: white
+       fading in from the left (desaturating toward the left edge) and
+       black fading in from the bottom (darkening toward the bottom edge)
+       — the standard SV-square recipe. */
+    background-image:
+      linear-gradient(to top, #000, transparent),
+      linear-gradient(to right, #fff, transparent);
+  }
+  .catwheelsvknob{
+    position:absolute; width:12px; height:12px; margin:-6px; border-radius:50%;
+    background:transparent; border:2px solid white; box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.4);
+    pointer-events:none;
+  }
+  .catcustomrow{ display:flex; align-items:center; gap:6px; }
+  .catcustomswatch{ width:22px; height:22px; border-radius:50%; flex-shrink:0; border:1px solid var(--line); }
+  .catcustomhex{
+    flex:1; min-width:0; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:5px 6px; color:var(--ink);
+    text-transform:uppercase;
+  }
+  .catcustomdone{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.03em;
+    background: var(--primary); color:white; border:none; border-radius:5px; padding:6px 10px; cursor:pointer; flex-shrink:0;
+  }
+  /* UI Colors (Settings → Appearance) — the trigger swatch and the
+     preset-pair grid inside its popover. Reuses .catpicker/
+     .catpickerclose/.catpickerlabel (see categoryPickerHtml() in
+     09-settings.js) for the popover's own chrome, same "small in-place
+     card" pattern, just with a grid of preset buttons instead of a color
+     row + icon row. */
+  .uicolorrow{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .uicolorwrap{ position:relative; display:inline-flex; }
+  .uicolorswatch{
+    width:26px; height:26px; border-radius:50%; padding:0; border:1px solid var(--line);
+    cursor:pointer; overflow:hidden; display:flex;
+  }
+  .uicolorhalf{ width:50%; height:100%; }
+  .uicolorlabel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
+    letter-spacing:0.03em; color: var(--ink-soft);
+  }
+  .uicolorpicker{ width:210px; }
+  .uipresetgrid{ display:flex; flex-direction:column; gap:6px; }
+  .uipresetbtn{
+    display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:6px;
+    padding:6px 8px; cursor:pointer;
+  }
+  .uipresetbtn.active{ border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+  .uipresetswatches{ display:flex; flex-shrink:0; width:22px; height:22px; border-radius:50%; overflow:hidden; }
+  .uipresetswatch{ width:50%; height:100%; }
+  .uipresetlabel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase;
+    letter-spacing:0.02em; color: var(--ink);
+  }
   .settingslabel{
     font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase;
     color: var(--ink-soft); margin: 18px 0 6px;
@@ -1081,10 +1191,10 @@
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:6px; padding:8px 12px;
     color: var(--ink-soft); cursor:pointer;
   }
-  .texturebtn.active{ background: var(--brass); border-color: var(--brass); color:white; }
+  .texturebtn.active{ background: var(--primary); border-color: var(--primary); color:white; }
   .resetthemebtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.04em;
-    background:transparent; border:1px dashed var(--brass); color:var(--brass); border-radius:6px;
+    background:transparent; border:1px dashed var(--primary); color:var(--primary); border-radius:6px;
     padding:8px 12px; cursor:pointer;
   }
   /* EXPERIMENTAL — see defaultDevSettings() in <script>. A floating panel
@@ -1106,8 +1216,8 @@
   .devpaneltab{
     writing-mode: vertical-rl; text-orientation: mixed;
     font-family:'IBM Plex Mono', monospace; font-size:0.66rem; letter-spacing:0.08em;
-    text-transform:uppercase; color: var(--brass-light); background: var(--desk-dark);
-    border:1px solid var(--brass); border-left:none; border-radius:0 8px 8px 0;
+    text-transform:uppercase; color: var(--primary-light); background: var(--desk-dark);
+    border:1px solid var(--primary); border-left:none; border-radius:0 8px 8px 0;
     padding:14px 6px; cursor:pointer;
   }
   .devpaneltab:hover{ color:white; }
@@ -1122,7 +1232,7 @@
      touching this class, so the panel can't auto-collapse on a change. */
   .devpanel.open .devpanelbody{
     width:210px; opacity:1; overflow-y:auto; padding:14px 12px;
-    border-color: var(--brass);
+    border-color: var(--primary);
   }
   .devpanellabel{
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.06em; text-transform:uppercase;
@@ -1345,8 +1455,41 @@ function defaultLocations(){
 // booleans, not a single exclusive choice — they're meant to layer (e.g.
 // textured AND pages together).
 function defaultTheme(){
-  return { bg:'#28362E', paper:'#F1EAD9', gradient:false, grain:false, pages:false, leather:false };
+  return { bg:'#28362E', paper:'#F1EAD9', gradient:false, grain:false, pages:false, leather:false, uiPreset:'classic' };
 }
+
+// "Primary" and "Secondary" (Settings → Appearance → UI Colors) are a
+// matched PAIR chosen from a fixed set of presets, not two independent
+// custom colors — see uiColorPickerHtml() in 09-settings.js for the
+// picker UI, styled like categoryPickerHtml()'s icon grid above.
+//   Primary covers everywhere the app used to hardcode "brass": page tags
+//   (the .pagetag "back" tag), the workspace/location button, the round
+//   quick-add "+" button, drag/selection feedback (including the
+//   .flashtoggle "added to today" flash), today's date highlight, and
+//   every other plain active/accent state.
+//   Secondary is for "something's outstanding, tap to see it" indicators
+//   — today that's only the checklist pending-items tag (.pagetag.compact),
+//   since it's the only element of that kind in the app right now. Any
+//   future indicator in the same spirit (a badge you tap to reveal a
+//   backlog, not a status label) should reach for --secondary too.
+//   Deliberately NOT extended to .badge.overdue / .badge.priority-high
+//   (fixed --estate red) — those are a hardcoded "danger" signal, not a
+//   themeable accent, and recoloring them to whatever someone picks as
+//   Secondary could stop reading as urgent at all.
+// 'classic' reproduces the app's original literal brass/brass for both
+// colors (byte-for-byte the old --brass/--brass-light hexes) so nothing
+// changes for anyone who's never opened this picker. Every other preset
+// is built from colors already used elsewhere in the app (the pre-dynamic
+// category accents / the pendingTagColor dev experiment's own choices)
+// rather than introducing new one-off hues.
+const UI_COLOR_PRESETS = [
+  { id:'classic',  label:'Classic',          primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+  { id:'rust',     label:'Brass & Rust',     primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#9C4530', secondaryLight:'#C3563C' },
+  { id:'forest',   label:'Forest & Brass',   primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+  { id:'slate',    label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
+  { id:'charcoal', label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' }
+];
+function uiColorPreset(id){ return UI_COLOR_PRESETS.find(p=>p.id===id) || UI_COLOR_PRESETS[0]; }
 
 function clamp255(n){ return Math.max(0, Math.min(255, n)); }
 
@@ -1365,6 +1508,40 @@ function shadeHex(hex, percent){
   const g = clamp255(Math.round(((num >> 8) & 0xFF) * factor));
   const b = clamp255(Math.round((num & 0xFF) * factor));
   return '#' + (0x1000000 + r*0x10000 + g*0x100 + b).toString(16).slice(1);
+}
+
+// HSV, not HSL, since that's the natural fit for a "ring picks hue,
+// square picks the rest" color wheel (see catWheelPointerDown() in
+// 09-settings.js) — value is what a top-to-bottom square axis naturally
+// means, and saturation a left-to-right one, matching how that control
+// actually works elsewhere (this app's shadeHex()/theme colors stay
+// plain hex, no HSV involved outside this one picker).
+function hsvToHex(h, s, v){
+  h = ((h % 360) + 360) % 360; s = Math.max(0, Math.min(1, s)); v = Math.max(0, Math.min(1, v));
+  const c = v*s, x = c*(1 - Math.abs((h/60) % 2 - 1)), m = v - c;
+  let r,g,b;
+  if(h < 60){ r=c; g=x; b=0; }
+  else if(h < 120){ r=x; g=c; b=0; }
+  else if(h < 180){ r=0; g=c; b=x; }
+  else if(h < 240){ r=0; g=x; b=c; }
+  else if(h < 300){ r=x; g=0; b=c; }
+  else { r=c; g=0; b=x; }
+  const R = Math.round((r+m)*255), G = Math.round((g+m)*255), B = Math.round((b+m)*255);
+  return '#' + [R,G,B].map(n=>n.toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+
+function hexToHsv(hex){
+  const num = parseInt(hex.replace('#',''), 16);
+  const r = ((num>>16)&0xFF)/255, g = ((num>>8)&0xFF)/255, b = (num&0xFF)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
+  let h = 0;
+  if(d !== 0){
+    if(max === r) h = 60 * (((g-b)/d) % 6);
+    else if(max === g) h = 60 * ((b-r)/d + 2);
+    else h = 60 * ((r-g)/d + 4);
+  }
+  if(h < 0) h += 360;
+  return { h, s: max===0 ? 0 : d/max, v: max };
 }
 
 function relLuminance(hex){
@@ -1386,6 +1563,11 @@ function applyThemeObject(t){
   root.setProperty('--desk-dark', t.gradient ? shadeHex(t.bg, -0.30) : t.bg);
   root.setProperty('--card-bg', t.paper);
   root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
+  const ui = uiColorPreset(t.uiPreset);
+  root.setProperty('--primary', ui.primary);
+  root.setProperty('--primary-light', ui.primaryLight);
+  root.setProperty('--secondary', ui.secondary);
+  root.setProperty('--secondary-light', ui.secondaryLight);
   const dark = relLuminance(t.paper) < 0.5;
   root.setProperty('--ink', dark ? '#F1EAD9' : '#2A2318');
   root.setProperty('--ink-soft', dark ? 'rgba(241,234,217,0.65)' : '#7A6E58');
@@ -1412,7 +1594,7 @@ function applyDevSettings(){
   document.body.classList.toggle('devtag-seam', !!d.tagSeam);
   document.body.classList.toggle('devtag-outline', !!d.tagOutline);
   document.body.dataset.pendingTagStyle = d.pendingTagStyle || 'default';
-  document.body.dataset.pendingTagColor = d.pendingTagColor || 'brass';
+  document.body.dataset.pendingTagColor = d.pendingTagColor || 'theme';
   document.body.classList.toggle('devlist-dates', !!d.showListDates);
   document.body.classList.toggle('devtreebubble', !!d.dayTreeCatBubble);
   // The floating side panel (see renderDevPanel()/toggleDevPanel() below)
@@ -1496,13 +1678,14 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
       </select>
     </div>
     <div class="${fieldClass}">
-      <span class="${captionClass}">Pending-items tag color</span>
+      <span class="${captionClass}">Pending-items tag color override</span>
       <select class="${selectClass}" onchange="setDevPendingTagColor(this.value)">
-        <option value="brass" ${dev.pendingTagColor==='brass'?'selected':''}>Brass (same as the back tag)</option>
-        <option value="rust" ${dev.pendingTagColor==='rust'?'selected':''}>Rust</option>
-        <option value="forest" ${dev.pendingTagColor==='forest'?'selected':''}>Forest green</option>
-        <option value="slate" ${dev.pendingTagColor==='slate'?'selected':''}>Slate blue</option>
-        <option value="charcoal" ${dev.pendingTagColor==='charcoal'?'selected':''}>Charcoal</option>
+        <option value="theme" ${dev.pendingTagColor==='theme'?'selected':''}>Default (use Secondary color)</option>
+        <option value="brass" ${dev.pendingTagColor==='brass'?'selected':''}>Force Primary</option>
+        <option value="rust" ${dev.pendingTagColor==='rust'?'selected':''}>Force rust</option>
+        <option value="forest" ${dev.pendingTagColor==='forest'?'selected':''}>Force forest green</option>
+        <option value="slate" ${dev.pendingTagColor==='slate'?'selected':''}>Force slate blue</option>
+        <option value="charcoal" ${dev.pendingTagColor==='charcoal'?'selected':''}>Force charcoal</option>
       </select>
     </div>
     <label class="${rowClass}">
@@ -1592,6 +1775,24 @@ let pendingDeleteLocationId = null;
 // 01-categories-theme.js) is currently open, or null — only one open at a
 // time, same "single id, not a Set" pattern as pendingDeleteCategoryId.
 let openCategoryPickerId = null;
+// Whether the Appearance section's UI Colors (Primary/Secondary preset
+// pairs) popover is open — a single boolean, not a per-id map like
+// openCategoryPickerId, since there's only ever one of these in Settings.
+let uiColorPickerOpen = false;
+// The category color/icon popover's "Custom" sub-panel (a hue ring + a
+// saturation/value square, see catWheelPointerDown() in 09-settings.js) —
+// only meaningful while openCategoryPickerId names a category.
+// customColorDraft is deliberately NOT applied to state.categories while
+// dragging (see updateCatWheelUI() — it only touches specific DOM nodes
+// directly, never calls render()); confirmCustomColor() is the one place
+// that actually commits it via setCategoryColor(), on "Done" or Enter.
+let customColorOpen = false;
+let customColorDraft = { h:0, s:0, v:0 };
+// Set only while a pointer drag on the hue ring or the SV square is in
+// progress — {type:'hue'|'sv', rect}. See catWheelCancelDrag() for why
+// this (and the document-level listeners it implies) must be torn down
+// whenever the popover closes, not just on pointerup.
+let catWheelDragCtx = null;
 let session = null; // { access_token, refresh_token, expires_at, user_id, email }
 let localOnlyMode = false; // explicit opt-out of an account, chosen on the auth screen
 let authMode = 'signin';
@@ -1728,7 +1929,11 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 // its own state key and its own commit specifically so it's trivial to
 // rip out later without touching anything else.
 function defaultDevSettings(){
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'brass', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false };
+  // pendingTagColor:'theme' means "no override" — the real Secondary
+  // color (state.theme.uiPreset, see UI_COLOR_PRESETS in
+  // 01-categories-theme.js) shows through untouched. See the CSS comment
+  // on .pagetag.compact's base rule for how the override rules relate.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false };
 }
 
 function defaultState(){
@@ -1771,12 +1976,13 @@ function normalizeState(){
   if(typeof state.theme.grain !== 'boolean') state.theme.grain = false;
   if(typeof state.theme.pages !== 'boolean') state.theme.pages = false;
   if(typeof state.theme.leather !== 'boolean') state.theme.leather = false;
+  if(typeof state.theme.uiPreset !== 'string' || !UI_COLOR_PRESETS.some(p=>p.id===state.theme.uiPreset)) state.theme.uiPreset = 'classic';
   if(typeof state.advancedTaskFields !== 'boolean') state.advancedTaskFields = true;
   if(!state.devSettings) state.devSettings = defaultDevSettings();
   if(typeof state.devSettings.tagSeam !== 'boolean') state.devSettings.tagSeam = false;
   if(typeof state.devSettings.tagOutline !== 'boolean') state.devSettings.tagOutline = false;
   if(typeof state.devSettings.pendingTagStyle !== 'string') state.devSettings.pendingTagStyle = 'default';
-  if(typeof state.devSettings.pendingTagColor !== 'string') state.devSettings.pendingTagColor = 'brass';
+  if(typeof state.devSettings.pendingTagColor !== 'string') state.devSettings.pendingTagColor = 'theme';
   if(typeof state.devSettings.showListDates !== 'boolean') state.devSettings.showListDates = false;
   if(typeof state.devSettings.dayTreeCatBubble !== 'boolean') state.devSettings.dayTreeCatBubble = false;
   if(typeof state.devSettings.sidePanelEnabled !== 'boolean') state.devSettings.sidePanelEnabled = false;
@@ -2041,6 +2247,9 @@ function afterStateRestore(){
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
   openCategoryPickerId = null;
+  uiColorPickerOpen = false;
+  customColorOpen = false;
+  catWheelCancelDrag();
 }
 
 function undo(){
@@ -2848,6 +3057,9 @@ function toggleSettings(){
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
   openCategoryPickerId = null;
+  uiColorPickerOpen = false;
+  customColorOpen = false;
+  catWheelCancelDrag();
   render();
 }
 
@@ -2927,6 +3139,20 @@ function renderSettings(){
     </label>
   `;
 
+  const activeUiPreset = uiColorPreset(state.theme.uiPreset);
+  const uiColorSection = `
+    <div class="uicolorrow">
+      <span class="uicolorwrap">
+        <button class="uicolorswatch" onclick="toggleUiColorPicker()" title="Change UI colors">
+          <span class="uicolorhalf" style="background:${activeUiPreset.primary}"></span>
+          <span class="uicolorhalf" style="background:${activeUiPreset.secondary}"></span>
+        </button>
+        ${uiColorPickerOpen ? uiColorPickerHtml() : ''}
+      </span>
+      <span class="uicolorlabel">UI Colors — ${escapeHtml(activeUiPreset.label)}</span>
+    </div>
+  `;
+
   const appearanceSection = `
     <div class="settingslabel">Appearance</div>
     <div class="themerow">
@@ -2948,6 +3174,7 @@ function renderSettings(){
       <button class="texturebtn ${state.theme.pages?'active':''}" onclick="toggleThemeTexture('pages')">Pages</button>
       <button class="texturebtn ${state.theme.leather?'active':''}" onclick="toggleThemeTexture('leather')">Leather</button>
     </div>
+    ${uiColorSection}
     <button class="resetthemebtn" onclick="resetTheme()">Reset to classic colors</button>
   `;
 
@@ -3090,9 +3317,16 @@ async function toggleCategoryLocation(catId, locId, checked){
 // open at a time (openCategoryPickerId is a single id, not a Set), so
 // opening a different row's picker implicitly closes whichever was open.
 function categoryPickerHtml(c){
+  if(customColorOpen) return customColorWheelHtml(c);
   const swatches = CATEGORY_PALETTE.map(hex=>`
     <button class="catswatch ${c.hex.toLowerCase()===hex.toLowerCase()?'active':''}" style="background:${hex}" onclick="setCategoryColor('${c.id}','${hex}')" title="${hex}"></button>`
   ).join('');
+  // A permanent little rainbow, not a preview of the current color (that
+  // would fight with .catswatch.active's own border-based "you're here"
+  // signal when the current hex already matches this exactly) — its
+  // .active state (a preset can never equal it) is what actually shows
+  // "your color right now isn't one of the presets."
+  const customIsActive = !CATEGORY_PALETTE.some(hex=>hex.toLowerCase()===c.hex.toLowerCase());
   const icons = CATEGORY_ICON_ORDER.map(id=>`
     <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}">${CATEGORY_ICON_GLYPHS[id]}</button>`
   ).join('');
@@ -3102,9 +3336,7 @@ function categoryPickerHtml(c){
       <div class="catpickerlabel">Color</div>
       <div class="catswatchrow">
         ${swatches}
-        <label class="catswatch catswatchcustom" style="background:${c.hex}" title="Custom color">
-          <input type="color" value="${c.hex}" onchange="setCategoryColor('${c.id}', this.value)">
-        </label>
+        <button class="catswatch catswatchcustom ${customIsActive?'active':''}" onclick="openCustomColor('${c.id}')" title="Custom color"></button>
       </div>
       <div class="catpickerlabel">Icon</div>
       <div class="caticonrow">${icons}</div>
@@ -3117,6 +3349,171 @@ function categoryPickerHtml(c){
 // toggleSettings(), afterStateRestore(), openClaudeView(), signOut()).
 function toggleCategoryPicker(id){
   openCategoryPickerId = openCategoryPickerId === id ? null : id;
+  customColorOpen = false;
+  catWheelCancelDrag();
+  render();
+}
+
+// ---------- Category custom color wheel ----------
+// A hue ring (drag around it to pick a hue) with a saturation/value
+// square inscribed in its hole (drag within it for the rest) — the
+// classic "ring + square" picker shape, built from scratch rather than
+// the browser's native <input type=color> so it can actually match the
+// app's look (the native picker is a totally different, OS-drawn dialog
+// with zero styling hooks). Dragging updates customColorDraft and repaints
+// specific DOM nodes directly via updateCatWheelUI() — NOT the app's own
+// render() — since render() would tear down and rebuild the very elements
+// being dragged, breaking the gesture mid-drag. Nothing is written to
+// state.categories until confirmCustomColor() (Done, or Enter in the hex
+// field), which is the one moment this goes through the normal
+// pushUndo/render/queueSave path like any other mutation.
+const CAT_WHEEL_SIZE = 140, CAT_WHEEL_BAND = 16, CAT_WHEEL_HOLE = CAT_WHEEL_SIZE - CAT_WHEEL_BAND*2;
+const CAT_WHEEL_CENTER = CAT_WHEEL_SIZE/2, CAT_WHEEL_RADIUS = CAT_WHEEL_CENTER - CAT_WHEEL_BAND/2;
+
+function customColorWheelHtml(c){
+  const { h, s, v } = customColorDraft;
+  const hex = hsvToHex(h, s, v);
+  const rad = (h - 90) * Math.PI/180;
+  const hueX = CAT_WHEEL_CENTER + CAT_WHEEL_RADIUS*Math.cos(rad);
+  const hueY = CAT_WHEEL_CENTER + CAT_WHEEL_RADIUS*Math.sin(rad);
+  const svX = s * CAT_WHEEL_HOLE, svY = (1-v) * CAT_WHEEL_HOLE;
+  return `
+    <div class="catpicker">
+      <button class="catpickerclose" onclick="toggleCategoryPicker('${c.id}')" title="Close">×</button>
+      <button class="catwheelback" onclick="closeCustomColor('${c.id}')">‹ Presets</button>
+      <div class="catwheelring" id="catWheelRing" onpointerdown="catWheelPointerDown(event,'hue')">
+        <div class="catwheelknob" id="catWheelHueKnob" style="left:${hueX}px; top:${hueY}px;"></div>
+        <div class="catwheelsquarewrap">
+          <div class="catwheelsquare" id="catWheelSquare" style="background-color:hsl(${h},100%,50%);" onpointerdown="catWheelPointerDown(event,'sv')">
+            <div class="catwheelsvknob" id="catWheelSvKnob" style="left:${svX}px; top:${svY}px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="catcustomrow">
+        <span class="catcustomswatch" id="catCustomPreview" style="background:${hex}"></span>
+        <input type="text" class="catcustomhex" id="catCustomHexInput" value="${hex}" maxlength="7"
+          oninput="catCustomHexInput('${c.id}', this.value)"
+          onkeydown="if(event.key==='Enter'){ event.preventDefault(); confirmCustomColor('${c.id}'); }">
+        <button class="catcustomdone" onclick="confirmCustomColor('${c.id}')">Done</button>
+      </div>
+    </div>`;
+}
+
+function openCustomColor(id){
+  const c = state.categories.find(c=>c.id===id);
+  if(!c) return;
+  customColorDraft = hexToHsv(c.hex);
+  customColorOpen = true;
+  render();
+}
+
+function closeCustomColor(id){
+  customColorOpen = false;
+  catWheelCancelDrag();
+  render();
+}
+
+function catWheelPointerDown(evt, type){
+  evt.preventDefault();
+  // The SV square sits DOM-inside the ring (visually inscribed in its
+  // hole), so a pointerdown on the square would otherwise bubble up and
+  // also fire the ring's own 'hue' handler — stopPropagation is what
+  // keeps the two controls independent despite the nesting.
+  evt.stopPropagation();
+  catWheelDragCtx = { type, rect: evt.currentTarget.getBoundingClientRect() };
+  catWheelHandleMove(evt);
+  document.addEventListener('pointermove', catWheelHandleMove);
+  document.addEventListener('pointerup', catWheelPointerUp);
+}
+
+function catWheelHandleMove(evt){
+  if(!catWheelDragCtx) return;
+  const { type, rect } = catWheelDragCtx;
+  if(type === 'hue'){
+    const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+    customColorDraft.h = (Math.atan2(evt.clientY-cy, evt.clientX-cx) * 180/Math.PI + 90 + 360) % 360;
+  } else {
+    customColorDraft.s = Math.max(0, Math.min(1, (evt.clientX-rect.left)/rect.width));
+    customColorDraft.v = Math.max(0, Math.min(1, 1 - (evt.clientY-rect.top)/rect.height));
+  }
+  updateCatWheelUI();
+}
+
+function catWheelPointerUp(){
+  catWheelCancelDrag();
+}
+
+// The only thing allowed to remove these document-level listeners — must
+// run whenever the wheel panel can disappear out from under a drag
+// (closeCustomColor, toggleCategoryPicker, confirmCustomColor, and every
+// other spot that resets openCategoryPickerId/customColorOpen), not just
+// on a normal pointerup, or a drag started right before e.g. Settings
+// closes would leave a dangling listener updating DOM nodes that no
+// longer exist.
+function catWheelCancelDrag(){
+  catWheelDragCtx = null;
+  document.removeEventListener('pointermove', catWheelHandleMove);
+  document.removeEventListener('pointerup', catWheelPointerUp);
+}
+
+// Repaints the wheel's own knobs/preview/hex field directly — see the
+// big comment above customColorWheelHtml() for why this can't go through
+// the app's normal render().
+function updateCatWheelUI(){
+  const ring = document.getElementById('catWheelRing');
+  if(!ring) return; // popover closed out from under an in-flight drag
+  const { h, s, v } = customColorDraft;
+  const hex = hsvToHex(h, s, v);
+  const rad = (h - 90) * Math.PI/180;
+  const hueKnob = document.getElementById('catWheelHueKnob');
+  if(hueKnob){
+    hueKnob.style.left = (CAT_WHEEL_CENTER + CAT_WHEEL_RADIUS*Math.cos(rad)) + 'px';
+    hueKnob.style.top = (CAT_WHEEL_CENTER + CAT_WHEEL_RADIUS*Math.sin(rad)) + 'px';
+  }
+  const square = document.getElementById('catWheelSquare');
+  if(square) square.style.backgroundColor = `hsl(${h},100%,50%)`;
+  const svKnob = document.getElementById('catWheelSvKnob');
+  if(svKnob){
+    svKnob.style.left = (s*CAT_WHEEL_HOLE) + 'px';
+    svKnob.style.top = ((1-v)*CAT_WHEEL_HOLE) + 'px';
+  }
+  const preview = document.getElementById('catCustomPreview');
+  if(preview) preview.style.background = hex;
+  const hexInput = document.getElementById('catCustomHexInput');
+  // Never stomp on the field while it's actively focused (typing) — only
+  // a drag on the ring/square should push a value into it live.
+  if(hexInput && document.activeElement !== hexInput) hexInput.value = hex;
+}
+
+function normalizeHexInput(val){
+  const v = (val||'').trim().replace(/^#/, '');
+  return /^[0-9a-fA-F]{6}$/.test(v) ? ('#' + v.toUpperCase()) : null;
+}
+
+// Typing a valid hex live-repositions the wheel to match, same as
+// dragging it would — doesn't commit anything (see confirmCustomColor()
+// for the actual commit), and silently no-ops on a partial/invalid value
+// mid-keystroke rather than erroring.
+function catCustomHexInput(id, val){
+  const hex = normalizeHexInput(val);
+  if(!hex) return;
+  customColorDraft = hexToHsv(hex);
+  updateCatWheelUI();
+}
+
+// The one moment a custom color actually applies — Done, or Enter in the
+// hex field. Always reads the hex field's current value (not
+// customColorDraft's HSV) so a typed hex that was never dragged to is
+// still authoritative, and always re-renders even when setCategoryColor()
+// itself no-ops (hex unchanged) — otherwise closing customColorOpen here
+// would never actually reach the DOM.
+async function confirmCustomColor(id){
+  const input = document.getElementById('catCustomHexInput');
+  const hex = normalizeHexInput(input ? input.value : '');
+  if(!hex) return;
+  customColorOpen = false;
+  catWheelCancelDrag();
+  await setCategoryColor(id, hex);
   render();
 }
 
@@ -3233,6 +3630,46 @@ async function toggleThemeTexture(key){
   queueSave();
 }
 
+// UI Colors: presets only (no custom picker here, unlike a category's
+// color/icon) — see UI_COLOR_PRESETS in 01-categories-theme.js for what
+// Primary/Secondary each preset actually touches. Same small in-place
+// popover pattern as categoryPickerHtml() (reuses its .catpicker/
+// .catpickerclose/.catpickerlabel chrome), just with a grid of preset
+// swatch-pairs instead of a color row + icon row.
+function uiColorPickerHtml(){
+  const options = UI_COLOR_PRESETS.map(p=>`
+    <button class="uipresetbtn ${state.theme.uiPreset===p.id?'active':''}" onclick="setUiColorPreset('${p.id}')">
+      <span class="uipresetswatches">
+        <span class="uipresetswatch" style="background:${p.primary}"></span>
+        <span class="uipresetswatch" style="background:${p.secondary}"></span>
+      </span>
+      <span class="uipresetlabel">${escapeHtml(p.label)}</span>
+    </button>`
+  ).join('');
+  return `
+    <div class="catpicker uicolorpicker">
+      <button class="catpickerclose" onclick="toggleUiColorPicker()" title="Close">×</button>
+      <div class="catpickerlabel">UI Colors</div>
+      <div class="uipresetgrid">${options}</div>
+    </div>`;
+}
+
+// Pure UI navigation, like toggleCategoryPicker — no pushUndo.
+function toggleUiColorPicker(){
+  uiColorPickerOpen = !uiColorPickerOpen;
+  render();
+}
+
+async function setUiColorPreset(id){
+  if(state.theme.uiPreset === id) return;
+  const p = uiColorPreset(id);
+  pushUndo(`Changed UI colors to "${p.label}"`);
+  state.theme.uiPreset = id;
+  applyTheme();
+  render();
+  queueSave();
+}
+
 async function resetTheme(){
   pushUndo('Reset to classic colors');
   state.theme = defaultTheme();
@@ -3254,6 +3691,9 @@ function openClaudeView(mode){
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
   openCategoryPickerId = null;
+  uiColorPickerOpen = false;
+  customColorOpen = false;
+  catWheelCancelDrag();
   render();
 }
 
@@ -4683,6 +5123,9 @@ function signOut(){
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
   openCategoryPickerId = null;
+  uiColorPickerOpen = false;
+  customColorOpen = false;
+  catWheelCancelDrag();
   undoStack = [];
   redoStack = [];
   expandedTaskIds = new Set();

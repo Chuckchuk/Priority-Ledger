@@ -6,6 +6,9 @@ function toggleSettings(){
   pendingDeleteCategoryId = null;
   pendingDeleteLocationId = null;
   openCategoryPickerId = null;
+  uiColorPickerOpen = false;
+  customColorOpen = false;
+  catWheelCancelDrag();
   render();
 }
 
@@ -85,6 +88,20 @@ function renderSettings(){
     </label>
   `;
 
+  const activeUiPreset = uiColorPreset(state.theme.uiPreset);
+  const uiColorSection = `
+    <div class="uicolorrow">
+      <span class="uicolorwrap">
+        <button class="uicolorswatch" onclick="toggleUiColorPicker()" title="Change UI colors">
+          <span class="uicolorhalf" style="background:${activeUiPreset.primary}"></span>
+          <span class="uicolorhalf" style="background:${activeUiPreset.secondary}"></span>
+        </button>
+        ${uiColorPickerOpen ? uiColorPickerHtml() : ''}
+      </span>
+      <span class="uicolorlabel">UI Colors — ${escapeHtml(activeUiPreset.label)}</span>
+    </div>
+  `;
+
   const appearanceSection = `
     <div class="settingslabel">Appearance</div>
     <div class="themerow">
@@ -106,6 +123,7 @@ function renderSettings(){
       <button class="texturebtn ${state.theme.pages?'active':''}" onclick="toggleThemeTexture('pages')">Pages</button>
       <button class="texturebtn ${state.theme.leather?'active':''}" onclick="toggleThemeTexture('leather')">Leather</button>
     </div>
+    ${uiColorSection}
     <button class="resetthemebtn" onclick="resetTheme()">Reset to classic colors</button>
   `;
 
@@ -248,9 +266,16 @@ async function toggleCategoryLocation(catId, locId, checked){
 // open at a time (openCategoryPickerId is a single id, not a Set), so
 // opening a different row's picker implicitly closes whichever was open.
 function categoryPickerHtml(c){
+  if(customColorOpen) return customColorWheelHtml(c);
   const swatches = CATEGORY_PALETTE.map(hex=>`
     <button class="catswatch ${c.hex.toLowerCase()===hex.toLowerCase()?'active':''}" style="background:${hex}" onclick="setCategoryColor('${c.id}','${hex}')" title="${hex}"></button>`
   ).join('');
+  // A permanent little rainbow, not a preview of the current color (that
+  // would fight with .catswatch.active's own border-based "you're here"
+  // signal when the current hex already matches this exactly) — its
+  // .active state (a preset can never equal it) is what actually shows
+  // "your color right now isn't one of the presets."
+  const customIsActive = !CATEGORY_PALETTE.some(hex=>hex.toLowerCase()===c.hex.toLowerCase());
   const icons = CATEGORY_ICON_ORDER.map(id=>`
     <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}">${CATEGORY_ICON_GLYPHS[id]}</button>`
   ).join('');
@@ -260,9 +285,7 @@ function categoryPickerHtml(c){
       <div class="catpickerlabel">Color</div>
       <div class="catswatchrow">
         ${swatches}
-        <label class="catswatch catswatchcustom" style="background:${c.hex}" title="Custom color">
-          <input type="color" value="${c.hex}" onchange="setCategoryColor('${c.id}', this.value)">
-        </label>
+        <button class="catswatch catswatchcustom ${customIsActive?'active':''}" onclick="openCustomColor('${c.id}')" title="Custom color"></button>
       </div>
       <div class="catpickerlabel">Icon</div>
       <div class="caticonrow">${icons}</div>
@@ -275,6 +298,171 @@ function categoryPickerHtml(c){
 // toggleSettings(), afterStateRestore(), openClaudeView(), signOut()).
 function toggleCategoryPicker(id){
   openCategoryPickerId = openCategoryPickerId === id ? null : id;
+  customColorOpen = false;
+  catWheelCancelDrag();
+  render();
+}
+
+// ---------- Category custom color wheel ----------
+// A hue ring (drag around it to pick a hue) with a saturation/value
+// square inscribed in its hole (drag within it for the rest) — the
+// classic "ring + square" picker shape, built from scratch rather than
+// the browser's native <input type=color> so it can actually match the
+// app's look (the native picker is a totally different, OS-drawn dialog
+// with zero styling hooks). Dragging updates customColorDraft and repaints
+// specific DOM nodes directly via updateCatWheelUI() — NOT the app's own
+// render() — since render() would tear down and rebuild the very elements
+// being dragged, breaking the gesture mid-drag. Nothing is written to
+// state.categories until confirmCustomColor() (Done, or Enter in the hex
+// field), which is the one moment this goes through the normal
+// pushUndo/render/queueSave path like any other mutation.
+const CAT_WHEEL_SIZE = 140, CAT_WHEEL_BAND = 16, CAT_WHEEL_HOLE = CAT_WHEEL_SIZE - CAT_WHEEL_BAND*2;
+const CAT_WHEEL_CENTER = CAT_WHEEL_SIZE/2, CAT_WHEEL_RADIUS = CAT_WHEEL_CENTER - CAT_WHEEL_BAND/2;
+
+function customColorWheelHtml(c){
+  const { h, s, v } = customColorDraft;
+  const hex = hsvToHex(h, s, v);
+  const rad = (h - 90) * Math.PI/180;
+  const hueX = CAT_WHEEL_CENTER + CAT_WHEEL_RADIUS*Math.cos(rad);
+  const hueY = CAT_WHEEL_CENTER + CAT_WHEEL_RADIUS*Math.sin(rad);
+  const svX = s * CAT_WHEEL_HOLE, svY = (1-v) * CAT_WHEEL_HOLE;
+  return `
+    <div class="catpicker">
+      <button class="catpickerclose" onclick="toggleCategoryPicker('${c.id}')" title="Close">×</button>
+      <button class="catwheelback" onclick="closeCustomColor('${c.id}')">‹ Presets</button>
+      <div class="catwheelring" id="catWheelRing" onpointerdown="catWheelPointerDown(event,'hue')">
+        <div class="catwheelknob" id="catWheelHueKnob" style="left:${hueX}px; top:${hueY}px;"></div>
+        <div class="catwheelsquarewrap">
+          <div class="catwheelsquare" id="catWheelSquare" style="background-color:hsl(${h},100%,50%);" onpointerdown="catWheelPointerDown(event,'sv')">
+            <div class="catwheelsvknob" id="catWheelSvKnob" style="left:${svX}px; top:${svY}px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="catcustomrow">
+        <span class="catcustomswatch" id="catCustomPreview" style="background:${hex}"></span>
+        <input type="text" class="catcustomhex" id="catCustomHexInput" value="${hex}" maxlength="7"
+          oninput="catCustomHexInput('${c.id}', this.value)"
+          onkeydown="if(event.key==='Enter'){ event.preventDefault(); confirmCustomColor('${c.id}'); }">
+        <button class="catcustomdone" onclick="confirmCustomColor('${c.id}')">Done</button>
+      </div>
+    </div>`;
+}
+
+function openCustomColor(id){
+  const c = state.categories.find(c=>c.id===id);
+  if(!c) return;
+  customColorDraft = hexToHsv(c.hex);
+  customColorOpen = true;
+  render();
+}
+
+function closeCustomColor(id){
+  customColorOpen = false;
+  catWheelCancelDrag();
+  render();
+}
+
+function catWheelPointerDown(evt, type){
+  evt.preventDefault();
+  // The SV square sits DOM-inside the ring (visually inscribed in its
+  // hole), so a pointerdown on the square would otherwise bubble up and
+  // also fire the ring's own 'hue' handler — stopPropagation is what
+  // keeps the two controls independent despite the nesting.
+  evt.stopPropagation();
+  catWheelDragCtx = { type, rect: evt.currentTarget.getBoundingClientRect() };
+  catWheelHandleMove(evt);
+  document.addEventListener('pointermove', catWheelHandleMove);
+  document.addEventListener('pointerup', catWheelPointerUp);
+}
+
+function catWheelHandleMove(evt){
+  if(!catWheelDragCtx) return;
+  const { type, rect } = catWheelDragCtx;
+  if(type === 'hue'){
+    const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+    customColorDraft.h = (Math.atan2(evt.clientY-cy, evt.clientX-cx) * 180/Math.PI + 90 + 360) % 360;
+  } else {
+    customColorDraft.s = Math.max(0, Math.min(1, (evt.clientX-rect.left)/rect.width));
+    customColorDraft.v = Math.max(0, Math.min(1, 1 - (evt.clientY-rect.top)/rect.height));
+  }
+  updateCatWheelUI();
+}
+
+function catWheelPointerUp(){
+  catWheelCancelDrag();
+}
+
+// The only thing allowed to remove these document-level listeners — must
+// run whenever the wheel panel can disappear out from under a drag
+// (closeCustomColor, toggleCategoryPicker, confirmCustomColor, and every
+// other spot that resets openCategoryPickerId/customColorOpen), not just
+// on a normal pointerup, or a drag started right before e.g. Settings
+// closes would leave a dangling listener updating DOM nodes that no
+// longer exist.
+function catWheelCancelDrag(){
+  catWheelDragCtx = null;
+  document.removeEventListener('pointermove', catWheelHandleMove);
+  document.removeEventListener('pointerup', catWheelPointerUp);
+}
+
+// Repaints the wheel's own knobs/preview/hex field directly — see the
+// big comment above customColorWheelHtml() for why this can't go through
+// the app's normal render().
+function updateCatWheelUI(){
+  const ring = document.getElementById('catWheelRing');
+  if(!ring) return; // popover closed out from under an in-flight drag
+  const { h, s, v } = customColorDraft;
+  const hex = hsvToHex(h, s, v);
+  const rad = (h - 90) * Math.PI/180;
+  const hueKnob = document.getElementById('catWheelHueKnob');
+  if(hueKnob){
+    hueKnob.style.left = (CAT_WHEEL_CENTER + CAT_WHEEL_RADIUS*Math.cos(rad)) + 'px';
+    hueKnob.style.top = (CAT_WHEEL_CENTER + CAT_WHEEL_RADIUS*Math.sin(rad)) + 'px';
+  }
+  const square = document.getElementById('catWheelSquare');
+  if(square) square.style.backgroundColor = `hsl(${h},100%,50%)`;
+  const svKnob = document.getElementById('catWheelSvKnob');
+  if(svKnob){
+    svKnob.style.left = (s*CAT_WHEEL_HOLE) + 'px';
+    svKnob.style.top = ((1-v)*CAT_WHEEL_HOLE) + 'px';
+  }
+  const preview = document.getElementById('catCustomPreview');
+  if(preview) preview.style.background = hex;
+  const hexInput = document.getElementById('catCustomHexInput');
+  // Never stomp on the field while it's actively focused (typing) — only
+  // a drag on the ring/square should push a value into it live.
+  if(hexInput && document.activeElement !== hexInput) hexInput.value = hex;
+}
+
+function normalizeHexInput(val){
+  const v = (val||'').trim().replace(/^#/, '');
+  return /^[0-9a-fA-F]{6}$/.test(v) ? ('#' + v.toUpperCase()) : null;
+}
+
+// Typing a valid hex live-repositions the wheel to match, same as
+// dragging it would — doesn't commit anything (see confirmCustomColor()
+// for the actual commit), and silently no-ops on a partial/invalid value
+// mid-keystroke rather than erroring.
+function catCustomHexInput(id, val){
+  const hex = normalizeHexInput(val);
+  if(!hex) return;
+  customColorDraft = hexToHsv(hex);
+  updateCatWheelUI();
+}
+
+// The one moment a custom color actually applies — Done, or Enter in the
+// hex field. Always reads the hex field's current value (not
+// customColorDraft's HSV) so a typed hex that was never dragged to is
+// still authoritative, and always re-renders even when setCategoryColor()
+// itself no-ops (hex unchanged) — otherwise closing customColorOpen here
+// would never actually reach the DOM.
+async function confirmCustomColor(id){
+  const input = document.getElementById('catCustomHexInput');
+  const hex = normalizeHexInput(input ? input.value : '');
+  if(!hex) return;
+  customColorOpen = false;
+  catWheelCancelDrag();
+  await setCategoryColor(id, hex);
   render();
 }
 
@@ -386,6 +574,46 @@ async function toggleThemeTexture(key){
   const val = !state.theme[key];
   pushUndo(`${val ? 'Enabled' : 'Disabled'} ${TEXTURE_TOGGLE_LABEL[key]} look`);
   state.theme[key] = val;
+  applyTheme();
+  render();
+  queueSave();
+}
+
+// UI Colors: presets only (no custom picker here, unlike a category's
+// color/icon) — see UI_COLOR_PRESETS in 01-categories-theme.js for what
+// Primary/Secondary each preset actually touches. Same small in-place
+// popover pattern as categoryPickerHtml() (reuses its .catpicker/
+// .catpickerclose/.catpickerlabel chrome), just with a grid of preset
+// swatch-pairs instead of a color row + icon row.
+function uiColorPickerHtml(){
+  const options = UI_COLOR_PRESETS.map(p=>`
+    <button class="uipresetbtn ${state.theme.uiPreset===p.id?'active':''}" onclick="setUiColorPreset('${p.id}')">
+      <span class="uipresetswatches">
+        <span class="uipresetswatch" style="background:${p.primary}"></span>
+        <span class="uipresetswatch" style="background:${p.secondary}"></span>
+      </span>
+      <span class="uipresetlabel">${escapeHtml(p.label)}</span>
+    </button>`
+  ).join('');
+  return `
+    <div class="catpicker uicolorpicker">
+      <button class="catpickerclose" onclick="toggleUiColorPicker()" title="Close">×</button>
+      <div class="catpickerlabel">UI Colors</div>
+      <div class="uipresetgrid">${options}</div>
+    </div>`;
+}
+
+// Pure UI navigation, like toggleCategoryPicker — no pushUndo.
+function toggleUiColorPicker(){
+  uiColorPickerOpen = !uiColorPickerOpen;
+  render();
+}
+
+async function setUiColorPreset(id){
+  if(state.theme.uiPreset === id) return;
+  const p = uiColorPreset(id);
+  pushUndo(`Changed UI colors to "${p.label}"`);
+  state.theme.uiPreset = id;
   applyTheme();
   render();
   queueSave();

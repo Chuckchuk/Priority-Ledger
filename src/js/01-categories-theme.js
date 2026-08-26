@@ -105,8 +105,41 @@ function defaultLocations(){
 // booleans, not a single exclusive choice — they're meant to layer (e.g.
 // textured AND pages together).
 function defaultTheme(){
-  return { bg:'#28362E', paper:'#F1EAD9', gradient:false, grain:false, pages:false, leather:false };
+  return { bg:'#28362E', paper:'#F1EAD9', gradient:false, grain:false, pages:false, leather:false, uiPreset:'classic' };
 }
+
+// "Primary" and "Secondary" (Settings → Appearance → UI Colors) are a
+// matched PAIR chosen from a fixed set of presets, not two independent
+// custom colors — see uiColorPickerHtml() in 09-settings.js for the
+// picker UI, styled like categoryPickerHtml()'s icon grid above.
+//   Primary covers everywhere the app used to hardcode "brass": page tags
+//   (the .pagetag "back" tag), the workspace/location button, the round
+//   quick-add "+" button, drag/selection feedback (including the
+//   .flashtoggle "added to today" flash), today's date highlight, and
+//   every other plain active/accent state.
+//   Secondary is for "something's outstanding, tap to see it" indicators
+//   — today that's only the checklist pending-items tag (.pagetag.compact),
+//   since it's the only element of that kind in the app right now. Any
+//   future indicator in the same spirit (a badge you tap to reveal a
+//   backlog, not a status label) should reach for --secondary too.
+//   Deliberately NOT extended to .badge.overdue / .badge.priority-high
+//   (fixed --estate red) — those are a hardcoded "danger" signal, not a
+//   themeable accent, and recoloring them to whatever someone picks as
+//   Secondary could stop reading as urgent at all.
+// 'classic' reproduces the app's original literal brass/brass for both
+// colors (byte-for-byte the old --brass/--brass-light hexes) so nothing
+// changes for anyone who's never opened this picker. Every other preset
+// is built from colors already used elsewhere in the app (the pre-dynamic
+// category accents / the pendingTagColor dev experiment's own choices)
+// rather than introducing new one-off hues.
+const UI_COLOR_PRESETS = [
+  { id:'classic',  label:'Classic',          primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+  { id:'rust',     label:'Brass & Rust',     primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#9C4530', secondaryLight:'#C3563C' },
+  { id:'forest',   label:'Forest & Brass',   primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+  { id:'slate',    label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
+  { id:'charcoal', label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' }
+];
+function uiColorPreset(id){ return UI_COLOR_PRESETS.find(p=>p.id===id) || UI_COLOR_PRESETS[0]; }
 
 function clamp255(n){ return Math.max(0, Math.min(255, n)); }
 
@@ -125,6 +158,40 @@ function shadeHex(hex, percent){
   const g = clamp255(Math.round(((num >> 8) & 0xFF) * factor));
   const b = clamp255(Math.round((num & 0xFF) * factor));
   return '#' + (0x1000000 + r*0x10000 + g*0x100 + b).toString(16).slice(1);
+}
+
+// HSV, not HSL, since that's the natural fit for a "ring picks hue,
+// square picks the rest" color wheel (see catWheelPointerDown() in
+// 09-settings.js) — value is what a top-to-bottom square axis naturally
+// means, and saturation a left-to-right one, matching how that control
+// actually works elsewhere (this app's shadeHex()/theme colors stay
+// plain hex, no HSV involved outside this one picker).
+function hsvToHex(h, s, v){
+  h = ((h % 360) + 360) % 360; s = Math.max(0, Math.min(1, s)); v = Math.max(0, Math.min(1, v));
+  const c = v*s, x = c*(1 - Math.abs((h/60) % 2 - 1)), m = v - c;
+  let r,g,b;
+  if(h < 60){ r=c; g=x; b=0; }
+  else if(h < 120){ r=x; g=c; b=0; }
+  else if(h < 180){ r=0; g=c; b=x; }
+  else if(h < 240){ r=0; g=x; b=c; }
+  else if(h < 300){ r=x; g=0; b=c; }
+  else { r=c; g=0; b=x; }
+  const R = Math.round((r+m)*255), G = Math.round((g+m)*255), B = Math.round((b+m)*255);
+  return '#' + [R,G,B].map(n=>n.toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+
+function hexToHsv(hex){
+  const num = parseInt(hex.replace('#',''), 16);
+  const r = ((num>>16)&0xFF)/255, g = ((num>>8)&0xFF)/255, b = (num&0xFF)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
+  let h = 0;
+  if(d !== 0){
+    if(max === r) h = 60 * (((g-b)/d) % 6);
+    else if(max === g) h = 60 * ((b-r)/d + 2);
+    else h = 60 * ((r-g)/d + 4);
+  }
+  if(h < 0) h += 360;
+  return { h, s: max===0 ? 0 : d/max, v: max };
 }
 
 function relLuminance(hex){
@@ -146,6 +213,11 @@ function applyThemeObject(t){
   root.setProperty('--desk-dark', t.gradient ? shadeHex(t.bg, -0.30) : t.bg);
   root.setProperty('--card-bg', t.paper);
   root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
+  const ui = uiColorPreset(t.uiPreset);
+  root.setProperty('--primary', ui.primary);
+  root.setProperty('--primary-light', ui.primaryLight);
+  root.setProperty('--secondary', ui.secondary);
+  root.setProperty('--secondary-light', ui.secondaryLight);
   const dark = relLuminance(t.paper) < 0.5;
   root.setProperty('--ink', dark ? '#F1EAD9' : '#2A2318');
   root.setProperty('--ink-soft', dark ? 'rgba(241,234,217,0.65)' : '#7A6E58');
@@ -172,7 +244,7 @@ function applyDevSettings(){
   document.body.classList.toggle('devtag-seam', !!d.tagSeam);
   document.body.classList.toggle('devtag-outline', !!d.tagOutline);
   document.body.dataset.pendingTagStyle = d.pendingTagStyle || 'default';
-  document.body.dataset.pendingTagColor = d.pendingTagColor || 'brass';
+  document.body.dataset.pendingTagColor = d.pendingTagColor || 'theme';
   document.body.classList.toggle('devlist-dates', !!d.showListDates);
   document.body.classList.toggle('devtreebubble', !!d.dayTreeCatBubble);
   // The floating side panel (see renderDevPanel()/toggleDevPanel() below)
@@ -256,13 +328,14 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass){
       </select>
     </div>
     <div class="${fieldClass}">
-      <span class="${captionClass}">Pending-items tag color</span>
+      <span class="${captionClass}">Pending-items tag color override</span>
       <select class="${selectClass}" onchange="setDevPendingTagColor(this.value)">
-        <option value="brass" ${dev.pendingTagColor==='brass'?'selected':''}>Brass (same as the back tag)</option>
-        <option value="rust" ${dev.pendingTagColor==='rust'?'selected':''}>Rust</option>
-        <option value="forest" ${dev.pendingTagColor==='forest'?'selected':''}>Forest green</option>
-        <option value="slate" ${dev.pendingTagColor==='slate'?'selected':''}>Slate blue</option>
-        <option value="charcoal" ${dev.pendingTagColor==='charcoal'?'selected':''}>Charcoal</option>
+        <option value="theme" ${dev.pendingTagColor==='theme'?'selected':''}>Default (use Secondary color)</option>
+        <option value="brass" ${dev.pendingTagColor==='brass'?'selected':''}>Force Primary</option>
+        <option value="rust" ${dev.pendingTagColor==='rust'?'selected':''}>Force rust</option>
+        <option value="forest" ${dev.pendingTagColor==='forest'?'selected':''}>Force forest green</option>
+        <option value="slate" ${dev.pendingTagColor==='slate'?'selected':''}>Force slate blue</option>
+        <option value="charcoal" ${dev.pendingTagColor==='charcoal'?'selected':''}>Force charcoal</option>
       </select>
     </div>
     <label class="${rowClass}">
