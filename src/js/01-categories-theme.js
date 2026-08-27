@@ -329,6 +329,7 @@ function applyDevSettings(){
   document.body.classList.toggle('fab-on', !!d.floatingAddButton);
   document.body.dataset.tabbarMobile = d.tabBarMobileStyle || 'default';
   document.body.dataset.tabbarDesktop = d.tabBarDesktopStyle || 'default';
+  document.body.dataset.settingsrowMobile = d.settingsRowMobileStyle || 'default';
   refreshMobileUiActive();
 }
 
@@ -429,6 +430,14 @@ async function setDevTabBarMobileStyle(val){
 async function setDevTabBarDesktopStyle(val){
   pushUndo(`Changed dev tab bar desktop style to "${val}"`);
   state.devSettings.tabBarDesktopStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevSettingsRowMobileStyle(val){
+  pushUndo(`Changed dev settings row mobile style to "${val}"`);
+  state.devSettings.settingsRowMobileStyle = val;
   applyDevSettings();
   render();
   queueSave();
@@ -611,6 +620,13 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="default" ${dev.tabBarDesktopStyle==='default'?'selected':''}>Default (horizontal pill row)</option>
         <option value="sidetabs" ${dev.tabBarDesktopStyle==='sidetabs'?'selected':''}>Vertical tabs down the left side</option>
         <option value="indextabs" ${dev.tabBarDesktopStyle==='indextabs'?'selected':''}>Staggered, color-edged index tabs</option>
+      </select>
+    </div>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Settings category rows (mobile)</span>
+      <select class="${selectClass}" onchange="setDevSettingsRowMobileStyle(this.value)">
+        <option value="default" ${dev.settingsRowMobileStyle==='default'?'selected':''}>Default (everything one flat row)</option>
+        <option value="grouped" ${dev.settingsRowMobileStyle==='grouped'?'selected':''}>Grouped — Delete moves to its own quiet row</option>
       </select>
     </div>
   `;

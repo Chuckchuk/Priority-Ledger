@@ -41,7 +41,7 @@ function renderSettings(){
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
       ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
       ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
-      ${deleteControls}
+      <div class="catdeletewrap">${deleteControls}</div>
       ${locChecks}
     </div>`;
   }).join('');

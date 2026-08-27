@@ -368,7 +368,17 @@ function defaultDevSettings(){
   // renderTabs()) and a slight per-tab height stagger, so it reads more
   // like protruding book-index tabs than flat pills, with zero change to
   // click/wrap behavior.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default' };
+  // settingsRowMobileStyle: 'default' leaves a category row in Settings
+  // as one flat wrapping line — reorder buttons, the color/icon picker,
+  // the label you're editing, and the destructive Delete button all at
+  // the same visual weight, competing with the label for the row's
+  // ~120px-min-width floor on a phone (see .catedit). 'grouped' moves
+  // Delete (or its warning+confirm+cancel trio, via .catdeletewrap in
+  // 09-settings.js) onto its own right-aligned line and mutes its resting
+  // look — the label gets the whole top line to itself, and the one
+  // dangerous control on the row reads as deliberately secondary instead
+  // of same-weight as everything else.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', settingsRowMobileStyle:'default' };
 }
 
 function defaultState(){
@@ -434,6 +444,7 @@ function normalizeState(){
   if(typeof state.devSettings.floatingAddButton !== 'boolean') state.devSettings.floatingAddButton = false;
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
+  if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)

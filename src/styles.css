@@ -1264,6 +1264,12 @@
   }
   .catdeleteconfirm{ border-color: var(--estate); color: var(--estate); }
   .catdelete:disabled{ opacity:0.4; cursor:not-allowed; }
+  /* Groups the delete button (or its warning+confirm+cancel trio) into
+     one CSS hook, purely for the EXPERIMENTAL settingsRowMobileStyle
+     "grouped" variant near the end of this file — display:contents keeps
+     it invisible to layout otherwise, same trick as .expandactions
+     above, so this changes nothing by default. */
+  .catdeletewrap{ display:contents; }
   .catmove{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
   .catmovebtn{
     width:20px; height:15px; padding:0; border:1px solid var(--line); border-radius:3px;
@@ -1877,3 +1883,25 @@
   }
   body:not(.mobileui-active)[data-tabbar-desktop="indextabs"] .tab:nth-child(3n+2){ margin-top:4px; }
   body:not(.mobileui-active)[data-tabbar-desktop="indextabs"] .tab:nth-child(3n+3){ margin-top:8px; }
+
+  /* ---- settingsRowMobileStyle: separating identity from management ----
+     grouped: .catdeletewrap (see renderSettings() in 09-settings.js)
+     drops to its own right-aligned line instead of wrapping inline next
+     to the label — .catedit (flex:1) gets the whole top line (move
+     buttons + color/icon + label) to itself instead of splitting it with
+     Delete, and the resting Delete button is deliberately muted (quiet
+     until you actually reach for it) so it stops reading at the same
+     visual weight as the label you're editing. Only the plain "Delete"
+     trigger is muted this way — once tapped, .catdeleteconfirm/.catcancel
+     (siblings inside the same wrap) keep their normal, more prominent
+     styling, since a live confirm step should never be quiet. */
+  body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap{
+    display:flex; flex-basis:100%; flex-wrap:wrap; justify-content:flex-end; margin-top:4px;
+  }
+  body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap .catdelete{
+    opacity:0.5; border-color:transparent; background:none;
+  }
+  body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap .catdelete:not(:disabled):hover,
+  body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap .catdelete:not(:disabled):active{
+    opacity:1; border-color:var(--line); background:var(--card-bg-dim);
+  }

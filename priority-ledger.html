@@ -1296,6 +1296,12 @@
   }
   .catdeleteconfirm{ border-color: var(--estate); color: var(--estate); }
   .catdelete:disabled{ opacity:0.4; cursor:not-allowed; }
+  /* Groups the delete button (or its warning+confirm+cancel trio) into
+     one CSS hook, purely for the EXPERIMENTAL settingsRowMobileStyle
+     "grouped" variant near the end of this file — display:contents keeps
+     it invisible to layout otherwise, same trick as .expandactions
+     above, so this changes nothing by default. */
+  .catdeletewrap{ display:contents; }
   .catmove{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
   .catmovebtn{
     width:20px; height:15px; padding:0; border:1px solid var(--line); border-radius:3px;
@@ -1909,6 +1915,28 @@
   }
   body:not(.mobileui-active)[data-tabbar-desktop="indextabs"] .tab:nth-child(3n+2){ margin-top:4px; }
   body:not(.mobileui-active)[data-tabbar-desktop="indextabs"] .tab:nth-child(3n+3){ margin-top:8px; }
+
+  /* ---- settingsRowMobileStyle: separating identity from management ----
+     grouped: .catdeletewrap (see renderSettings() in 09-settings.js)
+     drops to its own right-aligned line instead of wrapping inline next
+     to the label — .catedit (flex:1) gets the whole top line (move
+     buttons + color/icon + label) to itself instead of splitting it with
+     Delete, and the resting Delete button is deliberately muted (quiet
+     until you actually reach for it) so it stops reading at the same
+     visual weight as the label you're editing. Only the plain "Delete"
+     trigger is muted this way — once tapped, .catdeleteconfirm/.catcancel
+     (siblings inside the same wrap) keep their normal, more prominent
+     styling, since a live confirm step should never be quiet. */
+  body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap{
+    display:flex; flex-basis:100%; flex-wrap:wrap; justify-content:flex-end; margin-top:4px;
+  }
+  body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap .catdelete{
+    opacity:0.5; border-color:transparent; background:none;
+  }
+  body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap .catdelete:not(:disabled):hover,
+  body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap .catdelete:not(:disabled):active{
+    opacity:1; border-color:var(--line); background:var(--card-bg-dim);
+  }
 </style>
 </head>
 <body>
@@ -2357,6 +2385,7 @@ function applyDevSettings(){
   document.body.classList.toggle('fab-on', !!d.floatingAddButton);
   document.body.dataset.tabbarMobile = d.tabBarMobileStyle || 'default';
   document.body.dataset.tabbarDesktop = d.tabBarDesktopStyle || 'default';
+  document.body.dataset.settingsrowMobile = d.settingsRowMobileStyle || 'default';
   refreshMobileUiActive();
 }
 
@@ -2457,6 +2486,14 @@ async function setDevTabBarMobileStyle(val){
 async function setDevTabBarDesktopStyle(val){
   pushUndo(`Changed dev tab bar desktop style to "${val}"`);
   state.devSettings.tabBarDesktopStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevSettingsRowMobileStyle(val){
+  pushUndo(`Changed dev settings row mobile style to "${val}"`);
+  state.devSettings.settingsRowMobileStyle = val;
   applyDevSettings();
   render();
   queueSave();
@@ -2639,6 +2676,13 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="default" ${dev.tabBarDesktopStyle==='default'?'selected':''}>Default (horizontal pill row)</option>
         <option value="sidetabs" ${dev.tabBarDesktopStyle==='sidetabs'?'selected':''}>Vertical tabs down the left side</option>
         <option value="indextabs" ${dev.tabBarDesktopStyle==='indextabs'?'selected':''}>Staggered, color-edged index tabs</option>
+      </select>
+    </div>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Settings category rows (mobile)</span>
+      <select class="${selectClass}" onchange="setDevSettingsRowMobileStyle(this.value)">
+        <option value="default" ${dev.settingsRowMobileStyle==='default'?'selected':''}>Default (everything one flat row)</option>
+        <option value="grouped" ${dev.settingsRowMobileStyle==='grouped'?'selected':''}>Grouped — Delete moves to its own quiet row</option>
       </select>
     </div>
   `;
@@ -3031,7 +3075,17 @@ function defaultDevSettings(){
   // renderTabs()) and a slight per-tab height stagger, so it reads more
   // like protruding book-index tabs than flat pills, with zero change to
   // click/wrap behavior.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default' };
+  // settingsRowMobileStyle: 'default' leaves a category row in Settings
+  // as one flat wrapping line — reorder buttons, the color/icon picker,
+  // the label you're editing, and the destructive Delete button all at
+  // the same visual weight, competing with the label for the row's
+  // ~120px-min-width floor on a phone (see .catedit). 'grouped' moves
+  // Delete (or its warning+confirm+cancel trio, via .catdeletewrap in
+  // 09-settings.js) onto its own right-aligned line and mutes its resting
+  // look — the label gets the whole top line to itself, and the one
+  // dangerous control on the row reads as deliberately secondary instead
+  // of same-weight as everything else.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', settingsRowMobileStyle:'default' };
 }
 
 function defaultState(){
@@ -3097,6 +3151,7 @@ function normalizeState(){
   if(typeof state.devSettings.floatingAddButton !== 'boolean') state.devSettings.floatingAddButton = false;
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
+  if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)
@@ -4243,7 +4298,7 @@ function renderSettings(){
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
       ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
       ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
-      ${deleteControls}
+      <div class="catdeletewrap">${deleteControls}</div>
       ${locChecks}
     </div>`;
   }).join('');
