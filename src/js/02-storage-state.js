@@ -345,7 +345,30 @@ function defaultDevSettings(){
   // see openFabAdd()/submitFabAdd() in 16-task-crud.js), not the full
   // quick-add bar, since it has to make sense from views that don't have
   // a quick-add bar of their own at all.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false };
+  // tabBarMobileStyle: 'default' leaves the tab bar wrapping to a second
+  // row once there isn't room for every tab (see renderTabRowLines() in
+  // 06-tabs-render.js) — real chrome height spent before any task is on
+  // screen. 'scroll' instead keeps it one row and lets it scroll
+  // horizontally (with scroll-snap and a trailing fade hinting there's
+  // more), the standard native-mobile tab pattern. Gated by
+  // mobileUiActive() same as the rest of this lab.
+  // tabBarDesktopStyle is the desktop-only counterpart, gated the other
+  // way (only when mobileUiActive() is FALSE — see the body:not(
+  // .mobileui-active) selectors in <style> — so shrinking the window to
+  // phone width always falls back to the plain horizontal bar rather
+  // than trying to cram a vertical column or index-tab staggering into a
+  // narrow card). 'default' is today's horizontal wrapping pill row;
+  // 'sidetabs' moves the whole bar into a vertical column down the
+  // card's left edge (#appMain becomes a row — see .appmain in
+  // shell-body.html — with #tabs as a tall, narrow left column) so every
+  // label stays visible at once with no hover/tap-to-reveal step, the
+  // most literal read of "tabs down the side of a ledger"; 'indextabs'
+  // is a pure restyle of the existing horizontal row — each tab gets a
+  // top border in its own category color (--tabhex, set inline by
+  // renderTabs()) and a slight per-tab height stagger, so it reads more
+  // like protruding book-index tabs than flat pills, with zero change to
+  // click/wrap behavior.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default' };
 }
 
 function defaultState(){
@@ -409,6 +432,8 @@ function normalizeState(){
   if(typeof state.devSettings.taskRowMobileStyle !== 'string') state.devSettings.taskRowMobileStyle = 'default';
   if(typeof state.devSettings.taskDetailMobileStyle !== 'string') state.devSettings.taskDetailMobileStyle = 'default';
   if(typeof state.devSettings.floatingAddButton !== 'boolean') state.devSettings.floatingAddButton = false;
+  if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
+  if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)

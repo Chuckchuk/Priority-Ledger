@@ -327,6 +327,8 @@ function applyDevSettings(){
   document.body.dataset.taskrowMobile = d.taskRowMobileStyle || 'default';
   document.body.dataset.taskdetailMobile = d.taskDetailMobileStyle || 'default';
   document.body.classList.toggle('fab-on', !!d.floatingAddButton);
+  document.body.dataset.tabbarMobile = d.tabBarMobileStyle || 'default';
+  document.body.dataset.tabbarDesktop = d.tabBarDesktopStyle || 'default';
   refreshMobileUiActive();
 }
 
@@ -411,6 +413,22 @@ async function setDevTaskRowMobileStyle(val){
 async function setDevTaskDetailMobileStyle(val){
   pushUndo(`Changed dev task detail mobile style to "${val}"`);
   state.devSettings.taskDetailMobileStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevTabBarMobileStyle(val){
+  pushUndo(`Changed dev tab bar mobile style to "${val}"`);
+  state.devSettings.tabBarMobileStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevTabBarDesktopStyle(val){
+  pushUndo(`Changed dev tab bar desktop style to "${val}"`);
+  state.devSettings.tabBarDesktopStyle = val;
   applyDevSettings();
   render();
   queueSave();
@@ -580,6 +598,21 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <input type="checkbox" ${dev.floatingAddButton?'checked':''} onchange="toggleDevSetting('floatingAddButton', this.checked)">
       Floating (+) button to add a task from any tab (mobile)
     </label>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Tab bar (mobile)</span>
+      <select class="${selectClass}" onchange="setDevTabBarMobileStyle(this.value)">
+        <option value="default" ${dev.tabBarMobileStyle==='default'?'selected':''}>Default (wraps to a 2nd row)</option>
+        <option value="scroll" ${dev.tabBarMobileStyle==='scroll'?'selected':''}>Scrolls sideways, one row</option>
+      </select>
+    </div>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Tab bar (desktop)</span>
+      <select class="${selectClass}" onchange="setDevTabBarDesktopStyle(this.value)">
+        <option value="default" ${dev.tabBarDesktopStyle==='default'?'selected':''}>Default (horizontal pill row)</option>
+        <option value="sidetabs" ${dev.tabBarDesktopStyle==='sidetabs'?'selected':''}>Vertical tabs down the left side</option>
+        <option value="indextabs" ${dev.tabBarDesktopStyle==='indextabs'?'selected':''}>Staggered, color-edged index tabs</option>
+      </select>
+    </div>
   `;
 }
 

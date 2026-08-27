@@ -25,10 +25,21 @@
   </div>
   <div class="status-line" id="statusLine"></div>
   <div class="status-line" id="signOutRow" style="display:none;"><button class="signoutbtn" onclick="signOut()">Sign out (<span id="authEmailLabel"></span>)</button></div>
-  <div class="tabs" id="tabs"></div>
-  <div class="leathercover" id="leatherCover">
-    <div class="bookmark"></div>
-    <div class="card" id="appCard">
+  <!-- .appmain is a plain, unstyled wrapper by default (transparent to
+       block flow, identical to #tabs/.leathercover being direct .shell
+       children) — it exists only so the EXPERIMENTAL tabBarDesktopStyle
+       "sidetabs" look (see defaultDevSettings() in 02-storage-state.js)
+       has a single flex container to turn into a row, without having to
+       make #appShell itself a flex container (it holds the masthead and
+       status lines too, which must stay stacked regardless). .tabswrap
+       is the similar hook for tabBarMobileStyle's "scroll" fade hint. -->
+  <div class="appmain" id="appMain">
+    <div class="tabswrap">
+      <div class="tabs" id="tabs"></div>
+    </div>
+    <div class="leathercover" id="leatherCover">
+      <div class="bookmark"></div>
+      <div class="card" id="appCard">
       <div id="categoryView">
         <!-- Mobile UI Lab (quickAddMobileStyle) — inert unless mobileui-active
              AND a non-default style is chosen (see the body[data-quickadd-mode]
@@ -69,6 +80,7 @@
       <div id="calendarView" style="display:none;"></div>
       <div id="settingsView" style="display:none;"></div>
       <div id="claudeView" style="display:none;"></div>
+    </div>
     </div>
   </div>
   <div class="undoRow">

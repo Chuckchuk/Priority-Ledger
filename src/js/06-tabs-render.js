@@ -78,7 +78,14 @@ function renderTabs(){
     const openCount = tabOpenCount(key);
     const dot = (key==='all'||key==='daily') ? '' : categoryDotHtml(CATEGORIES[key], 'dot');
     const label = key==='all' ? 'All' : key==='daily' ? 'Daily' : CATEGORIES[key].label;
-    return `<button class="tab ${activeTab===key?'active':''}" onclick="switchTab('${key}')">${dot}${label} <span class="count">${openCount}</span></button>`;
+    // --tabhex is only ever read by the EXPERIMENTAL tabBarDesktopStyle
+    // "indextabs" look (see the body:not(.mobileui-active)[data-tabbar-
+    // desktop="indextabs"] rules in <style>) — harmless to always set,
+    // same reasoning as --page-transform elsewhere. 'all'/'daily' have no
+    // category color of their own, so they fall back to var(--primary)
+    // in CSS instead of getting this property at all.
+    const hexStyle = (key!=='all' && key!=='daily' && CATEGORIES[key]) ? ` style="--tabhex:${CATEGORIES[key].hex}"` : '';
+    return `<button class="tab ${activeTab===key?'active':''}"${hexStyle} onclick="switchTab('${key}')">${dot}${label} <span class="count">${openCount}</span></button>`;
   }).join('');
   renderTabRowLines();
 }
@@ -91,6 +98,13 @@ function renderTabs(){
 function renderTabRowLines(){
   const wrap = document.getElementById('tabs');
   wrap.querySelectorAll('.tabrow-line').forEach(el=>el.remove());
+  // The "which tabs share a row" measurement below only means anything
+  // for a horizontally-wrapping bar. tabBarDesktopStyle's "sidetabs"
+  // variant (see defaultDevSettings() in 02-storage-state.js) turns #tabs
+  // into a vertical column instead — every tab would measure a different
+  // offsetTop there, which without this guard would misread as "every
+  // tab is its own row" and draw a stray horizontal line under each one.
+  if(state.devSettings && state.devSettings.tabBarDesktopStyle === 'sidetabs' && !mobileUiActive()) return;
   const tabs = Array.from(wrap.querySelectorAll('.tab'));
   if(!tabs.length) return;
   const rows = [];

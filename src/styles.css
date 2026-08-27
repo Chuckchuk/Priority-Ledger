@@ -1817,3 +1817,63 @@
     grid-column:1 / -1; display:flex; justify-content:space-around; align-items:center; margin-top:4px;
   }
   body.mobileui-active[data-taskdetail-mobile="grouped"] .expandactions .remove{ margin-left:0; }
+
+  /* ---- tabBarMobileStyle / tabBarDesktopStyle ----
+     .appmain/.tabswrap (see shell-body.html) are plain unstyled wrappers
+     in every mode but 'sidetabs' below — nothing here changes the
+     default look. tabBarMobileStyle is gated by mobileui-active like the
+     rest of this lab; tabBarDesktopStyle is gated the opposite way
+     (body:not(.mobileui-active)) so it can never activate at phone width
+     regardless of what's selected — see the comment on
+     defaultDevSettings() in 02-storage-state.js. */
+
+  /* scroll: one row, no wrap — scrolls sideways instead, with scroll-snap
+     and a trailing fade hinting more tabs are off-screen. Scrollbar
+     hidden since the fade + snap already communicate "more content"
+     without needing a visible track on top of it. */
+  body.mobileui-active[data-tabbar-mobile="scroll"] .tabs{
+    flex-wrap:nowrap; overflow-x:auto; scroll-snap-type:x proximity;
+    -webkit-overflow-scrolling:touch; scrollbar-width:none;
+  }
+  body.mobileui-active[data-tabbar-mobile="scroll"] .tabs::-webkit-scrollbar{ display:none; }
+  body.mobileui-active[data-tabbar-mobile="scroll"] .tab{ flex-shrink:0; scroll-snap-align:start; }
+  .tabswrap{ position:relative; }
+  .tabswrap::after{ content:none; }
+  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap::after{
+    content:''; position:absolute; top:0; right:0; bottom:1px; width:34px;
+    background:linear-gradient(to right, transparent, rgba(0,0,0,0.55));
+    border-radius:0 10px 0 0; pointer-events:none;
+  }
+
+  /* sidetabs: #appMain becomes a row so #tabswrap (now a fixed-width
+     column) sits to the left of .leathercover instead of above it. Every
+     label stays fully visible all the time — the whole point of this
+     option versus a hover/tap-to-reveal collapse. */
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .appmain{
+    display:flex; align-items:stretch; gap:0;
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .tabswrap{
+    width:168px; flex-shrink:0;
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .tabs{
+    flex-direction:column; flex-wrap:nowrap; height:100%; gap:4px;
+    padding:10px; border-radius:10px 0 0 10px; border-right:none; border-bottom:1px solid rgba(241,234,217,0.16);
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .tab{
+    border-radius:7px 0 0 7px; justify-content:flex-start; width:100%; padding:11px 16px;
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .leathercover{ flex:1; min-width:0; }
+
+  /* indextabs: pure restyle of the existing horizontal row — no wrap/
+     click behavior changes. Each tab's own category color (--tabhex, set
+     inline by renderTabs() in 06-tabs-render.js) becomes a top accent
+     border instead of only showing up in the small dot glyph, and a
+     3-step stagger + stronger shadow sells "protruding book-index tab"
+     instead of "flat pill". 'all'/'daily' have no category color, so
+     they fall back to var(--primary). */
+  body:not(.mobileui-active)[data-tabbar-desktop="indextabs"] .tab{
+    border-radius:7px 7px 0 0; border-top:3px solid var(--tabhex, var(--primary));
+    box-shadow:0 2px 5px rgba(0,0,0,0.25);
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="indextabs"] .tab:nth-child(3n+2){ margin-top:4px; }
+  body:not(.mobileui-active)[data-tabbar-desktop="indextabs"] .tab:nth-child(3n+3){ margin-top:8px; }
