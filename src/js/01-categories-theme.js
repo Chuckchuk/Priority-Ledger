@@ -330,6 +330,10 @@ function applyDevSettings(){
   document.body.dataset.tabbarMobile = d.tabBarMobileStyle || 'default';
   document.body.dataset.tabbarDesktop = d.tabBarDesktopStyle || 'default';
   document.body.dataset.settingsrowMobile = d.settingsRowMobileStyle || 'default';
+  // Not gated by mobileui-active (see the comment on fieldPickerStyle in
+  // defaultDevSettings()) — read directly by fieldPickerHtml() in
+  // 08-render-core.js as plain state, and by <style> for the atmax pulse.
+  document.body.dataset.fieldpickerStyle = d.fieldPickerStyle || 'default';
   refreshMobileUiActive();
 }
 
@@ -439,6 +443,21 @@ async function setDevSettingsRowMobileStyle(val){
   pushUndo(`Changed dev settings row mobile style to "${val}"`);
   state.devSettings.settingsRowMobileStyle = val;
   applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevFieldPickerStyle(val){
+  pushUndo(`Changed dev field picker style to "${val}"`);
+  state.devSettings.fieldPickerStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevTaskLongPressMode(val){
+  pushUndo(`Changed dev task long-press mode to "${val}"`);
+  state.devSettings.taskLongPressMode = val;
   render();
   queueSave();
 }
@@ -620,6 +639,7 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="default" ${dev.tabBarDesktopStyle==='default'?'selected':''}>Default (horizontal pill row)</option>
         <option value="sidetabs" ${dev.tabBarDesktopStyle==='sidetabs'?'selected':''}>Vertical tabs down the left side</option>
         <option value="indextabs" ${dev.tabBarDesktopStyle==='indextabs'?'selected':''}>Staggered, color-edged index tabs</option>
+        <option value="overlap" ${dev.tabBarDesktopStyle==='overlap'?'selected':''}>Overlapping color tabs, hover to lift</option>
       </select>
     </div>
     <div class="${fieldClass}">
@@ -627,6 +647,21 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <select class="${selectClass}" onchange="setDevSettingsRowMobileStyle(this.value)">
         <option value="default" ${dev.settingsRowMobileStyle==='default'?'selected':''}>Default (everything one flat row)</option>
         <option value="grouped" ${dev.settingsRowMobileStyle==='grouped'?'selected':''}>Grouped — Delete moves to its own quiet row</option>
+      </select>
+    </div>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Timeframe & Priority picker</span>
+      <select class="${selectClass}" onchange="setDevFieldPickerStyle(this.value)">
+        <option value="default" ${dev.fieldPickerStyle==='default'?'selected':''}>Default (dropdown)</option>
+        <option value="buttons" ${dev.fieldPickerStyle==='buttons'?'selected':''}>Row of buttons</option>
+        <option value="progress" ${dev.fieldPickerStyle==='progress'?'selected':''}>Stylized progress bar</option>
+      </select>
+    </div>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Task tap/long-press (mobile)</span>
+      <select class="${selectClass}" onchange="setDevTaskLongPressMode(this.value)">
+        <option value="default" ${dev.taskLongPressMode==='default'?'selected':''}>Default (tap opens everything)</option>
+        <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap shows Steps, long-press opens settings</option>
       </select>
     </div>
   `;

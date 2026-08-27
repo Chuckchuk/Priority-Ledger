@@ -1,26 +1,59 @@
-// Everything a task's own detail shows below its row header — title,
-// category/due/urgent/today fields, timeframe/priority, steps, notes,
-// meta line. Shared by the inline .expand under a normal row and the
-// full-page task detail opened from Daily (renderTaskDetailPage) so the
-// two can never drift out of sync — edit once, both places update.
-function taskExpandFieldsHtml(t, canRemoveHere){
-  const subs = t.subtasks || [];
-  let metaLine = `Created ${fmtDate(t.createdAt)}`;
-  if(t.status==='done' && t.completedAt){
-    metaLine += ` · Completed ${fmtDate(t.completedAt)} (${daysBetween(t.createdAt, t.completedAt)}d)`;
-  } else {
-    const age = daysBetween(t.createdAt, todayStr());
-    if(age > 0) metaLine += ` · Open ${age}d`;
+// EXPERIMENTAL — fieldPickerStyle (see defaultDevSettings() in
+// 02-storage-state.js). Drop-in replacement for a plain <select> when
+// stepping through TIMEFRAME_STEPS/PRIORITY_STEPS (02-storage-state.js).
+// `onClickFor(v)` returns the onclick handler string for stepping to
+// value v — the two call sites need different targets (a task's own
+// updateTimeframe/updatePriority vs. the quick-add bar's hidden <select>,
+// see syncQuickField() in 06-tabs-render.js), so the caller decides what
+// clicking a step actually does; this only renders the control. Returns
+// '' for 'default' — callers keep showing their own native <select> in
+// that case rather than this function rendering one too.
+function fieldPickerHtml(kind, currentValue, onClickFor){
+  const steps = kind === 'timeframe' ? TIMEFRAME_STEPS : PRIORITY_STEPS;
+  const style = (state.devSettings && state.devSettings.fieldPickerStyle) || 'default';
+  if(style === 'default') return '';
+  const curStr = String(currentValue==null ? '' : currentValue);
+  const idx = steps.findIndex(s => s.v === curStr);
+  // "At max" (Urgent / High) is the one step that gets the pulse — see
+  // .fieldbtn.atmax / .fieldprogress.atmax in <style>. idx>0 excludes the
+  // single-step edge case of a field with only one entry ever reading as
+  // simultaneously "unset" and "maxed out".
+  const atMax = idx === steps.length - 1 && idx > 0;
+  if(style === 'buttons'){
+    return `<div class="fieldbuttons">${steps.map(s => `
+      <button type="button" class="fieldbtn ${s.v===curStr?'active':''} ${s.v===curStr && atMax?'atmax':''}"
+        onclick="${onClickFor(s.v)}">${escapeHtml(s.label)}</button>`).join('')}</div>`;
   }
+  // progress: a filled track + one dot per step, each independently
+  // clickable (not just draggable) so picking "Long" is still a single
+  // tap even though it isn't the endpoint. denom guards the (currently
+  // unreachable) 1-step case from a divide-by-zero.
+  const denom = Math.max(steps.length - 1, 1);
+  const pct = idx <= 0 ? 0 : (idx/denom)*100;
+  return `
+    <div class="fieldprogress ${atMax?'atmax':''}">
+      <div class="fieldprogresstrack">
+        <div class="fieldprogressfill" style="width:${pct}%"></div>
+        ${steps.map((s,i)=>`<button type="button" class="fieldprogressdot ${i<=idx?'filled':''} ${i===idx?'current':''}"
+          style="left:${(i/denom)*100}%" onclick="${onClickFor(s.v)}" title="${escapeHtml(s.label)}"></button>`).join('')}
+      </div>
+      <div class="fieldprogresslabel">${escapeHtml(idx>=0 ? steps[idx].label : steps[0].label)}</div>
+    </div>`;
+}
+
+function taskTitleFieldHtml(t){
+  return `<input type="text" class="titleedit" value="${escapeHtml(t.title)}"
+        onblur="updateTitle('${t.id}', this.value)"
+        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">`;
+}
+
+function taskCoreFieldsRowHtml(t, canRemoveHere){
   const plannedToday = (t.plannedDates||[]).includes(todayStr());
   const otherPlanned = (t.plannedDates||[]).filter(d=>d!==todayStr()).length;
   const todayTitle = plannedToday ? 'Remove from today’s list'
     : otherPlanned ? `Also planned on ${otherPlanned} other day${otherPlanned===1?'':'s'} — tap to add today too`
     : 'Add to today’s list';
   return `
-      <input type="text" class="titleedit" value="${escapeHtml(t.title)}"
-        onblur="updateTitle('${t.id}', this.value)"
-        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
       <div class="expand-row">
         <select class="catselect" onchange="updateCategory('${t.id}', this.value)">
           ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${t.category===k?'selected':''}>${v.label}</option>`).join('')}
@@ -32,26 +65,52 @@ function taskExpandFieldsHtml(t, canRemoveHere){
           <button class="flagbtn daybtn ${(t.plannedDates||[]).length?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>
           ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
-      </div>
-      ${state.advancedTaskFields ? `
+      </div>`;
+}
+
+// Timeframe/Priority both fall back to a plain <select> built straight
+// from the same TIMEFRAME_STEPS/PRIORITY_STEPS list fieldPickerHtml()
+// reads (02-storage-state.js), so the option set/order can never drift
+// between the two — only how they're *drawn* differs.
+function taskAdvancedFieldsRowHtml(t){
+  if(!state.advancedTaskFields) return '';
+  const timeframePicker = fieldPickerHtml('timeframe', t.timeframe, v=>`updateTimeframe('${t.id}','${v}')`)
+    || `<select class="catselect" onchange="updateTimeframe('${t.id}', this.value)">
+          ${TIMEFRAME_STEPS.map(s=>`<option value="${s.v}" ${(t.timeframe||'')===s.v?'selected':''}>${s.label}</option>`).join('')}
+        </select>`;
+  const priorityPicker = fieldPickerHtml('priority', t.priority, v=>`updatePriority('${t.id}','${v}')`)
+    || `<select class="catselect" onchange="updatePriority('${t.id}', this.value)">
+          ${PRIORITY_STEPS.map(s=>`<option value="${s.v}" ${String(t.priority||0)===s.v?'selected':''}>${s.label}</option>`).join('')}
+        </select>`;
+  return `
       <div class="expand-row">
         <label class="fieldlabel">TIMEFRAME</label>
-        <select class="catselect" onchange="updateTimeframe('${t.id}', this.value)">
-          <option value="" ${!t.timeframe?'selected':''}>None</option>
-          <option value="today" ${t.timeframe==='today'?'selected':''}>Today</option>
-          <option value="short" ${t.timeframe==='short'?'selected':''}>Short</option>
-          <option value="medium" ${t.timeframe==='medium'?'selected':''}>Medium</option>
-          <option value="long" ${t.timeframe==='long'?'selected':''}>Long</option>
-          <option value="urgent" ${t.timeframe==='urgent'?'selected':''}>Urgent</option>
-        </select>
+        ${timeframePicker}
         <label class="fieldlabel">PRIORITY</label>
-        <select class="catselect" onchange="updatePriority('${t.id}', this.value)">
-          <option value="0" ${!t.priority?'selected':''}>None</option>
-          <option value="1" ${t.priority===1?'selected':''}>Low</option>
-          <option value="2" ${t.priority===2?'selected':''}>Medium</option>
-          <option value="3" ${t.priority===3?'selected':''}>High</option>
-        </select>
-      </div>` : ''}
+        ${priorityPicker}
+      </div>`;
+}
+
+function taskNotesAndMetaHtml(t){
+  let metaLine = `Created ${fmtDate(t.createdAt)}`;
+  if(t.status==='done' && t.completedAt){
+    metaLine += ` · Completed ${fmtDate(t.completedAt)} (${daysBetween(t.createdAt, t.completedAt)}d)`;
+  } else {
+    const age = daysBetween(t.createdAt, todayStr());
+    if(age > 0) metaLine += ` · Open ${age}d`;
+  }
+  return `
+      <textarea placeholder="Notes…" onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>
+      <div class="taskmeta">${metaLine}</div>`;
+}
+
+// Factored out specifically so a short tap in taskLongPressMode's "split"
+// variant (see taskRowHtml() below) can show just this — the one part of
+// a task's detail worth glancing at on every tap — without the rest of
+// taskManagementFieldsHtml() coming along with it.
+function taskSubtasksHtml(t){
+  const subs = t.subtasks || [];
+  return `
       <div class="subwrap">
         <div class="sublabel">Steps</div>
         ${subs.map(s=>{
@@ -72,10 +131,24 @@ function taskExpandFieldsHtml(t, canRemoveHere){
         }).join('')}
         ${subDropEndHtml(t.id, subs)}
         <input type="text" class="subadd" placeholder="+ add a step, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); }">
-      </div>
-      <textarea placeholder="Notes…" onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>
-      <div class="taskmeta">${metaLine}</div>
-  `;
+      </div>`;
+}
+
+// Everything EXCEPT Steps — the long-press settings sheet's own content
+// (openTaskSettingsSheet() in 08-render-core.js, taskLongPressMode
+// 'split') is just this, since Steps already got its own short-tap view.
+function taskManagementFieldsHtml(t, canRemoveHere){
+  return `${taskTitleFieldHtml(t)}${taskCoreFieldsRowHtml(t, canRemoveHere)}${taskAdvancedFieldsRowHtml(t)}${taskNotesAndMetaHtml(t)}`;
+}
+
+// Everything a task's own detail shows below its row header — title,
+// category/due/urgent/today fields, timeframe/priority, steps, notes,
+// meta line. Shared by the inline .expand under a normal row (default
+// taskLongPressMode) and the full-page task detail opened from Daily
+// (renderTaskDetailPage) so the two can never drift out of sync — edit
+// once, both places update.
+function taskExpandFieldsHtml(t, canRemoveHere){
+  return `${taskTitleFieldHtml(t)}${taskCoreFieldsRowHtml(t, canRemoveHere)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
 }
 
 function taskRowHtml(t, showDot, inDaily, dayDate){
@@ -113,12 +186,27 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
     : '';
   // Within Daily, clicking a task opens its own full page (see
   // openTaskDetailFromDay/renderTaskDetailPage) rather than expanding
-  // inline — everywhere else it's the usual inline .expand toggle.
-  const rowClick = inDaily ? `openTaskDetailFromDay('${t.id}')` : `toggleExpand(event,'${t.id}')`;
+  // inline — everywhere else it's the usual inline .expand toggle, routed
+  // through taskRowTap() so a long-press that just fired (taskLongPressMode
+  // 'split', see below) can swallow the click a touchend/mouseup would
+  // otherwise also produce, rather than both firing.
+  const rowClick = inDaily ? `openTaskDetailFromDay('${t.id}')` : `taskRowTap(event,'${t.id}')`;
+  // 'split' only applies outside Daily — a Daily row already opens its
+  // own full page on a plain tap, so there's no "everything at once" tap
+  // target here to split in the first place. Gated by mobileUiActive()
+  // (touch-first — see the taskLongPressMode comment in
+  // defaultDevSettings(), 02-storage-state.js) so a short tap keeps
+  // opening the *entire* .expand on desktop, where there's no long-press
+  // gesture to reach the rest with.
+  const useSplitPress = !inDaily && state.devSettings && state.devSettings.taskLongPressMode === 'split' && mobileUiActive();
+  const pressAttrs = useSplitPress
+    ? ` ontouchstart="taskPressStart(event,'${t.id}')" ontouchmove="taskPressMove(event)" ontouchend="taskPressEnd()" ontouchcancel="taskPressEnd()" onmousedown="taskPressStart(event,'${t.id}')" onmouseup="taskPressEnd()" onmouseleave="taskPressEnd()"`
+    : '';
+  const expandInner = useSplitPress ? taskSubtasksHtml(t) : taskExpandFieldsHtml(t, canRemoveHere);
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
   <li class="task" ${dragTargetAttrs}>
-    <div class="row" onclick="${rowClick}">
+    <div class="row"${pressAttrs} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
         <div class="check ${t.status==='done'?'done':''}" onclick="toggleStatus('${t.id}')"></div>
@@ -134,8 +222,79 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
       ` : ''}
     </div>
-    ${inDaily ? '' : `<div class="expand ${expandedTaskIds.has(t.id)?'open':''}" id="exp-${t.id}">${taskExpandFieldsHtml(t, canRemoveHere)}</div>`}
+    ${inDaily ? '' : `<div class="expand ${expandedTaskIds.has(t.id)?'open':''}" id="exp-${t.id}">${expandInner}</div>`}
   </li>`;
+}
+
+// ---------- taskLongPressMode 'split': long-press gesture + settings sheet ----------
+// touchstart/mousedown arms a timer; touchend/mouseup/mouseleave (a plain
+// tap, or the finger/mouse lifting before the timer fires) cancels it;
+// touchmove past a small tolerance also cancels it, so scrolling the page
+// with a finger that happens to start on a task row can't be mistaken for
+// a long-press. If the timer *does* fire, taskLongPressFired is left set
+// so the click event a touchend/mouseup produces right after (real on
+// mobile, synthetic on some browsers) gets swallowed by taskRowTap()
+// instead of also toggling the short-tap view.
+const TASK_LONG_PRESS_MS = 500;
+const TASK_LONG_PRESS_TOLERANCE_PX = 10;
+
+function taskPressStart(e, taskId){
+  if(!mobileUiActive()) return;
+  taskLongPressFired = false;
+  const pt = e.touches ? e.touches[0] : e;
+  taskPressStartX = pt.clientX;
+  taskPressStartY = pt.clientY;
+  clearTimeout(taskPressTimer);
+  taskPressTimer = setTimeout(() => {
+    taskPressTimer = null;
+    taskLongPressFired = true;
+    openTaskSettingsSheet(taskId);
+  }, TASK_LONG_PRESS_MS);
+}
+function taskPressMove(e){
+  if(!taskPressTimer) return;
+  const pt = e.touches ? e.touches[0] : e;
+  const dx = pt.clientX - taskPressStartX, dy = pt.clientY - taskPressStartY;
+  if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
+    clearTimeout(taskPressTimer);
+    taskPressTimer = null;
+  }
+}
+function taskPressEnd(){
+  clearTimeout(taskPressTimer);
+  taskPressTimer = null;
+}
+function taskRowTap(e, taskId){
+  if(taskLongPressFired){ taskLongPressFired = false; e.preventDefault(); return; }
+  toggleExpand(e, taskId);
+}
+
+// The long-press settings sheet itself — everything taskManagementFieldsHtml()
+// covers (title/category/due/urgent/pin/timeframe/priority/notes/meta),
+// rendered into the always-in-DOM #taskSettingsSheet (shell-body.html)
+// rather than per-task markup, since only one can ever be open at a time.
+// canRemoveHere is always true here (matching taskRowHtml()'s own
+// !inDaily case, since 'split' never applies inside Daily — see
+// useSplitPress above) — no need to re-derive it from a category check.
+function openTaskSettingsSheet(taskId){
+  taskSettingsOpenId = taskId;
+  renderTaskSettingsSheet();
+  document.body.classList.add('tasksettings-open');
+}
+function closeTaskSettingsSheet(){
+  taskSettingsOpenId = null;
+  document.body.classList.remove('tasksettings-open');
+}
+// Called from openTaskSettingsSheet() and unconditionally (guarded) from
+// render() — see the call near the top of render() below — so an edit
+// made *inside* the sheet (which runs the task's normal update*()
+// functions, each already calling render()) is reflected immediately
+// rather than the sheet showing stale field values until it's reopened.
+function renderTaskSettingsSheet(){
+  if(!taskSettingsOpenId) return;
+  const t = state.tasks.find(x=>x.id===taskSettingsOpenId);
+  if(!t){ closeTaskSettingsSheet(); return; }
+  document.getElementById('taskSettingsBody').innerHTML = taskManagementFieldsHtml(t, true);
 }
 
 // Full-page task detail, opened by clicking a task or step within Daily
@@ -217,6 +376,7 @@ function pageTagHtml(onclick, label, compact){
 
 function render(){
   renderDevPanel();
+  renderTaskSettingsSheet();
   renderLocBadge();
   renderTabs();
   refreshUndoButtons();
@@ -326,6 +486,12 @@ function switchTab(key){
   // modal (openFabAdd()) is deliberately NOT reset here, since its whole
   // point is being reachable regardless of which tab you're on.
   if(quickAddOpen) toggleQuickAddSheet(false);
+  // Same idea for the taskLongPressMode settings sheet — its task belongs
+  // to whichever tab you were just on, so it shouldn't linger open over
+  // a different one (the FAB modal's own exemption above doesn't apply
+  // here: this sheet is tied to one specific task, not "reachable from
+  // anywhere" the way the FAB is).
+  if(taskSettingsOpenId) closeTaskSettingsSheet();
   // Only an actual change of category counts as "leaving" it — re-clicking
   // the tab you're already on (which still runs this whole function, to
   // exit an open overlay per the note above) must not collapse tasks you

@@ -659,6 +659,68 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);
   }
+  /* EXPERIMENTAL — fieldPickerStyle (Settings → Dev Settings), replacing
+     a plain <select> for Timeframe/Priority — see fieldPickerHtml() in
+     08-render-core.js. .fieldpicker itself is only the quick-add bar's
+     static container (shell-body.html); the task-detail expand-row hosts
+     .fieldbuttons/.fieldprogress directly with no extra wrapper. */
+  .fieldpicker{ flex:1 1 150px; min-width:120px; }
+  /* ---- 'buttons': a row of small pill buttons, one per step ---- */
+  .fieldbuttons{ display:flex; flex-wrap:wrap; gap:5px; }
+  .fieldbtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.03em;
+    padding:6px 10px; border-radius:999px; border:1px solid var(--line); background: var(--card-bg-dim);
+    color: var(--ink-soft); cursor:pointer; transition: background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .fieldbtn.active{ background: var(--primary); border-color: var(--primary); color:white; }
+  /* The one step that's "maxed out" (Urgent / High) gets a little life of
+     its own once it's actually selected — a soft, repeating ring pulse
+     rather than anything that moves or resizes, so it reads as "this
+     matters" without being distracting to work next to. Respects
+     prefers-reduced-motion (see the guard near the end of this file). */
+  .fieldbtn.active.atmax{ background: var(--estate); border-color: var(--estate); animation: fieldpulse 1.8s ease-in-out infinite; }
+  /* ---- 'progress': a filled track + one clickable dot per step ---- */
+  .fieldprogress{ display:flex; flex-direction:column; gap:2px; min-width:130px; }
+  .fieldprogresstrack{
+    position:relative; height:6px; border-radius:3px; background: var(--card-bg-dim);
+    border:1px solid var(--line); margin:11px 7px 9px;
+  }
+  .fieldprogressfill{
+    position:absolute; top:-1px; bottom:-1px; left:-1px; border-radius:3px;
+    background: linear-gradient(90deg, var(--primary-light), var(--primary));
+    transition: width .25s cubic-bezier(.3,.8,.4,1);
+  }
+  .fieldprogress.atmax .fieldprogressfill{ background: linear-gradient(90deg, var(--primary), var(--estate)); animation: fieldglow 1.8s ease-in-out infinite; }
+  .fieldprogressdot{
+    position:absolute; top:50%; width:13px; height:13px; border-radius:50%; padding:0; cursor:pointer;
+    transform:translate(-50%,-50%); background: var(--card-bg); border:2px solid var(--line);
+  }
+  .fieldprogressdot.filled{ border-color: var(--primary); }
+  .fieldprogressdot.current{ background: var(--primary); border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 28%, transparent); }
+  .fieldprogress.atmax .fieldprogressdot.current{ background: var(--estate); border-color: var(--estate); animation: fielddotpulse 1.8s ease-in-out infinite; }
+  .fieldprogresslabel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
+    color: var(--ink-soft); text-align:center;
+  }
+  .fieldprogress.atmax .fieldprogresslabel{ color: var(--estate); font-weight:700; }
+  /* Soft brightness pulse on the fill and a gently expanding-and-fading
+     ring on the current dot/button — two different animations because a
+     ring pulse on the whole progress *fill* (a wide bar, not a small
+     circle) would just read as a rectangle flashing, not a "glow". */
+  @keyframes fieldglow{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.4); } }
+  @keyframes fielddotpulse{
+    0%,100%{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--estate) 55%, transparent); }
+    50%{ box-shadow: 0 0 0 6px color-mix(in srgb, var(--estate) 0%, transparent); }
+  }
+  @keyframes fieldpulse{
+    0%,100%{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--estate) 55%, transparent); }
+    50%{ box-shadow: 0 0 0 5px color-mix(in srgb, var(--estate) 0%, transparent); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .fieldbtn.active.atmax, .fieldprogress.atmax .fieldprogressfill, .fieldprogress.atmax .fieldprogressdot.current{
+      animation:none !important;
+    }
+  }
   .empty{ font-family:'Fraunces', serif; font-style:italic; color: var(--ink-soft); text-align:center; padding: 26px 10px; font-size:1rem; }
   .footer-row{ display:flex; justify-content:center; padding: 12px 0 4px; }
   .footer-row button{ background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; color: var(--ink-soft); cursor:pointer; letter-spacing:0.05em; }
@@ -1790,6 +1852,24 @@
   body.fab-open .fabaddsheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
   .fabaddsheet input[type=text], .fabaddsheet select{ width:100%; font-size:1.05rem; padding:11px 8px; }
 
+  /* ---- taskLongPressMode 'split': the long-press settings sheet ----
+     Reuses .fabaddsheet/.fabaddscrim's own hidden-by-default base rules
+     above (same bottom-sheet mechanics as the FAB's quick-capture sheet)
+     — only the *shown* state is gated by a different body class, since
+     the FAB sheet and this one are independent and either can be open
+     without the other. .tasksettingssheet adds the taller/scrollable
+     override this one needs — a task's full management fields (title,
+     category, due, flags, timeframe/priority, notes) run taller than the
+     FAB's plain title+category. */
+  body.tasksettings-open #taskSettingsScrim{ display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:65; }
+  body.tasksettings-open #taskSettingsSheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
+  .tasksettingssheet{ max-height:80vh; overflow-y:auto; }
+  .tasksettingssheet .expand-row{ margin-top:0; }
+  .tasksettingssheet textarea{
+    width:100%; min-height:52px; font-family:'IBM Plex Sans',sans-serif; font-size:0.85rem;
+    border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim); padding:8px; resize:vertical; color:var(--ink);
+  }
+
   /* ---- taskRowMobileStyle: reflowing a task row's title vs. its badges ---- */
   /* stacked: .titlewrap (wrapping .title+.meta, see the base rule above)
      switches from a side-by-side row to a column — the title takes the
@@ -1914,6 +1994,54 @@
   }
   body:not(.mobileui-active)[data-tabbar-desktop="indextabs"] .tab:nth-child(3n+2){ margin-top:4px; }
   body:not(.mobileui-active)[data-tabbar-desktop="indextabs"] .tab:nth-child(3n+3){ margin-top:8px; }
+
+  /* overlap: a more extreme take on indextabs — tabs try to stay on one
+     line (flex-wrap:nowrap, a negative margin so each one overlaps the
+     previous rather than wrapping to a 2nd row once they don't all fit)
+     rather than the plain translucent shelf every other tabBarDesktopStyle
+     keeps: fully colored in the category's own hex (--tabhex, set inline
+     by renderTabs() in 06-tabs-render.js) with a darker edge accent
+     (--tabedge), so each reads as a solid book-index tab rather than a
+     pill on a shelf. --tabidx (also set there) is the *default* stacking
+     order — a later tab sits on top of, and partly covers, the ones
+     before it, like a fanned-out stack — until you hover one, which
+     raises it above everything (z-index:999) and lifts it clear of its
+     covering neighbor so the full label reads again. The translucent
+     .tabs shelf background/border is explicitly cleared here (background/
+     border:none) — it read as a dirty smear behind fully-opaque colored
+     tabs instead of the "continuous surface" it's meant to suggest
+     elsewhere, so this mode goes bare instead: just the tabs themselves
+     sitting on the desk. */
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabs{
+    background:none; border:none; flex-wrap:nowrap; gap:0; padding:8px 8px 0;
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab{
+    position:relative; margin-left:-16px; z-index:var(--tabidx, 1);
+    background: var(--tabhex, var(--primary)); color: var(--tabtext, white);
+    border-radius:8px 8px 0 0;
+    border-bottom:3px solid var(--tabedge, color-mix(in srgb, var(--primary) 70%, black));
+    box-shadow:0 -1px 5px rgba(0,0,0,0.3);
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab:first-child{ margin-left:0; }
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab .count{ color:inherit; opacity:0.8; }
+  /* !important on z-index/transform here is load-bearing, not decorative
+     — both rules need to outrank the inline --tabidx-driven stacking
+     order above (an inline style otherwise beats a plain class rule
+     regardless of source order), which is exactly the point: hovering
+     any tab must always win, and the active tab must always sit above
+     its plain (non-hovered) neighbors, no matter where either falls in
+     the fan. */
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab:hover{
+    transform:translateY(-9px); z-index:999 !important;
+    box-shadow:0 5px 16px rgba(0,0,0,0.4);
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab.active{
+    background: var(--card-bg); color: var(--ink); font-weight:500;
+    border-bottom-color: var(--tabedge, var(--primary));
+    transform:translateY(-4px); z-index:500 !important;
+    box-shadow:0 2px 9px rgba(0,0,0,0.35);
+  }
 
   /* ---- settingsRowMobileStyle: separating identity from management ----
      grouped: .catdeletewrap (see renderSettings() in 09-settings.js)

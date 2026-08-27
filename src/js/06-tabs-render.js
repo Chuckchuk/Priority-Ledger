@@ -74,17 +74,29 @@ function tabOpenCount(key){
 
 function renderTabs(){
   const wrap = document.getElementById('tabs');
-  wrap.innerHTML = visibleTabs().map(key=>{
+  wrap.innerHTML = visibleTabs().map((key, idx)=>{
     const openCount = tabOpenCount(key);
     const dot = (key==='all'||key==='daily') ? '' : categoryDotHtml(CATEGORIES[key], 'dot');
     const label = key==='all' ? 'All' : key==='daily' ? 'Daily' : CATEGORIES[key].label;
-    // --tabhex is only ever read by the EXPERIMENTAL tabBarDesktopStyle
-    // "indextabs" look (see the body:not(.mobileui-active)[data-tabbar-
-    // desktop="indextabs"] rules in <style>) — harmless to always set,
-    // same reasoning as --page-transform elsewhere. 'all'/'daily' have no
-    // category color of their own, so they fall back to var(--primary)
-    // in CSS instead of getting this property at all.
-    const hexStyle = (key!=='all' && key!=='daily' && CATEGORIES[key]) ? ` style="--tabhex:${CATEGORIES[key].hex}"` : '';
+    // --tabhex/--tabtext/--tabedge are only ever read by the EXPERIMENTAL
+    // tabBarDesktopStyle "indextabs"/"overlap" looks (see the
+    // body:not(.mobileui-active)[data-tabbar-desktop=…] rules in <style>)
+    // — harmless to always set, same reasoning as --page-transform
+    // elsewhere. --tabtext picks readable text (dark ink vs. cream,
+    // reusing the same relLuminance() call the theme itself uses to
+    // derive --ink from --paper) since a category's own hex runs the
+    // full range from pale gold to near-black; --tabedge is that hex
+    // darkened via shadeHex() for "overlap"'s accent border, the same
+    // multiplicative-darken helper --desk-dark is built from. 'all'/
+    // 'daily' have no category color of their own, so they get none of
+    // these three and fall back to <style>'s var(--primary)-based
+    // defaults instead. --tabidx (1-based) is "overlap"'s default
+    // stacking order — later tabs sit on top of earlier ones until
+    // hovered, like a fanned-out stack of index cards.
+    const cat = (key!=='all' && key!=='daily') ? CATEGORIES[key] : null;
+    const hexStyle = cat
+      ? ` style="--tabhex:${cat.hex};--tabtext:${relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9'};--tabedge:${shadeHex(cat.hex, -0.25)};--tabidx:${idx+1}"`
+      : ` style="--tabidx:${idx+1}"`;
     return `<button class="tab ${activeTab===key?'active':''}"${hexStyle} onclick="switchTab('${key}')">${dot}${label} <span class="count">${openCount}</span></button>`;
   }).join('');
   renderTabRowLines();
@@ -163,8 +175,39 @@ function renderQuickCategory(){
     activeTab==='household' ? 'Log a household task…' :
     activeTab==='work' ? 'Add a work task…' :
     activeTab==='personal' ? 'Add a personal to-do…' : 'What needs doing?';
-  document.getElementById('quickTimeframe').style.display = state.advancedTaskFields ? '' : 'none';
-  document.getElementById('quickPriority').style.display = state.advancedTaskFields ? '' : 'none';
+  // fieldPickerStyle (see defaultDevSettings() in 02-storage-state.js):
+  // the native <select>s stay in the DOM either way (addTask() reads
+  // their .value directly, see 16-task-crud.js) — 'default' shows them
+  // as always; a custom style hides them and shows a synced picker next
+  // to each instead (syncQuickField() below writes back to the hidden
+  // select so addTask() needs no changes at all).
+  const showAdvanced = state.advancedTaskFields;
+  const pickerStyle = (state.devSettings && state.devSettings.fieldPickerStyle) || 'default';
+  const useCustomPicker = showAdvanced && pickerStyle !== 'default';
+  const tfSel = document.getElementById('quickTimeframe');
+  const prSel = document.getElementById('quickPriority');
+  const tfPicker = document.getElementById('quickTimeframePicker');
+  const prPicker = document.getElementById('quickPriorityPicker');
+  tfSel.style.display = showAdvanced && !useCustomPicker ? '' : 'none';
+  prSel.style.display = showAdvanced && !useCustomPicker ? '' : 'none';
+  tfPicker.style.display = useCustomPicker ? '' : 'none';
+  prPicker.style.display = useCustomPicker ? '' : 'none';
+  if(useCustomPicker){
+    tfPicker.innerHTML = fieldPickerHtml('timeframe', tfSel.value, v=>`syncQuickField('timeframe','${v}')`);
+    prPicker.innerHTML = fieldPickerHtml('priority', prSel.value, v=>`syncQuickField('priority','${v}')`);
+  }
+}
+
+// fieldPickerStyle's custom pickers write straight back to the hidden
+// native <select> (whichever addTask()/renderQuickCategory() already
+// treat as the real value) rather than keeping their own parallel piece
+// of state — one source of truth, and addTask() needed zero changes.
+// Re-renders just the two picker containers (not a full render()) so
+// picking a step doesn't touch anything else on screen.
+function syncQuickField(kind, val){
+  const selId = kind === 'timeframe' ? 'quickTimeframe' : 'quickPriority';
+  document.getElementById(selId).value = val;
+  renderQuickCategory();
 }
 
 function subProgressHtml(subs){

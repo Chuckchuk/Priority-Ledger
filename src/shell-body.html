@@ -62,12 +62,18 @@
             <option value="long">Long</option>
             <option value="urgent">Urgent</option>
           </select>
+          <!-- fieldPickerStyle (see defaultDevSettings() in 02-storage-
+               state.js) — the select above stays the real value source
+               either way (addTask() reads it directly); renderQuickCategory()
+               just hides it and fills this instead when a custom style is on. -->
+          <div class="fieldpicker" id="quickTimeframePicker" style="display:none;"></div>
           <select id="quickPriority" title="Priority">
             <option value="0">Priority</option>
             <option value="1">Low</option>
             <option value="2">Medium</option>
             <option value="3">High</option>
           </select>
+          <div class="fieldpicker" id="quickPriorityPicker" style="display:none;"></div>
           <button class="flagbtn" id="urgentToggle" onclick="toggleUrgentDraft()" title="Mark urgent">⚑</button>
           <button class="addbtn" onclick="addTask()">+</button>
         </div>
@@ -105,6 +111,21 @@
     <input type="text" id="fabAddInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') submitFabAdd()">
     <select id="fabAddCategory"></select>
     <button class="addbtn" onclick="submitFabAdd()">+</button>
+  </div>
+
+  <!-- taskLongPressMode 'split' (see openTaskSettingsSheet() in 08-render-
+       core.js) — one shared sheet reused for whichever task was long-
+       pressed, same reasoning and reused .fabaddsheet/.fabaddscrim base
+       mechanics as the FAB's own sheet just above, gated by a different
+       body class (.tasksettings-open) since either can be open without
+       the other. -->
+  <div class="fabaddscrim" id="taskSettingsScrim" onclick="closeTaskSettingsSheet()"></div>
+  <div class="fabaddsheet tasksettingssheet" id="taskSettingsSheet">
+    <div class="quickaddsheethead">
+      <span class="quickaddsheetgrabber"></span>
+      <button class="quickaddsheetclose" onclick="closeTaskSettingsSheet()" title="Close">×</button>
+    </div>
+    <div id="taskSettingsBody"></div>
   </div>
 </div>
 

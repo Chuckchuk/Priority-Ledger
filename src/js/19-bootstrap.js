@@ -28,6 +28,7 @@ document.addEventListener('keydown', (e) => {
     // both float above literally everything else including Settings, so
     // they're checked before any of it.
     if(fabAddOpen){ closeFabAdd(); return; }
+    if(taskSettingsOpenId){ closeTaskSettingsSheet(); return; }
     if(quickAddOpen){ toggleQuickAddSheet(false); return; }
     if(claudeView){ closeClaudeView(); return; }
     if(settingsOpen){ toggleSettings(); return; }

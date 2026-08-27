@@ -15,6 +15,26 @@ const EMPTY_MSG = {
 const PRIORITY_LABELS = { 0:'None', 1:'Low', 2:'Medium', 3:'High' };
 const TIMEFRAME_LABELS = { today:'Today', short:'Short', medium:'Medium', long:'Long', urgent:'Urgent' };
 
+// Ordered step lists backing both the plain <select> (fieldPickerStyle
+// 'default') and the two custom pickers (fieldPickerHtml() in
+// 08-render-core.js) — a single source of truth so all three ever show
+// the same options in the same order. Last step in each list is treated
+// as that field's "max" (urgent / High) for the pulse animation.
+const TIMEFRAME_STEPS = [
+  { v:'', label:'None' },
+  { v:'today', label:'Today' },
+  { v:'short', label:'Short' },
+  { v:'medium', label:'Medium' },
+  { v:'long', label:'Long' },
+  { v:'urgent', label:'Urgent' }
+];
+const PRIORITY_STEPS = [
+  { v:'0', label:'None' },
+  { v:'1', label:'Low' },
+  { v:'2', label:'Medium' },
+  { v:'3', label:'High' }
+];
+
 let state = { location: 'home', tasks: [], days: [], categories: [], locations: [], locationEnabled: true };
 let activeTab = 'all';
 let showDone = false;
@@ -68,6 +88,16 @@ let pendingDeleteLocationId = null;
 // never persisted, same as the other open/closed flags on this page.
 let quickAddOpen = false;
 let fabAddOpen = false;
+// taskLongPressMode's "split" variant (see defaultDevSettings() below and
+// taskPressStart()/openTaskSettingsSheet() in 08-render-core.js) — which
+// task (if any) has its management-fields sheet open, plus the shared
+// long-press timer/gesture-tracking state. All pure UI chrome, same as
+// the rest of this block.
+let taskSettingsOpenId = null;
+let taskPressTimer = null;
+let taskLongPressFired = false;
+let taskPressStartX = 0;
+let taskPressStartY = 0;
 // id of the category whose color/icon popover (see categoryPickerHtml() in
 // 01-categories-theme.js) is currently open, or null — only one open at a
 // time, same "single id, not a Set" pattern as pendingDeleteCategoryId.
@@ -378,7 +408,27 @@ function defaultDevSettings(){
   // look — the label gets the whole top line to itself, and the one
   // dangerous control on the row reads as deliberately secondary instead
   // of same-weight as everything else.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', settingsRowMobileStyle:'default' };
+  // fieldPickerStyle: 'default' keeps the plain <select> for Timeframe/
+  // Priority (both in the main quick-add bar and a task's own detail
+  // fields — see fieldPickerHtml() in 08-render-core.js). 'buttons' swaps
+  // in a row of small pill buttons, one per step; 'progress' swaps in a
+  // stylized filled track with a dot per step, plus a subtle pulse
+  // animation once the field is at its top step (Urgent / High) — see
+  // the .fieldprogress.atmax / .fieldbtn.atmax rules in <style>. NOT
+  // gated by mobileUiActive() like the rest of this file's dev settings:
+  // a nicer tap target beats a dropdown on desktop too, so this one
+  // applies everywhere once picked, not just on a phone-ish viewport.
+  // taskLongPressMode: 'default' leaves a task row's single tap/click
+  // toggling the *entire* .expand block (every field at once, see
+  // taskExpandFieldsHtml() in 08-render-core.js). 'split' — gated by
+  // mobileUiActive(), touch-first — divides that in two: a short tap
+  // toggles a trimmed .expand showing just its Steps (taskSubtasksHtml()),
+  // since that's the thing worth glancing at most often, while a genuine
+  // long-press (taskPressStart() et al.) opens the rest — category, due
+  // date, urgent/today flags, timeframe/priority, notes — as its own
+  // bottom sheet (openTaskSettingsSheet()), out of the way until you
+  // actually reach for it.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default' };
 }
 
 function defaultState(){
@@ -445,6 +495,8 @@ function normalizeState(){
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
+  if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
+  if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'default';
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)
