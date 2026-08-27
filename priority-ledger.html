@@ -1894,10 +1894,23 @@
   body.mobileui-active[data-tabbar-mobile="scroll"] .tabs::-webkit-scrollbar{ display:none; }
   body.mobileui-active[data-tabbar-mobile="scroll"] .tab{ flex-shrink:0; scroll-snap-align:start; }
   .tabswrap{ position:relative; }
-  .tabswrap::after{ content:none; }
-  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap::after{
-    content:''; position:absolute; top:0; right:0; bottom:1px; width:34px;
-    background:linear-gradient(to right, transparent, rgba(0,0,0,0.55));
+  .tabswrap::before, .tabswrap::after{ content:none; }
+  /* Both fades are OFF by default and only switched on by the .fade-left/
+     .fade-right classes updateTabScrollFade() (06-tabs-render.js) toggles
+     on scroll/resize/re-render — right hints "more tabs past the edge"
+     only while that's actually true (never past the last tab), and left
+     mirrors it once you've scrolled away from the first tab at all,
+     rather than a fade always sitting there regardless of scroll
+     position. Toned down from an earlier, harsher pass — 24px/0.32 reads
+     as a soft hint, not a hard edge. */
+  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap.fade-left::before{
+    content:''; position:absolute; top:0; left:0; bottom:1px; width:24px;
+    background:linear-gradient(to left, transparent, rgba(0,0,0,0.32));
+    border-radius:10px 0 0 0; pointer-events:none;
+  }
+  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap.fade-right::after{
+    content:''; position:absolute; top:0; right:0; bottom:1px; width:24px;
+    background:linear-gradient(to right, transparent, rgba(0,0,0,0.32));
     border-radius:0 10px 0 0; pointer-events:none;
   }
 
@@ -3699,6 +3712,32 @@ function renderTabs(){
     return `<button class="tab ${activeTab===key?'active':''}"${hexStyle} onclick="switchTab('${key}')">${dot}${label} <span class="count">${openCount}</span></button>`;
   }).join('');
   renderTabRowLines();
+  updateTabScrollFade();
+}
+
+// tabBarMobileStyle's "scroll" variant (see defaultDevSettings() in
+// 02-storage-state.js) hints "more tabs this way" with a fade on
+// whichever edge(s) actually have more content past them — never a fade
+// sitting there regardless of scroll position. Harmless to call whenever
+// #tabs' content or size might have changed (re-render, resize) or
+// whenever it's actually scrolled — see the 'scroll' listener attached
+// once in 19-bootstrap.js — since it's a no-op unless .tabswrap.fade-left/
+// .fade-right end up matching a rule (they only do anything under
+// body.mobileui-active[data-tabbar-mobile="scroll"], see <style>).
+function updateTabScrollFade(){
+  const tabs = document.getElementById('tabs');
+  const wrap = tabs && tabs.closest('.tabswrap');
+  if(!tabs || !wrap) return;
+  // A small dead zone (not >0/<maxScroll) absorbs scroll-snap's own tiny
+  // rest offset — with .tabs' left padding also acting as a snap target,
+  // the browser's natural "resting" scrollLeft at either end lands a few
+  // px shy of the true 0/maxScroll rather than exactly on it, which
+  // without this would flicker a fade on at rest for a row that hasn't
+  // actually been scrolled at all.
+  const maxScroll = tabs.scrollWidth - tabs.clientWidth;
+  const DEAD_ZONE = 12;
+  wrap.classList.toggle('fade-left', tabs.scrollLeft > DEAD_ZONE);
+  wrap.classList.toggle('fade-right', tabs.scrollLeft < maxScroll - DEAD_ZONE);
 }
 
 // Row membership depends on how the tab labels happen to wrap at the
@@ -7302,8 +7341,15 @@ document.addEventListener('touchcancel', swipeEnd);
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { renderTabRowLines(); refreshMobileUiActive(); }, 120);
+  resizeTimer = setTimeout(() => { renderTabRowLines(); refreshMobileUiActive(); updateTabScrollFade(); }, 120);
 });
+
+// #tabs itself is a static element (renderTabs() only ever replaces its
+// innerHTML, see 06-tabs-render.js) so this listener is safe to attach
+// once here rather than re-attaching on every render. A no-op whenever
+// tabBarMobileStyle's "scroll" variant isn't active — see the comment on
+// updateTabScrollFade() for why.
+document.getElementById('tabs').addEventListener('scroll', updateTabScrollFade, { passive:true });
 
 // saveState() now retries indefinitely rather than dropping a failed save,
 // but that only helps while the tab stays open — closing it mid-retry

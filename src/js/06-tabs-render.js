@@ -88,6 +88,32 @@ function renderTabs(){
     return `<button class="tab ${activeTab===key?'active':''}"${hexStyle} onclick="switchTab('${key}')">${dot}${label} <span class="count">${openCount}</span></button>`;
   }).join('');
   renderTabRowLines();
+  updateTabScrollFade();
+}
+
+// tabBarMobileStyle's "scroll" variant (see defaultDevSettings() in
+// 02-storage-state.js) hints "more tabs this way" with a fade on
+// whichever edge(s) actually have more content past them — never a fade
+// sitting there regardless of scroll position. Harmless to call whenever
+// #tabs' content or size might have changed (re-render, resize) or
+// whenever it's actually scrolled — see the 'scroll' listener attached
+// once in 19-bootstrap.js — since it's a no-op unless .tabswrap.fade-left/
+// .fade-right end up matching a rule (they only do anything under
+// body.mobileui-active[data-tabbar-mobile="scroll"], see <style>).
+function updateTabScrollFade(){
+  const tabs = document.getElementById('tabs');
+  const wrap = tabs && tabs.closest('.tabswrap');
+  if(!tabs || !wrap) return;
+  // A small dead zone (not >0/<maxScroll) absorbs scroll-snap's own tiny
+  // rest offset — with .tabs' left padding also acting as a snap target,
+  // the browser's natural "resting" scrollLeft at either end lands a few
+  // px shy of the true 0/maxScroll rather than exactly on it, which
+  // without this would flicker a fade on at rest for a row that hasn't
+  // actually been scrolled at all.
+  const maxScroll = tabs.scrollWidth - tabs.clientWidth;
+  const DEAD_ZONE = 12;
+  wrap.classList.toggle('fade-left', tabs.scrollLeft > DEAD_ZONE);
+  wrap.classList.toggle('fade-right', tabs.scrollLeft < maxScroll - DEAD_ZONE);
 }
 
 // Row membership depends on how the tab labels happen to wrap at the

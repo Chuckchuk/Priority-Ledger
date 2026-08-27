@@ -244,8 +244,15 @@ document.addEventListener('touchcancel', swipeEnd);
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { renderTabRowLines(); refreshMobileUiActive(); }, 120);
+  resizeTimer = setTimeout(() => { renderTabRowLines(); refreshMobileUiActive(); updateTabScrollFade(); }, 120);
 });
+
+// #tabs itself is a static element (renderTabs() only ever replaces its
+// innerHTML, see 06-tabs-render.js) so this listener is safe to attach
+// once here rather than re-attaching on every render. A no-op whenever
+// tabBarMobileStyle's "scroll" variant isn't active — see the comment on
+// updateTabScrollFade() for why.
+document.getElementById('tabs').addEventListener('scroll', updateTabScrollFade, { passive:true });
 
 // saveState() now retries indefinitely rather than dropping a failed save,
 // but that only helps while the tab stays open — closing it mid-retry

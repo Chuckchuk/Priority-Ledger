@@ -1862,10 +1862,23 @@
   body.mobileui-active[data-tabbar-mobile="scroll"] .tabs::-webkit-scrollbar{ display:none; }
   body.mobileui-active[data-tabbar-mobile="scroll"] .tab{ flex-shrink:0; scroll-snap-align:start; }
   .tabswrap{ position:relative; }
-  .tabswrap::after{ content:none; }
-  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap::after{
-    content:''; position:absolute; top:0; right:0; bottom:1px; width:34px;
-    background:linear-gradient(to right, transparent, rgba(0,0,0,0.55));
+  .tabswrap::before, .tabswrap::after{ content:none; }
+  /* Both fades are OFF by default and only switched on by the .fade-left/
+     .fade-right classes updateTabScrollFade() (06-tabs-render.js) toggles
+     on scroll/resize/re-render — right hints "more tabs past the edge"
+     only while that's actually true (never past the last tab), and left
+     mirrors it once you've scrolled away from the first tab at all,
+     rather than a fade always sitting there regardless of scroll
+     position. Toned down from an earlier, harsher pass — 24px/0.32 reads
+     as a soft hint, not a hard edge. */
+  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap.fade-left::before{
+    content:''; position:absolute; top:0; left:0; bottom:1px; width:24px;
+    background:linear-gradient(to left, transparent, rgba(0,0,0,0.32));
+    border-radius:10px 0 0 0; pointer-events:none;
+  }
+  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap.fade-right::after{
+    content:''; position:absolute; top:0; right:0; bottom:1px; width:24px;
+    background:linear-gradient(to right, transparent, rgba(0,0,0,0.32));
     border-radius:0 10px 0 0; pointer-events:none;
   }
 
