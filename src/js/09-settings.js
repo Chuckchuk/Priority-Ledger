@@ -28,19 +28,21 @@ function renderSettings(){
       </div>` : '';
     return `
     <div class="catrow">
-      <div class="catmove">
-        <button class="catmovebtn" ${idx===0?'disabled':''} onclick="moveCategory('${c.id}', -1)" title="Move up">▲</button>
-        <button class="catmovebtn" ${idx===state.categories.length-1?'disabled':''} onclick="moveCategory('${c.id}', 1)" title="Move down">▼</button>
+      <div class="catidentity">
+        <div class="catmove">
+          <button class="catmovebtn" ${idx===0?'disabled':''} onclick="moveCategory('${c.id}', -1)" title="Move up">▲</button>
+          <button class="catmovebtn" ${idx===state.categories.length-1?'disabled':''} onclick="moveCategory('${c.id}', 1)" title="Move down">▼</button>
+        </div>
+        <span class="catdotwrap">
+          <button class="catdotbtn" onclick="toggleCategoryPicker('${c.id}')" title="Change color & icon">${categoryDotHtml(c, 'cdot')}</button>
+          ${openCategoryPickerId === c.id ? categoryPickerHtml(c) : ''}
+        </span>
+        <input type="text" class="catedit" value="${escapeHtml(c.label)}"
+          onblur="renameCategory('${c.id}', this.value)"
+          onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+        ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
+        ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
       </div>
-      <span class="catdotwrap">
-        <button class="catdotbtn" onclick="toggleCategoryPicker('${c.id}')" title="Change color & icon">${categoryDotHtml(c, 'cdot')}</button>
-        ${openCategoryPickerId === c.id ? categoryPickerHtml(c) : ''}
-      </span>
-      <input type="text" class="catedit" value="${escapeHtml(c.label)}"
-        onblur="renameCategory('${c.id}', this.value)"
-        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
-      ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
-      ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
       <div class="catdeletewrap">${deleteControls}</div>
       ${locChecks}
     </div>`;

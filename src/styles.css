@@ -1252,7 +1252,25 @@
     background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase;
     color: rgba(241,234,217,0.55); cursor:pointer; letter-spacing:0.05em;
   }
-  .catrow{ display:flex; align-items:center; gap:8px; padding:10px 2px; border-bottom:1px dashed var(--line); flex-wrap:wrap; }
+  /* align-items:flex-start (not center) specifically so Delete lines up
+     with the top of .catidentity — i.e. with the label — even on a
+     checklist/calendar row where the type badge wraps to its own second
+     line inside .catidentity and makes that sibling taller; centering
+     would otherwise drift Delete down toward that block's vertical
+     middle instead of staying level with the label like every other row. */
+  .catrow{ display:flex; align-items:flex-start; gap:8px; padding:10px 2px; border-bottom:1px dashed var(--line); flex-wrap:wrap; }
+  /* Groups reorder+color/icon+label+type-badge into one flex:1 unit so
+     Delete (a separate, fixed-width sibling below) always lands in the
+     same place regardless of whether a row happens to have a type badge.
+     Before this, a checklist/calendar row's extra badge could tip .catrow
+     over its wrap width right at the Delete button, dropping *only that
+     row's* Delete onto its own line while every plain row kept it inline
+     — same content, inconsistent layout, for no reason a reader could
+     see. Now if a row's contents get tight, .catidentity's own children
+     wrap internally (the badge drops under the label) instead of pushing
+     Delete anywhere; Delete's position never depends on what else is in
+     the row. */
+  .catidentity{ display:flex; align-items:center; gap:8px; flex:1; min-width:0; flex-wrap:wrap; }
   .catedit{
     flex:1; min-width:120px; border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
     font-family:'IBM Plex Sans', sans-serif; font-size:0.9rem; padding:4px 2px; color:var(--ink); outline:none;
