@@ -24,6 +24,11 @@ document.addEventListener('keydown', (e) => {
   if(e.key === 'Escape' || e.key === 'Enter'){
     if(popoverOpen){ closeAllSettingsPopovers(); render(); return; }
     if(e.key !== 'Escape') return; // Enter has nothing else to do app-wide
+    // Mobile UI Lab overlays (see 01-categories-theme.js/16-task-crud.js) —
+    // both float above literally everything else including Settings, so
+    // they're checked before any of it.
+    if(fabAddOpen){ closeFabAdd(); return; }
+    if(quickAddOpen){ toggleQuickAddSheet(false); return; }
     if(claudeView){ closeClaudeView(); return; }
     if(settingsOpen){ toggleSettings(); return; }
     if(checklistPendingOpen){ closeChecklistPending(); return; }
@@ -232,10 +237,14 @@ document.addEventListener('touchcancel', swipeEnd);
 // Resizing the window can change how tabs wrap into rows even with no
 // state change (nothing else calls render() in that case), which would
 // leave renderTabRowLines()'s shelf lines stale — so re-measure on resize.
+// Also re-checks the Mobile UI Lab's mobileUiActive() gate (01-categories-
+// theme.js), since dragging a desktop browser window narrower/wider is the
+// other way (besides mobileUiPreviewOnDesktop) that gate's answer changes
+// without any state mutation to trigger it.
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(renderTabRowLines, 120);
+  resizeTimer = setTimeout(() => { renderTabRowLines(); refreshMobileUiActive(); }, 120);
 });
 
 // saveState() now retries indefinitely rather than dropping a failed save,

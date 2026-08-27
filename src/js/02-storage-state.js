@@ -63,6 +63,11 @@ let devPanelOpen = false;
 let claudeView = null; // null | 'digest' | 'full' — a plain-text view meant for a page-reading agent, not a category/day view
 let pendingDeleteCategoryId = null;
 let pendingDeleteLocationId = null;
+// Mobile UI Lab overlay state (see defaultDevSettings() above and
+// toggleQuickAddSheet()/openFabAdd() in 16-task-crud.js) — pure UI chrome,
+// never persisted, same as the other open/closed flags on this page.
+let quickAddOpen = false;
+let fabAddOpen = false;
 // id of the category whose color/icon popover (see categoryPickerHtml() in
 // 01-categories-theme.js) is currently open, or null — only one open at a
 // time, same "single id, not a Set" pattern as pendingDeleteCategoryId.
@@ -297,7 +302,50 @@ function defaultDevSettings(){
   // normally lives; turning this on makes day/month nav win that contest
   // everywhere on those two pages specifically, rather than the two
   // gestures fighting over the same touch.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false };
+  // ---- "Mobile UI Lab" (2026-08 mobile-friendliness pass) ----
+  // quickAddMobileStyle/taskRowMobileStyle/taskDetailMobileStyle/
+  // floatingAddButton are all gated behind mobileUiActive() (see
+  // 01-categories-theme.js) rather than a plain body class each reads
+  // directly — every one of them exists to fix a *phone-width* cramming
+  // problem (the quick-add bar wrapping into three rows, a task row's
+  // badges squeezing its title, the expand-row reading like a dense
+  // form), so by default they stay completely inert on desktop even when
+  // turned on. mobileUiPreviewOnDesktop is the one shared escape hatch —
+  // it forces mobileUiActive() true regardless of viewport/pointer, so
+  // the project owner can preview any of these on a desktop browser
+  // without narrowing the window. One shared flag rather than a
+  // per-feature "also on desktop" checkbox, since the ask was to preview
+  // the whole lab on desktop, not any one piece of it in isolation.
+  // quickAddMobileStyle: how the main category quick-add bar (the
+  // 6-control row that wraps into three lines on a phone) is reached —
+  // 'default' leaves it exactly as it's always been (always-visible
+  // inline row); 'topsheet'/'bottomsheet' replace it with a single
+  // "+ Add Task" trigger that opens the real bar as a full-width overlay
+  // sheet sliding in from that edge; 'inline' keeps the trigger in the
+  // document's normal flow and expands the bar open right beneath it
+  // (no overlay, tab bar never covered).
+  // taskRowMobileStyle: 'default' leaves a task row's title fighting its
+  // priority/timeframe/due badges for space on one line; 'stacked' moves
+  // the badges onto their own line below the title (see .titlewrap in
+  // taskRowHtml) so the title always gets the row's full width; 'minimal'
+  // instead reclaims width by hiding the drag handle and category dot on
+  // a row (touch drag-reorder is marginal anyway, and the dot is
+  // redundant once you're already inside that category's own tab).
+  // taskDetailMobileStyle: 'default' leaves the expand-row's category
+  // select/due date/action buttons crammed into one wrapping line;
+  // 'stacked' puts each field on its own full-width line with the three
+  // action buttons (urgent/today-pin/remove) grouped into their own even
+  // row via .expandactions; 'grouped' instead grids category+due date
+  // into an even two-column row (dropping their text labels) with the
+  // action buttons in a second, evenly-spaced row — a middle ground
+  // between the cramped default and fully stacked.
+  // floatingAddButton: a persistent (+) button, always on screen
+  // regardless of which tab is active (Daily, checklist, Settings,
+  // everywhere) — a lightweight "quick capture" (title + category only,
+  // see openFabAdd()/submitFabAdd() in 16-task-crud.js), not the full
+  // quick-add bar, since it has to make sense from views that don't have
+  // a quick-add bar of their own at all.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false };
 }
 
 function defaultState(){
@@ -356,6 +404,11 @@ function normalizeState(){
   if(typeof state.devSettings.leatherInsetPreset !== 'string') state.devSettings.leatherInsetPreset = 'classic';
   if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'classic';
   if(typeof state.devSettings.fullPageSwipeNav !== 'boolean') state.devSettings.fullPageSwipeNav = false;
+  if(typeof state.devSettings.mobileUiPreviewOnDesktop !== 'boolean') state.devSettings.mobileUiPreviewOnDesktop = false;
+  if(typeof state.devSettings.quickAddMobileStyle !== 'string') state.devSettings.quickAddMobileStyle = 'default';
+  if(typeof state.devSettings.taskRowMobileStyle !== 'string') state.devSettings.taskRowMobileStyle = 'default';
+  if(typeof state.devSettings.taskDetailMobileStyle !== 'string') state.devSettings.taskDetailMobileStyle = 'default';
+  if(typeof state.devSettings.floatingAddButton !== 'boolean') state.devSettings.floatingAddButton = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)

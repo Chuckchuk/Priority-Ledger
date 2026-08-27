@@ -27,9 +27,11 @@ function taskExpandFieldsHtml(t, canRemoveHere){
         </select>
         <label class="fieldlabel">DUE</label>
         <input type="date" value="${t.dueDate||''}" onchange="updateDueDate('${t.id}', this.value)">
-        <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-        <button class="flagbtn daybtn ${(t.plannedDates||[]).length?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>
-        ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
+        <div class="expandactions">
+          <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
+          <button class="flagbtn daybtn ${(t.plannedDates||[]).length?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>
+          ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
+        </div>
       </div>
       ${state.advancedTaskFields ? `
       <div class="expand-row">
@@ -123,8 +125,10 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
         ${subProgressHtml(subs)}
       </div>
       ${dotHtml}
-      <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.urgent && t.status!=='done' ? ' ⚑' : ''}</div>
-      <div class="meta">${priorityBadge}${timeframeBadge}${badge}</div>
+      <div class="titlewrap">
+        <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.urgent && t.status!=='done' ? ' ⚑' : ''}</div>
+        <div class="meta">${priorityBadge}${timeframeBadge}${badge}</div>
+      </div>
       ${inDaily ? `
         <button class="movetmrw" ${onTomorrow?'disabled':''} onclick="event.stopPropagation(); moveTaskToTomorrow('${t.id}','${dayDate}')" title="${onTomorrow ? 'Already planned for tomorrow' : 'Also plan for tomorrow'}">→</button>
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
@@ -317,6 +321,11 @@ function switchTab(key){
   checklistReturnDay = null;
   claudeView = null;
   settingsOpen = false;
+  // A tab switch mid-add should close the quick-add sheet rather than
+  // leave it floating over whatever you just navigated to — the FAB
+  // modal (openFabAdd()) is deliberately NOT reset here, since its whole
+  // point is being reachable regardless of which tab you're on.
+  if(quickAddOpen) toggleQuickAddSheet(false);
   // Only an actual change of category counts as "leaving" it — re-clicking
   // the tab you're already on (which still runs this whole function, to
   // exit an open overlay per the note above) must not collapse tasks you

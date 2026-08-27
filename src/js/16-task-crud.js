@@ -1,3 +1,63 @@
+// Mobile UI Lab — see quickAddMobileStyle in defaultDevSettings()
+// (02-storage-state.js). Only the sheet's open/closed state; #quickInput
+// and friends are the exact same static DOM nodes in every mode (see
+// shell-body.html), so addTask() itself needs no awareness of any of
+// this. `force` lets a scrim/close-button/Esc pass an explicit `false`
+// rather than every caller having to know the current state to toggle it
+// shut. Deliberately does NOT close on a successful add (see addTask()) —
+// same "keep typing the next one" idiom as .subadd/#checklistQuickInput
+// (see the Conventions note in CLAUDE.md), just via an overlay instead of
+// an always-visible field.
+function toggleQuickAddSheet(force){
+  quickAddOpen = typeof force === 'boolean' ? force : !quickAddOpen;
+  document.body.classList.toggle('quickadd-open', quickAddOpen);
+  if(quickAddOpen){
+    const input = document.getElementById('quickInput');
+    if(input) setTimeout(() => input.focus(), 10);
+  }
+}
+
+// The floating (+) button's own "quick capture" modal (see
+// floatingAddButton in defaultDevSettings()) — deliberately a smaller,
+// separate form from the main quick-add bar (title + category only, no
+// timeframe/priority/urgent), since it has to make sense from views —
+// Daily, a checklist, Settings — that don't have a quick-add bar of their
+// own at all, not just as another way into the category view's. Category
+// defaults to the active tab when that's an actual standard category
+// (matching addTask()'s own "current tab wins" rule), otherwise the
+// first standard category, so there's always a sensible preselection.
+function openFabAdd(){
+  fabAddOpen = true;
+  document.body.classList.add('fab-open');
+  const entries = standardCategoryEntries();
+  const sel = document.getElementById('fabAddCategory');
+  sel.innerHTML = entries.map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
+  sel.value = entries.some(([k])=>k===activeTab) ? activeTab : (entries[0] ? entries[0][0] : '');
+  const input = document.getElementById('fabAddInput');
+  setTimeout(() => input && input.focus(), 10);
+}
+function closeFabAdd(){
+  fabAddOpen = false;
+  document.body.classList.remove('fab-open');
+}
+async function submitFabAdd(){
+  const input = document.getElementById('fabAddInput');
+  const title = input.value.trim();
+  if(!title) return;
+  const category = document.getElementById('fabAddCategory').value;
+  pushUndo(`Added "${title}"`);
+  state.tasks.unshift({
+    id: newId('task'),
+    title, category, status:'open', urgent:false, dueDate:'', notes:'', subtasks: [],
+    plannedDates: [], timeframe:'', priority:0, completedAt:'',
+    createdAt: todayStr()
+  });
+  input.value = '';
+  render();
+  queueSave();
+  input.focus();
+}
+
 async function addTask(){
   const input = document.getElementById('quickInput');
   const title = input.value.trim();

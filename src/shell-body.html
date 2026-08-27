@@ -30,7 +30,17 @@
     <div class="bookmark"></div>
     <div class="card" id="appCard">
       <div id="categoryView">
-        <div class="quickadd">
+        <!-- Mobile UI Lab (quickAddMobileStyle) — inert unless mobileui-active
+             AND a non-default style is chosen (see the body[data-quickadd-mode]
+             CSS); the trigger stays hidden and #quickAddBar keeps its original
+             always-visible inline layout otherwise. -->
+        <button class="quickaddtrigger" id="quickAddTrigger" onclick="toggleQuickAddSheet()">+ Add Task</button>
+        <div class="quickaddscrim" id="quickAddScrim" onclick="toggleQuickAddSheet(false)"></div>
+        <div class="quickadd" id="quickAddBar">
+          <div class="quickaddsheethead">
+            <span class="quickaddsheetgrabber"></span>
+            <button class="quickaddsheetclose" onclick="toggleQuickAddSheet(false)" title="Close">×</button>
+          </div>
           <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
           <select id="quickCategory"></select>
           <select id="quickTimeframe" title="Timeframe">
@@ -68,6 +78,22 @@
   </div>
   <div class="savestatus" id="saveStatus"></div>
   <div class="status-line"><button class="signoutbtn" onclick="refreshFromServer(true)" id="refreshBtn">Refresh</button></div>
+
+  <!-- Mobile UI Lab (floatingAddButton) — sits outside .leathercover/#appCard
+       on purpose so it stays reachable regardless of which tab/overlay is
+       showing inside them (see openFabAdd() in 16-task-crud.js); inert
+       (display:none) unless mobileui-active AND the dev setting is on. -->
+  <button class="fabaddbtn" id="fabAddBtn" onclick="openFabAdd()" title="Add a task">+</button>
+  <div class="fabaddscrim" id="fabAddScrim" onclick="closeFabAdd()"></div>
+  <div class="fabaddsheet" id="fabAddSheet">
+    <div class="quickaddsheethead">
+      <span class="quickaddsheetgrabber"></span>
+      <button class="quickaddsheetclose" onclick="closeFabAdd()" title="Close">×</button>
+    </div>
+    <input type="text" id="fabAddInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') submitFabAdd()">
+    <select id="fabAddCategory"></select>
+    <button class="addbtn" onclick="submitFabAdd()">+</button>
+  </div>
 </div>
 
 <div class="devpanel" id="devPanel" style="display:none;">

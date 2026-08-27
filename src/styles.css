@@ -600,6 +600,13 @@
      .checkcircle) — inset:0 was the "way too thick" original version. */
   .progressring{ position:absolute; inset:5px; border-radius:50%; }
   .cdot{ width:13px; height:13px; margin-top:4px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:0.86rem; line-height:1; }
+  /* Groups .title + .meta into one flex:1 unit within .row, purely as a
+     CSS hook — in every mode except the Mobile UI Lab's taskRowMobile
+     "stacked" variant (see the body[data-taskrow-mobile] rules near the
+     end of this file) it behaves identically to .title/.meta sitting
+     directly in .row the way they used to (same flex:1/flex-shrink:0
+     roles, just one level deeper), so this changes nothing by default. */
+  .titlewrap{ display:flex; align-items:baseline; gap:8px; flex:1; min-width:0; }
   .title{ flex:1; font-size:0.97rem; line-height:1.4; }
   .title.done{ text-decoration: line-through; color: var(--ink-soft); }
   /* EXPERIMENTAL — Settings → Dev Settings. Always rendered by
@@ -626,6 +633,13 @@
     border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim); padding:8px; resize:vertical; color:var(--ink);
   }
   .expand-row{ display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  /* Groups the urgent/today-pin/remove buttons into one unit, purely as a
+     CSS hook for the Mobile UI Lab's taskDetailMobile "stacked"/"grouped"
+     variants (near the end of this file) — display:contents makes the
+     wrapper itself invisible to layout in every other mode, so its three
+     buttons stay direct participants in .expand-row's own flex line
+     exactly as if this div weren't there at all. */
+  .expandactions{ display:contents; }
   .expand input[type=date]{
     font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line);
     border-radius:5px; padding:5px 6px; background: var(--card-bg-dim); color:var(--ink);
@@ -1637,3 +1651,169 @@
     .card{ padding: 18px 14px 10px; }
     .locbadge{ width:44px; height:44px; top:-2px; }
   }
+
+  /* ================= Mobile UI Lab (EXPERIMENTAL) =================
+     2026-08 mobile-friendliness pass — see the long comment on
+     defaultDevSettings() in 02-storage-state.js for what each dev
+     setting means and why they're all gated behind mobileUiActive()
+     (01-categories-theme.js) rather than a plain viewport media query.
+     body.mobileui-active is that gate's own CSS mirror, toggled by
+     refreshMobileUiActive() on load, on every dev-setting change, and on
+     resize — everything below keys off it plus one of the
+     body[data-quickadd-mode]/[data-taskrow-mobile]/[data-taskdetail-mobile]
+     attributes or body.fab-on, so a variant picked in Settings has zero
+     effect on desktop unless "Preview on desktop" is also checked. */
+
+  /* ---- quickAddMobileStyle: the "+ Add Task" trigger + sheet ---- */
+  .quickaddtrigger{
+    display:none; width:100%; align-items:center; justify-content:center; gap:8px;
+    padding:14px; margin-bottom:16px; border:none; border-radius:10px; cursor:pointer;
+    background: radial-gradient(circle at 30% 20%, var(--primary-light), var(--primary) 75%);
+    color:#fff; font-family:'IBM Plex Mono', monospace; font-size:0.78rem;
+    text-transform:uppercase; letter-spacing:0.06em;
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
+  }
+  body.mobileui-active[data-quickadd-mode="topsheet"] .quickaddtrigger,
+  body.mobileui-active[data-quickadd-mode="bottomsheet"] .quickaddtrigger,
+  body.mobileui-active[data-quickadd-mode="inline"] .quickaddtrigger{ display:flex; }
+  /* Grabber + close row — only meaningful once #quickAddBar itself has
+     left the document's normal flow to float as a sheet (topsheet/
+     bottomsheet); "inline" just expands in place right below its own
+     trigger, so re-tapping that same trigger is already how it closes. */
+  .quickaddsheethead{ display:none; }
+  body.mobileui-active[data-quickadd-mode="topsheet"] .quickaddsheethead,
+  body.mobileui-active[data-quickadd-mode="bottomsheet"] .quickaddsheethead{
+    display:flex; align-items:center; justify-content:center; position:relative; margin-bottom:6px;
+  }
+  .quickaddsheetgrabber{ width:36px; height:4px; border-radius:2px; background:var(--ink-soft); opacity:0.4; }
+  .quickaddsheetclose{
+    position:absolute; right:0; top:-6px; background:none; border:none;
+    color:var(--ink-soft); font-size:1.3rem; line-height:1; cursor:pointer; padding:6px;
+  }
+  .quickaddscrim{ display:none; }
+  body.mobileui-active.quickadd-open[data-quickadd-mode="topsheet"] .quickaddscrim,
+  body.mobileui-active.quickadd-open[data-quickadd-mode="bottomsheet"] .quickaddscrim{
+    display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:55;
+  }
+  /* topsheet/bottomsheet: #quickAddBar leaves the document flow entirely
+     and floats "just above everything" — tabs included — per the
+     project owner's own framing of the ask. Column layout + full-width
+     fields (below) replace the cramped inline flex-wrap row for exactly
+     as long as the sheet is open. */
+  body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar,
+  body.mobileui-active[data-quickadd-mode="bottomsheet"] #quickAddBar{
+    position:fixed; left:12px; right:12px; z-index:60; max-width:480px; margin:0 auto;
+    flex-direction:column; align-items:stretch; gap:12px;
+    background: var(--card-bg); padding:18px 16px 20px; box-shadow:0 12px 32px rgba(0,0,0,0.35);
+    transition: transform .28s cubic-bezier(.2,.8,.3,1), opacity .2s ease;
+  }
+  body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar{
+    top:12px; border-radius:14px 14px 20px 20px; transform:translateY(-140%);
+  }
+  body.mobileui-active[data-quickadd-mode="bottomsheet"] #quickAddBar{
+    bottom:12px; border-radius:20px 20px 14px 14px; transform:translateY(140%);
+  }
+  body.mobileui-active[data-quickadd-mode="topsheet"]:not(.quickadd-open) #quickAddBar,
+  body.mobileui-active[data-quickadd-mode="bottomsheet"]:not(.quickadd-open) #quickAddBar{
+    opacity:0; pointer-events:none;
+  }
+  body.mobileui-active.quickadd-open[data-quickadd-mode="topsheet"] #quickAddBar,
+  body.mobileui-active.quickadd-open[data-quickadd-mode="bottomsheet"] #quickAddBar{
+    transform:translateY(0); opacity:1;
+  }
+  /* inline: no overlay at all — the bar stays a normal-flow sibling of
+     the tab bar/task list and expands open right under its own trigger,
+     pushing everything below it down rather than covering anything. */
+  body.mobileui-active[data-quickadd-mode="inline"] #quickAddBar{
+    flex-direction:column; align-items:stretch; gap:12px;
+    max-height:0; overflow:hidden; opacity:0; margin-bottom:0; padding:0;
+    transition: max-height .25s ease, opacity .2s ease, margin-bottom .25s ease;
+  }
+  body.mobileui-active.quickadd-open[data-quickadd-mode="inline"] #quickAddBar{
+    max-height:320px; opacity:1; margin-bottom:16px;
+  }
+  body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar input[type=text],
+  body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar select,
+  body.mobileui-active[data-quickadd-mode="bottomsheet"] #quickAddBar input[type=text],
+  body.mobileui-active[data-quickadd-mode="bottomsheet"] #quickAddBar select,
+  body.mobileui-active[data-quickadd-mode="inline"] #quickAddBar input[type=text],
+  body.mobileui-active[data-quickadd-mode="inline"] #quickAddBar select{
+    width:100%; font-size:1.05rem; padding:11px 8px;
+  }
+
+  /* ---- floatingAddButton: the always-reachable (+) and its own
+     lightweight "quick capture" sheet (openFabAdd() in 16-task-crud.js).
+     Lives outside #appCard/.leathercover in shell-body.html so it keeps
+     working no matter which tab or overlay is on screen underneath it. ---- */
+  .fabaddbtn{
+    display:none; position:fixed; right:20px; bottom:24px; z-index:70;
+    width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
+    background: radial-gradient(circle at 35% 30%, var(--primary-light), var(--primary) 70%);
+    color:#fff; font-size:1.7rem; line-height:1;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.4);
+  }
+  body.mobileui-active.fab-on .fabaddbtn{ display:flex; align-items:center; justify-content:center; }
+  .fabaddscrim{ display:none; }
+  body.fab-open .fabaddscrim{ display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:65; }
+  .fabaddsheet{
+    display:flex; flex-direction:column; gap:12px;
+    position:fixed; left:12px; right:12px; bottom:12px; z-index:70; max-width:480px; margin:0 auto;
+    background: var(--card-bg); padding:18px 16px 20px; border-radius:20px 20px 14px 14px;
+    box-shadow:0 12px 32px rgba(0,0,0,0.35);
+    transform:translateY(140%); opacity:0; pointer-events:none;
+    transition: transform .28s cubic-bezier(.2,.8,.3,1), opacity .2s ease;
+  }
+  body.fab-open .fabaddsheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
+  .fabaddsheet input[type=text], .fabaddsheet select{ width:100%; font-size:1.05rem; padding:11px 8px; }
+
+  /* ---- taskRowMobileStyle: reflowing a task row's title vs. its badges ---- */
+  /* stacked: .titlewrap (wrapping .title+.meta, see the base rule above)
+     switches from a side-by-side row to a column — the title takes the
+     row's full width on its own line, and the priority/timeframe/due
+     badges drop to a second, wrapping line right below it instead of
+     competing with the title for space on one line. */
+  body.mobileui-active[data-taskrow-mobile="stacked"] .titlewrap{
+    flex-direction:column; align-items:flex-start; gap:3px;
+  }
+  body.mobileui-active[data-taskrow-mobile="stacked"] .meta{ flex-wrap:wrap; }
+  /* minimal: reclaims width by dropping the two lowest-value elements on
+     a phone — the drag handle (touch drag-reorder is marginal to begin
+     with) and the category dot (redundant once you're already inside
+     that category's own tab; "All" still shows it, since there the dot
+     is the only thing saying which category a row belongs to). Scoped to
+     .row's own direct children so this can't also hit a subtask row's
+     .draghandle.sub or a task-detail-page header's .cdot. */
+  body.mobileui-active[data-taskrow-mobile="minimal"] .row > .draghandle,
+  body.mobileui-active[data-taskrow-mobile="minimal"] .row > .cdot{ display:none; }
+
+  /* ---- taskDetailMobileStyle: the expand-row's category/due/actions ---- */
+  /* stacked: every field (and the .expandactions group) gets its own
+     full-width line instead of wrapping wherever it happens to fit. */
+  body.mobileui-active[data-taskdetail-mobile="stacked"] .expand-row{
+    flex-direction:column; align-items:stretch; gap:8px;
+  }
+  body.mobileui-active[data-taskdetail-mobile="stacked"] .expand-row .catselect,
+  body.mobileui-active[data-taskdetail-mobile="stacked"] .expand-row input[type=date]{
+    width:100%;
+  }
+  body.mobileui-active[data-taskdetail-mobile="stacked"] .expandactions{
+    display:flex; gap:10px; justify-content:space-between; align-items:center; margin-top:2px;
+  }
+  body.mobileui-active[data-taskdetail-mobile="stacked"] .expandactions .remove{ margin-left:0; }
+  /* grouped: category + due date sit in an even two-column grid (their
+     text labels dropped — the field itself is self-explanatory once it's
+     not crammed against three other things), with the action buttons in
+     their own evenly-spaced row underneath. A middle ground between the
+     cramped default and fully-stacked. */
+  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px 12px; align-items:center;
+  }
+  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row .fieldlabel{ display:none; }
+  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row .catselect,
+  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row input[type=date]{
+    width:100%;
+  }
+  body.mobileui-active[data-taskdetail-mobile="grouped"] .expandactions{
+    grid-column:1 / -1; display:flex; justify-content:space-around; align-items:center; margin-top:4px;
+  }
+  body.mobileui-active[data-taskdetail-mobile="grouped"] .expandactions .remove{ margin-left:0; }

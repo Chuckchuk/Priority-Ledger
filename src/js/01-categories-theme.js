@@ -316,6 +316,33 @@ function applyDevSettings(){
   // dev-setting-change, so the panel's visibility can never go stale.
   const panel = document.getElementById('devPanel');
   if(panel) panel.style.display = d.sidePanelEnabled ? '' : 'none';
+  // Mobile UI Lab — see defaultDevSettings() for what each field means.
+  // The style choices are plain data attributes (not classes) since CSS
+  // needs to key off the specific variant, not just "some variant is on";
+  // floatingAddButton is a class since it's a true on/off. All of them are
+  // additionally gated behind body.mobileui-active (refreshed below and on
+  // resize, see 19-bootstrap.js) so none has any effect until an actual
+  // phone-ish viewport — or mobileUiPreviewOnDesktop — makes it relevant.
+  document.body.dataset.quickaddMode = d.quickAddMobileStyle || 'default';
+  document.body.dataset.taskrowMobile = d.taskRowMobileStyle || 'default';
+  document.body.dataset.taskdetailMobile = d.taskDetailMobileStyle || 'default';
+  document.body.classList.toggle('fab-on', !!d.floatingAddButton);
+  refreshMobileUiActive();
+}
+
+// True on an actual phone-ish viewport/pointer, or whenever
+// mobileUiPreviewOnDesktop forces it — the single shared gate every
+// Mobile UI Lab feature checks (see defaultDevSettings() in
+// 02-storage-state.js) before doing anything. Kept as a real function
+// rather than only a body class so JS that has to branch on markup
+// (openFabAdd(), for instance) can ask the same question CSS is asking
+// via body.mobileui-active.
+function mobileUiActive(){
+  const d = state.devSettings || {};
+  return !!d.mobileUiPreviewOnDesktop || window.matchMedia('(max-width:680px), (pointer:coarse)').matches;
+}
+function refreshMobileUiActive(){
+  document.body.classList.toggle('mobileui-active', mobileUiActive());
 }
 
 async function toggleDevSetting(key, checked){
@@ -360,6 +387,30 @@ async function setDevLeatherInset(val){
 async function setDevStackedPageInset(val){
   pushUndo(`Changed dev stacked-page size to "${val}"`);
   state.devSettings.stackedPageInsetPreset = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevQuickAddMobileStyle(val){
+  pushUndo(`Changed dev quick-add mobile style to "${val}"`);
+  state.devSettings.quickAddMobileStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevTaskRowMobileStyle(val){
+  pushUndo(`Changed dev task row mobile style to "${val}"`);
+  state.devSettings.taskRowMobileStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevTaskDetailMobileStyle(val){
+  pushUndo(`Changed dev task detail mobile style to "${val}"`);
+  state.devSettings.taskDetailMobileStyle = val;
   applyDevSettings();
   render();
   queueSave();
@@ -493,6 +544,42 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="slim" ${dev.stackedPageInsetPreset==='slim'?'selected':''}>Slim — nearly flush with #appCard</option>
       </select>
     </div>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Mobile UI Lab</span>
+    </div>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.mobileUiPreviewOnDesktop?'checked':''} onchange="toggleDevSetting('mobileUiPreviewOnDesktop', this.checked)">
+      Preview the Mobile UI Lab options below on desktop too (they're phone/touch-only by default)
+    </label>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Quick-add bar (mobile)</span>
+      <select class="${selectClass}" onchange="setDevQuickAddMobileStyle(this.value)">
+        <option value="default" ${dev.quickAddMobileStyle==='default'?'selected':''}>Default (always-visible inline row)</option>
+        <option value="topsheet" ${dev.quickAddMobileStyle==='topsheet'?'selected':''}>"+ Add Task" button opens a top sheet</option>
+        <option value="bottomsheet" ${dev.quickAddMobileStyle==='bottomsheet'?'selected':''}>"+ Add Task" button opens a bottom sheet</option>
+        <option value="inline" ${dev.quickAddMobileStyle==='inline'?'selected':''}>"+ Add Task" button expands it in place</option>
+      </select>
+    </div>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Task row layout (mobile)</span>
+      <select class="${selectClass}" onchange="setDevTaskRowMobileStyle(this.value)">
+        <option value="default" ${dev.taskRowMobileStyle==='default'?'selected':''}>Default (badges squeeze the title)</option>
+        <option value="stacked" ${dev.taskRowMobileStyle==='stacked'?'selected':''}>Stacked — badges drop below the title</option>
+        <option value="minimal" ${dev.taskRowMobileStyle==='minimal'?'selected':''}>Minimal — hide drag handle & category dot</option>
+      </select>
+    </div>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Task detail fields (mobile)</span>
+      <select class="${selectClass}" onchange="setDevTaskDetailMobileStyle(this.value)">
+        <option value="default" ${dev.taskDetailMobileStyle==='default'?'selected':''}>Default (one cramped wrapping row)</option>
+        <option value="stacked" ${dev.taskDetailMobileStyle==='stacked'?'selected':''}>Stacked — one full-width field per row</option>
+        <option value="grouped" ${dev.taskDetailMobileStyle==='grouped'?'selected':''}>Grouped — 2-column fields + an even action row</option>
+      </select>
+    </div>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.floatingAddButton?'checked':''} onchange="toggleDevSetting('floatingAddButton', this.checked)">
+      Floating (+) button to add a task from any tab (mobile)
+    </label>
   `;
 }
 
