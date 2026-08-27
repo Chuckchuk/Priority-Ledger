@@ -1975,24 +1975,32 @@
   body.mobileui-active[data-tabbar-mobile="scroll"] .tab{ flex-shrink:0; scroll-snap-align:start; }
   .tabswrap{ position:relative; }
   .tabswrap::before, .tabswrap::after{ content:none; }
-  /* Both fades are OFF by default and only switched on by the .fade-left/
-     .fade-right classes updateTabScrollFade() (06-tabs-render.js) toggles
-     on scroll/resize/re-render — right hints "more tabs past the edge"
-     only while that's actually true (never past the last tab), and left
-     mirrors it once you've scrolled away from the first tab at all,
-     rather than a fade always sitting there regardless of scroll
-     position. Toned down from an earlier, harsher pass — 24px/0.32 reads
-     as a soft hint, not a hard edge. */
-  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap.fade-left::before{
+  /* Both fades exist (content:'') at all times once scroll mode is on,
+     permanently at opacity:0, and only the .fade-left/.fade-right classes
+     updateTabScrollFade() (06-tabs-render.js) toggles on scroll/resize/
+     re-render flip them to opacity:1 — right hints "more tabs past the
+     edge" only while that's actually true (never past the last tab), and
+     left mirrors it once you've scrolled away from the first tab at all.
+     Crossfading opacity on an always-present pseudo-element (rather than
+     the content:none/'' toggle above, which pops the box in and out of
+     existence with nothing to animate between) is what makes this a
+     smooth fade instead of a hard flicker at the scroll extremes. Toned
+     down from an earlier, harsher pass — 24px/0.32 reads as a soft hint,
+     not a hard edge. */
+  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap::before{
     content:''; position:absolute; top:0; left:0; bottom:1px; width:24px;
     background:linear-gradient(to left, transparent, rgba(0,0,0,0.32));
     border-radius:10px 0 0 0; pointer-events:none;
+    opacity:0; transition: opacity .3s ease;
   }
-  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap.fade-right::after{
+  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap::after{
     content:''; position:absolute; top:0; right:0; bottom:1px; width:24px;
     background:linear-gradient(to right, transparent, rgba(0,0,0,0.32));
     border-radius:0 10px 0 0; pointer-events:none;
+    opacity:0; transition: opacity .3s ease;
   }
+  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap.fade-left::before{ opacity:1; }
+  body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap.fade-right::after{ opacity:1; }
 
   /* sidetabs: #appMain becomes a row so #tabswrap (now a fixed-width
      column) sits to the left of .leathercover instead of above it. Every
@@ -2033,25 +2041,35 @@
      rather than the plain translucent shelf every other tabBarDesktopStyle
      keeps: fully colored in the category's own hex (--tabhex, set inline
      by renderTabs() in 06-tabs-render.js) with a darker edge accent
-     (--tabedge), so each reads as a solid book-index tab rather than a
-     pill on a shelf. --tabidx (also set there) is the *default* stacking
-     order — a later tab sits on top of, and partly covers, the ones
-     before it, like a fanned-out stack — until you hover one, which
-     raises it above everything (z-index:999) and lifts it clear of its
-     covering neighbor so the full label reads again. The translucent
-     .tabs shelf background/border is explicitly cleared here (background/
-     border:none) — it read as a dirty smear behind fully-opaque colored
-     tabs instead of the "continuous surface" it's meant to suggest
-     elsewhere, so this mode goes bare instead: just the tabs themselves
-     sitting on the desk. */
+     (--tabedge) along the *top*, so each reads as a solid book-index tab
+     rather than a pill on a shelf. The translucent .tabs shelf background/
+     border is explicitly cleared here (background/border:none) — it read
+     as a dirty smear behind fully-opaque colored tabs instead of the
+     "continuous surface" it's meant to suggest elsewhere, so this mode
+     goes bare instead: just the tabs themselves sitting on the desk.
+
+     Every tab is taller than its visible label needs — TAB_TAIL_PX
+     (26px) of that height is a plain colored "tail" below the label,
+     which .tabs' own matching negative margin-bottom tucks behind
+     #appCard (z-index:1 there beats every *resting* tab's negative
+     z-index below, see --tabidx). That's what makes a resting tab read
+     as nestled behind the current page rather than a chip floating in
+     open space above it: the tail is always there, just hidden behind
+     the page except for whatever isn't covered. align-items:flex-start
+     on .tabs (overriding its default stretch) is required for this — an
+     .active tab's shorter tail (see below) would otherwise get stretched
+     to match its taller siblings, and a stray floating rectangle would
+     show up beneath a hovered tab's own lifted position. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabs{
     background:none; border:none; flex-wrap:nowrap; gap:0; padding:8px 8px 0;
+    align-items:flex-start; margin-bottom:-26px;
   }
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab{
-    position:relative; margin-left:-16px; z-index:var(--tabidx, 1);
+    position:relative; margin-left:-16px; z-index:calc(var(--tabidx, 1) - 100);
     background: var(--tabhex, var(--primary)); color: var(--tabtext, white);
-    border-radius:8px 8px 0 0;
-    border-bottom:3px solid var(--tabedge, color-mix(in srgb, var(--primary) 70%, black));
+    border-radius:8px 8px 0 0; align-items:flex-start;
+    padding:9px 14px 37px;
+    border-top:3px solid var(--tabedge, color-mix(in srgb, var(--primary) 70%, black));
     box-shadow:0 -1px 5px rgba(0,0,0,0.3);
     transition: transform .18s ease, box-shadow .18s ease;
   }
@@ -2063,16 +2081,35 @@
      regardless of source order), which is exactly the point: hovering
      any tab must always win, and the active tab must always sit above
      its plain (non-hovered) neighbors, no matter where either falls in
-     the fan. */
+     the fan. Both also now outrank #appCard's own z-index:1 — on
+     purpose, so a raised tab's tail (still there underneath it) drapes
+     forward over the page's top edge instead of staying tucked behind
+     it, the "you can tell this is the one you're looking at/reaching
+     for" cue the resting state doesn't have. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab:hover{
-    transform:translateY(-9px); z-index:999 !important;
+    transform:translateY(-8px); z-index:999 !important;
     box-shadow:0 5px 16px rgba(0,0,0,0.4);
   }
+  /* .active gets a much shorter tail (15px padding-bottom vs. 37px) —
+     "a little overlap" onto the page rather than the same long drape a
+     hover gets, since this one is meant to look settled/permanent, not
+     mid-gesture. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab.active{
     background: var(--card-bg); color: var(--ink); font-weight:500;
-    border-bottom-color: var(--tabedge, var(--primary));
+    padding-bottom:15px;
+    border-top-color: var(--tabedge, var(--primary));
     transform:translateY(-4px); z-index:500 !important;
     box-shadow:0 2px 9px rgba(0,0,0,0.35);
+  }
+  /* The shadow "the pages are on top of the tab" asked for — appended to
+     #appCard's own base box-shadow (not replacing it) so both still show.
+     A shadow on #appCard with a *negative* vertical offset paints just
+     above the card's own top edge; since #appCard's z-index beats every
+     resting tab, that shadow falls squarely on the tail poking out from
+     underneath, reading as the page's edge casting a shadow onto
+     whatever's tucked behind it. */
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] #appCard{
+    box-shadow: 0 24px 55px rgba(0,0,0,0.4), 0 -10px 14px -6px rgba(0,0,0,0.5);
   }
 
   /* ---- settingsRowMobileStyle: separating identity from management ----
