@@ -428,7 +428,20 @@ function defaultDevSettings(){
   // date, urgent/today flags, timeframe/priority, notes — as its own
   // bottom sheet (openTaskSettingsSheet()), out of the way until you
   // actually reach for it.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default' };
+  // overlapSubtags / overlapHoverMode are two further EXPERIMENTAL
+  // sub-options of tabBarDesktopStyle's "overlap" look specifically —
+  // only ever offered in the UI while that style is the current pick
+  // (see devSettingsFieldsHtml() in 01-categories-theme.js). overlapSubtags
+  // swaps each tab's inline dot+count for a small floating badge above it
+  // (only rendered when that category actually has open tasks, plus a "!"
+  // when one is overdue or High priority — see tabSubtagHtml() in
+  // 06-tabs-render.js), freeing width for tighter scrunching.
+  // overlapHoverMode's 'push' variant replaces hover-to-reorder with a
+  // fixed stacking order (by open-task "importance", see
+  // tabImportanceRank()) plus neighbors sliding away from whichever tab is
+  // hovered or selected instead (see computeOverlapPush()) — both in
+  // 06-tabs-render.js.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', overlapSubtags:false, overlapHoverMode:'default', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default' };
 }
 
 function defaultState(){
@@ -494,6 +507,8 @@ function normalizeState(){
   if(typeof state.devSettings.floatingAddButton !== 'boolean') state.devSettings.floatingAddButton = false;
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
+  if(typeof state.devSettings.overlapSubtags !== 'boolean') state.devSettings.overlapSubtags = false;
+  if(typeof state.devSettings.overlapHoverMode !== 'string') state.devSettings.overlapHoverMode = 'default';
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
   if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'default';

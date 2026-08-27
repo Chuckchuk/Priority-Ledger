@@ -2064,17 +2064,43 @@
     background:none; border:none; flex-wrap:nowrap; gap:0; padding:8px 8px 0;
     align-items:flex-start; margin-bottom:-26px;
   }
+  /* --tab-overlap/--tab-dx/--tab-connect are all set by layoutOverlapTabs()/
+     computeOverlapPush() in 06-tabs-render.js, never hardcoded here —
+     --tab-overlap (how negative each tab's margin-left is) is solved per-
+     render so a long row of tabs scrunches tighter to fit the available
+     width instead of running past the card's right edge; --tab-dx/--tab-
+     jitter/--tab-connect are covered below. white-space:nowrap is the
+     default the same JS tries hard to keep every label on — see .two-line
+     below for the fallback when it can't. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab{
-    position:relative; margin-left:-16px; z-index:calc(var(--tabidx, 1) - 100);
+    position:relative; margin-left: var(--tab-overlap, -16px);
+    z-index:calc(var(--tabidx, 1) - 100);
     background: var(--tabhex, var(--primary)); color: var(--tabtext, white);
     border-radius:8px 8px 0 0; align-items:flex-start;
-    padding:9px 14px 37px;
+    padding:9px var(--tab-hpad, 14px) 37px; white-space:nowrap;
     border-top:3px solid var(--tabedge, color-mix(in srgb, var(--primary) 70%, black));
     box-shadow:0 -1px 5px rgba(0,0,0,0.3);
-    transition: transform .18s ease, box-shadow .18s ease;
+    transition: transform .16s ease, box-shadow .18s ease, margin-left .16s ease;
+    /* Resting position: a small stable per-tab jitter (hashStr()'d off the
+       tab's own id, see tabJitterPx()) so a row of same-height pills reads
+       a little more like a hand-fanned stack of index cards, plus
+       whatever horizontal push computeOverlapPush() has assigned it (0
+       unless overlapHoverMode is "push" and this tab has a hovered/
+       selected neighbor). */
+    transform: translate(var(--tab-dx, 0px), var(--tab-jitter, 0px));
   }
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab:first-child{ margin-left:0; }
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab .count{ color:inherit; opacity:0.8; }
+  /* A label layoutOverlapTabs() couldn't keep on one line even at the
+     smallest readable font-size gets pushed a little higher than its
+     jittered neighbors — "keep it higher, don't move every other tab up
+     to match" per the project owner's ask — rather than letting its own
+     extra height read as a mismatched row baseline. Resting only:
+     .active's own transform rule below always wins regardless of line
+     count (see OVERLAP_CONNECT_MIN/MAX in 06-tabs-render.js for how). */
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab.two-line{
+    transform: translate(var(--tab-dx, 0px), calc(var(--tab-jitter, 0px) - 6px));
+  }
   /* !important on z-index/transform here is load-bearing, not decorative
      — both rules need to outrank the inline --tabidx-driven stacking
      order above (an inline style otherwise beats a plain class rule
@@ -2085,21 +2111,61 @@
      purpose, so a raised tab's tail (still there underneath it) drapes
      forward over the page's top edge instead of staying tucked behind
      it, the "you can tell this is the one you're looking at/reaching
-     for" cue the resting state doesn't have. */
+     for" cue the resting state doesn't have. --tab-dx still applies while
+     hovering (not just --tab-jitter) since a hovered tab can itself be a
+     neighbor the *active* tab is permanently pushing aside in push mode. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab:hover{
-    transform:translateY(-8px); z-index:999 !important;
+    transform: translate(var(--tab-dx, 0px), -8px) !important;
+    z-index:999 !important;
     box-shadow:0 5px 16px rgba(0,0,0,0.4);
   }
-  /* .active gets a much shorter tail (15px padding-bottom vs. 37px) —
-     "a little overlap" onto the page rather than the same long drape a
-     hover gets, since this one is meant to look settled/permanent, not
-     mid-gesture. */
+  /* .active's own tail is taller than a resting tab's, not shorter — the
+     opposite of this look's original "a little overlap, not the same long
+     drape a hover gets" idea, which fell apart in practice: a *short* tail
+     plus a lift big enough to clear every jittered/two-line neighbor
+     (guaranteeing "selected always highest") left a visible gap above
+     #appCard on a single-line label (nothing tucked in to reach the page —
+     see the project owner's "ends up hovering" / "doesn't display over the
+     page" reports). A tall tail plus a firm -12px lift comfortably clears
+     every resting tab's own max poke (jitter's ±3px plus two-line's -6px,
+     worst case -9px) while still leaving slack for
+     layoutOverlapTabs()'s --tab-connect to fine-tune the exact overlap
+     amount by measurement rather than by guessing font metrics. box-
+     shadow:none is deliberate too — with the gap closed there's nothing
+     for a drop shadow to float over; keeping one just re-introduces the
+     "hovering" look by another route. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab.active{
     background: var(--card-bg); color: var(--ink); font-weight:500;
-    padding-bottom:15px;
+    padding-bottom:50px;
     border-top-color: var(--tabedge, var(--primary));
-    transform:translateY(-4px); z-index:500 !important;
-    box-shadow:0 2px 9px rgba(0,0,0,0.35);
+    transform: translate(var(--tab-dx, 0px), calc(-12px + var(--tab-connect, 0px))) !important;
+    z-index:500 !important;
+    box-shadow:none;
+  }
+  /* overlapSubtags (see devSettingsFieldsHtml() in 01-categories-theme.js
+     and tabSubtagHtml() in 06-tabs-render.js): a small floating badge
+     above the tab instead of its inline dot+count, shown only when
+     tabSubtagHtml() actually rendered one (a category with zero open
+     tasks gets no badge and no inline count either, matching the feature
+     as asked — "only if there's currently open tasks"). Sits above the
+     tab's own top edge via a negative `top`, same trick .locbadge/.pagetag
+     use elsewhere; pointer-events:none so it never steals the tab's own
+     click/hover target despite visually overlapping neighbors when the
+     row is scrunched tight. */
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag{
+    position:absolute; top:-13px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:3px;
+    background: var(--tabhex, var(--primary)); color: var(--tabtext, white);
+    border: 1px solid var(--tabedge, color-mix(in srgb, var(--primary) 70%, black));
+    border-radius:9px; padding:1px 6px; font-size:0.62rem; line-height:1.4;
+    box-shadow:0 2px 5px rgba(0,0,0,0.35);
+    pointer-events:none; white-space:nowrap;
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag .dot{
+    color:inherit !important; width:auto; height:auto;
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag-urgent{
+    color:#ffce54; font-weight:700;
   }
   /* The shadow "the pages are on top of the tab" asked for — appended to
      #appCard's own base box-shadow (not replacing it) so both still show.
@@ -2712,6 +2778,13 @@ async function setDevTabBarDesktopStyle(val){
   queueSave();
 }
 
+async function setDevOverlapHoverMode(val){
+  pushUndo(`Changed dev overlap tab hover mode to "${val}"`);
+  state.devSettings.overlapHoverMode = val;
+  render();
+  queueSave();
+}
+
 async function setDevSettingsRowMobileStyle(val){
   pushUndo(`Changed dev settings row mobile style to "${val}"`);
   state.devSettings.settingsRowMobileStyle = val;
@@ -2915,6 +2988,19 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="overlap" ${dev.tabBarDesktopStyle==='overlap'?'selected':''}>Overlapping color tabs, hover to lift</option>
       </select>
     </div>
+    ${dev.tabBarDesktopStyle==='overlap' ? `
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.overlapSubtags?'checked':''} onchange="toggleDevSetting('overlapSubtags', this.checked)">
+      Overlap tabs: floating count badge instead of inline icon/number (only shown when a category has open tasks; adds "!" for anything overdue or High priority)
+    </label>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Overlap tabs: hover/select behavior</span>
+      <select class="${selectClass}" onchange="setDevOverlapHoverMode(this.value)">
+        <option value="default" ${dev.overlapHoverMode==='default'?'selected':''}>Default (hover reorders to the front)</option>
+        <option value="push" ${dev.overlapHoverMode==='push'?'selected':''}>Fixed order — hovering/selecting pushes neighbors aside instead</option>
+      </select>
+    </div>
+    ` : ''}
     <div class="${fieldClass}">
       <span class="${captionClass}">Settings category rows (mobile)</span>
       <select class="${selectClass}" onchange="setDevSettingsRowMobileStyle(this.value)">
@@ -3387,7 +3473,20 @@ function defaultDevSettings(){
   // date, urgent/today flags, timeframe/priority, notes — as its own
   // bottom sheet (openTaskSettingsSheet()), out of the way until you
   // actually reach for it.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default' };
+  // overlapSubtags / overlapHoverMode are two further EXPERIMENTAL
+  // sub-options of tabBarDesktopStyle's "overlap" look specifically —
+  // only ever offered in the UI while that style is the current pick
+  // (see devSettingsFieldsHtml() in 01-categories-theme.js). overlapSubtags
+  // swaps each tab's inline dot+count for a small floating badge above it
+  // (only rendered when that category actually has open tasks, plus a "!"
+  // when one is overdue or High priority — see tabSubtagHtml() in
+  // 06-tabs-render.js), freeing width for tighter scrunching.
+  // overlapHoverMode's 'push' variant replaces hover-to-reorder with a
+  // fixed stacking order (by open-task "importance", see
+  // tabImportanceRank()) plus neighbors sliding away from whichever tab is
+  // hovered or selected instead (see computeOverlapPush()) — both in
+  // 06-tabs-render.js.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', overlapSubtags:false, overlapHoverMode:'default', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default' };
 }
 
 function defaultState(){
@@ -3453,6 +3552,8 @@ function normalizeState(){
   if(typeof state.devSettings.floatingAddButton !== 'boolean') state.devSettings.floatingAddButton = false;
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
+  if(typeof state.devSettings.overlapSubtags !== 'boolean') state.devSettings.overlapSubtags = false;
+  if(typeof state.devSettings.overlapHoverMode !== 'string') state.devSettings.overlapHoverMode = 'default';
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
   if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'default';
@@ -3969,12 +4070,75 @@ function tabOpenCount(key){
   return state.tasks.filter(t => t.category===key && t.status!=='done').length;
 }
 
+// Feeds both the overlapSubtags "!" badge and (via tabImportanceRank())
+// overlapHoverMode's "fixed order" ranking — a category counts as urgent
+// if it has any not-done task that's overdue or High priority. Checklist/
+// calendar tabs have no such fields on their own "tasks" (a checklist's
+// task is a whole list, a calendar tab has none at all — see
+// isChecklistCategory()/isCalendarCategory()), so they're never urgent by
+// this measure; 'all'/'daily' aren't a single category either and are
+// excluded the same way.
+function tabHasUrgentTask(key){
+  if(key==='all' || key==='daily' || isChecklistCategory(key) || isCalendarCategory(key)) return false;
+  return state.tasks.some(t => t.category===key && t.status!=='done' && (isOverdue(t) || t.priority===3));
+}
+
+// overlapHoverMode's 'push' variant (see devSettingsFieldsHtml() in
+// 01-categories-theme.js) replaces position-based stacking (later tab
+// always on top, see --tabidx below) with a FIXED order by how much is
+// going on in each category — open task count, with any urgent (overdue/
+// High priority) task counting for a lot more than sheer volume — so the
+// same tab is always on top no matter which one you last hovered. Ties
+// (most commonly every tab tied at zero) fall back to the original
+// position, both so the result is deterministic and so an all-empty
+// board still fans out sensibly. Returns a key->rank map, 1 = bottom of
+// the stack, length(keys) = top.
+function tabImportanceRank(keys){
+  const scored = keys.map((k, idx) => ({
+    k, idx,
+    score: tabOpenCount(k) + (tabHasUrgentTask(k) ? 1000 : 0)
+  }));
+  scored.sort((a,b) => a.score - b.score || a.idx - b.idx);
+  const rank = {};
+  scored.forEach((item, i) => { rank[item.k] = i + 1; });
+  return rank;
+}
+
+// overlapSubtags (see devSettingsFieldsHtml()) trades a tab's own inline
+// dot+count for a small badge floating above it — the category's own icon
+// glyph plus its open count, plus a "!" when tabHasUrgentTask() is true —
+// so it only ever appears when there's actually something to say, unlike
+// the always-on inline count it replaces (which shows "0" just as
+// prominently as anything else). Skipped entirely for a tab with nothing
+// open, and for 'all'/'daily' (no single category icon to show).
+function tabSubtagHtml(key, openCount){
+  if(key==='all' || key==='daily' || openCount<=0) return '';
+  const cat = CATEGORIES[key];
+  if(!cat) return '';
+  const icon = categoryDotHtml(cat, 'dot');
+  const urgent = tabHasUrgentTask(key);
+  return `<div class="tabsubtag">${icon}<span class="tabsubtag-count">${openCount}</span>${urgent ? '<span class="tabsubtag-urgent">!</span>' : ''}</div>`;
+}
+
 function renderTabs(){
   const wrap = document.getElementById('tabs');
-  wrap.innerHTML = visibleTabs().map((key, idx)=>{
+  const keys = visibleTabs();
+  const dev = state.devSettings || {};
+  // tabBarDesktopStyle is a desktop-only look (see the body:not(.mobileui-
+  // active)[data-tabbar-desktop=…] selectors in <style>) — mirrored here
+  // so subtagsOn/pushMode never touch the markup on a phone-ish viewport,
+  // where the matching CSS wouldn't be applied to make sense of it either
+  // (a shown dot/count is better than an unstyled orphan badge).
+  const overlapStyle = dev.tabBarDesktopStyle === 'overlap' && !mobileUiActive();
+  const subtagsOn = overlapStyle && !!dev.overlapSubtags;
+  const pushMode = overlapStyle && dev.overlapHoverMode === 'push';
+  const importanceRank = pushMode ? tabImportanceRank(keys) : null;
+  wrap.innerHTML = keys.map((key, idx)=>{
     const openCount = tabOpenCount(key);
-    const dot = (key==='all'||key==='daily') ? '' : categoryDotHtml(CATEGORIES[key], 'dot');
+    const dot = (subtagsOn || key==='all' || key==='daily') ? '' : categoryDotHtml(CATEGORIES[key], 'dot');
     const label = key==='all' ? 'All' : key==='daily' ? 'Daily' : CATEGORIES[key].label;
+    const countHtml = subtagsOn ? '' : `<span class="count">${openCount}</span>`;
+    const subtagHtml = subtagsOn ? tabSubtagHtml(key, openCount) : '';
     // --tabhex/--tabtext/--tabedge are only ever read by the EXPERIMENTAL
     // tabBarDesktopStyle "indextabs"/"overlap" looks (see the
     // body:not(.mobileui-active)[data-tabbar-desktop=…] rules in <style>)
@@ -3989,15 +4153,255 @@ function renderTabs(){
     // these three and fall back to <style>'s var(--primary)-based
     // defaults instead. --tabidx (1-based) is "overlap"'s default
     // stacking order — later tabs sit on top of earlier ones until
-    // hovered, like a fanned-out stack of index cards.
+    // hovered, like a fanned-out stack of index cards — UNLESS
+    // overlapHoverMode's 'push' variant is on, in which case it's instead
+    // a fixed rank by tabImportanceRank() so the stacking order holds
+    // still regardless of hover (see computeOverlapPush() below). --tab-
+    // jitter is a small per-tab pseudo-random resting-height offset
+    // (hashStr()'d off the tab's own id so it's stable across renders,
+    // not truly random — see the .tab transform rules in <style>), there
+    // purely so a row of same-height pills reads a little more like a
+    // hand-fanned stack of index cards and a little less like a UI
+    // component; onmouseenter/leave are only wired up in push mode — the
+    // default look still does its lift/reorder in pure CSS via :hover.
     const cat = (key!=='all' && key!=='daily') ? CATEGORIES[key] : null;
+    const tabidx = importanceRank ? importanceRank[key] : idx+1;
+    const jitter = tabJitterPx(key);
     const hexStyle = cat
-      ? ` style="--tabhex:${cat.hex};--tabtext:${relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9'};--tabedge:${shadeHex(cat.hex, -0.25)};--tabidx:${idx+1}"`
-      : ` style="--tabidx:${idx+1}"`;
-    return `<button class="tab ${activeTab===key?'active':''}"${hexStyle} onclick="switchTab('${key}')">${dot}${label} <span class="count">${openCount}</span></button>`;
+      ? ` style="--tabhex:${cat.hex};--tabtext:${relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9'};--tabedge:${shadeHex(cat.hex, -0.25)};--tabidx:${tabidx};--tab-jitter:${jitter}px"`
+      : ` style="--tabidx:${tabidx};--tab-jitter:${jitter}px"`;
+    const hoverAttrs = pushMode ? ` onmouseenter="overlapTabHoverStart(${idx})" onmouseleave="overlapTabHoverEnd(${idx})"` : '';
+    return `<button class="tab ${activeTab===key?'active':''}"${hexStyle}${hoverAttrs} onclick="switchTab('${key}')">${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
   renderTabRowLines();
   updateTabScrollFade();
+  layoutOverlapTabs();
+}
+
+// The stable per-tab jitter overlapStyle's resting transform reads (see
+// renderTabs() above and the .tab transform rules in <style>) — hashStr()
+// off the tab's own id/key so it's the same on every render (no reshuffle
+// mid-session) rather than a fresh Math.random() each time, which would
+// make the row visibly shiver on every unrelated re-render.
+const TAB_JITTER_RANGE = 3; // px each way
+function tabJitterPx(key){
+  return (hashStr('jitter:'+key) % (TAB_JITTER_RANGE*2+1)) - TAB_JITTER_RANGE;
+}
+
+// ---------- tabBarDesktopStyle "overlap": scrunch, wrap-avoidance, and
+// the page-connect nudge ----------
+// overlapNaturalRects caches each tab's own settled {left,width} (post
+// scrunch, pre any hover/active push) so computeOverlapPush() below always
+// has a stable, un-pushed baseline to push away from and clamp against —
+// without it, a push computed on top of an already-pushed position would
+// compound every time it's recalculated instead of resetting cleanly.
+// overlapHoveredIdx tracks which tab (by index into visibleTabs(), the
+// same order renderTabs() renders in) is currently under the pointer, so
+// a stale overlapTabHoverEnd() from a tab that's since been re-rendered
+// away can't clobber a newer hover.
+let overlapNaturalRects = null;
+let overlapHoveredIdx = null;
+
+const OVERLAP_MAX_LABEL_WIDTH = 150; // soft width budget tried before allowing a real 2nd line
+const OVERLAP_MIN_FONT_PX = 8.5;     // floor for the "shrink to fit one line" attempt below that
+const OVERLAP_BASE_OVERLAP = 16;     // default -margin-left between tabs, matches the old hardcoded value
+const OVERLAP_MIN_TAB_REVEAL = 24;   // comfortable px of a tab's own width left peeking out at max scrunch
+const OVERLAP_HARD_MIN_REVEAL = 8;   // last-resort floor — never fully hides a tab, but "must fit" wins past this
+const OVERLAP_MIN_HPAD = 5;          // floor for the secondary lever (horizontal padding) below
+const OVERLAP_PUSH1 = 16;            // how far an immediate neighbor scoots away from a hovered/selected tab
+const OVERLAP_PUSH2 = 7;             // same, for the neighbor one further out
+const OVERLAP_CONNECT_MIN = 4;       // px the active tab's tail must overlap #appCard's top edge by, at minimum
+const OVERLAP_CONNECT_MAX = 16;      // ...and at most, so a 2-3 line label doesn't dip deep into the card
+
+// Called at the end of renderTabs() (and on resize, see 19-bootstrap.js) —
+// a no-op for every tabBarDesktopStyle except "overlap", and for the
+// Mobile UI Lab viewport where that style never applies anyway. Does four
+// things, in order, each depending on the last: (1) tries to keep every
+// label on one line, shrinking font-size before ever falling back to a
+// real wrap; (2) figures out how much tabs need to overlap each other to
+// all fit in the row without running past its right edge ("scrunch" per
+// the project owner's report, rather than silently overflowing); (3)
+// caches the resulting settled positions for computeOverlapPush() to push
+// away from; (4) nudges the active tab vertically so its own tail always
+// overlaps #appCard's top edge by a small, consistent amount regardless
+// of how tall its label rendered — measured directly rather than assumed,
+// since actual font metrics/line count aren't reliably knowable ahead of
+// time (see the .tab.active transform rule in <style> for how the result,
+// --tab-connect, gets used).
+function layoutOverlapTabs(){
+  overlapHoveredIdx = null;
+  overlapNaturalRects = null;
+  const dev = state.devSettings || {};
+  const wrap = document.getElementById('tabs');
+  if(!wrap || mobileUiActive() || dev.tabBarDesktopStyle !== 'overlap') return;
+  const tabs = Array.from(wrap.querySelectorAll('.tab'));
+  if(!tabs.length) return;
+
+  // Reset leftover inline sizing from a previous pass before measuring
+  // fresh. renderTabs() rebuilds fresh <button> elements every render, so
+  // in practice this only matters for a resize-triggered re-layout.
+  tabs.forEach(t=>{
+    t.style.fontSize = '';
+    t.classList.remove('two-line');
+    t.style.removeProperty('--tab-dx');
+    t.style.removeProperty('--tab-connect');
+    const label = t.querySelector('.tablabel');
+    if(label){ label.style.whiteSpace = 'nowrap'; label.style.maxWidth = ''; }
+  });
+
+  // ---- 1. One line if at all possible ----
+  const baseFontPx = parseFloat(getComputedStyle(tabs[0]).fontSize) || 11.2;
+  tabs.forEach(t=>{
+    let px = baseFontPx;
+    while(t.scrollWidth > OVERLAP_MAX_LABEL_WIDTH && px > OVERLAP_MIN_FONT_PX){
+      px -= 0.5;
+      t.style.fontSize = px + 'px';
+    }
+    if(t.scrollWidth > OVERLAP_MAX_LABEL_WIDTH){
+      const label = t.querySelector('.tablabel');
+      if(!label) return;
+      const oneLineHeight = label.getBoundingClientRect().height;
+      label.style.whiteSpace = 'normal';
+      label.style.maxWidth = OVERLAP_MAX_LABEL_WIDTH + 'px';
+      if(label.getBoundingClientRect().height > oneLineHeight * 1.4){
+        t.classList.add('two-line');
+      } else {
+        // Wrapping didn't actually trigger (measurement was conservative) —
+        // no point paying for a wrap that didn't happen.
+        label.style.whiteSpace = 'nowrap';
+        label.style.maxWidth = '';
+      }
+    }
+  });
+
+  // ---- 2. Scrunch to fit: solve for how much overlap is needed to keep
+  // every tab's settled (post font-shrink) width within the row's actual
+  // available width, instead of letting the row run past its right edge.
+  // Overlap alone (capped at OVERLAP_MIN_TAB_REVEAL of comfortable reveal
+  // per tab) isn't always enough — a wide category list in a narrow window
+  // can need more scrunching than that cap comfortably allows — so this
+  // also leans on a second lever, shrinking each tab's own horizontal
+  // padding (--tab-hpad, read by the .tab padding rule in <style>), before
+  // finally just accepting a tighter reveal (down to OVERLAP_HARD_MIN_
+  // REVEAL) as a last resort: the project owner's explicit priority is "no
+  // tab may run past the row's edge," which beats "every tab keeps a
+  // comfortable 24px peeking out." ----
+  const n = tabs.length;
+  const available = wrap.clientWidth;
+  let widths, overlap = OVERLAP_BASE_OVERLAP;
+  let hpad = 14;
+  wrap.style.setProperty('--tab-hpad', hpad + 'px');
+  for(let iter = 0; iter < 6; iter++){
+    widths = tabs.map(t=>t.offsetWidth);
+    const total = widths.reduce((a,b)=>a+b, 0);
+    overlap = OVERLAP_BASE_OVERLAP;
+    if(n > 1 && total > available){
+      const needed = (total - available) / (n - 1) + OVERLAP_BASE_OVERLAP;
+      const comfortableMax = Math.max(OVERLAP_BASE_OVERLAP, Math.min(...widths) - OVERLAP_MIN_TAB_REVEAL);
+      overlap = Math.min(needed, comfortableMax);
+    }
+    const displayed = total - (n - 1) * overlap;
+    if(displayed <= available || hpad <= OVERLAP_MIN_HPAD) break;
+    hpad = Math.max(OVERLAP_MIN_HPAD, hpad - 2);
+    wrap.style.setProperty('--tab-hpad', hpad + 'px');
+  }
+  // Padding/font shrinking exhausted and it still doesn't fit — drop the
+  // comfortable-reveal cap down to the hard floor rather than let the row
+  // run past the card's edge.
+  if(n > 1){
+    const total = widths.reduce((a,b)=>a+b, 0);
+    if(total - (n - 1) * overlap > available){
+      const needed = (total - available) / (n - 1) + OVERLAP_BASE_OVERLAP;
+      const hardMax = Math.max(OVERLAP_BASE_OVERLAP, Math.min(...widths) - OVERLAP_HARD_MIN_REVEAL);
+      overlap = Math.min(needed, hardMax);
+    }
+  }
+  wrap.style.setProperty('--tab-overlap', (-overlap) + 'px');
+
+  // ---- 3. Cache settled positions for computeOverlapPush() ----
+  overlapNaturalRects = tabs.map(t=>({ left: t.offsetLeft, width: t.offsetWidth }));
+
+  // Push mode: the selected tab permanently pushes its own neighbors
+  // aside too, not just on hover (per the project owner's ask) — applied
+  // here so it's redone on every render (a mutation, a category rename,
+  // etc.) not just the next mouse move.
+  const activeIdx = tabs.findIndex(t=>t.classList.contains('active'));
+  if(dev.overlapHoverMode === 'push'){
+    computeOverlapPush(activeIdx>=0 ? [activeIdx] : []);
+  }
+
+  // ---- 4. Connect the active tab to the page ----
+  const card = document.getElementById('appCard');
+  if(activeIdx >= 0 && card){
+    const activeTabEl = tabs[activeIdx];
+    const cardTop = card.getBoundingClientRect().top;
+    const tabBottom = activeTabEl.getBoundingClientRect().bottom;
+    let nudge = 0;
+    if(tabBottom < cardTop + OVERLAP_CONNECT_MIN) nudge = (cardTop + OVERLAP_CONNECT_MIN) - tabBottom;
+    else if(tabBottom > cardTop + OVERLAP_CONNECT_MAX) nudge = (cardTop + OVERLAP_CONNECT_MAX) - tabBottom;
+    if(nudge) activeTabEl.style.setProperty('--tab-connect', nudge + 'px');
+  }
+}
+
+// overlapHoverMode's 'push' variant (see devSettingsFieldsHtml() in
+// 01-categories-theme.js): rather than the default look's hover-lifts-
+// above-everything trick, a hovered or selected tab instead shoves its
+// immediate neighbor(s) sideways, away from it, revealing more of itself
+// without needing to reorder the (now fixed, see tabImportanceRank())
+// stack. `sources` is the set of tab indices currently pushing (the
+// active tab always, plus whichever tab is hovered) — each contributes an
+// independent push to every other tab based on distance, and the results
+// simply add together where they overlap (e.g. hovering a tab right next
+// to the active one). Pushes are applied as a `transform: translateX()`
+// (via --tab-dx, combined with the vertical lift/jitter transform — see
+// the .tab rules in <style>) rather than by touching margins, so pushing
+// tab N can never cascade into shifting every tab after it — each tab's
+// own displacement is independent and computed from its ORIGINAL
+// (overlapNaturalRects) position every time, not the current one.
+// Finally, each tab's target position is clamped to stay within the row's
+// own width — the project owner's explicit ask that a pushed end tab
+// never scoots off the page — which can only ever pull a push *in*, never
+// send a tab further out than the row itself.
+function computeOverlapPush(sources){
+  const wrap = document.getElementById('tabs');
+  if(!wrap || !overlapNaturalRects) return;
+  const tabs = Array.from(wrap.querySelectorAll('.tab'));
+  const containerWidth = wrap.clientWidth;
+  const srcs = sources.filter(s => s != null && s >= 0);
+  tabs.forEach((t, i)=>{
+    let dx = 0;
+    srcs.forEach(s=>{
+      if(s === i) return;
+      const dist = i - s;
+      const mag = Math.abs(dist) === 1 ? OVERLAP_PUSH1 : Math.abs(dist) === 2 ? OVERLAP_PUSH2 : 0;
+      dx += Math.sign(dist) * mag;
+    });
+    const rect = overlapNaturalRects[i];
+    if(rect && dx !== 0){
+      const clampedLeft = Math.max(0, Math.min(containerWidth - rect.width, rect.left + dx));
+      dx = clampedLeft - rect.left;
+    }
+    t.style.setProperty('--tab-dx', dx + 'px');
+  });
+}
+
+function overlapActiveIdx(tabs){
+  return tabs.findIndex(t=>t.classList.contains('active'));
+}
+
+function overlapTabHoverStart(idx){
+  const dev = state.devSettings || {};
+  if(dev.tabBarDesktopStyle !== 'overlap' || dev.overlapHoverMode !== 'push') return;
+  overlapHoveredIdx = idx;
+  const tabs = Array.from(document.getElementById('tabs').querySelectorAll('.tab'));
+  computeOverlapPush([overlapActiveIdx(tabs), idx]);
+}
+
+function overlapTabHoverEnd(idx){
+  if(overlapHoveredIdx !== idx) return;
+  overlapHoveredIdx = null;
+  const tabs = Array.from(document.getElementById('tabs').querySelectorAll('.tab'));
+  computeOverlapPush([overlapActiveIdx(tabs)]);
 }
 
 // tabBarMobileStyle's "scroll" variant (see defaultDevSettings() in
@@ -7824,7 +8228,7 @@ document.addEventListener('touchcancel', swipeEnd);
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { renderTabRowLines(); refreshMobileUiActive(); updateTabScrollFade(); }, 120);
+  resizeTimer = setTimeout(() => { renderTabRowLines(); refreshMobileUiActive(); updateTabScrollFade(); layoutOverlapTabs(); }, 120);
 });
 
 // #tabs itself is a static element (renderTabs() only ever replaces its

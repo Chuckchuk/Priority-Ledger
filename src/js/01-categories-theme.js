@@ -439,6 +439,13 @@ async function setDevTabBarDesktopStyle(val){
   queueSave();
 }
 
+async function setDevOverlapHoverMode(val){
+  pushUndo(`Changed dev overlap tab hover mode to "${val}"`);
+  state.devSettings.overlapHoverMode = val;
+  render();
+  queueSave();
+}
+
 async function setDevSettingsRowMobileStyle(val){
   pushUndo(`Changed dev settings row mobile style to "${val}"`);
   state.devSettings.settingsRowMobileStyle = val;
@@ -642,6 +649,19 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="overlap" ${dev.tabBarDesktopStyle==='overlap'?'selected':''}>Overlapping color tabs, hover to lift</option>
       </select>
     </div>
+    ${dev.tabBarDesktopStyle==='overlap' ? `
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.overlapSubtags?'checked':''} onchange="toggleDevSetting('overlapSubtags', this.checked)">
+      Overlap tabs: floating count badge instead of inline icon/number (only shown when a category has open tasks; adds "!" for anything overdue or High priority)
+    </label>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Overlap tabs: hover/select behavior</span>
+      <select class="${selectClass}" onchange="setDevOverlapHoverMode(this.value)">
+        <option value="default" ${dev.overlapHoverMode==='default'?'selected':''}>Default (hover reorders to the front)</option>
+        <option value="push" ${dev.overlapHoverMode==='push'?'selected':''}>Fixed order — hovering/selecting pushes neighbors aside instead</option>
+      </select>
+    </div>
+    ` : ''}
     <div class="${fieldClass}">
       <span class="${captionClass}">Settings category rows (mobile)</span>
       <select class="${selectClass}" onchange="setDevSettingsRowMobileStyle(this.value)">

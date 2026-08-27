@@ -2032,17 +2032,43 @@
     background:none; border:none; flex-wrap:nowrap; gap:0; padding:8px 8px 0;
     align-items:flex-start; margin-bottom:-26px;
   }
+  /* --tab-overlap/--tab-dx/--tab-connect are all set by layoutOverlapTabs()/
+     computeOverlapPush() in 06-tabs-render.js, never hardcoded here —
+     --tab-overlap (how negative each tab's margin-left is) is solved per-
+     render so a long row of tabs scrunches tighter to fit the available
+     width instead of running past the card's right edge; --tab-dx/--tab-
+     jitter/--tab-connect are covered below. white-space:nowrap is the
+     default the same JS tries hard to keep every label on — see .two-line
+     below for the fallback when it can't. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab{
-    position:relative; margin-left:-16px; z-index:calc(var(--tabidx, 1) - 100);
+    position:relative; margin-left: var(--tab-overlap, -16px);
+    z-index:calc(var(--tabidx, 1) - 100);
     background: var(--tabhex, var(--primary)); color: var(--tabtext, white);
     border-radius:8px 8px 0 0; align-items:flex-start;
-    padding:9px 14px 37px;
+    padding:9px var(--tab-hpad, 14px) 37px; white-space:nowrap;
     border-top:3px solid var(--tabedge, color-mix(in srgb, var(--primary) 70%, black));
     box-shadow:0 -1px 5px rgba(0,0,0,0.3);
-    transition: transform .18s ease, box-shadow .18s ease;
+    transition: transform .16s ease, box-shadow .18s ease, margin-left .16s ease;
+    /* Resting position: a small stable per-tab jitter (hashStr()'d off the
+       tab's own id, see tabJitterPx()) so a row of same-height pills reads
+       a little more like a hand-fanned stack of index cards, plus
+       whatever horizontal push computeOverlapPush() has assigned it (0
+       unless overlapHoverMode is "push" and this tab has a hovered/
+       selected neighbor). */
+    transform: translate(var(--tab-dx, 0px), var(--tab-jitter, 0px));
   }
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab:first-child{ margin-left:0; }
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab .count{ color:inherit; opacity:0.8; }
+  /* A label layoutOverlapTabs() couldn't keep on one line even at the
+     smallest readable font-size gets pushed a little higher than its
+     jittered neighbors — "keep it higher, don't move every other tab up
+     to match" per the project owner's ask — rather than letting its own
+     extra height read as a mismatched row baseline. Resting only:
+     .active's own transform rule below always wins regardless of line
+     count (see OVERLAP_CONNECT_MIN/MAX in 06-tabs-render.js for how). */
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab.two-line{
+    transform: translate(var(--tab-dx, 0px), calc(var(--tab-jitter, 0px) - 6px));
+  }
   /* !important on z-index/transform here is load-bearing, not decorative
      — both rules need to outrank the inline --tabidx-driven stacking
      order above (an inline style otherwise beats a plain class rule
@@ -2053,21 +2079,61 @@
      purpose, so a raised tab's tail (still there underneath it) drapes
      forward over the page's top edge instead of staying tucked behind
      it, the "you can tell this is the one you're looking at/reaching
-     for" cue the resting state doesn't have. */
+     for" cue the resting state doesn't have. --tab-dx still applies while
+     hovering (not just --tab-jitter) since a hovered tab can itself be a
+     neighbor the *active* tab is permanently pushing aside in push mode. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab:hover{
-    transform:translateY(-8px); z-index:999 !important;
+    transform: translate(var(--tab-dx, 0px), -8px) !important;
+    z-index:999 !important;
     box-shadow:0 5px 16px rgba(0,0,0,0.4);
   }
-  /* .active gets a much shorter tail (15px padding-bottom vs. 37px) —
-     "a little overlap" onto the page rather than the same long drape a
-     hover gets, since this one is meant to look settled/permanent, not
-     mid-gesture. */
+  /* .active's own tail is taller than a resting tab's, not shorter — the
+     opposite of this look's original "a little overlap, not the same long
+     drape a hover gets" idea, which fell apart in practice: a *short* tail
+     plus a lift big enough to clear every jittered/two-line neighbor
+     (guaranteeing "selected always highest") left a visible gap above
+     #appCard on a single-line label (nothing tucked in to reach the page —
+     see the project owner's "ends up hovering" / "doesn't display over the
+     page" reports). A tall tail plus a firm -12px lift comfortably clears
+     every resting tab's own max poke (jitter's ±3px plus two-line's -6px,
+     worst case -9px) while still leaving slack for
+     layoutOverlapTabs()'s --tab-connect to fine-tune the exact overlap
+     amount by measurement rather than by guessing font metrics. box-
+     shadow:none is deliberate too — with the gap closed there's nothing
+     for a drop shadow to float over; keeping one just re-introduces the
+     "hovering" look by another route. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab.active{
     background: var(--card-bg); color: var(--ink); font-weight:500;
-    padding-bottom:15px;
+    padding-bottom:50px;
     border-top-color: var(--tabedge, var(--primary));
-    transform:translateY(-4px); z-index:500 !important;
-    box-shadow:0 2px 9px rgba(0,0,0,0.35);
+    transform: translate(var(--tab-dx, 0px), calc(-12px + var(--tab-connect, 0px))) !important;
+    z-index:500 !important;
+    box-shadow:none;
+  }
+  /* overlapSubtags (see devSettingsFieldsHtml() in 01-categories-theme.js
+     and tabSubtagHtml() in 06-tabs-render.js): a small floating badge
+     above the tab instead of its inline dot+count, shown only when
+     tabSubtagHtml() actually rendered one (a category with zero open
+     tasks gets no badge and no inline count either, matching the feature
+     as asked — "only if there's currently open tasks"). Sits above the
+     tab's own top edge via a negative `top`, same trick .locbadge/.pagetag
+     use elsewhere; pointer-events:none so it never steals the tab's own
+     click/hover target despite visually overlapping neighbors when the
+     row is scrunched tight. */
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag{
+    position:absolute; top:-13px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:3px;
+    background: var(--tabhex, var(--primary)); color: var(--tabtext, white);
+    border: 1px solid var(--tabedge, color-mix(in srgb, var(--primary) 70%, black));
+    border-radius:9px; padding:1px 6px; font-size:0.62rem; line-height:1.4;
+    box-shadow:0 2px 5px rgba(0,0,0,0.35);
+    pointer-events:none; white-space:nowrap;
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag .dot{
+    color:inherit !important; width:auto; height:auto;
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag-urgent{
+    color:#ffce54; font-weight:700;
   }
   /* The shadow "the pages are on top of the tab" asked for — appended to
      #appCard's own base box-shadow (not replacing it) so both still show.
