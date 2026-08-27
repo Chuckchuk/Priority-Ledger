@@ -8,7 +8,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- viewport-fit=cover lets the page paint under the notch/status bar and
+     the bottom home-indicator area instead of Safari letterboxing around
+     them — without it, that "outside the safe area" strip is filled with
+     plain white behind (and above) the app's own background, which is
+     the "white top bar" this + `html`'s own background + body's
+     `env(safe-area-inset-*)` padding (see `<style>`) exist to fix. Only
+     matters in standalone (home-screen) mode; Safari's own chrome
+     already covers those areas in a normal browser tab. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>The Ledger</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3QgeD0iMyIgeT0iNCIgd2lkdGg9IjI2IiBoZWlnaHQ9IjI0IiByeD0iMiIgZmlsbD0iIzI4MzYyRSIvPjxyZWN0IHg9IjgiIHk9IjQiIHdpZHRoPSIyMSIgaGVpZ2h0PSIyNCIgcng9IjIiIGZpbGw9IiNGMUVBRDkiLz48cmVjdCB4PSIzIiB5PSI0IiB3aWR0aD0iNiIgaGVpZ2h0PSIyNCIgcng9IjIiIGZpbGw9IiNBOTc4MkYiLz48cmVjdCB4PSIxMyIgeT0iMTAiIHdpZHRoPSIxMyIgaGVpZ2h0PSIxLjgiIGZpbGw9IiM3QTZFNTgiLz48cmVjdCB4PSIxMyIgeT0iMTQuNSIgd2lkdGg9IjEzIiBoZWlnaHQ9IjEuOCIgZmlsbD0iIzdBNkU1OCIvPjxyZWN0IHg9IjEzIiB5PSIxOSIgd2lkdGg9IjgiIGhlaWdodD0iMS44IiBmaWxsPSIjN0E2RTU4Ii8+PHJlY3QgeD0iMjEiIHk9IjIiIHdpZHRoPSI0IiBoZWlnaHQ9IjkiIGZpbGw9IiNDOTlBNEUiLz48L3N2Zz4=">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -114,13 +122,36 @@
     --stackpage-radius: 10px;
   }
   *{box-sizing:border-box;}
+  /* Standalone "Add to Home Screen" mode on iOS doesn't give the page a
+     transparent/matching backdrop for free — the strip behind the notch/
+     status bar and the bottom home-indicator (outside the normal
+     viewport unless the <meta viewport> has viewport-fit=cover, see
+     shell-head.html) paints plain white otherwise, which read as a
+     jarring white bar against the app's own dark desk background.
+     html gets its own background (not just body's) because that strip
+     is *outside* body's box entirely — body's own background, however
+     full-bleed, can't reach it. --desk-dark rather than the full
+     gradient: a flat color is what actually shows behind a notch/status
+     bar (there's no room there for the gradient's shape to read as
+     anything but a solid color anyway), and --desk-dark is already
+     "whatever the user's chosen background looks like at the screen's
+     edges" (see applyThemeObject() in 01-categories-theme.js) so this
+     tracks their own customization automatically, not a hardcoded value. */
+  html{ background: var(--desk-dark); }
   body{
     margin:0;
     min-height:100vh;
     background: radial-gradient(ellipse at 50% -10%, var(--desk) 0%, var(--desk-dark) 75%);
     font-family:'IBM Plex Sans', sans-serif;
     color: var(--ink);
-    padding: 36px 14px 70px;
+    /* The env() terms only add anything inside standalone mode with
+       viewport-fit=cover — everywhere else (a normal browser tab) they
+       resolve to 0px and this is identical to the plain padding it
+       replaced. Keeps real content (the masthead, the undo/redo row)
+       clear of the notch/status bar and the home-indicator strip, while
+       html's background above shows through behind both instead of
+       white — the two fixes only work together, not separately. */
+    padding: calc(36px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(70px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
   }
   .shell{ max-width: 720px; margin: 0 auto; }
   .masthead{ text-align:center; margin-bottom: 22px; position:relative; }
@@ -1960,7 +1991,22 @@ function applyThemeObject(t){
   // -0.30 multiplicatively on the classic desk green reproduces the
   // original hand-picked --desk-dark almost exactly — this is "the same
   // gradient it always had," not a new, more intense one.
-  root.setProperty('--desk-dark', t.gradient ? shadeHex(t.bg, -0.30) : t.bg);
+  const deskDark = t.gradient ? shadeHex(t.bg, -0.30) : t.bg;
+  root.setProperty('--desk-dark', deskDark);
+  // Keeps the <meta name="theme-color"> tag (shell-head.html) — and, via
+  // html's own `background: var(--desk-dark)` rule in <style>, the strip
+  // behind a phone's notch/status bar and home-indicator in standalone
+  // "Add to Home Screen" mode — tracking whatever background color the
+  // user has actually chosen, instead of the hardcoded default it ships
+  // with. Only the CSS var actually needs updating for that html rule to
+  // pick it up; this direct DOM write is purely for theme-color, which
+  // browsers read once from the live meta tag rather than a CSS custom
+  // property. manifest.json's own theme_color/background_color can't be
+  // updated this way (a linked file, fixed at "Add to Home Screen" time,
+  // not re-read from live DOM state) — it stays the app's default green,
+  // which only shows for the brief pre-JS splash before this ever runs.
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if(themeColorMeta) themeColorMeta.setAttribute('content', deskDark);
   root.setProperty('--card-bg', t.paper);
   root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
   const ui = uiColorPreset(t.uiPreset);

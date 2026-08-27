@@ -90,13 +90,36 @@
     --stackpage-radius: 10px;
   }
   *{box-sizing:border-box;}
+  /* Standalone "Add to Home Screen" mode on iOS doesn't give the page a
+     transparent/matching backdrop for free — the strip behind the notch/
+     status bar and the bottom home-indicator (outside the normal
+     viewport unless the <meta viewport> has viewport-fit=cover, see
+     shell-head.html) paints plain white otherwise, which read as a
+     jarring white bar against the app's own dark desk background.
+     html gets its own background (not just body's) because that strip
+     is *outside* body's box entirely — body's own background, however
+     full-bleed, can't reach it. --desk-dark rather than the full
+     gradient: a flat color is what actually shows behind a notch/status
+     bar (there's no room there for the gradient's shape to read as
+     anything but a solid color anyway), and --desk-dark is already
+     "whatever the user's chosen background looks like at the screen's
+     edges" (see applyThemeObject() in 01-categories-theme.js) so this
+     tracks their own customization automatically, not a hardcoded value. */
+  html{ background: var(--desk-dark); }
   body{
     margin:0;
     min-height:100vh;
     background: radial-gradient(ellipse at 50% -10%, var(--desk) 0%, var(--desk-dark) 75%);
     font-family:'IBM Plex Sans', sans-serif;
     color: var(--ink);
-    padding: 36px 14px 70px;
+    /* The env() terms only add anything inside standalone mode with
+       viewport-fit=cover — everywhere else (a normal browser tab) they
+       resolve to 0px and this is identical to the plain padding it
+       replaced. Keeps real content (the masthead, the undo/redo row)
+       clear of the notch/status bar and the home-indicator strip, while
+       html's background above shows through behind both instead of
+       white — the two fixes only work together, not separately. */
+    padding: calc(36px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(70px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
   }
   .shell{ max-width: 720px; margin: 0 auto; }
   .masthead{ text-align:center; margin-bottom: 22px; position:relative; }

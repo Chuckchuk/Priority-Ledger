@@ -241,7 +241,22 @@ function applyThemeObject(t){
   // -0.30 multiplicatively on the classic desk green reproduces the
   // original hand-picked --desk-dark almost exactly — this is "the same
   // gradient it always had," not a new, more intense one.
-  root.setProperty('--desk-dark', t.gradient ? shadeHex(t.bg, -0.30) : t.bg);
+  const deskDark = t.gradient ? shadeHex(t.bg, -0.30) : t.bg;
+  root.setProperty('--desk-dark', deskDark);
+  // Keeps the <meta name="theme-color"> tag (shell-head.html) — and, via
+  // html's own `background: var(--desk-dark)` rule in <style>, the strip
+  // behind a phone's notch/status bar and home-indicator in standalone
+  // "Add to Home Screen" mode — tracking whatever background color the
+  // user has actually chosen, instead of the hardcoded default it ships
+  // with. Only the CSS var actually needs updating for that html rule to
+  // pick it up; this direct DOM write is purely for theme-color, which
+  // browsers read once from the live meta tag rather than a CSS custom
+  // property. manifest.json's own theme_color/background_color can't be
+  // updated this way (a linked file, fixed at "Add to Home Screen" time,
+  // not re-read from live DOM state) — it stays the app's default green,
+  // which only shows for the brief pre-JS splash before this ever runs.
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if(themeColorMeta) themeColorMeta.setAttribute('content', deskDark);
   root.setProperty('--card-bg', t.paper);
   root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
   const ui = uiColorPreset(t.uiPreset);

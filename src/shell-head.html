@@ -2,7 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- viewport-fit=cover lets the page paint under the notch/status bar and
+     the bottom home-indicator area instead of Safari letterboxing around
+     them — without it, that "outside the safe area" strip is filled with
+     plain white behind (and above) the app's own background, which is
+     the "white top bar" this + `html`'s own background + body's
+     `env(safe-area-inset-*)` padding (see `<style>`) exist to fix. Only
+     matters in standalone (home-screen) mode; Safari's own chrome
+     already covers those areas in a normal browser tab. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>The Ledger</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3QgeD0iMyIgeT0iNCIgd2lkdGg9IjI2IiBoZWlnaHQ9IjI0IiByeD0iMiIgZmlsbD0iIzI4MzYyRSIvPjxyZWN0IHg9IjgiIHk9IjQiIHdpZHRoPSIyMSIgaGVpZ2h0PSIyNCIgcng9IjIiIGZpbGw9IiNGMUVBRDkiLz48cmVjdCB4PSIzIiB5PSI0IiB3aWR0aD0iNiIgaGVpZ2h0PSIyNCIgcng9IjIiIGZpbGw9IiNBOTc4MkYiLz48cmVjdCB4PSIxMyIgeT0iMTAiIHdpZHRoPSIxMyIgaGVpZ2h0PSIxLjgiIGZpbGw9IiM3QTZFNTgiLz48cmVjdCB4PSIxMyIgeT0iMTQuNSIgd2lkdGg9IjEzIiBoZWlnaHQ9IjEuOCIgZmlsbD0iIzdBNkU1OCIvPjxyZWN0IHg9IjEzIiB5PSIxOSIgd2lkdGg9IjgiIGhlaWdodD0iMS44IiBmaWxsPSIjN0E2RTU4Ii8+PHJlY3QgeD0iMjEiIHk9IjIiIHdpZHRoPSI0IiBoZWlnaHQ9IjkiIGZpbGw9IiNDOTlBNEUiLz48L3N2Zz4=">
 <link rel="apple-touch-icon" href="icon-180.png">
