@@ -2356,7 +2356,13 @@
      overdue or High priority" is the same kind of fact regardless of
      which category it's in, so it stays the same color everywhere. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag-urgent{
-    left:-4px; width:18px;
+    /* left:8px, not a negative offset — matches .tab's own 8px top-left
+       border-radius (see the .tab rule in <style>), so the flag's own
+       left edge picks up right where that curve finishes instead of
+       poking out past the tab into open space (read as "hovering,"
+       disconnected from the tab it belongs to). A little overlap with
+       the count flag next to it is fine — better than a gap. */
+    left:8px; width:18px;
     justify-content:center; align-items:center; padding-bottom:0;
     background: var(--estate); color:white; border-color: color-mix(in srgb, var(--estate) 70%, black);
     font-weight:700; font-size:0.68rem;
