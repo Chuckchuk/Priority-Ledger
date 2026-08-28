@@ -223,19 +223,31 @@ function swipeSnapBack(card, g){
 // Rather than keeping the real destination view mounted and visible
 // (which risks ITS OWN .pagetag — or another .stackedpage's — jutting
 // out from behind the one currently mid-drag, since both would be full,
-// live, differently-sized pages), this is a plain content-free stand-in:
-// same .stackedpage look (background tint, radius, shadow) with nothing
-// in it, sized to the real page's current box and faded in as the drag
-// starts. position:fixed + a viewport-space rect from
-// getBoundingClientRect() sidesteps having to know or fight whatever
-// positioning context .stackedpage's actual parent (#dailyView,
-// #settingsView, etc.) happens to establish.
+// live, differently-sized pages), this is a plain content-free stand-in.
+//
+// Two things a first pass at this got wrong, both because it exactly
+// matched the real page's own box: (1) .stackedpage's own background is
+// only a 5% white mix over --card-bg — nearly the same tone as
+// #appCard's bare background already behind it, so even fully visible it
+// barely read as "a page"; (2) sized/positioned identically to the real
+// page, it stayed *completely* covered by it until the drag had actually
+// moved the real page a real distance, so on a normal quick swipe there
+// was only a sliver of a moment it could ever show at all. Fixed here by
+// (1) .swipebackghost overriding to the more clearly-distinct
+// --card-bg-dim plus a stronger shadow (see <style>), and (2) offsetting
+// the ghost down-right by SWIPE_BACK_GHOST_PEEK_PX so a visible sliver
+// peeks out along the bottom/right edge from the very start of the drag,
+// like the next sheet in a stack, rather than needing the top page to
+// move first. Fades in fast (120ms, not 220ms) so it's visible well
+// before a normal decisive swipe has already committed and flown away.
+const SWIPE_BACK_GHOST_PEEK_PX = 7;
 function swipeBackGhostShow(g){
   const card = g.card;
   const r = card.getBoundingClientRect();
+  const peek = SWIPE_BACK_GHOST_PEEK_PX;
   const ghost = document.createElement('div');
   ghost.className = 'stackedpage swipebackghost';
-  ghost.style.cssText = `position:fixed; margin:0; left:${r.left}px; top:${r.top}px; width:${r.width}px; height:${r.height}px; opacity:0; transition:opacity 220ms ease; pointer-events:none;`;
+  ghost.style.cssText = `position:fixed; margin:0; left:${r.left + peek}px; top:${r.top + peek}px; width:${r.width}px; height:${r.height}px; opacity:0; transition:opacity 120ms ease; pointer-events:none;`;
   card.parentElement.insertBefore(ghost, card);
   g.ghost = ghost;
   requestAnimationFrame(() => { if(g.ghost) g.ghost.style.opacity = '1'; });

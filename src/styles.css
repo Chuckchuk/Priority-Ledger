@@ -1005,6 +1005,18 @@
     margin: var(--stackpage-margin-top) var(--stackpage-margin-right) var(--stackpage-margin-bottom) var(--stackpage-margin-left);
     position: relative;
   }
+  /* The blank stand-in page behind a .stackedpage mid back-swipe (see
+     swipeBackGhostShow() in 19-bootstrap.js) — .stackedpage's own
+     background is only a 5% white mix over --card-bg, close enough to
+     #appCard's bare background that a same-toned ghost barely read as
+     "a page" at all. --card-bg-dim plus a heavier shadow makes it
+     unmistakably a distinct surface sitting a little lower down, and
+     this rule's later position in the cascade (same 0-1-0 specificity as
+     .stackedpage's own) is what lets it win without needing !important. */
+  .swipebackghost{
+    background: var(--card-bg-dim);
+    box-shadow: 0 16px 34px rgba(0,0,0,0.34), 0 5px 12px rgba(0,0,0,0.18);
+  }
   /* EXPERIMENTAL — Dev Settings' "Stacked-page size" (state.devSettings.
      stackedPageInsetPreset, applied via document.body.dataset.
      stackedpageInset in applyDevSettings()). "classic" needs no override,
