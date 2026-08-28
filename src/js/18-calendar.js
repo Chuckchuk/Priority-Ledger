@@ -138,7 +138,7 @@ function calendarBodyHtml(monthKeyStr){
   return `
     <div class="calnav">
       <button class="navarrow" onclick="calendarShiftMonth(-1)" title="Previous month">‹</button>
-      <button class="calmonthlabel" onclick="calendarJumpToday()" title="Jump to the current month">${monthLabel(monthKeyStr)}</button>
+      <button class="calmonthlabel" onclick="calendarJumpToday()" title="Jump to the current month"><span class="herotext">${monthLabel(monthKeyStr)}</span></button>
       <button class="navarrow" onclick="calendarShiftMonth(1)" title="Next month">›</button>
     </div>
     <div class="calsummary">${summary.total ? `${summary.done} of ${summary.total} done this month` : 'Nothing planned this month yet'}</div>

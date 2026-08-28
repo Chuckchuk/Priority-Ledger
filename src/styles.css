@@ -935,10 +935,18 @@
      outside dayHeaderTag()'s window — the grid cell still reserves its
      row space either way. */
   .dayhero{
+    position:relative; overflow:hidden; height:40px; line-height:40px;
     font-family:'Fraunces', serif; font-weight:600; font-size:1.15rem;
     color:var(--ink-soft); letter-spacing:0.02em; text-align:center;
   }
-  .dayhero.today{ font-size:1.9rem; font-weight:700; color:var(--primary); }
+  /* Padlock-dial swipe swap (see swipeApplyDialDrag() in 19-bootstrap.js)
+     — .herotext is the actual visible label, absolutely positioned so an
+     "incoming" clone can be layered on top of it and both can slide/fade
+     past each other inside .dayhero's clipped box without touching the
+     arrows or anything else in .daynavrow. Plain (non-swipe) rendering
+     just shows the one .herotext at rest, translateX(0) by default. */
+  .herotext{ position:absolute; inset:0; white-space:nowrap; }
+  .herotext.today{ font-size:1.9rem; font-weight:700; color:var(--primary); }
   .daylistlabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin: 4px 0 6px; }
   .dayitem{
     width:100%; display:flex; justify-content:space-between; align-items:center; text-align:left;
@@ -1691,6 +1699,7 @@
      defining a near-identical one. */
   .calnav{ display:flex; align-items:center; justify-content:center; gap:16px; margin:2px 0 10px; }
   .calmonthlabel{
+    position:relative; overflow:hidden; height:26px; line-height:26px;
     font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.15rem; color:var(--ink);
     background:none; border:none; cursor:pointer; padding:0; min-width:150px; text-align:center;
   }

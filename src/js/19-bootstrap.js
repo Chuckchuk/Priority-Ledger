@@ -87,11 +87,25 @@ document.addEventListener('keydown', (e) => {
 // fighting over the same touch — classifySwipeZone() below is the single
 // place that decides which (if either) a given touch belongs to.
 
-let swipeGesture = null; // { mode:'day'|'month'|'back', card, backTag?, startX, startY, startT, lastX, axis:null|'x'|'y' }
+let swipeGesture = null; // { mode:'day'|'month'|'back', card, backTag?, label?, labelText?, incomingEl?, incomingDir?, startX, startY, startT, lastX, axis:null|'x'|'y' }
 
 const SWIPE_AXIS_PX = 10;      // movement before committing to horizontal vs. vertical
 const SWIPE_COMMIT_PX = 90;    // drag distance that commits the action on release
 const SWIPE_COMMIT_VPX = 0.55; // px/ms — a fast short flick commits even under that distance
+const SWIPE_DIAL_OFFSET_PX = 46; // fallback when text-width measurement isn't available
+
+// .herotext is `position:absolute; inset:0`, so its own offsetWidth is
+// always just the (much wider) label container's width, not the text's —
+// measuring that gave every incoming label the same huge starting offset
+// regardless of how short its word was, and for two short words centered
+// in one wide box a too-small gap read as them overlapping. Canvas
+// measureText() gives the actual rendered glyph width instead, so the
+// gap in swipeApplyDialDrag() below can be sized to the words themselves.
+function swipeTextWidth(text, font){
+  const ctx = swipeTextWidth._ctx || (swipeTextWidth._ctx = document.createElement('canvas').getContext('2d'));
+  ctx.font = font;
+  return ctx.measureText(text).width;
+}
 
 // Checked in this order: the day-nav row (.daynavrow) or the calendar's
 // own nav row (.calnav) claim the gesture either when the touch actually
@@ -112,11 +126,11 @@ function classifySwipeZone(target){
   const dev = state.devSettings || {};
   const daynav = document.querySelector('.daynavrow');
   if(daynav && (dev.fullPageSwipeNav || daynav.contains(target))){
-    return { mode:'day', card: daynav.parentElement };
+    return { mode:'day', card: daynav.parentElement, label: daynav.querySelector('.dayhero') };
   }
   const calnav = document.querySelector('.calnav');
   if(calnav && (dev.fullPageSwipeNav || calnav.contains(target))){
-    return { mode:'month', card: calnav.parentElement };
+    return { mode:'month', card: calnav.parentElement, label: calnav.querySelector('.calmonthlabel') };
   }
   const stackedpage = target.closest('.stackedpage');
   if(stackedpage){
@@ -127,34 +141,167 @@ function classifySwipeZone(target){
 }
 
 // Follows the finger 1:1 — translateX plus a light rotate/fade so the
-// card reads as a physical thing being pushed, not just sliding. A
-// back-swipe only means anything moving right; dragging the wrong way
-// gives a little rubber-band resistance instead of doing nothing, so the
-// card still feels attached to your finger either direction.
+// card reads as a physical thing being pushed, not just sliding. Only
+// used for 'back' (swipe-right-to-go-back) — day/month nav uses
+// swipeApplyDialDrag() below instead, which moves just the nav label.
 function swipeApplyDrag(g, dx){
-  const eff = (g.mode === 'back' && dx < 0) ? dx * 0.15 : dx;
+  if(g.mode !== 'back'){ swipeApplyDialDrag(g, dx); return; }
+  const eff = dx < 0 ? dx * 0.15 : dx;
   g.card.style.transform = `translateX(${eff}px) rotate(${eff / 26}deg)`;
   g.card.style.opacity = String(Math.max(1 - Math.abs(eff) / 700, 0.55));
 }
 
-function swipeSnapBack(card){
+// Day/month swipe nav feedback: a padlock-dial style swap of just the
+// nav label text (.dayhero's or .calmonthlabel's .herotext span) — the
+// arrows, list, everything else under it stays completely still. The
+// outgoing label follows the finger 1:1 with a fade; once the drag
+// direction is known, an "incoming" label (the next/previous day or
+// month's own text) is created as a sibling and slides in from the
+// opposite edge, fading in as the outgoing one fades out. Re-created if
+// the user reverses direction mid-drag. At the end of the day list (no
+// adjacent day that direction — month nav has no such end) there's
+// nothing to bring in, so the outgoing label just fades on its own and
+// snaps back on release, same as it would past SWIPE_COMMIT_PX with an
+// insufficient drag.
+function swipeApplyDialDrag(g, dx){
+  if(!g.labelText) return;
+  const dir = dx < 0 ? 1 : -1;
+  const canGo = g.mode === 'month' || !!adjacentDayStr(selectedDay, dir);
+  g.labelText.style.transform = `translateX(${dx}px)`;
+  g.labelText.style.opacity = String(Math.max(1 - Math.abs(dx) / SWIPE_COMMIT_PX, 0));
+  if(!canGo){
+    if(g.incomingEl){ g.incomingEl.remove(); g.incomingEl = null; g.incomingDir = null; }
+    return;
+  }
+  if(g.incomingDir !== dir){
+    if(g.incomingEl) g.incomingEl.remove();
+    const info = swipeIncomingLabel(g, dir);
+    const el = document.createElement('span');
+    el.className = 'herotext' + (info.today ? ' today' : '');
+    el.textContent = info.text;
+    g.label.appendChild(el);
+    g.incomingEl = el;
+    g.incomingDir = dir;
+    // Half the combined rendered width of both words, plus a fixed gap —
+    // so at rest (dx=0) the two labels' nearest edges sit apart with
+    // daylight between them, however short or long either word is,
+    // instead of both being centered in the same box a fixed few px
+    // apart (which for two short words read as them overlapping).
+    const outW = swipeTextWidth(g.labelText.textContent, getComputedStyle(g.labelText).font);
+    const inW = swipeTextWidth(el.textContent, getComputedStyle(el).font);
+    g.dialOffset = Math.max((outW + inW) / 2 + 24, SWIPE_DIAL_OFFSET_PX);
+  }
+  g.incomingEl.style.transform = `translateX(${dx + dir * g.dialOffset}px)`;
+  g.incomingEl.style.opacity = String(Math.min(Math.abs(dx) / SWIPE_COMMIT_PX, 1));
+}
+
+// What the incoming dial label should read — the same text the actual
+// destination day/month would render as its own .dayhero/.calmonthlabel,
+// computed ahead of navigating there so the preview matches exactly.
+function swipeIncomingLabel(g, dir){
+  if(g.mode === 'day'){
+    const target = adjacentDayStr(selectedDay, dir);
+    const tag = target ? dayHeaderTag(target) : null;
+    return { text: tag ? tag.text : '', today: !!(tag && tag.today) };
+  }
+  return { text: monthLabel(shiftMonthKey(calendarMonth(), dir)), today: false };
+}
+
+function swipeSnapBack(card, g){
   card.style.transition = 'transform 220ms cubic-bezier(.2,.8,.3,1), opacity 220ms ease';
   card.style.transform = '';
   card.style.opacity = '';
   setTimeout(() => { card.style.transition = ''; }, 220);
+  if(g) swipeBackGhostHide(g);
+}
+
+// A back-swipe drags the .stackedpage away to reveal whatever's under
+// it — but the real view underneath has already had its content cleared
+// (render() wipes an inactive view's innerHTML to avoid duplicate task-
+// row ids, see the comment there), so without this there's genuinely
+// nothing behind the page as it slides: just #appCard's bare background.
+// Rather than keeping the real destination view mounted and visible
+// (which risks ITS OWN .pagetag — or another .stackedpage's — jutting
+// out from behind the one currently mid-drag, since both would be full,
+// live, differently-sized pages), this is a plain content-free stand-in:
+// same .stackedpage look (background tint, radius, shadow) with nothing
+// in it, sized to the real page's current box and faded in as the drag
+// starts. position:fixed + a viewport-space rect from
+// getBoundingClientRect() sidesteps having to know or fight whatever
+// positioning context .stackedpage's actual parent (#dailyView,
+// #settingsView, etc.) happens to establish.
+function swipeBackGhostShow(g){
+  const card = g.card;
+  const r = card.getBoundingClientRect();
+  const ghost = document.createElement('div');
+  ghost.className = 'stackedpage swipebackghost';
+  ghost.style.cssText = `position:fixed; margin:0; left:${r.left}px; top:${r.top}px; width:${r.width}px; height:${r.height}px; opacity:0; transition:opacity 220ms ease; pointer-events:none;`;
+  card.parentElement.insertBefore(ghost, card);
+  g.ghost = ghost;
+  requestAnimationFrame(() => { if(g.ghost) g.ghost.style.opacity = '1'; });
+}
+
+function swipeBackGhostHide(g){
+  if(!g.ghost) return;
+  const ghost = g.ghost;
+  g.ghost = null;
+  ghost.style.transition = 'opacity 200ms ease';
+  ghost.style.opacity = '0';
+  setTimeout(() => ghost.remove(), 200);
+}
+
+function swipeBackGhostRemove(g){
+  if(!g.ghost) return;
+  g.ghost.remove();
+  g.ghost = null;
+}
+
+// Dial-drag counterpart of swipeSnapBack()/swipeFlyAway() — animates the
+// nav label elements instead of the whole card. swipeDialCommit finishes
+// the outgoing label off past the clipped edge (overflow:hidden on
+// .dayhero/.calmonthlabel does the actual hiding, this distance just has
+// to clear it) while the incoming label settles to center, then hands
+// off to `after` (the actual day/month change, which triggers a fresh
+// render and discards both elements along with the rest of the old nav
+// row). swipeDialSnapBack reverses both back to their resting spots and
+// removes the now-unneeded incoming element once it's faded out.
+function swipeDialCommit(g, dir, after){
+  const dur = 180;
+  g.labelText.style.transition = `transform ${dur}ms ease-in, opacity ${dur}ms ease-in`;
+  g.labelText.style.transform = `translateX(${dir * SWIPE_COMMIT_PX * 1.4}px)`;
+  g.labelText.style.opacity = '0';
+  g.incomingEl.style.transition = `transform ${dur}ms ease-out, opacity ${dur}ms ease-out`;
+  g.incomingEl.style.transform = 'translateX(0px)';
+  g.incomingEl.style.opacity = '1';
+  setTimeout(after, dur);
+}
+
+function swipeDialSnapBack(g){
+  if(!g.labelText) return;
+  const dur = 200;
+  const easing = `${dur}ms cubic-bezier(.2,.8,.3,1)`;
+  g.labelText.style.transition = `transform ${easing}, opacity ${dur}ms ease`;
+  g.labelText.style.transform = '';
+  g.labelText.style.opacity = '';
+  setTimeout(() => { g.labelText.style.transition = ''; }, dur);
+  if(g.incomingEl){
+    const el = g.incomingEl;
+    el.style.transition = `transform ${easing}, opacity ${dur}ms ease`;
+    el.style.transform = `translateX(${g.incomingDir * (g.dialOffset || SWIPE_DIAL_OFFSET_PX)}px)`;
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), dur);
+  }
 }
 
 // Continues the card the rest of the way off-screen in the direction it
 // was already being dragged, then hands off to `after` (the actual
-// navigation) once it's clear. Clears the inline style back off *before*
-// calling `after`, not just after — for 'day'/'back' the card (.stackedpage)
-// gets discarded by the next render anyway so this is a no-op, but for
-// 'month' the card is #dailyView/#calendarView itself, which render()
-// only ever replaces the *contents* of, never the element — left
-// untouched, the fly-off transform/opacity would still be sitting on
-// that element when the new month's markup lands inside it a moment
-// later, hiding it off-screen exactly like the swipe never ended.
-function swipeFlyAway(card, dir, after){
+// navigation) once it's clear. Only used for 'back' now (day/month nav
+// uses swipeDialCommit() instead) — the card (.stackedpage) gets
+// discarded by the next render anyway, so clearing the inline style
+// before calling `after` is mostly just tidiness. Also removes the
+// swipe-back ghost page (see swipeBackGhostShow()) once it's served its
+// purpose — the real destination view is about to render in its place.
+function swipeFlyAway(card, dir, after, g){
   card.style.transition = 'transform 200ms ease-in, opacity 200ms ease-in';
   card.style.transform = `translateX(${dir * Math.max(window.innerWidth, 320)}px) rotate(${dir * 12}deg)`;
   card.style.opacity = '0';
@@ -162,6 +309,7 @@ function swipeFlyAway(card, dir, after){
     card.style.transition = '';
     card.style.transform = '';
     card.style.opacity = '';
+    if(g) swipeBackGhostRemove(g);
     after();
   }, 200);
 }
@@ -176,6 +324,7 @@ document.addEventListener('touchstart', (e) => {
   if(!zone){ swipeGesture = null; return; }
   const t = e.touches[0];
   swipeGesture = { ...zone, startX: t.clientX, startY: t.clientY, lastX: t.clientX, startT: Date.now(), axis: null };
+  if(swipeGesture.label) swipeGesture.labelText = swipeGesture.label.querySelector('.herotext');
 }, { passive: true });
 
 // Not passive — once a gesture has locked onto the horizontal axis this
@@ -193,7 +342,10 @@ document.addEventListener('touchmove', (e) => {
     if(Math.abs(dx) < SWIPE_AXIS_PX && Math.abs(dy) < SWIPE_AXIS_PX) return;
     swipeGesture.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
     if(swipeGesture.axis === 'y'){ swipeGesture = null; return; } // hand off to native scroll
-    swipeGesture.card.style.transition = 'none';
+    if(swipeGesture.mode === 'back'){
+      swipeGesture.card.style.transition = 'none';
+      swipeBackGhostShow(swipeGesture);
+    }
   }
   if(swipeGesture.axis !== 'x') return;
   e.preventDefault();
@@ -210,8 +362,8 @@ function swipeEnd(){
   const committed = Math.abs(dx) > SWIPE_COMMIT_PX || Math.abs(dx) / elapsed > SWIPE_COMMIT_VPX;
 
   if(g.mode === 'back'){
-    if(committed && dx > 0) swipeFlyAway(g.card, 1, () => g.backTag.click());
-    else swipeSnapBack(g.card);
+    if(committed && dx > 0) swipeFlyAway(g.card, 1, () => g.backTag.click(), g);
+    else swipeSnapBack(g.card, g);
     return;
   }
 
@@ -223,13 +375,13 @@ function swipeEnd(){
   // back-swipes already use above.
   const dir = dx < 0 ? 1 : -1;
   const canGo = g.mode === 'month' || !!adjacentDayStr(selectedDay, dir);
-  if(committed && canGo){
-    swipeFlyAway(g.card, dir, () => {
-      if(g.mode === 'day') goToAdjacentDay(dir);
-      else calendarShiftMonth(dir);
-    });
+  const nav = () => { if(g.mode === 'day') goToAdjacentDay(dir); else calendarShiftMonth(dir); };
+  if(committed && canGo && g.incomingEl){
+    swipeDialCommit(g, dir, nav);
+  } else if(committed && canGo){
+    nav(); // no incoming label was ever built (shouldn't normally happen) — just navigate
   } else {
-    swipeSnapBack(g.card);
+    swipeDialSnapBack(g);
   }
 }
 
