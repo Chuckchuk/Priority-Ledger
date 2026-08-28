@@ -4743,6 +4743,74 @@ function tabAngleDeg(key){
 // away can't clobber a newer hover.
 let overlapNaturalRects = null;
 let overlapHoveredIdx = null;
+// Captured by captureOverlapTabFlip() (called from switchTab(), before it
+// reassigns the activeTab global and re-renders) and consumed once by
+// layoutOverlapTabs() right after it builds the new #tabConnector clone —
+// see both for why a plain CSS transition never had a chance to animate
+// this on its own: renderTabs() rebuilds every <button> from scratch on
+// every render, and the visible "active" tab is actually a freshly
+// re-cloned copy in #tabConnector each time too (see the .tabconnector
+// comment in <style>), so neither the outgoing nor incoming element that's
+// on screen ever survives from one render to the next for a transition to
+// play across. This holds the two before/after screen rects a FLIP
+// (First-Last-Invert-Play) needs to fake that continuity instead.
+let overlapFlipPending = null;
+
+// Shifts `el` to visually start at `fromRect` (a getBoundingClientRect()
+// snapshot from just before el's current styling took effect) and lets it
+// transition back to wherever it actually belongs, using .tab's own
+// existing `transition: transform` (see <style>) rather than adding a
+// second animation system. !important is required to outrank .tab.active's
+// own !important transform rule — harmless on the resting-tab case below,
+// which has no !important to begin with. Pure translate (no attempt to
+// also fake the rotation/scale delta) is enough here: browsers interpolate
+// a translate-only start against a rotated/matrix end by decomposing both
+// into matrices, which reads as a smooth arc rather than a jump-cut, and
+// keeping this to one transform function avoids composing it with
+// whatever var()-driven transform the element's class already carries.
+// The double rAF (not a synchronous forced-reflow-then-remove, which was
+// tried first and silently never animated anything) is load-bearing: `el`
+// is very often a brand-new node (the #tabConnector clone is rebuilt from
+// scratch every render — see layoutOverlapTabs()) with no style change
+// event in its history yet for a transition to key off, so even a forced
+// layout read mid-task can't manufacture one — the browser needs an actual
+// completed rendering update in between to register the start transform as
+// a real "before" frame. One rAF alone can still land before that paint
+// commits; two reliably lands after it.
+function flipFromRect(el, fromRect){
+  if(!el || !fromRect) return;
+  const toRect = el.getBoundingClientRect();
+  const dx = fromRect.left - toRect.left;
+  const dy = fromRect.top - toRect.top;
+  if(!dx && !dy) return;
+  el.style.setProperty('transform', `translate(${dx}px, ${dy}px)`, 'important');
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      el.style.removeProperty('transform');
+    });
+  });
+}
+
+// Called from switchTab() (08-render-core.js) before it changes activeTab
+// or re-renders — the last moment the outgoing tab's on-screen stand-in
+// (its #tabConnector clone, not the real element, which sits
+// visibility:hidden while active) and the incoming tab's current resting-
+// or-hovered position are both still on screen to measure.
+function captureOverlapTabFlip(nextKey){
+  const dev = state.devSettings || {};
+  if(mobileUiActive() || dev.tabBarDesktopStyle !== 'overlap') return;
+  if(nextKey === activeTab) return;
+  const wrap = document.getElementById('tabs');
+  if(!wrap) return;
+  const nextEl = wrap.querySelector(`.tab[data-key="${nextKey}"]`);
+  const connectorClone = document.querySelector('#tabConnector .tab');
+  const prevEl = wrap.querySelector(`.tab[data-key="${activeTab}"]`);
+  overlapFlipPending = {
+    prevKey: activeTab,
+    prevRect: (connectorClone || prevEl) ? (connectorClone || prevEl).getBoundingClientRect() : null,
+    nextRect: nextEl ? nextEl.getBoundingClientRect() : null
+  };
+}
 // One-line-vs-two-line sizing decisions, keyed by "tab key::label text" and
 // persisted across renders (never reset — see layoutOverlapTabs()) rather
 // than re-measured fresh every time. A borderline-length label like "House
@@ -5046,9 +5114,24 @@ function layoutOverlapTabs(){
         clone.style.setProperty('--tab-hpad', getComputedStyle(wrap).getPropertyValue('--tab-hpad'));
         connector.appendChild(clone);
         activeTabEl.style.visibility = 'hidden';
+        // Consume the FLIP captured by captureOverlapTabFlip() (see above),
+        // if this render is the result of an actual tab switch: the new
+        // clone glides in from wherever the tab was on screen before the
+        // click (hover-lifted or resting) instead of popping straight into
+        // its connected position, and the tab that was active a moment ago
+        // (now a plain resting element in `tabs`) glides back down from
+        // where its own clone used to be instead of popping to rest.
+        if(overlapFlipPending){
+          const flip = overlapFlipPending;
+          overlapFlipPending = null;
+          if(flip.nextRect) flipFromRect(clone, flip.nextRect);
+          const settledEl = tabs.find(t => t.dataset.key === flip.prevKey);
+          if(settledEl && flip.prevRect) flipFromRect(settledEl, flip.prevRect);
+        }
       }
     }
   }
+  overlapFlipPending = null;
 }
 
 // The exact overlap currently sitting between a source tab and ONE of its
@@ -6090,6 +6173,10 @@ function randomizePageTilt(){
 // early-return for key === activeTab: clicking the tab you're already
 // "on" while an overlay is open must still exit the overlay.
 function switchTab(key){
+  // Must run before anything below touches activeTab or the DOM — see
+  // captureOverlapTabFlip() in 06-tabs-render.js for why this is the last
+  // moment the tab bar's pre-switch on-screen state is still measurable.
+  captureOverlapTabFlip(key);
   checklistReturnDay = null;
   claudeView = null;
   settingsOpen = false;

@@ -647,6 +647,10 @@ function randomizePageTilt(){
 // early-return for key === activeTab: clicking the tab you're already
 // "on" while an overlay is open must still exit the overlay.
 function switchTab(key){
+  // Must run before anything below touches activeTab or the DOM — see
+  // captureOverlapTabFlip() in 06-tabs-render.js for why this is the last
+  // moment the tab bar's pre-switch on-screen state is still measurable.
+  captureOverlapTabFlip(key);
   checklistReturnDay = null;
   claudeView = null;
   settingsOpen = false;
