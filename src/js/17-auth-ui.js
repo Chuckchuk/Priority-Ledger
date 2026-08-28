@@ -29,7 +29,7 @@ async function submitAuth(){
   if(!email || !password){ errEl.textContent = 'Enter an email and password.'; return; }
   const endpoint = authMode === 'signin'
     ? `${SUPABASE_URL}/auth/v1/token?grant_type=password`
-    : `${SUPABASE_URL}/auth/v1/signup`;
+    : `${SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(SIGNUP_REDIRECT_URL)}`;
   try{
     const res = await fetch(endpoint, {
       method: 'POST',

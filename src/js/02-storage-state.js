@@ -1,6 +1,13 @@
 // Filled in once the project exists — see CLAUDE.md for setup steps.
 const SUPABASE_URL = 'https://kyswrzkgiphsniepahje.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5c3dyemtnaXBoc25pZXBhaGplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMzk1NTAsImV4cCI6MjEwMjgxNTU1MH0.mvDp9f1KcqAol3Tq4Libi32tODMCrVv8HdD3C9-x30c';
+// Where a signup confirmation email should land the user — NOT wherever
+// Supabase's dashboard "Site URL" happens to be set (that's what sent
+// confirmation links to localhost:8000 before this existed). Must also
+// be added to Supabase's Authentication > URL Configuration > Redirect
+// URLs allow-list, or GoTrue silently ignores it and falls back to Site
+// URL anyway.
+const SIGNUP_REDIRECT_URL = 'https://chuckchuk.github.io/Priority-Ledger/welcome.html';
 const EMPTY_MSG = {
   all: "The ledger's empty. Start logging what needs doing.",
   work: "Nothing on your plate at work. Add a task above.",
