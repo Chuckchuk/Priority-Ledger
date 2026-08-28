@@ -329,6 +329,12 @@ function applyDevSettings(){
   document.body.classList.toggle('fab-on', !!d.floatingAddButton);
   document.body.dataset.tabbarMobile = d.tabBarMobileStyle || 'default';
   document.body.dataset.tabbarDesktop = d.tabBarDesktopStyle || 'default';
+  // stickyTabBar (EXPERIMENTAL) — see the body.dev-stickytabs rule in
+  // <style>. Not gated by mobileUiActive(): "Daily scrolled out of reach"
+  // is just as real a complaint on a tall desktop window with many tasks
+  // on screen, so this applies everywhere once turned on, same reasoning
+  // as fieldPickerStyle above.
+  document.body.classList.toggle('dev-stickytabs', !!d.stickyTabBar);
   // Read by the .tab:hover rules in <style> — push mode's hovered tab must
   // NOT jump to a blanket top z-index the way the default look's does: a
   // fixed order is the whole point of "push" (see tabImportanceRank()),
@@ -650,6 +656,10 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="scroll" ${dev.tabBarMobileStyle==='scroll'?'selected':''}>Scrolls sideways, one row</option>
       </select>
     </div>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.stickyTabBar?'checked':''} onchange="toggleDevSetting('stickyTabBar', this.checked)">
+      Sticky tab bar — pins the tabs (and the Daily tab within them) to the top of the screen while scrolling
+    </label>
     <div class="${fieldClass}">
       <span class="${captionClass}">Tab bar (desktop)</span>
       <select class="${selectClass}" onchange="setDevTabBarDesktopStyle(this.value)">

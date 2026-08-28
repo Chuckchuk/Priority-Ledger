@@ -451,6 +451,7 @@ function render(){
   renderTabs();
   refreshUndoButtons();
   document.getElementById('settingsBtn').classList.toggle('on', settingsOpen);
+  document.getElementById('dailyShortcutBtn').classList.toggle('on', activeTab==='daily' && !settingsOpen && !claudeView);
   const catView = document.getElementById('categoryView');
   const dayView = document.getElementById('dailyView');
   const chkView = document.getElementById('checklistView');

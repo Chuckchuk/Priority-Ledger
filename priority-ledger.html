@@ -210,6 +210,21 @@
   }
   .settingsbtn:hover{ transform: scale(1.06); }
   .settingsbtn.on{ background: var(--primary); color:white; }
+  /* Daily shortcut — a persistent, always-visible way into the Daily tab
+     regardless of how many category tabs there are or where Daily lands
+     in the tab order/wrap. Sits right next to .settingsbtn (both top-left)
+     rather than sharing .locbadge's top-right corner, since .locbadge's
+     own visibility already depends on state.locationEnabled — anchoring
+     next to .settingsbtn instead means this never has to react to that. */
+  .dailyshortcut{
+    position:absolute; top:-2px; left:42px;
+    width:34px; height:34px; border-radius:50%;
+    background: rgba(241,234,217,0.14); color: rgba(241,234,217,0.75);
+    font-size:1rem; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; border:none; transition: all .15s ease;
+  }
+  .dailyshortcut:hover{ transform: scale(1.06); }
+  .dailyshortcut.on{ background: var(--primary); color:white; }
   .status-line{
     text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
     color: rgba(241,234,217,0.7); margin-bottom: 18px;
@@ -1971,6 +1986,32 @@
   }
   body.mobileui-active[data-taskdetail-mobile="grouped"] .expandactions .remove{ margin-left:0; }
 
+  /* stickyTabBar (EXPERIMENTAL, see defaultDevSettings() in 02-storage-
+     state.js) — pins .tabswrap (and the .tabs row inside it) to the top of
+     the viewport instead of letting it scroll away with the rest of the
+     page, so Daily (or any tab) stays one tap away no matter how far down
+     a long task list you've scrolled. `top` reads the safe-area inset
+     directly rather than 0 so this respects the notch/status bar in
+     standalone "Add to Home Screen" mode the same way body's own padding
+     does (see the html/body safe-area comment near :root) — sticky's own
+     offset is measured against the viewport, not body's padding, so it
+     needs this independently. .tabs already carries a translucent shelf
+     background (see the comment above its own rule) which is enough to
+     read against whatever scrolls underneath once pinned; the added
+     box-shadow here is what actually sells "this is now floating above
+     the page" rather than just sitting in normal flow. z-index has to
+     clear #appCard's own z-index:1 (and everything inside it, including
+     any .stackedpage drilldown) so the pinned bar isn't scrolled-under by
+     Settings, a day's detail, etc. the moment one of those opens. */
+  body.dev-stickytabs .tabswrap{
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 20;
+  }
+  body.dev-stickytabs .tabs{
+    box-shadow: 0 8px 14px rgba(0,0,0,0.35);
+  }
+
   /* ---- tabBarMobileStyle / tabBarDesktopStyle ----
      .appmain/.tabswrap (see shell-body.html) are plain unstyled wrappers
      in every mode but 'sidetabs' below — nothing here changes the
@@ -2395,6 +2436,7 @@
 <div class="shell" id="appShell" style="display:none;">
   <div class="masthead">
     <button class="settingsbtn" id="settingsBtn" onclick="toggleSettings()" title="Settings">⚙</button>
+    <button class="dailyshortcut" id="dailyShortcutBtn" onclick="switchTab('daily')" title="Daily">▤</button>
     <h1>The Ledger</h1>
     <button class="locbadge" id="locBadge" onclick="toggleLocation()"></button>
   </div>
@@ -2857,6 +2899,12 @@ function applyDevSettings(){
   document.body.classList.toggle('fab-on', !!d.floatingAddButton);
   document.body.dataset.tabbarMobile = d.tabBarMobileStyle || 'default';
   document.body.dataset.tabbarDesktop = d.tabBarDesktopStyle || 'default';
+  // stickyTabBar (EXPERIMENTAL) — see the body.dev-stickytabs rule in
+  // <style>. Not gated by mobileUiActive(): "Daily scrolled out of reach"
+  // is just as real a complaint on a tall desktop window with many tasks
+  // on screen, so this applies everywhere once turned on, same reasoning
+  // as fieldPickerStyle above.
+  document.body.classList.toggle('dev-stickytabs', !!d.stickyTabBar);
   // Read by the .tab:hover rules in <style> — push mode's hovered tab must
   // NOT jump to a blanket top z-index the way the default look's does: a
   // fixed order is the whole point of "push" (see tabImportanceRank()),
@@ -3178,6 +3226,10 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="scroll" ${dev.tabBarMobileStyle==='scroll'?'selected':''}>Scrolls sideways, one row</option>
       </select>
     </div>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.stickyTabBar?'checked':''} onchange="toggleDevSetting('stickyTabBar', this.checked)">
+      Sticky tab bar — pins the tabs (and the Daily tab within them) to the top of the screen while scrolling
+    </label>
     <div class="${fieldClass}">
       <span class="${captionClass}">Tab bar (desktop)</span>
       <select class="${selectClass}" onchange="setDevTabBarDesktopStyle(this.value)">
@@ -3709,7 +3761,7 @@ function defaultDevSettings(){
   // the native menu regardless of this setting — Copy/Paste/spellcheck
   // there is exactly the "some of it is still useful" case the project
   // owner asked to keep.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default', customContextMenu:false };
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default', customContextMenu:false, stickyTabBar:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -3818,6 +3870,7 @@ function normalizeState(){
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
   if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'default';
   if(typeof state.devSettings.customContextMenu !== 'boolean') state.devSettings.customContextMenu = false;
+  if(typeof state.devSettings.stickyTabBar !== 'boolean') state.devSettings.stickyTabBar = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)
@@ -5670,6 +5723,7 @@ function render(){
   renderTabs();
   refreshUndoButtons();
   document.getElementById('settingsBtn').classList.toggle('on', settingsOpen);
+  document.getElementById('dailyShortcutBtn').classList.toggle('on', activeTab==='daily' && !settingsOpen && !claudeView);
   const catView = document.getElementById('categoryView');
   const dayView = document.getElementById('dailyView');
   const chkView = document.getElementById('checklistView');

@@ -178,6 +178,21 @@
   }
   .settingsbtn:hover{ transform: scale(1.06); }
   .settingsbtn.on{ background: var(--primary); color:white; }
+  /* Daily shortcut — a persistent, always-visible way into the Daily tab
+     regardless of how many category tabs there are or where Daily lands
+     in the tab order/wrap. Sits right next to .settingsbtn (both top-left)
+     rather than sharing .locbadge's top-right corner, since .locbadge's
+     own visibility already depends on state.locationEnabled — anchoring
+     next to .settingsbtn instead means this never has to react to that. */
+  .dailyshortcut{
+    position:absolute; top:-2px; left:42px;
+    width:34px; height:34px; border-radius:50%;
+    background: rgba(241,234,217,0.14); color: rgba(241,234,217,0.75);
+    font-size:1rem; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; border:none; transition: all .15s ease;
+  }
+  .dailyshortcut:hover{ transform: scale(1.06); }
+  .dailyshortcut.on{ background: var(--primary); color:white; }
   .status-line{
     text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
     color: rgba(241,234,217,0.7); margin-bottom: 18px;
@@ -1938,6 +1953,32 @@
     grid-column:1 / -1; display:flex; justify-content:space-around; align-items:center; margin-top:4px;
   }
   body.mobileui-active[data-taskdetail-mobile="grouped"] .expandactions .remove{ margin-left:0; }
+
+  /* stickyTabBar (EXPERIMENTAL, see defaultDevSettings() in 02-storage-
+     state.js) — pins .tabswrap (and the .tabs row inside it) to the top of
+     the viewport instead of letting it scroll away with the rest of the
+     page, so Daily (or any tab) stays one tap away no matter how far down
+     a long task list you've scrolled. `top` reads the safe-area inset
+     directly rather than 0 so this respects the notch/status bar in
+     standalone "Add to Home Screen" mode the same way body's own padding
+     does (see the html/body safe-area comment near :root) — sticky's own
+     offset is measured against the viewport, not body's padding, so it
+     needs this independently. .tabs already carries a translucent shelf
+     background (see the comment above its own rule) which is enough to
+     read against whatever scrolls underneath once pinned; the added
+     box-shadow here is what actually sells "this is now floating above
+     the page" rather than just sitting in normal flow. z-index has to
+     clear #appCard's own z-index:1 (and everything inside it, including
+     any .stackedpage drilldown) so the pinned bar isn't scrolled-under by
+     Settings, a day's detail, etc. the moment one of those opens. */
+  body.dev-stickytabs .tabswrap{
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 20;
+  }
+  body.dev-stickytabs .tabs{
+    box-shadow: 0 8px 14px rgba(0,0,0,0.35);
+  }
 
   /* ---- tabBarMobileStyle / tabBarDesktopStyle ----
      .appmain/.tabswrap (see shell-body.html) are plain unstyled wrappers
