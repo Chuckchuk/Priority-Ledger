@@ -249,7 +249,7 @@ function renderDaily(){
   if(dailyCalendarOpen){
     el.innerHTML = renderDailyCalendar();
   } else if(selectedDay && taskDetailId){
-    el.innerHTML = renderTaskDetailPage(taskDetailId, selectedDay);
+    el.innerHTML = renderTaskDetailPage(taskDetailId, 'closeTaskDetail()', 'Daily');
   } else {
     el.innerHTML = selectedDay ? renderDayDetail(selectedDay) : renderDayList();
   }

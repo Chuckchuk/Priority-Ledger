@@ -1677,6 +1677,20 @@
     display:block; font-family:'IBM Plex Mono', monospace; font-size:0.6rem;
     letter-spacing:0.04em; text-transform:uppercase; color: var(--ink-soft); margin-bottom:4px;
   }
+  /* Section divider for the (long) Dev Settings list — see
+     devSectionHeadHtml() in 01-categories-theme.js. One shared class for
+     both hosts (the narrow floating side panel and Settings' own wider
+     Dev Settings section): a top border + extra top margin to actually
+     break the list into scannable chunks, plus the Primary accent color
+     and bold weight to read as clearly heavier than a plain field
+     caption like "Compact tag style" right below it — using the same
+     look for both a section break and an individual field's label was
+     exactly why this list read as one undifferentiated wall before. */
+  .devsectionhead{
+    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; font-weight:700;
+    letter-spacing:0.06em; text-transform:uppercase; color: var(--primary);
+    margin: 18px 0 10px; padding-top:12px; border-top:1px solid var(--line);
+  }
   .devpanelrow{
     display:flex; align-items:flex-start; gap:6px; cursor:pointer;
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; line-height:1.35;
@@ -1893,7 +1907,15 @@
   }
   body.mobileui-active.fab-on .fabaddbtn{ display:flex; align-items:center; justify-content:center; }
   .fabaddscrim{ display:none; }
-  body.fab-open .fabaddscrim{ display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:65; }
+  /* #fabAddScrim specifically, NOT the shared .fabaddscrim class — the
+     long-press settings sheet below (#taskSettingsScrim) also carries
+     that class, and a bare "body.fab-open .fabaddscrim" used to match
+     it too, popping the wrong scrim (and, via the same mistake on
+     .fabaddsheet below, the wrong sheet) on top of the FAB's own
+     whenever the FAB was opened — tapping what looked like the FAB's
+     scrim actually called closeTaskSettingsSheet(), which does nothing
+     for fabAddOpen, making the FAB read as stuck open. */
+  body.fab-open #fabAddScrim{ display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:65; }
   .fabaddsheet{
     display:flex; flex-direction:column; gap:12px;
     position:fixed; left:12px; right:12px; bottom:12px; z-index:70; max-width:480px; margin:0 auto;
@@ -1902,7 +1924,7 @@
     transform:translateY(140%); opacity:0; pointer-events:none;
     transition: transform .28s cubic-bezier(.2,.8,.3,1), opacity .2s ease;
   }
-  body.fab-open .fabaddsheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
+  body.fab-open #fabAddSheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
   .fabaddsheet input[type=text], .fabaddsheet select{ width:100%; font-size:1.05rem; padding:11px 8px; }
 
   /* ---- taskLongPressMode 'split': the long-press settings sheet ----

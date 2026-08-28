@@ -191,21 +191,27 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // 'split', see below) can swallow the click a touchend/mouseup would
   // otherwise also produce, rather than both firing.
   const rowClick = inDaily ? `openTaskDetailFromDay('${t.id}')` : `taskRowTap(event,'${t.id}')`;
-  // 'split' only applies outside Daily — a Daily row already opens its
-  // own full page on a plain tap, so there's no "everything at once" tap
-  // target here to split in the first place. Gated by mobileUiActive()
+  // 'split' and 'detail' both only apply outside Daily — a Daily row
+  // already opens its own full page on a plain tap, so there's no
+  // "everything at once" tap target here to split in the first place.
+  // Both share the same short-tap behavior (show just Steps inline) and
+  // differ only in what the long press itself opens — a bottom sheet for
+  // 'split', the same full-page detail Daily uses for 'detail' (see
+  // taskPressStart()'s timer callback below). Gated by mobileUiActive()
   // (touch-first — see the taskLongPressMode comment in
   // defaultDevSettings(), 02-storage-state.js) so a short tap keeps
   // opening the *entire* .expand on desktop, where there's no long-press
   // gesture to reach the rest with.
-  const useSplitPress = !inDaily && state.devSettings && state.devSettings.taskLongPressMode === 'split' && mobileUiActive();
-  const pressAttrs = useSplitPress
+  const usePressGesture = !inDaily && state.devSettings &&
+    (state.devSettings.taskLongPressMode === 'split' || state.devSettings.taskLongPressMode === 'detail') &&
+    mobileUiActive();
+  const pressAttrs = usePressGesture
     ? ` ontouchstart="taskPressStart(event,'${t.id}')" ontouchmove="taskPressMove(event)" ontouchend="taskPressEnd()" ontouchcancel="taskPressEnd()" onmousedown="taskPressStart(event,'${t.id}')" onmouseup="taskPressEnd()" onmouseleave="taskPressEnd()"`
     : '';
-  const expandInner = useSplitPress ? taskSubtasksHtml(t) : taskExpandFieldsHtml(t, canRemoveHere);
+  const expandInner = usePressGesture ? taskSubtasksHtml(t) : taskExpandFieldsHtml(t, canRemoveHere);
   // customContextMenu (desktop-only, see handleTaskContextMenu() below) —
-  // scoped to !inDaily for the same reason useSplitPress is: a Daily row
-  // already has its own click behavior and canRemoveHere rules that
+  // scoped to !inDaily for the same reason usePressGesture is: a Daily
+  // row already has its own click behavior and canRemoveHere rules that
   // don't map cleanly onto this.
   const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
@@ -231,7 +237,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   </li>`;
 }
 
-// ---------- taskLongPressMode 'split': long-press gesture + settings sheet ----------
+// ---------- taskLongPressMode 'split'/'detail': long-press gesture ----------
 // touchstart/mousedown arms a timer; touchend/mouseup/mouseleave (a plain
 // tap, or the finger/mouse lifting before the timer fires) cancels it;
 // touchmove past a small tolerance also cancels it, so scrolling the page
@@ -239,7 +245,9 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
 // a long-press. If the timer *does* fire, taskLongPressFired is left set
 // so the click event a touchend/mouseup produces right after (real on
 // mobile, synthetic on some browsers) gets swallowed by taskRowTap()
-// instead of also toggling the short-tap view.
+// instead of also toggling the short-tap view. Which of the two modes is
+// active only changes what the fired timer opens — the gesture detection
+// itself is identical either way.
 const TASK_LONG_PRESS_MS = 500;
 const TASK_LONG_PRESS_TOLERANCE_PX = 10;
 
@@ -253,7 +261,8 @@ function taskPressStart(e, taskId){
   taskPressTimer = setTimeout(() => {
     taskPressTimer = null;
     taskLongPressFired = true;
-    openTaskSettingsSheet(taskId);
+    if(state.devSettings.taskLongPressMode === 'detail') openMobileTaskDetail(taskId);
+    else openTaskSettingsSheet(taskId);
   }, TASK_LONG_PRESS_MS);
 }
 function taskPressMove(e){
@@ -367,18 +376,23 @@ function renderTaskSettingsSheet(){
   document.getElementById('taskSettingsBody').innerHTML = taskManagementFieldsHtml(t, true);
 }
 
-// Full-page task detail, opened by clicking a task or step within Daily
-// (see openTaskDetailFromDay) — same shared fields as the inline .expand,
-// wrapped in the "stacked page" pattern with a page tag back to the day
+// Full-page task detail — same shared fields as the inline .expand,
+// wrapped in the "stacked page" pattern with a page tag back to wherever
 // it was opened from, rather than expanding inline the way it does
-// everywhere else.
-function renderTaskDetailPage(taskId, dateStr){
+// everywhere else. Two call sites share this: clicking a task or step
+// within Daily (openTaskDetailFromDay, backs to "Daily") and a long-press
+// on any category tab's row under taskLongPressMode 'detail'
+// (openMobileTaskDetail below, backs to "Back" — there's no single named
+// destination since it could be any tab). backOnclick/backLabel are
+// passed in rather than hardcoded so the two never have to fork this
+// function to get their own back tag.
+function renderTaskDetailPage(taskId, backOnclick, backLabel){
   const t = state.tasks.find(t=>t.id===taskId);
   const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const canRemoveHere = t.category==='misc';
   return `
     <div class="stackedpage">
-      ${pageTagHtml('closeTaskDetail()', 'Daily')}
+      ${pageTagHtml(backOnclick, backLabel)}
       <div class="taskdetailhead">
         <div class="check ${t.status==='done'?'done':''}" onclick="toggleStatus('${t.id}')"></div>
         ${categoryDotHtml(cat, 'cdot')}
@@ -395,6 +409,21 @@ function openTaskDetailFromDay(taskId){
 function closeTaskDetail(){
   taskDetailId = null;
   renderDaily();
+}
+
+// taskLongPressMode 'detail' — see the long comment on render()'s
+// mobileTaskDetailId branch above. A separate flag from Daily's own
+// taskDetailId since this one has to work from any category tab (no
+// selectedDay/dailyView to hang off of) and needs its own generic "Back"
+// rather than "Daily".
+let mobileTaskDetailId = null;
+function openMobileTaskDetail(taskId){
+  mobileTaskDetailId = taskId;
+  render();
+}
+function closeMobileTaskDetail(){
+  mobileTaskDetailId = null;
+  render();
 }
 
 function renderList(){
@@ -458,6 +487,34 @@ function render(){
   const calView = document.getElementById('calendarView');
   const setView = document.getElementById('settingsView');
   const cldView = document.getElementById('claudeView');
+  const mtdView = document.getElementById('mobileTaskDetailView');
+  // taskLongPressMode 'detail' (see openMobileTaskDetail() below) — a
+  // full-page task detail reachable from a long-press on ANY category
+  // tab's row, not just Daily's own taskDetailId. Highest priority of the
+  // view-swapping branches here, same tier as claudeView/settingsOpen
+  // (replaces the whole app body, not a floating overlay on top of it —
+  // those live outside #appCard entirely, see the Esc handler's Mobile UI
+  // Lab overlay comment in 19-bootstrap.js).
+  if(mobileTaskDetailId && !state.tasks.find(x=>x.id===mobileTaskDetailId)) mobileTaskDetailId = null;
+  if(mobileTaskDetailId){
+    catView.style.display = 'none';
+    dayView.style.display = 'none';
+    chkView.style.display = 'none';
+    calView.style.display = 'none';
+    setView.style.display = 'none';
+    cldView.style.display = 'none';
+    mtdView.style.display = '';
+    mtdView.innerHTML = renderTaskDetailPage(mobileTaskDetailId, 'closeMobileTaskDetail()', 'Back');
+    document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
+    dayView.innerHTML = '';
+    chkView.innerHTML = '';
+    calView.innerHTML = '';
+    setView.innerHTML = '';
+    cldView.innerHTML = '';
+    return;
+  }
+  mtdView.style.display = 'none';
+  mtdView.innerHTML = '';
   if(claudeView){
     catView.style.display = 'none';
     dayView.style.display = 'none';
@@ -563,6 +620,9 @@ function switchTab(key){
   // here: this sheet is tied to one specific task, not "reachable from
   // anywhere" the way the FAB is).
   if(taskSettingsOpenId) closeTaskSettingsSheet();
+  // Same idea again for taskLongPressMode 'detail's full-page task
+  // detail — tied to one specific task from whichever tab you were on.
+  if(mobileTaskDetailId) mobileTaskDetailId = null;
   // Only an actual change of category counts as "leaving" it — re-clicking
   // the tab you're already on (which still runs this whole function, to
   // exit an open overlay per the note above) must not collapse tasks you

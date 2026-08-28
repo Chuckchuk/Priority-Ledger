@@ -35,6 +35,7 @@ document.addEventListener('keydown', (e) => {
     if(settingsOpen){ toggleSettings(); return; }
     if(checklistPendingOpen){ closeChecklistPending(); return; }
     if(selectedListId){ closeChecklistList(); return; }
+    if(mobileTaskDetailId){ closeMobileTaskDetail(); return; }
     if(taskDetailId){ closeTaskDetail(); return; }
     if(selectedDay){ closeDay(); return; }
     if(dailyCalendarOpen){ closeDailyCalendar(); return; }

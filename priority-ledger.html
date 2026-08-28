@@ -1709,6 +1709,20 @@
     display:block; font-family:'IBM Plex Mono', monospace; font-size:0.6rem;
     letter-spacing:0.04em; text-transform:uppercase; color: var(--ink-soft); margin-bottom:4px;
   }
+  /* Section divider for the (long) Dev Settings list — see
+     devSectionHeadHtml() in 01-categories-theme.js. One shared class for
+     both hosts (the narrow floating side panel and Settings' own wider
+     Dev Settings section): a top border + extra top margin to actually
+     break the list into scannable chunks, plus the Primary accent color
+     and bold weight to read as clearly heavier than a plain field
+     caption like "Compact tag style" right below it — using the same
+     look for both a section break and an individual field's label was
+     exactly why this list read as one undifferentiated wall before. */
+  .devsectionhead{
+    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; font-weight:700;
+    letter-spacing:0.06em; text-transform:uppercase; color: var(--primary);
+    margin: 18px 0 10px; padding-top:12px; border-top:1px solid var(--line);
+  }
   .devpanelrow{
     display:flex; align-items:flex-start; gap:6px; cursor:pointer;
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; line-height:1.35;
@@ -1925,7 +1939,15 @@
   }
   body.mobileui-active.fab-on .fabaddbtn{ display:flex; align-items:center; justify-content:center; }
   .fabaddscrim{ display:none; }
-  body.fab-open .fabaddscrim{ display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:65; }
+  /* #fabAddScrim specifically, NOT the shared .fabaddscrim class — the
+     long-press settings sheet below (#taskSettingsScrim) also carries
+     that class, and a bare "body.fab-open .fabaddscrim" used to match
+     it too, popping the wrong scrim (and, via the same mistake on
+     .fabaddsheet below, the wrong sheet) on top of the FAB's own
+     whenever the FAB was opened — tapping what looked like the FAB's
+     scrim actually called closeTaskSettingsSheet(), which does nothing
+     for fabAddOpen, making the FAB read as stuck open. */
+  body.fab-open #fabAddScrim{ display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:65; }
   .fabaddsheet{
     display:flex; flex-direction:column; gap:12px;
     position:fixed; left:12px; right:12px; bottom:12px; z-index:70; max-width:480px; margin:0 auto;
@@ -1934,7 +1956,7 @@
     transform:translateY(140%); opacity:0; pointer-events:none;
     transition: transform .28s cubic-bezier(.2,.8,.3,1), opacity .2s ease;
   }
-  body.fab-open .fabaddsheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
+  body.fab-open #fabAddSheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
   .fabaddsheet input[type=text], .fabaddsheet select{ width:100%; font-size:1.05rem; padding:11px 8px; }
 
   /* ---- taskLongPressMode 'split': the long-press settings sheet ----
@@ -2573,6 +2595,11 @@
       <div id="calendarView" style="display:none;"></div>
       <div id="settingsView" style="display:none;"></div>
       <div id="claudeView" style="display:none;"></div>
+      <!-- taskLongPressMode 'detail' (see openMobileTaskDetail() in
+           08-render-core.js) — the same full-page task detail Daily's own
+           taskDetailId uses, reachable via long-press from any category
+           tab's row instead of just from within Daily. -->
+      <div id="mobileTaskDetailView" style="display:none;"></div>
     </div>
     </div>
   </div>
@@ -3141,6 +3168,18 @@ function toggleDevPanel(){
 // only place that field belongs, since unchecking it from inside the
 // panel it controls immediately hides the very checkbox you'd need to
 // turn it back on again, and was a real recurring mis-click.
+// A visibly stronger divider than a plain field ${captionClass} (which
+// also labels individual dropdowns like "Compact tag style" below it —
+// using the same look for both a section break and a single field's
+// label was a big part of why this whole list used to read as one
+// undifferentiated wall of settings, per the project owner's own
+// "clean it up" callout). One shared class regardless of host (side
+// panel vs Settings' own section) since a header's look doesn't need to
+// vary the way a row/select's does — see .devsectionhead in <style>.
+function devSectionHeadHtml(label){
+  return `<div class="devsectionhead">${escapeHtml(label)}</div>`;
+}
+
 function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, includeSidePanelToggle){
   const dev = state.devSettings || defaultDevSettings();
   const sidePanelToggleHtml = includeSidePanelToggle === false ? '' : `
@@ -3150,6 +3189,7 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     </label>`;
   return `
     ${sidePanelToggleHtml}
+    ${devSectionHeadHtml('Page Tags')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
       Page tag: seam shadow (tip reads as receding behind the label)
@@ -3190,13 +3230,21 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="charcoal" ${dev.pendingTagColor==='charcoal'?'selected':''}>Force charcoal</option>
       </select>
     </div>
+
+    ${devSectionHeadHtml('Checklist')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.showListDates?'checked':''} onchange="toggleDevSetting('showListDates', this.checked)">
       Show a faded created-date next to each checklist's title
     </label>
+
+    ${devSectionHeadHtml('Daily & Calendar')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.dayTreeCatBubble?'checked':''} onchange="toggleDevSetting('dayTreeCatBubble', this.checked)">
       "Add to day" tree: pill-shaped category bubbles (like the tab bar)
+    </label>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.fullPageSwipeNav?'checked':''} onchange="toggleDevSetting('fullPageSwipeNav', this.checked)">
+      Swipe day/month nav: whole page (not just the arrows row) — competes with swipe-right-to-go-back on those two pages; day/month nav wins when this is on
     </label>
     <label class="${rowClass}">
       <input type="checkbox" ${dev.calendarTabTypeEnabled?'checked':''} onchange="toggleDevSetting('calendarTabTypeEnabled', this.checked)">
@@ -3214,10 +3262,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <input type="checkbox" ${dev.calendarTodayOrnate?'checked':''} onchange="toggleDevSetting('calendarTodayOrnate', this.checked)">
       Calendar: ornate (double-line) border on today's cell
     </label>
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.fullPageSwipeNav?'checked':''} onchange="toggleDevSetting('fullPageSwipeNav', this.checked)">
-      Swipe day/month nav: whole page (not just the arrows row) — competes with swipe-right-to-go-back on those two pages; day/month nav wins when this is on
-    </label>
+
+    ${devSectionHeadHtml('Page Frame & Cover Sizing')}
     <div class="${fieldClass}">
       <span class="${captionClass}">Leather cover size</span>
       <select class="${selectClass}" onchange="setDevLeatherInset(this.value)">
@@ -3245,9 +3291,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="slim" ${dev.stackedPageInsetPreset==='slim'?'selected':''}>Slim — nearly flush with #appCard</option>
       </select>
     </div>
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Mobile UI Lab</span>
-    </div>
+
+    ${devSectionHeadHtml('Mobile UI Lab')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.mobileUiPreviewOnDesktop?'checked':''} onchange="toggleDevSetting('mobileUiPreviewOnDesktop', this.checked)">
       Preview the Mobile UI Lab options below on desktop too (they're phone/touch-only by default)
@@ -3292,6 +3337,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <input type="checkbox" ${dev.stickyTabBar?'checked':''} onchange="toggleDevSetting('stickyTabBar', this.checked)">
       Sticky tab bar — pins the tabs (and the Daily tab within them) to the top of the screen while scrolling
     </label>
+
+    ${devSectionHeadHtml('Tab Bar — Desktop')}
     <div class="${fieldClass}">
       <span class="${captionClass}">Tab bar (desktop)</span>
       <select class="${selectClass}" onchange="setDevTabBarDesktopStyle(this.value)">
@@ -3318,6 +3365,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       Overlap tabs: stagger by stacking rank (a covered tab sits a little higher at rest so its own label still peeks over the one covering it)
     </label>
     ` : ''}
+
+    ${devSectionHeadHtml('Settings Panel')}
     <div class="${fieldClass}">
       <span class="${captionClass}">Settings category rows (mobile)</span>
       <select class="${selectClass}" onchange="setDevSettingsRowMobileStyle(this.value)">
@@ -3325,6 +3374,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="grouped" ${dev.settingsRowMobileStyle==='grouped'?'selected':''}>Grouped — Delete moves to its own quiet row</option>
       </select>
     </div>
+
+    ${devSectionHeadHtml('Task Fields & Interaction')}
     <div class="${fieldClass}">
       <span class="${captionClass}">Timeframe & Priority picker</span>
       <select class="${selectClass}" onchange="setDevFieldPickerStyle(this.value)">
@@ -3337,7 +3388,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <span class="${captionClass}">Task tap/long-press (mobile)</span>
       <select class="${selectClass}" onchange="setDevTaskLongPressMode(this.value)">
         <option value="default" ${dev.taskLongPressMode==='default'?'selected':''}>Default (tap opens everything)</option>
-        <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap shows Steps, long-press opens settings</option>
+        <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap shows Steps, long-press opens a bottom sheet</option>
+        <option value="detail" ${dev.taskLongPressMode==='detail'?'selected':''}>Detail — tap shows Steps, long-press opens the full task page (like Daily)</option>
       </select>
     </div>
     <label class="${rowClass}">
@@ -3801,14 +3853,19 @@ function defaultDevSettings(){
   // applies everywhere once picked, not just on a phone-ish viewport.
   // taskLongPressMode: 'default' leaves a task row's single tap/click
   // toggling the *entire* .expand block (every field at once, see
-  // taskExpandFieldsHtml() in 08-render-core.js). 'split' — gated by
-  // mobileUiActive(), touch-first — divides that in two: a short tap
-  // toggles a trimmed .expand showing just its Steps (taskSubtasksHtml()),
-  // since that's the thing worth glancing at most often, while a genuine
-  // long-press (taskPressStart() et al.) opens the rest — category, due
-  // date, urgent/today flags, timeframe/priority, notes — as its own
-  // bottom sheet (openTaskSettingsSheet()), out of the way until you
-  // actually reach for it.
+  // taskExpandFieldsHtml() in 08-render-core.js). 'split' and 'detail' —
+  // both gated by mobileUiActive(), touch-first — share the same short
+  // tap: it toggles a trimmed .expand showing just Steps
+  // (taskSubtasksHtml()), since that's the thing worth glancing at most
+  // often. They differ only in what a genuine long-press (taskPressStart()
+  // et al.) opens for the rest — category, due date, urgent/today flags,
+  // timeframe/priority, notes: 'split' opens it as its own bottom sheet
+  // (openTaskSettingsSheet()), out of the way until you actually reach for
+  // it; 'detail' instead opens the same full-page task detail Daily's own
+  // taskDetailId uses (openMobileTaskDetail(), renderTaskDetailPage() in
+  // 08-render-core.js) — added after the bottom sheet read as
+  // thematically inconsistent with the rest of the app's page-based
+  // navigation.
   // overlapSubtags / overlapHoverMode are two further EXPERIMENTAL
   // sub-options of tabBarDesktopStyle's "overlap" look specifically —
   // only ever offered in the UI while that style is the current pick
@@ -5542,21 +5599,27 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // 'split', see below) can swallow the click a touchend/mouseup would
   // otherwise also produce, rather than both firing.
   const rowClick = inDaily ? `openTaskDetailFromDay('${t.id}')` : `taskRowTap(event,'${t.id}')`;
-  // 'split' only applies outside Daily — a Daily row already opens its
-  // own full page on a plain tap, so there's no "everything at once" tap
-  // target here to split in the first place. Gated by mobileUiActive()
+  // 'split' and 'detail' both only apply outside Daily — a Daily row
+  // already opens its own full page on a plain tap, so there's no
+  // "everything at once" tap target here to split in the first place.
+  // Both share the same short-tap behavior (show just Steps inline) and
+  // differ only in what the long press itself opens — a bottom sheet for
+  // 'split', the same full-page detail Daily uses for 'detail' (see
+  // taskPressStart()'s timer callback below). Gated by mobileUiActive()
   // (touch-first — see the taskLongPressMode comment in
   // defaultDevSettings(), 02-storage-state.js) so a short tap keeps
   // opening the *entire* .expand on desktop, where there's no long-press
   // gesture to reach the rest with.
-  const useSplitPress = !inDaily && state.devSettings && state.devSettings.taskLongPressMode === 'split' && mobileUiActive();
-  const pressAttrs = useSplitPress
+  const usePressGesture = !inDaily && state.devSettings &&
+    (state.devSettings.taskLongPressMode === 'split' || state.devSettings.taskLongPressMode === 'detail') &&
+    mobileUiActive();
+  const pressAttrs = usePressGesture
     ? ` ontouchstart="taskPressStart(event,'${t.id}')" ontouchmove="taskPressMove(event)" ontouchend="taskPressEnd()" ontouchcancel="taskPressEnd()" onmousedown="taskPressStart(event,'${t.id}')" onmouseup="taskPressEnd()" onmouseleave="taskPressEnd()"`
     : '';
-  const expandInner = useSplitPress ? taskSubtasksHtml(t) : taskExpandFieldsHtml(t, canRemoveHere);
+  const expandInner = usePressGesture ? taskSubtasksHtml(t) : taskExpandFieldsHtml(t, canRemoveHere);
   // customContextMenu (desktop-only, see handleTaskContextMenu() below) —
-  // scoped to !inDaily for the same reason useSplitPress is: a Daily row
-  // already has its own click behavior and canRemoveHere rules that
+  // scoped to !inDaily for the same reason usePressGesture is: a Daily
+  // row already has its own click behavior and canRemoveHere rules that
   // don't map cleanly onto this.
   const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
@@ -5582,7 +5645,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   </li>`;
 }
 
-// ---------- taskLongPressMode 'split': long-press gesture + settings sheet ----------
+// ---------- taskLongPressMode 'split'/'detail': long-press gesture ----------
 // touchstart/mousedown arms a timer; touchend/mouseup/mouseleave (a plain
 // tap, or the finger/mouse lifting before the timer fires) cancels it;
 // touchmove past a small tolerance also cancels it, so scrolling the page
@@ -5590,7 +5653,9 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
 // a long-press. If the timer *does* fire, taskLongPressFired is left set
 // so the click event a touchend/mouseup produces right after (real on
 // mobile, synthetic on some browsers) gets swallowed by taskRowTap()
-// instead of also toggling the short-tap view.
+// instead of also toggling the short-tap view. Which of the two modes is
+// active only changes what the fired timer opens — the gesture detection
+// itself is identical either way.
 const TASK_LONG_PRESS_MS = 500;
 const TASK_LONG_PRESS_TOLERANCE_PX = 10;
 
@@ -5604,7 +5669,8 @@ function taskPressStart(e, taskId){
   taskPressTimer = setTimeout(() => {
     taskPressTimer = null;
     taskLongPressFired = true;
-    openTaskSettingsSheet(taskId);
+    if(state.devSettings.taskLongPressMode === 'detail') openMobileTaskDetail(taskId);
+    else openTaskSettingsSheet(taskId);
   }, TASK_LONG_PRESS_MS);
 }
 function taskPressMove(e){
@@ -5718,18 +5784,23 @@ function renderTaskSettingsSheet(){
   document.getElementById('taskSettingsBody').innerHTML = taskManagementFieldsHtml(t, true);
 }
 
-// Full-page task detail, opened by clicking a task or step within Daily
-// (see openTaskDetailFromDay) — same shared fields as the inline .expand,
-// wrapped in the "stacked page" pattern with a page tag back to the day
+// Full-page task detail — same shared fields as the inline .expand,
+// wrapped in the "stacked page" pattern with a page tag back to wherever
 // it was opened from, rather than expanding inline the way it does
-// everywhere else.
-function renderTaskDetailPage(taskId, dateStr){
+// everywhere else. Two call sites share this: clicking a task or step
+// within Daily (openTaskDetailFromDay, backs to "Daily") and a long-press
+// on any category tab's row under taskLongPressMode 'detail'
+// (openMobileTaskDetail below, backs to "Back" — there's no single named
+// destination since it could be any tab). backOnclick/backLabel are
+// passed in rather than hardcoded so the two never have to fork this
+// function to get their own back tag.
+function renderTaskDetailPage(taskId, backOnclick, backLabel){
   const t = state.tasks.find(t=>t.id===taskId);
   const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const canRemoveHere = t.category==='misc';
   return `
     <div class="stackedpage">
-      ${pageTagHtml('closeTaskDetail()', 'Daily')}
+      ${pageTagHtml(backOnclick, backLabel)}
       <div class="taskdetailhead">
         <div class="check ${t.status==='done'?'done':''}" onclick="toggleStatus('${t.id}')"></div>
         ${categoryDotHtml(cat, 'cdot')}
@@ -5746,6 +5817,21 @@ function openTaskDetailFromDay(taskId){
 function closeTaskDetail(){
   taskDetailId = null;
   renderDaily();
+}
+
+// taskLongPressMode 'detail' — see the long comment on render()'s
+// mobileTaskDetailId branch above. A separate flag from Daily's own
+// taskDetailId since this one has to work from any category tab (no
+// selectedDay/dailyView to hang off of) and needs its own generic "Back"
+// rather than "Daily".
+let mobileTaskDetailId = null;
+function openMobileTaskDetail(taskId){
+  mobileTaskDetailId = taskId;
+  render();
+}
+function closeMobileTaskDetail(){
+  mobileTaskDetailId = null;
+  render();
 }
 
 function renderList(){
@@ -5809,6 +5895,34 @@ function render(){
   const calView = document.getElementById('calendarView');
   const setView = document.getElementById('settingsView');
   const cldView = document.getElementById('claudeView');
+  const mtdView = document.getElementById('mobileTaskDetailView');
+  // taskLongPressMode 'detail' (see openMobileTaskDetail() below) — a
+  // full-page task detail reachable from a long-press on ANY category
+  // tab's row, not just Daily's own taskDetailId. Highest priority of the
+  // view-swapping branches here, same tier as claudeView/settingsOpen
+  // (replaces the whole app body, not a floating overlay on top of it —
+  // those live outside #appCard entirely, see the Esc handler's Mobile UI
+  // Lab overlay comment in 19-bootstrap.js).
+  if(mobileTaskDetailId && !state.tasks.find(x=>x.id===mobileTaskDetailId)) mobileTaskDetailId = null;
+  if(mobileTaskDetailId){
+    catView.style.display = 'none';
+    dayView.style.display = 'none';
+    chkView.style.display = 'none';
+    calView.style.display = 'none';
+    setView.style.display = 'none';
+    cldView.style.display = 'none';
+    mtdView.style.display = '';
+    mtdView.innerHTML = renderTaskDetailPage(mobileTaskDetailId, 'closeMobileTaskDetail()', 'Back');
+    document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
+    dayView.innerHTML = '';
+    chkView.innerHTML = '';
+    calView.innerHTML = '';
+    setView.innerHTML = '';
+    cldView.innerHTML = '';
+    return;
+  }
+  mtdView.style.display = 'none';
+  mtdView.innerHTML = '';
   if(claudeView){
     catView.style.display = 'none';
     dayView.style.display = 'none';
@@ -5914,6 +6028,9 @@ function switchTab(key){
   // here: this sheet is tied to one specific task, not "reachable from
   // anywhere" the way the FAB is).
   if(taskSettingsOpenId) closeTaskSettingsSheet();
+  // Same idea again for taskLongPressMode 'detail's full-page task
+  // detail — tied to one specific task from whichever tab you were on.
+  if(mobileTaskDetailId) mobileTaskDetailId = null;
   // Only an actual change of category counts as "leaving" it — re-clicking
   // the tab you're already on (which still runs this whole function, to
   // exit an open overlay per the note above) must not collapse tasks you
@@ -7179,7 +7296,7 @@ function renderDaily(){
   if(dailyCalendarOpen){
     el.innerHTML = renderDailyCalendar();
   } else if(selectedDay && taskDetailId){
-    el.innerHTML = renderTaskDetailPage(taskDetailId, selectedDay);
+    el.innerHTML = renderTaskDetailPage(taskDetailId, 'closeTaskDetail()', 'Daily');
   } else {
     el.innerHTML = selectedDay ? renderDayDetail(selectedDay) : renderDayList();
   }
@@ -8874,6 +8991,7 @@ document.addEventListener('keydown', (e) => {
     if(settingsOpen){ toggleSettings(); return; }
     if(checklistPendingOpen){ closeChecklistPending(); return; }
     if(selectedListId){ closeChecklistList(); return; }
+    if(mobileTaskDetailId){ closeMobileTaskDetail(); return; }
     if(taskDetailId){ closeTaskDetail(); return; }
     if(selectedDay){ closeDay(); return; }
     if(dailyCalendarOpen){ closeDailyCalendar(); return; }

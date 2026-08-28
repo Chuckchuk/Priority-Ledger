@@ -435,14 +435,19 @@ function defaultDevSettings(){
   // applies everywhere once picked, not just on a phone-ish viewport.
   // taskLongPressMode: 'default' leaves a task row's single tap/click
   // toggling the *entire* .expand block (every field at once, see
-  // taskExpandFieldsHtml() in 08-render-core.js). 'split' — gated by
-  // mobileUiActive(), touch-first — divides that in two: a short tap
-  // toggles a trimmed .expand showing just its Steps (taskSubtasksHtml()),
-  // since that's the thing worth glancing at most often, while a genuine
-  // long-press (taskPressStart() et al.) opens the rest — category, due
-  // date, urgent/today flags, timeframe/priority, notes — as its own
-  // bottom sheet (openTaskSettingsSheet()), out of the way until you
-  // actually reach for it.
+  // taskExpandFieldsHtml() in 08-render-core.js). 'split' and 'detail' —
+  // both gated by mobileUiActive(), touch-first — share the same short
+  // tap: it toggles a trimmed .expand showing just Steps
+  // (taskSubtasksHtml()), since that's the thing worth glancing at most
+  // often. They differ only in what a genuine long-press (taskPressStart()
+  // et al.) opens for the rest — category, due date, urgent/today flags,
+  // timeframe/priority, notes: 'split' opens it as its own bottom sheet
+  // (openTaskSettingsSheet()), out of the way until you actually reach for
+  // it; 'detail' instead opens the same full-page task detail Daily's own
+  // taskDetailId uses (openMobileTaskDetail(), renderTaskDetailPage() in
+  // 08-render-core.js) — added after the bottom sheet read as
+  // thematically inconsistent with the rest of the app's page-based
+  // navigation.
   // overlapSubtags / overlapHoverMode are two further EXPERIMENTAL
   // sub-options of tabBarDesktopStyle's "overlap" look specifically —
   // only ever offered in the UI while that style is the current pick

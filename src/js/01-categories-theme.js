@@ -509,6 +509,18 @@ function toggleDevPanel(){
 // only place that field belongs, since unchecking it from inside the
 // panel it controls immediately hides the very checkbox you'd need to
 // turn it back on again, and was a real recurring mis-click.
+// A visibly stronger divider than a plain field ${captionClass} (which
+// also labels individual dropdowns like "Compact tag style" below it —
+// using the same look for both a section break and a single field's
+// label was a big part of why this whole list used to read as one
+// undifferentiated wall of settings, per the project owner's own
+// "clean it up" callout). One shared class regardless of host (side
+// panel vs Settings' own section) since a header's look doesn't need to
+// vary the way a row/select's does — see .devsectionhead in <style>.
+function devSectionHeadHtml(label){
+  return `<div class="devsectionhead">${escapeHtml(label)}</div>`;
+}
+
 function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, includeSidePanelToggle){
   const dev = state.devSettings || defaultDevSettings();
   const sidePanelToggleHtml = includeSidePanelToggle === false ? '' : `
@@ -518,6 +530,7 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     </label>`;
   return `
     ${sidePanelToggleHtml}
+    ${devSectionHeadHtml('Page Tags')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
       Page tag: seam shadow (tip reads as receding behind the label)
@@ -558,13 +571,21 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="charcoal" ${dev.pendingTagColor==='charcoal'?'selected':''}>Force charcoal</option>
       </select>
     </div>
+
+    ${devSectionHeadHtml('Checklist')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.showListDates?'checked':''} onchange="toggleDevSetting('showListDates', this.checked)">
       Show a faded created-date next to each checklist's title
     </label>
+
+    ${devSectionHeadHtml('Daily & Calendar')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.dayTreeCatBubble?'checked':''} onchange="toggleDevSetting('dayTreeCatBubble', this.checked)">
       "Add to day" tree: pill-shaped category bubbles (like the tab bar)
+    </label>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.fullPageSwipeNav?'checked':''} onchange="toggleDevSetting('fullPageSwipeNav', this.checked)">
+      Swipe day/month nav: whole page (not just the arrows row) — competes with swipe-right-to-go-back on those two pages; day/month nav wins when this is on
     </label>
     <label class="${rowClass}">
       <input type="checkbox" ${dev.calendarTabTypeEnabled?'checked':''} onchange="toggleDevSetting('calendarTabTypeEnabled', this.checked)">
@@ -582,10 +603,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <input type="checkbox" ${dev.calendarTodayOrnate?'checked':''} onchange="toggleDevSetting('calendarTodayOrnate', this.checked)">
       Calendar: ornate (double-line) border on today's cell
     </label>
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.fullPageSwipeNav?'checked':''} onchange="toggleDevSetting('fullPageSwipeNav', this.checked)">
-      Swipe day/month nav: whole page (not just the arrows row) — competes with swipe-right-to-go-back on those two pages; day/month nav wins when this is on
-    </label>
+
+    ${devSectionHeadHtml('Page Frame & Cover Sizing')}
     <div class="${fieldClass}">
       <span class="${captionClass}">Leather cover size</span>
       <select class="${selectClass}" onchange="setDevLeatherInset(this.value)">
@@ -613,9 +632,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="slim" ${dev.stackedPageInsetPreset==='slim'?'selected':''}>Slim — nearly flush with #appCard</option>
       </select>
     </div>
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Mobile UI Lab</span>
-    </div>
+
+    ${devSectionHeadHtml('Mobile UI Lab')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.mobileUiPreviewOnDesktop?'checked':''} onchange="toggleDevSetting('mobileUiPreviewOnDesktop', this.checked)">
       Preview the Mobile UI Lab options below on desktop too (they're phone/touch-only by default)
@@ -660,6 +678,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <input type="checkbox" ${dev.stickyTabBar?'checked':''} onchange="toggleDevSetting('stickyTabBar', this.checked)">
       Sticky tab bar — pins the tabs (and the Daily tab within them) to the top of the screen while scrolling
     </label>
+
+    ${devSectionHeadHtml('Tab Bar — Desktop')}
     <div class="${fieldClass}">
       <span class="${captionClass}">Tab bar (desktop)</span>
       <select class="${selectClass}" onchange="setDevTabBarDesktopStyle(this.value)">
@@ -686,6 +706,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       Overlap tabs: stagger by stacking rank (a covered tab sits a little higher at rest so its own label still peeks over the one covering it)
     </label>
     ` : ''}
+
+    ${devSectionHeadHtml('Settings Panel')}
     <div class="${fieldClass}">
       <span class="${captionClass}">Settings category rows (mobile)</span>
       <select class="${selectClass}" onchange="setDevSettingsRowMobileStyle(this.value)">
@@ -693,6 +715,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="grouped" ${dev.settingsRowMobileStyle==='grouped'?'selected':''}>Grouped — Delete moves to its own quiet row</option>
       </select>
     </div>
+
+    ${devSectionHeadHtml('Task Fields & Interaction')}
     <div class="${fieldClass}">
       <span class="${captionClass}">Timeframe & Priority picker</span>
       <select class="${selectClass}" onchange="setDevFieldPickerStyle(this.value)">
@@ -705,7 +729,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <span class="${captionClass}">Task tap/long-press (mobile)</span>
       <select class="${selectClass}" onchange="setDevTaskLongPressMode(this.value)">
         <option value="default" ${dev.taskLongPressMode==='default'?'selected':''}>Default (tap opens everything)</option>
-        <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap shows Steps, long-press opens settings</option>
+        <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap shows Steps, long-press opens a bottom sheet</option>
+        <option value="detail" ${dev.taskLongPressMode==='detail'?'selected':''}>Detail — tap shows Steps, long-press opens the full task page (like Daily)</option>
       </select>
     </div>
     <label class="${rowClass}">
