@@ -301,7 +301,22 @@ function layoutOverlapTabs(){
   overlapNaturalRects = null;
   const dev = state.devSettings || {};
   const wrap = document.getElementById('tabs');
-  if(!wrap || mobileUiActive() || dev.tabBarDesktopStyle !== 'overlap') return;
+  if(!wrap) return;
+  // #tabs and #tabConnector are both static elements (renderTabs() only
+  // ever replaces #tabs' innerHTML, never #tabConnector's own — that's
+  // solely this function's job) so an inline #tabs height, or a cloned
+  // active tab left sitting in #tabConnector, from the one render overlap
+  // style was on would otherwise persist as stale leftovers after
+  // switching to any other tabBarDesktopStyle: none of which expect #tabs
+  // to have an explicit height, or expect a ghost clone of whatever was
+  // active back when overlap style was last on to still be floating over
+  // #appCard.
+  if(mobileUiActive() || dev.tabBarDesktopStyle !== 'overlap'){
+    wrap.style.height = '';
+    const connector = document.getElementById('tabConnector');
+    if(connector) connector.innerHTML = '';
+    return;
+  }
   const tabs = Array.from(wrap.querySelectorAll('.tab'));
   if(!tabs.length) return;
 
@@ -326,6 +341,14 @@ function layoutOverlapTabs(){
       t.style.fontSize = px + 'px';
     }
     if(t.scrollWidth > OVERLAP_MAX_LABEL_WIDTH){
+      // Shrinking alone couldn't fit it on one line — wrap instead, but
+      // back at the BASE font size, not whatever floor the shrink attempt
+      // above bottomed out at. A 2-line label reads properly sized at
+      // normal font; leaving it at OVERLAP_MIN_FONT_PX just because THAT
+      // was tried first made a wrapped tab like "House Upkeep" look
+      // needlessly tiny even though it now has two full lines' worth of
+      // room to say the same thing.
+      t.style.fontSize = baseFontPx + 'px';
       const label = t.querySelector('.tablabel');
       if(!label) return;
       const oneLineHeight = label.getBoundingClientRect().height;
@@ -341,6 +364,27 @@ function layoutOverlapTabs(){
       }
     }
   });
+
+  // ---- 1b. Pin #tabs' own height to a single-line tab's, regardless of
+  // whether some tab wrapped to 2 lines (or overlapRankStagger lifted one
+  // up) — a flex container otherwise auto-sizes to its TALLEST child,
+  // which would grow #tabs' own contribution to the page's normal flow
+  // and, since #appCard's position is "wherever #tabs' negative bottom
+  // margin lands," push #appCard itself further down to match. Every
+  // *resting* tab's own vertical offset is fixed regardless of #tabs'
+  // height (position:relative, not tied to the container's box) — so a
+  // taller #tabs without this pin left every resting tab with LESS of its
+  // tail actually tucked behind the (now lower) card, up to a visible gap
+  // for tabs that used to just barely reach it. Falls back to the
+  // shortest tab's own height if literally everything wrapped, rather
+  // than the tallest — shrinking the reserved space is always safe here
+  // (tabs. overflow past it with impunity, see the .tabs rule in
+  // <style>), growing it is what causes the bug. ----
+  const singleLineHeights = tabs
+    .filter(t => !t.classList.contains('two-line') && !t.classList.contains('active'))
+    .map(t => t.offsetHeight);
+  const refHeights = singleLineHeights.length ? singleLineHeights : tabs.map(t => t.offsetHeight);
+  wrap.style.height = Math.min(...refHeights) + 'px';
 
   // ---- 2. Scrunch to fit: solve for how much each individual GAP needs to
   // overlap to keep the row within its actual available width, instead of
@@ -391,28 +435,48 @@ function layoutOverlapTabs(){
   // ---- 4. Connect the active tab to the page ----
   const card = document.getElementById('appCard');
   const connector = document.getElementById('tabConnector');
-  if(connector) connector.style.width = '0px'; // reset; only re-shown below if there's an active tab to connect
-  if(activeIdx >= 0 && card){
+  if(connector) connector.innerHTML = '';
+  if(activeIdx >= 0){
     const activeTabEl = tabs[activeIdx];
-    const cardRect = card.getBoundingClientRect();
-    const tabRect = activeTabEl.getBoundingClientRect();
-    let nudge = 0;
-    if(tabRect.bottom < cardRect.top + OVERLAP_CONNECT_MIN) nudge = (cardRect.top + OVERLAP_CONNECT_MIN) - tabRect.bottom;
-    else if(tabRect.bottom > cardRect.top + OVERLAP_CONNECT_MAX) nudge = (cardRect.top + OVERLAP_CONNECT_MAX) - tabRect.bottom;
-    if(nudge) activeTabEl.style.setProperty('--tab-connect', nudge + 'px');
-    // tabRect was measured before the nudge above ever takes visual effect
-    // (transform transitions animate from the OLD value, so re-measuring
-    // synchronously here would just read that stale frame back) — but the
-    // nudge is a pure vertical translate, so the final overlap depth is
-    // knowable by arithmetic alone (tabRect.bottom + nudge), and left/
-    // width are untouched by a Y-only translate either way. See the
-    // .tabconnector comment in <style> for why this patch — not the real
-    // .tab.active element — is what actually ends up visible here.
-    if(connector){
-      const depth = (tabRect.bottom + nudge) - cardRect.top;
-      connector.style.left = (tabRect.left - cardRect.left) + 'px';
-      connector.style.width = tabRect.width + 'px';
-      connector.style.height = Math.max(0, depth + 2) + 'px';
+    activeTabEl.style.visibility = '';
+    if(card){
+      const cardRect = card.getBoundingClientRect();
+      const tabRect = activeTabEl.getBoundingClientRect();
+      let nudge = 0;
+      if(tabRect.bottom < cardRect.top + OVERLAP_CONNECT_MIN) nudge = (cardRect.top + OVERLAP_CONNECT_MIN) - tabRect.bottom;
+      else if(tabRect.bottom > cardRect.top + OVERLAP_CONNECT_MAX) nudge = (cardRect.top + OVERLAP_CONNECT_MAX) - tabRect.bottom;
+      if(nudge) activeTabEl.style.setProperty('--tab-connect', nudge + 'px');
+      // See the .tabconnector comment in <style> for *why* this clone
+      // exists instead of trying (again) to make the real element itself
+      // outrank #appCard: it structurally can't, because .tabs' own
+      // stacking context traps it. This is the actual fix the project
+      // owner asked for — "just make a copy of the selected tab and put
+      // it on top" — not a decoy: cloneNode(true) copies every class,
+      // inline style (--tabhex, the --tab-connect nudge just set above,
+      // the rest), and child (label, count, subtag) the real one has, so
+      // the exact same CSS rules (.tab, .tab.active, .tabsubtag, …)
+      // render it identically — right down to the deep connect overlap
+      // and the per-category tilt. Positioned via left/top computed from
+      // the real tab's PRE-transform layout box (.tabs' own screen origin
+      // + offsetLeft/Top, which unlike getBoundingClientRect() ignores
+      // the CSS transform) — the clone then picks up that identical
+      // transform itself (also copied) and lands in the exact same
+      // on-screen spot the original would have painted in, had it been
+      // able to. The original is hidden (visibility:hidden, not
+      // display:none — it still needs to occupy its layout box for
+      // push-mode math and its own :hover) so there's only ever one copy
+      // actually visible at a time.
+      if(connector){
+        const tabsRect = wrap.getBoundingClientRect();
+        const clone = activeTabEl.cloneNode(true);
+        clone.style.position = 'absolute';
+        clone.style.margin = '0';
+        clone.style.left = (tabsRect.left + activeTabEl.offsetLeft - cardRect.left) + 'px';
+        clone.style.top = (tabsRect.top + activeTabEl.offsetTop - cardRect.top) + 'px';
+        clone.style.pointerEvents = 'auto';
+        connector.appendChild(clone);
+        activeTabEl.style.visibility = 'hidden';
+      }
     }
   }
 }
@@ -455,6 +519,12 @@ function overlapEdgeGap(sourceIdx, neighborIdx){
 // stay within the row's own width — the project owner's explicit ask that
 // a pushed end tab never scoots off the page — which can only ever pull a
 // push *in*, never send a tab further out than the row itself.
+// The active tab itself never receives a push (dx forced to 0 below) even
+// when it happens to be a neighbor of whatever else is pushing — per the
+// project owner: it's already the one every other tab is scooting out of
+// the way for, so it should read as the fixed, settled point everything
+// else moves around, not another thing that shifts. It can still lift
+// vertically on hover (a plain CSS :hover rule, untouched by this).
 function computeOverlapPush(sources){
   const wrap = document.getElementById('tabs');
   if(!wrap || !overlapNaturalRects) return;
@@ -470,7 +540,7 @@ function computeOverlapPush(sources){
     });
   });
   tabs.forEach((t, i)=>{
-    let d = dx[i];
+    let d = t.classList.contains('active') ? 0 : dx[i];
     const rect = overlapNaturalRects[i];
     if(rect && d !== 0){
       const clampedLeft = Math.max(0, Math.min(containerWidth - rect.width, rect.left + d));

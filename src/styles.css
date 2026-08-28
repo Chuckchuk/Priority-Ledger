@@ -2172,23 +2172,26 @@
      outright: without it, their negative z-index no longer had .tabs' own
      (practically invisible, background:none) box to sit "just behind" and
      instead escaped all the way up to sit behind the page's own opaque
-     background, vanishing completely. Recreating just the overlapping
-     sliver as #appCard's own child sidesteps the whole fight: as a
-     genuine descendant, it trivially paints above #appCard's background
-     (and therefore above the entire, separately-stacked-behind tab bar)
-     with no z-index tricks needed at all — the same reason #appCard's own
+     background, vanishing completely.
+     .tabconnector is a genuine #appCard child instead — as a real
+     descendant it trivially paints above #appCard's own background (and
+     therefore above the entire, separately-stacked-behind tab bar) with
+     no z-index tricks needed at all, the same reason #appCard's own
      .texture-grain::before/.texture-pages::after already do. z-index:6
-     only matters relative to *those* two (grain's 5), so this still shows
-     up over a textured card if that theme option happens to be on too. */
+     only matters relative to those two (grain's 5), so this still shows
+     up over a textured card if that theme option happens to be on too.
+     It's a 0×0 positioning root, not a shape of its own — layoutOverlapTabs()
+     in 06-tabs-render.js clones the *real* .tab.active element (every
+     class and inline style included, so it renders via the exact same
+     CSS rules as the original — background, border, transform, tilt, the
+     lot) and drops the clone in here as an absolutely-positioned child
+     landing exactly where the original would have painted, had it been
+     able to win the stacking fight above. overflow:visible is required —
+     the clone is full tab-sized, poking out well past this element's own
+     0×0 box on every side. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabconnector{
     position:absolute; top:0; left:0; width:0; height:0;
-    z-index:6; pointer-events:none; overflow:hidden;
-    /* Same look as .tab.active's own background (see above) — this patch
-       exists purely to continue it seamlessly past the seam at #appCard's
-       top edge, so it has to actually match, not just gesture at it. */
-    background-image: linear-gradient(to top, rgba(255,255,255,0.55), rgba(255,255,255,0) 40%);
-    background-color: var(--card-bg);
-    background-size: 100% 50px; background-position: bottom; background-repeat: no-repeat;
+    z-index:6; pointer-events:none; overflow:visible;
   }
   /* overlapSubtags (see devSettingsFieldsHtml() in 01-categories-theme.js
      and tabSubtagHtml() in 06-tabs-render.js): a small pennant-shaped flag
