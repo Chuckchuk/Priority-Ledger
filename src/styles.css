@@ -1005,18 +1005,48 @@
     margin: var(--stackpage-margin-top) var(--stackpage-margin-right) var(--stackpage-margin-bottom) var(--stackpage-margin-left);
     position: relative;
   }
-  /* The blank stand-in page behind a .stackedpage mid back-swipe (see
-     swipeBackGhostShow() in 19-bootstrap.js) — .stackedpage's own
-     background is only a 5% white mix over --card-bg, close enough to
-     #appCard's bare background that a same-toned ghost barely read as
-     "a page" at all. --card-bg-dim plus a heavier shadow makes it
-     unmistakably a distinct surface sitting a little lower down, and
-     this rule's later position in the cascade (same 0-1-0 specificity as
-     .stackedpage's own) is what lets it win without needing !important. */
+  /* The content-shaped stand-in page behind a .stackedpage mid back-swipe
+     (see swipeBackGhostShow()/swipeBackGhostContentHtml() in
+     19-bootstrap.js) — .stackedpage's own background is only a 5% white
+     mix over --card-bg, close enough to #appCard's bare background that a
+     same-toned ghost barely read as "a page" at all. --card-bg-dim plus a
+     heavier shadow makes it unmistakably a distinct surface sitting a
+     little lower down, and this rule's later position in the cascade
+     (same 0-1-0 specificity as .stackedpage's own) is what lets it win
+     without needing !important. display:flex/column here (not on
+     .stackedpage generally, which holds arbitrary markup) since this
+     element's own content is always the fixed label/heading/rows list
+     swipeBackGhostContentHtml() builds. */
   .swipebackghost{
     background: var(--card-bg-dim);
     box-shadow: 0 16px 34px rgba(0,0,0,0.34), 0 5px 12px rgba(0,0,0,0.18);
+    display:flex; flex-direction:column; gap:14px; overflow:hidden;
   }
+  .ghostlabel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.06em;
+    text-transform:uppercase; color: var(--ink-soft); opacity:0.75;
+  }
+  .ghostheading{
+    width:58%; height:20px; border-radius:5px; flex-shrink:0;
+    background: var(--ink-soft); opacity:0.22; filter: blur(2px);
+  }
+  .ghostactions{ display:flex; gap:8px; flex-shrink:0; }
+  .ghostpill{
+    width:70px; height:16px; border-radius:8px;
+    background: var(--ink-soft); opacity:0.16; filter: blur(1.5px);
+  }
+  .ghostpill.short{ width:42px; }
+  .ghostrow{ display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .ghostcheck{
+    width:18px; height:18px; border-radius:50%; flex-shrink:0;
+    border:2px solid var(--ink-soft); opacity:0.3;
+  }
+  .ghosttext{
+    display:inline-block; height:13px; border-radius:4px;
+    background: var(--ink-soft); opacity:0.26; filter: blur(2px);
+  }
+  .ghosttitle{ min-width:0; }
+  .ghosttag{ width:32px; flex-shrink:0; }
   /* EXPERIMENTAL — Dev Settings' "Stacked-page size" (state.devSettings.
      stackedPageInsetPreset, applied via document.body.dataset.
      stackedpageInset in applyDevSettings()). "classic" needs no override,

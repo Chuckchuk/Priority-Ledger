@@ -224,7 +224,9 @@ function swipeSnapBack(card, g){
 // Rather than keeping the real destination view mounted and visible
 // (which risks ITS OWN .pagetag — or another .stackedpage's — jutting
 // out from behind the one currently mid-drag, since both would be full,
-// live, differently-sized pages), this is a plain content-free stand-in.
+// live, differently-sized pages), this is a content-*shaped* stand-in —
+// see swipeBackGhostContentHtml() below for what it's actually built of
+// and why it isn't the real thing.
 //
 // Two things a first pass at this got wrong, both because it exactly
 // matched the real page's own box: (1) .stackedpage's own background is
@@ -242,6 +244,46 @@ function swipeSnapBack(card, g){
 // move first. Fades in fast (120ms, not 220ms) so it's visible well
 // before a normal decisive swipe has already committed and flown away.
 const SWIPE_BACK_GHOST_PEEK_PX = 7;
+
+// Content-shaped filler for the ghost — not the real destination's actual
+// data (see the project owner's own call: a full real-copy preview would
+// need separating "build the HTML" from "write it to the DOM" across
+// every view type, a real refactor of core rendering just for a cosmetic
+// mid-drag preview), but real .stackedpage-shaped structure (a checkbox
+// circle + title bar per row, occasional tag pill) with blurred/muted
+// placeholder bars standing in for actual text, so it reads as "a page
+// with some items on it" rather than an empty box. Row count scales with
+// the real page's own height (SWIPE_GHOST_ROW_PX per row) so a tall page
+// like Settings doesn't look sparse and a short one doesn't look
+// overstuffed. The one genuinely real detail included is the label off
+// `g.backTag` itself — the actual name of wherever this swipe is headed
+// (e.g. "Daily", "All Days", "Calendar") — since that's already sitting
+// right there for free.
+const SWIPE_GHOST_ROW_PX = 46;
+const SWIPE_GHOST_ROW_WIDTHS = [92, 68, 100, 78, 85, 60, 95, 72];
+function swipeBackGhostContentHtml(g, heightPx){
+  const labelEl = g.backTag && g.backTag.querySelector('.pagetaglabel');
+  const label = labelEl ? labelEl.textContent : '';
+  const rowCount = Math.max(3, Math.min(8, Math.round((heightPx - 90) / SWIPE_GHOST_ROW_PX)));
+  let rowsHtml = '';
+  for(let i = 0; i < rowCount; i++){
+    const w = SWIPE_GHOST_ROW_WIDTHS[i % SWIPE_GHOST_ROW_WIDTHS.length];
+    const withTag = i % 3 === 1;
+    rowsHtml += `
+      <div class="ghostrow">
+        <span class="ghostcheck"></span>
+        <span class="ghosttext ghosttitle" style="width:${w}%;"></span>
+        ${withTag ? '<span class="ghosttext ghosttag"></span>' : ''}
+      </div>`;
+  }
+  return `
+    ${label ? `<div class="ghostlabel">${escapeHtml(label)}</div>` : ''}
+    <div class="ghostheading"></div>
+    <div class="ghostactions"><span class="ghostpill"></span><span class="ghostpill short"></span></div>
+    ${rowsHtml}
+  `;
+}
+
 function swipeBackGhostShow(g){
   const card = g.card;
   const r = card.getBoundingClientRect();
@@ -249,6 +291,7 @@ function swipeBackGhostShow(g){
   const ghost = document.createElement('div');
   ghost.className = 'stackedpage swipebackghost';
   ghost.style.cssText = `position:fixed; margin:0; left:${r.left + peek}px; top:${r.top + peek}px; width:${r.width}px; height:${r.height}px; opacity:0; transition:opacity 120ms ease; pointer-events:none;`;
+  ghost.innerHTML = swipeBackGhostContentHtml(g, r.height);
   card.parentElement.insertBefore(ghost, card);
   g.ghost = ghost;
   requestAnimationFrame(() => { if(g.ghost) g.ghost.style.opacity = '1'; });
@@ -261,12 +304,6 @@ function swipeBackGhostHide(g){
   ghost.style.transition = 'opacity 200ms ease';
   ghost.style.opacity = '0';
   setTimeout(() => ghost.remove(), 200);
-}
-
-function swipeBackGhostRemove(g){
-  if(!g.ghost) return;
-  g.ghost.remove();
-  g.ghost = null;
 }
 
 // Dial-drag counterpart of swipeSnapBack()/swipeFlyAway() — animates the
@@ -311,9 +348,27 @@ function swipeDialSnapBack(g){
 // navigation) once it's clear. Only used for 'back' now (day/month nav
 // uses swipeDialCommit() instead) — the card (.stackedpage) gets
 // discarded by the next render anyway, so clearing the inline style
-// before calling `after` is mostly just tidiness. Also removes the
-// swipe-back ghost page (see swipeBackGhostShow()) once it's served its
-// purpose — the real destination view is about to render in its place.
+// before calling `after` is mostly just tidiness.
+//
+// The swipe-back ghost (see swipeBackGhostShow()) stays fully opaque for
+// this entire 200ms fly-off — it's the page being *revealed*, so it
+// shouldn't fade while the real page on top of it is still visibly
+// departing. `after()` renders the real destination underneath the
+// (still fully opaque) ghost — invisibly, since the ghost covers the
+// exact same box — and only *then* does swipeBackGhostHide() fade the
+// ghost away, so what the eye actually sees is the ghost gracefully
+// dissolving to reveal the real page that's already sitting there,
+// rather than popping out of existence the instant the drag ends.
+//
+// The ghost has to be re-parented to <body> right before `after()` runs:
+// it's currently a sibling of `card` inside whatever container the real
+// destination's own render() call is about to overwrite wholesale via
+// `el.innerHTML = ...` (see the "avoid stale duplicate ids" comment on
+// render() in 08-render-core.js) — left in place, that wipe would
+// silently destroy the ghost mid-fade along with everything else that
+// used to be in there. An explicit z-index is what keeps it visually on
+// top of the freshly-rendered real content once it's no longer sitting
+// naturally above it in the DOM.
 function swipeFlyAway(card, dir, after, g){
   card.style.transition = 'transform 200ms ease-in, opacity 200ms ease-in';
   card.style.transform = `translateX(${dir * Math.max(window.innerWidth, 320)}px) rotate(${dir * 12}deg)`;
@@ -322,8 +377,12 @@ function swipeFlyAway(card, dir, after, g){
     card.style.transition = '';
     card.style.transform = '';
     card.style.opacity = '';
-    if(g) swipeBackGhostRemove(g);
+    if(g && g.ghost){
+      g.ghost.style.zIndex = '80';
+      document.body.appendChild(g.ghost);
+    }
     after();
+    if(g) swipeBackGhostHide(g);
   }, 200);
 }
 
