@@ -2332,7 +2332,11 @@
      tag peeking out" without touching the label at all. pointer-events:
      none keeps it from ever stealing the tab's own click/hover target. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag{
-    position:absolute; top:-22px; left:10px;
+    /* left:13px is really the count flag's own position now (the urgent
+       flag overrides it below) — nudged a touch right of the tab's own
+       8px curve so it doesn't sit flush against it the way the urgent
+       flag deliberately does. */
+    position:absolute; top:-22px; left:13px;
     width:28px; height:20px;
     display:flex; align-items:flex-end; justify-content:center; gap:2px;
     padding-bottom:3px;
@@ -2347,22 +2351,23 @@
   }
   /* The urgent marker is its own separate flag now, not a corner mark
      tucked inside the count flag — sitting right at the tab's own left
-     edge (left:-4px, further out than the count flag's left:10px, which
-     stays put) rather than mirrored to the right: both flags read as a
-     pair on the same (left) shoulder instead of one on each. It gets an
-     alert color (--estate, the same rust .badge.overdue/.badge.priority-
-     high already use elsewhere) instead of the category's own hex —
-     unlike the count, which belongs to the category, "something here is
-     overdue or High priority" is the same kind of fact regardless of
-     which category it's in, so it stays the same color everywhere. */
+     edge rather than mirrored to the right: both flags read as a pair on
+     the same (left) shoulder instead of one on each. It gets an alert
+     color (--estate, the same rust .badge.overdue/.badge.priority-high
+     already use elsewhere) instead of the category's own hex — unlike
+     the count, which belongs to the category, "something here is overdue
+     or High priority" is the same kind of fact regardless of which
+     category it's in, so it stays the same color everywhere. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag-urgent{
-    /* left:8px, not a negative offset — matches .tab's own 8px top-left
-       border-radius (see the .tab rule in <style>), so the flag's own
-       left edge picks up right where that curve finishes instead of
-       poking out past the tab into open space (read as "hovering,"
-       disconnected from the tab it belongs to). A little overlap with
-       the count flag next to it is fine — better than a gap. */
-    left:8px; width:18px;
+    /* left:8px (not a negative offset, and not moved again — this one
+       stays put) matches .tab's own 8px top-left border-radius (see the
+       .tab rule in <style>), so the flag's own left edge picks up right
+       where that curve finishes instead of poking out past the tab into
+       open space (read as "hovering," disconnected from the tab it
+       belongs to). width is a hair narrower than the count flag's 28px —
+       it only ever holds one character — and the slight overlap that
+       leaves with the count flag next to it is fine, better than a gap. */
+    left:8px; width:16px;
     justify-content:center; align-items:center; padding-bottom:0;
     background: var(--estate); color:white; border-color: color-mix(in srgb, var(--estate) 70%, black);
     font-weight:700; font-size:0.68rem;
