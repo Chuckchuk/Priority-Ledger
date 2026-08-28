@@ -653,10 +653,10 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     <div class="${fieldClass}">
       <span class="${captionClass}">Tab bar (desktop)</span>
       <select class="${selectClass}" onchange="setDevTabBarDesktopStyle(this.value)">
-        <option value="default" ${dev.tabBarDesktopStyle==='default'?'selected':''}>Default (horizontal pill row)</option>
+        <option value="overlap" ${dev.tabBarDesktopStyle==='overlap'?'selected':''}>Overlapping color tabs (default)</option>
+        <option value="default" ${dev.tabBarDesktopStyle==='default'?'selected':''}>Classic (horizontal pill row)</option>
         <option value="sidetabs" ${dev.tabBarDesktopStyle==='sidetabs'?'selected':''}>Vertical tabs down the left side</option>
         <option value="indextabs" ${dev.tabBarDesktopStyle==='indextabs'?'selected':''}>Staggered, color-edged index tabs</option>
-        <option value="overlap" ${dev.tabBarDesktopStyle==='overlap'?'selected':''}>Overlapping color tabs, hover to lift</option>
       </select>
     </div>
     ${dev.tabBarDesktopStyle==='overlap' ? `

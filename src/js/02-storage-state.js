@@ -457,14 +457,44 @@ function defaultDevSettings(){
   // the native menu regardless of this setting — Copy/Paste/spellcheck
   // there is exactly the "some of it is still useful" case the project
   // owner asked to keep.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', overlapSubtags:false, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default', customContextMenu:false };
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default', customContextMenu:false };
+}
+
+// A brand new account's task list starts with a few illustrative examples
+// instead of a blank "Nothing here yet." everywhere — shows what a task
+// (and, for Lists, a checklist with a couple of steps) actually looks
+// like without making anyone type one first, and doubles as a quick
+// sanity check while testing: fresh accounts land with real content
+// already sitting in a few different tabs. None carry a due date on
+// purpose — they're only here to look at, not to imply an actual
+// deadline. Uses the same shape addTask()/addChecklistList()/addSubtask()
+// build (see 16-task-crud.js) rather than a trimmed-down one, so nothing
+// downstream has to special-case an example task as different from a
+// real one.
+function defaultTasks(){
+  const mk = (title, category) => ({
+    id: newId('task'), title, category, status:'open', urgent:false, dueDate:'', notes:'',
+    subtasks: [], plannedDates: [], timeframe:'', priority:0, completedAt:'', createdAt: todayStr()
+  });
+  const list = mk('Packing list', 'lists');
+  list.subtasks = [
+    { id:newId('sub'), text:'Passport', done:false, dueDate:'', plannedDates:[] },
+    { id:newId('sub'), text:'Phone charger', done:false, dueDate:'', plannedDates:[] },
+    { id:newId('sub'), text:'Toothbrush', done:true, dueDate:'', plannedDates:[] }
+  ];
+  return [
+    mk("Reply to that email you've been putting off", 'work'),
+    mk('Fix the squeaky door', 'household'),
+    mk('Book a dentist appointment', 'personal'),
+    list
+  ];
 }
 
 function defaultState(){
   return {
     location: 'home',
     days: [],
-    tasks: [],
+    tasks: defaultTasks(),
     categories: defaultCategories(),
     locations: defaultLocations(),
     locationEnabled: true,

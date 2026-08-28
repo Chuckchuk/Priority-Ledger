@@ -204,7 +204,7 @@ function renderTabs(){
     // there's nothing else it needs a click for either, per the same
     // reasoning :hover was already turned off for it.
     const clickAttr = (overlapStyle && activeTab===key) ? '' : ` onclick="switchTab('${key}')"`;
-    return `<button class="tab ${activeTab===key?'active':''}"${hexStyle}${hoverAttrs}${clickAttr}>${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
+    return `<button class="tab ${activeTab===key?'active':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}>${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
   renderTabRowLines();
   updateTabScrollFade();
@@ -246,6 +246,19 @@ function tabAngleDeg(key){
 // away can't clobber a newer hover.
 let overlapNaturalRects = null;
 let overlapHoveredIdx = null;
+// One-line-vs-two-line sizing decisions, keyed by "tab key::label text" and
+// persisted across renders (never reset — see layoutOverlapTabs()) rather
+// than re-measured fresh every time. A borderline-length label like "House
+// Upkeep" sits right at OVERLAP_MAX_LABEL_WIDTH's edge, and re-running the
+// same shrink/wrap measurement on a freshly rebuilt element occasionally
+// landed a sub-pixel's width on the other side of that edge than last
+// time — not a real change, but enough to flip which font-size/wrap
+// decision it got, which then visibly "pulsed" on screen even though
+// nothing about that tab's content or its neighbors had changed. Caching
+// the decision the first time makes it stable by construction: same key
+// and label always gets the same answer, every render, forever (until the
+// label itself changes, which changes the cache key).
+let overlapSizeCache = {};
 
 const OVERLAP_MAX_LABEL_WIDTH = 92;  // soft width budget tried before allowing a real 2nd line — kept
                                       // tight on purpose (a category name isn't a sentence) so one long
@@ -352,14 +365,46 @@ function layoutOverlapTabs(){
     if(label){ label.style.whiteSpace = 'nowrap'; label.style.maxWidth = ''; }
   });
 
+  // Every tab is at base font size, single-line, right after the reset
+  // above and before anything below has a chance to shrink or wrap one of
+  // them — the one moment they're all guaranteed to share the exact same
+  // padding/line-height. Grabbed here (from whichever isn't .active, since
+  // that one alone has a taller padding-bottom) rather than sampled from
+  // whatever the *actual* tabs end up at post-shrink/wrap: sampling from
+  // real tabs meant #tabs' own pinned height (step 1b below) came out too
+  // short whenever a label needed heavy shrinking to fit, or too tall
+  // whenever one wrapped — reported both ways, tabs sitting "too low" (a
+  // 2-line label's second line clipped) and tabs "hovering" with a gap
+  // above the card, depending on which tabs happened to be in the row.
+  const restingProbe = tabs.find(t => !t.classList.contains('active')) || tabs[0];
+  const referenceTabHeight = restingProbe.offsetHeight;
+
   // ---- 1. One line if at all possible ----
   const baseFontPx = parseFloat(getComputedStyle(tabs[0]).fontSize) || 11.2;
   tabs.forEach(t=>{
+    const label = t.querySelector('.tablabel');
+    // t.textContent, not just the label's — overlapSubtags toggling the
+    // inline dot+count on/off, or the open count digit itself changing,
+    // both affect t.scrollWidth (what actually decides shrink/wrap) just
+    // as much as the label text does, and a key that missed either would
+    // silently reuse a decision measured under different content.
+    const cacheKey = (t.dataset.key || '') + '::' + t.textContent;
+    const cached = overlapSizeCache[cacheKey];
+    if(cached){
+      t.style.fontSize = cached.fontPx + 'px';
+      if(cached.twoLine && label){
+        label.style.whiteSpace = 'normal';
+        label.style.maxWidth = OVERLAP_MAX_LABEL_WIDTH + 'px';
+        t.classList.add('two-line');
+      }
+      return;
+    }
     let px = baseFontPx;
     while(t.scrollWidth > OVERLAP_MAX_LABEL_WIDTH && px > OVERLAP_MIN_FONT_PX){
       px -= 0.5;
       t.style.fontSize = px + 'px';
     }
+    let twoLine = false;
     if(t.scrollWidth > OVERLAP_MAX_LABEL_WIDTH){
       // Shrinking alone couldn't fit it on one line — wrap instead, but
       // back at the BASE font size, not whatever floor the shrink attempt
@@ -368,43 +413,43 @@ function layoutOverlapTabs(){
       // was tried first made a wrapped tab like "House Upkeep" look
       // needlessly tiny even though it now has two full lines' worth of
       // room to say the same thing.
-      t.style.fontSize = baseFontPx + 'px';
-      const label = t.querySelector('.tablabel');
-      if(!label) return;
-      const oneLineHeight = label.getBoundingClientRect().height;
-      label.style.whiteSpace = 'normal';
-      label.style.maxWidth = OVERLAP_MAX_LABEL_WIDTH + 'px';
-      if(label.getBoundingClientRect().height > oneLineHeight * 1.4){
-        t.classList.add('two-line');
-      } else {
-        // Wrapping didn't actually trigger (measurement was conservative) —
-        // no point paying for a wrap that didn't happen.
-        label.style.whiteSpace = 'nowrap';
-        label.style.maxWidth = '';
+      px = baseFontPx;
+      t.style.fontSize = px + 'px';
+      if(label){
+        const oneLineHeight = label.getBoundingClientRect().height;
+        label.style.whiteSpace = 'normal';
+        label.style.maxWidth = OVERLAP_MAX_LABEL_WIDTH + 'px';
+        if(label.getBoundingClientRect().height > oneLineHeight * 1.4){
+          twoLine = true;
+          t.classList.add('two-line');
+        } else {
+          // Wrapping didn't actually trigger (measurement was conservative) —
+          // no point paying for a wrap that didn't happen.
+          label.style.whiteSpace = 'nowrap';
+          label.style.maxWidth = '';
+        }
       }
     }
+    overlapSizeCache[cacheKey] = { fontPx: px, twoLine };
   });
 
-  // ---- 1b. Pin #tabs' own height to a single-line tab's, regardless of
-  // whether some tab wrapped to 2 lines (or overlapRankStagger lifted one
-  // up) — a flex container otherwise auto-sizes to its TALLEST child,
-  // which would grow #tabs' own contribution to the page's normal flow
-  // and, since #appCard's position is "wherever #tabs' negative bottom
-  // margin lands," push #appCard itself further down to match. Every
-  // *resting* tab's own vertical offset is fixed regardless of #tabs'
-  // height (position:relative, not tied to the container's box) — so a
-  // taller #tabs without this pin left every resting tab with LESS of its
-  // tail actually tucked behind the (now lower) card, up to a visible gap
-  // for tabs that used to just barely reach it. Falls back to the
-  // shortest tab's own height if literally everything wrapped, rather
-  // than the tallest — shrinking the reserved space is always safe here
-  // (tabs. overflow past it with impunity, see the .tabs rule in
-  // <style>), growing it is what causes the bug. ----
-  const singleLineHeights = tabs
-    .filter(t => !t.classList.contains('two-line') && !t.classList.contains('active'))
-    .map(t => t.offsetHeight);
-  const refHeights = singleLineHeights.length ? singleLineHeights : tabs.map(t => t.offsetHeight);
-  wrap.style.height = Math.min(...refHeights) + 'px';
+  // ---- 1b. Pin #tabs' own height to referenceTabHeight (captured above,
+  // before any tab could have shrunk or wrapped) regardless of what the
+  // ACTUAL tabs in this row end up at — a flex container otherwise auto-
+  // sizes to its tallest child, which would grow #tabs' own contribution
+  // to the page's normal flow and, since #appCard's position is "wherever
+  // #tabs' negative bottom margin lands," push #appCard down to match
+  // (every *resting* tab's own vertical offset is fixed regardless of
+  // #tabs' height, position:relative, not tied to the container's box —
+  // so a taller #tabs without this pin left every resting tab with LESS
+  // of its tail actually tucked behind the now-lower card, up to a
+  // visible gap). Sampling the height from real (possibly shrunk or
+  // wrapped) tabs instead of this fixed reference was its own bug in the
+  // other direction: whichever tab happened to need the heaviest shrink
+  // to fit made the sampled height too SHORT, pulling #appCard up and
+  // clipping every other tab's text closer to the card than intended —
+  // "House Upkeep getting cut off," tabs sitting "too low" in general. ----
+  wrap.style.height = referenceTabHeight + 'px';
 
   // ---- 2. Scrunch to fit: solve for how much each individual GAP needs to
   // overlap to keep the row within its actual available width, instead of
