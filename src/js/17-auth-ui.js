@@ -24,15 +24,64 @@ function toggleAuthMode(){
   document.getElementById('forgotPasswordRow').style.display = authMode === 'signin' ? '' : 'none';
 }
 
+// A dedicated view rather than reusing #authEmail — the sign-in field
+// might be empty, might hold an email the person is only *trying* (not
+// the account they actually forgot the password to), and reusing it made
+// it easy to fire off a reset without realizing which address it'd go to.
+function showForgotPassword(){
+  document.getElementById('forgotEmail').value = document.getElementById('authEmail').value.trim();
+  document.getElementById('forgotError').textContent = '';
+  document.getElementById('authShell').style.display = 'none';
+  document.getElementById('forgotShell').style.display = '';
+  updateForgotSubmitState();
+}
+
+function hideForgotPassword(){
+  clearTimeout(forgotCooldownTimer);
+  document.getElementById('forgotShell').style.display = 'none';
+  document.getElementById('authShell').style.display = '';
+}
+
+// Supabase's own send limit is a single quota shared across the whole
+// project, not per-user — a client-side, per-browser cooldown can't
+// enforce that globally, and isn't trying to. What it stops is someone
+// mashing this exact button while troubleshooting ("did it send? let me
+// try again") and burning through several slots of that shared quota in
+// a few seconds, which is exactly what happened here once already.
+const PASSWORD_RESET_COOLDOWN_MS = 60000;
+let forgotCooldownTimer = null;
+
+function forgotCooldownRemainingMs(){
+  const last = Number(localStorage.getItem('ledger-last-reset-request') || 0);
+  return Math.max(0, PASSWORD_RESET_COOLDOWN_MS - (Date.now() - last));
+}
+
+function updateForgotSubmitState(){
+  const btn = document.getElementById('forgotSubmitBtn');
+  const remaining = forgotCooldownRemainingMs();
+  clearTimeout(forgotCooldownTimer);
+  if(remaining > 0){
+    btn.disabled = true;
+    btn.textContent = `Resend in ${Math.ceil(remaining / 1000)}s`;
+    forgotCooldownTimer = setTimeout(updateForgotSubmitState, 1000);
+  }else{
+    btn.disabled = false;
+    btn.textContent = 'Send reset link';
+  }
+}
+
 // Supabase's /recover endpoint returns 200 whether or not the email
 // actually belongs to an account (avoids leaking which emails are
 // registered), so the success message here is deliberately generic rather
 // than confirming an email was sent to a real account.
 async function requestPasswordReset(){
-  const email = document.getElementById('authEmail').value.trim();
-  const errEl = document.getElementById('authError');
+  if(forgotCooldownRemainingMs() > 0) return; // the disabled button already guards this; a queued Enter keypress is the one other way in
+  const email = document.getElementById('forgotEmail').value.trim();
+  const errEl = document.getElementById('forgotError');
   errEl.textContent = '';
-  if(!email){ errEl.textContent = 'Enter your email above, then click "Forgot password?" again.'; return; }
+  if(!email){ errEl.textContent = 'Enter an email above.'; return; }
+  localStorage.setItem('ledger-last-reset-request', String(Date.now()));
+  updateForgotSubmitState();
   try{
     const res = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(AUTH_REDIRECT_URL)}`, {
       method: 'POST',
