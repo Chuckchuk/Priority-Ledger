@@ -13,8 +13,23 @@
     </div>
     <div class="autherror" id="authError"></div>
     <button class="authsubmit" id="authSubmitBtn" onclick="submitAuth()">Sign In</button>
+    <div class="footer-row" id="forgotPasswordRow"><button onclick="requestPasswordReset()">Forgot password?</button></div>
     <div class="footer-row"><button onclick="toggleAuthMode()" id="authModeToggle">Need an account? Create one</button></div>
     <div class="footer-row"><button onclick="continueLocally()">Continue without an account (this device only)</button></div>
+  </div>
+</div>
+<div class="shell" id="resetShell" style="display:none;">
+  <div class="masthead">
+    <h1>The Ledger</h1>
+    <div class="tagline">set a new password</div>
+  </div>
+  <div class="card">
+    <div class="authform">
+      <input type="password" id="resetPassword" placeholder="New password">
+      <input type="password" id="resetPasswordConfirm" placeholder="Confirm new password" onkeydown="if(event.key==='Enter') submitPasswordReset()">
+    </div>
+    <div class="autherror" id="resetError"></div>
+    <button class="authsubmit" id="resetSubmitBtn" onclick="submitPasswordReset()">Set new password</button>
   </div>
 </div>
 <div class="shell" id="appShell" style="display:none;">

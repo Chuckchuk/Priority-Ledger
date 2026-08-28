@@ -2441,8 +2441,23 @@
     </div>
     <div class="autherror" id="authError"></div>
     <button class="authsubmit" id="authSubmitBtn" onclick="submitAuth()">Sign In</button>
+    <div class="footer-row" id="forgotPasswordRow"><button onclick="requestPasswordReset()">Forgot password?</button></div>
     <div class="footer-row"><button onclick="toggleAuthMode()" id="authModeToggle">Need an account? Create one</button></div>
     <div class="footer-row"><button onclick="continueLocally()">Continue without an account (this device only)</button></div>
+  </div>
+</div>
+<div class="shell" id="resetShell" style="display:none;">
+  <div class="masthead">
+    <h1>The Ledger</h1>
+    <div class="tagline">set a new password</div>
+  </div>
+  <div class="card">
+    <div class="authform">
+      <input type="password" id="resetPassword" placeholder="New password">
+      <input type="password" id="resetPasswordConfirm" placeholder="Confirm new password" onkeydown="if(event.key==='Enter') submitPasswordReset()">
+    </div>
+    <div class="autherror" id="resetError"></div>
+    <button class="authsubmit" id="resetSubmitBtn" onclick="submitPasswordReset()">Set new password</button>
   </div>
 </div>
 <div class="shell" id="appShell" style="display:none;">
@@ -3317,13 +3332,15 @@ function renderDevPanel(){
 // Filled in once the project exists — see CLAUDE.md for setup steps.
 const SUPABASE_URL = 'https://kyswrzkgiphsniepahje.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5c3dyemtnaXBoc25pZXBhaGplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyMzk1NTAsImV4cCI6MjEwMjgxNTU1MH0.mvDp9f1KcqAol3Tq4Libi32tODMCrVv8HdD3C9-x30c';
-// Where a signup confirmation email should land the user — NOT wherever
-// Supabase's dashboard "Site URL" happens to be set (that's what sent
-// confirmation links to localhost:8000 before this existed). Must also
-// be added to Supabase's Authentication > URL Configuration > Redirect
-// URLs allow-list, or GoTrue silently ignores it and falls back to Site
-// URL anyway.
-const SIGNUP_REDIRECT_URL = 'https://chuckchuk.github.io/Priority-Ledger/welcome.html';
+// Where a signup-confirmation or password-recovery email should land the
+// user — NOT wherever Supabase's dashboard "Site URL" happens to be set
+// (that's what sent confirmation links to localhost:8000 before this
+// existed). Must also be added to Supabase's Authentication > URL
+// Configuration > Redirect URLs allow-list, or GoTrue silently ignores it
+// and falls back to Site URL anyway. welcome.html forwards straight into
+// priority-ledger.html, carrying along whatever hash GoTrue attached
+// (e.g. the #access_token&type=recovery pair init() looks for below).
+const AUTH_REDIRECT_URL = 'https://chuckchuk.github.io/Priority-Ledger/welcome.html';
 const EMPTY_MSG = {
   all: "The ledger's empty. Start logging what needs doing.",
   work: "Nothing on your plate at work. Add a task above.",
@@ -3471,6 +3488,12 @@ let catWheelDragCtx = null;
 let session = null; // { access_token, refresh_token, expires_at, user_id, email }
 let localOnlyMode = false; // explicit opt-out of an account, chosen on the auth screen
 let authMode = 'signin';
+// Set by init() when the page loads with a #access_token&type=recovery
+// hash (a password-recovery email link, forwarded through welcome.html) —
+// { access_token, refresh_token, expires_in }. Non-null is what tells
+// enterApp()'s caller to show #resetShell instead of the normal sign-in
+// form; cleared once submitPasswordReset() succeeds.
+let recoverySession = null;
 
 function loadSession(){
   const raw = localStorage.getItem('ledger-auth');
@@ -8333,6 +8356,75 @@ function toggleAuthMode(){
   document.getElementById('authModeToggle').textContent =
     authMode === 'signin' ? 'Need an account? Create one' : 'Already have an account? Sign in';
   document.getElementById('authError').textContent = '';
+  // Only makes sense while signing in — a brand-new account has no
+  // password to forget yet.
+  document.getElementById('forgotPasswordRow').style.display = authMode === 'signin' ? '' : 'none';
+}
+
+// Supabase's /recover endpoint returns 200 whether or not the email
+// actually belongs to an account (avoids leaking which emails are
+// registered), so the success message here is deliberately generic rather
+// than confirming an email was sent to a real account.
+async function requestPasswordReset(){
+  const email = document.getElementById('authEmail').value.trim();
+  const errEl = document.getElementById('authError');
+  errEl.textContent = '';
+  if(!email){ errEl.textContent = 'Enter your email above, then click "Forgot password?" again.'; return; }
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(AUTH_REDIRECT_URL)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email })
+    });
+    if(!res.ok){
+      const data = await res.json().catch(() => ({}));
+      errEl.textContent = data.error_description || data.msg || 'Something went wrong.';
+      return;
+    }
+    errEl.textContent = 'If that email has an account, a reset link is on its way.';
+  }catch(e){
+    errEl.textContent = 'Network error — try again.';
+  }
+}
+
+// Handles the #resetShell form init() shows when the page loads with a
+// password-recovery hash (see init() in 19-bootstrap.js). The recovery
+// link's access_token is itself a valid session token, so a successful
+// password change logs the user straight in rather than sending them back
+// to the sign-in form to re-enter the password they just set.
+async function submitPasswordReset(){
+  const pw = document.getElementById('resetPassword').value;
+  const pw2 = document.getElementById('resetPasswordConfirm').value;
+  const errEl = document.getElementById('resetError');
+  errEl.textContent = '';
+  if(!pw || pw.length < 6){ errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  if(pw !== pw2){ errEl.textContent = "Passwords don't match."; return; }
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${recoverySession.access_token}`
+      },
+      body: JSON.stringify({ password: pw })
+    });
+    const data = await res.json();
+    if(!res.ok){ errEl.textContent = data.error_description || data.msg || 'Something went wrong.'; return; }
+    history.replaceState(null, '', location.pathname + location.search);
+    saveSession({
+      access_token: recoverySession.access_token,
+      refresh_token: recoverySession.refresh_token,
+      expires_at: Date.now() + recoverySession.expires_in * 1000,
+      user_id: data.id,
+      email: data.email
+    });
+    recoverySession = null;
+    document.getElementById('resetShell').style.display = 'none';
+    await enterApp();
+  }catch(e){
+    errEl.textContent = 'Network error — try again.';
+  }
 }
 
 async function submitAuth(){
@@ -8343,7 +8435,7 @@ async function submitAuth(){
   if(!email || !password){ errEl.textContent = 'Enter an email and password.'; return; }
   const endpoint = authMode === 'signin'
     ? `${SUPABASE_URL}/auth/v1/token?grant_type=password`
-    : `${SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(SIGNUP_REDIRECT_URL)}`;
+    : `${SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(AUTH_REDIRECT_URL)}`;
   try{
     const res = await fetch(endpoint, {
       method: 'POST',
@@ -8969,6 +9061,23 @@ function isLocalDevHost(){
 }
 
 (async function init(){
+  // A password-recovery email link lands here as
+  // #access_token=...&refresh_token=...&expires_in=...&type=recovery
+  // (GoTrue's implicit-flow redirect, forwarded through welcome.html) —
+  // takes priority over every other path below, including an existing
+  // session, since clicking that link is always meant to open the
+  // set-new-password form, not silently sign into whatever was already
+  // logged in on this device.
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  if(hashParams.get('type') === 'recovery' && hashParams.get('access_token')){
+    recoverySession = {
+      access_token: hashParams.get('access_token'),
+      refresh_token: hashParams.get('refresh_token'),
+      expires_in: Number(hashParams.get('expires_in')) || 3600
+    };
+    document.getElementById('resetShell').style.display = '';
+    return;
+  }
   if(window.storage){ await enterApp(); return; }
   if(isLocalDevHost() && new URLSearchParams(location.search).has('localdev')){
     localOnlyMode = true;

@@ -19,6 +19,75 @@ function toggleAuthMode(){
   document.getElementById('authModeToggle').textContent =
     authMode === 'signin' ? 'Need an account? Create one' : 'Already have an account? Sign in';
   document.getElementById('authError').textContent = '';
+  // Only makes sense while signing in — a brand-new account has no
+  // password to forget yet.
+  document.getElementById('forgotPasswordRow').style.display = authMode === 'signin' ? '' : 'none';
+}
+
+// Supabase's /recover endpoint returns 200 whether or not the email
+// actually belongs to an account (avoids leaking which emails are
+// registered), so the success message here is deliberately generic rather
+// than confirming an email was sent to a real account.
+async function requestPasswordReset(){
+  const email = document.getElementById('authEmail').value.trim();
+  const errEl = document.getElementById('authError');
+  errEl.textContent = '';
+  if(!email){ errEl.textContent = 'Enter your email above, then click "Forgot password?" again.'; return; }
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(AUTH_REDIRECT_URL)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email })
+    });
+    if(!res.ok){
+      const data = await res.json().catch(() => ({}));
+      errEl.textContent = data.error_description || data.msg || 'Something went wrong.';
+      return;
+    }
+    errEl.textContent = 'If that email has an account, a reset link is on its way.';
+  }catch(e){
+    errEl.textContent = 'Network error — try again.';
+  }
+}
+
+// Handles the #resetShell form init() shows when the page loads with a
+// password-recovery hash (see init() in 19-bootstrap.js). The recovery
+// link's access_token is itself a valid session token, so a successful
+// password change logs the user straight in rather than sending them back
+// to the sign-in form to re-enter the password they just set.
+async function submitPasswordReset(){
+  const pw = document.getElementById('resetPassword').value;
+  const pw2 = document.getElementById('resetPasswordConfirm').value;
+  const errEl = document.getElementById('resetError');
+  errEl.textContent = '';
+  if(!pw || pw.length < 6){ errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  if(pw !== pw2){ errEl.textContent = "Passwords don't match."; return; }
+  try{
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${recoverySession.access_token}`
+      },
+      body: JSON.stringify({ password: pw })
+    });
+    const data = await res.json();
+    if(!res.ok){ errEl.textContent = data.error_description || data.msg || 'Something went wrong.'; return; }
+    history.replaceState(null, '', location.pathname + location.search);
+    saveSession({
+      access_token: recoverySession.access_token,
+      refresh_token: recoverySession.refresh_token,
+      expires_at: Date.now() + recoverySession.expires_in * 1000,
+      user_id: data.id,
+      email: data.email
+    });
+    recoverySession = null;
+    document.getElementById('resetShell').style.display = 'none';
+    await enterApp();
+  }catch(e){
+    errEl.textContent = 'Network error — try again.';
+  }
 }
 
 async function submitAuth(){
@@ -29,7 +98,7 @@ async function submitAuth(){
   if(!email || !password){ errEl.textContent = 'Enter an email and password.'; return; }
   const endpoint = authMode === 'signin'
     ? `${SUPABASE_URL}/auth/v1/token?grant_type=password`
-    : `${SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(SIGNUP_REDIRECT_URL)}`;
+    : `${SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(AUTH_REDIRECT_URL)}`;
   try{
     const res = await fetch(endpoint, {
       method: 'POST',

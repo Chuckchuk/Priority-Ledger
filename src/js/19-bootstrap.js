@@ -306,6 +306,23 @@ function isLocalDevHost(){
 }
 
 (async function init(){
+  // A password-recovery email link lands here as
+  // #access_token=...&refresh_token=...&expires_in=...&type=recovery
+  // (GoTrue's implicit-flow redirect, forwarded through welcome.html) —
+  // takes priority over every other path below, including an existing
+  // session, since clicking that link is always meant to open the
+  // set-new-password form, not silently sign into whatever was already
+  // logged in on this device.
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  if(hashParams.get('type') === 'recovery' && hashParams.get('access_token')){
+    recoverySession = {
+      access_token: hashParams.get('access_token'),
+      refresh_token: hashParams.get('refresh_token'),
+      expires_in: Number(hashParams.get('expires_in')) || 3600
+    };
+    document.getElementById('resetShell').style.display = '';
+    return;
+  }
   if(window.storage){ await enterApp(); return; }
   if(isLocalDevHost() && new URLSearchParams(location.search).has('localdev')){
     localOnlyMode = true;
