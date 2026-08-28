@@ -426,31 +426,44 @@ function closeMobileTaskDetail(){
   render();
 }
 
-function renderList(){
-  // Checklist lists don't carry due dates/priority and open into their
-  // own dedicated view rather than an inline expand, so taskRowHtml can't
-  // render them sensibly — they're excluded from "All" entirely rather
-  // than shown with fields that don't apply. Orphaned tasks (category id
-  // matches nothing current) still fall through to "All" as always.
-  const list = state.tasks.filter(t => {
+// Checklist lists don't carry due dates/priority and open into their own
+// dedicated view rather than an inline expand, so taskRowHtml can't
+// render them sensibly — they're excluded from "All" entirely rather
+// than shown with fields that don't apply. Orphaned tasks (category id
+// matches nothing current) still fall through to "All" as always. Pure
+// (reads global state, no DOM writes) so swipeBackPreviewHtml() in
+// 19-bootstrap.js can call it directly to preview a category tab's real
+// content behind a back-swipe, without needing renderList() itself to
+// actually repaint anything.
+function categoryMatchingTasks(){
+  return state.tasks.filter(t => {
     if(activeTab !== 'all') return t.category === activeTab;
     const cat = CATEGORIES[t.category];
     return !cat || cat.type !== 'checklist';
   });
-  const visible = applySortMode(list).filter(t => showDone || t.status!=='done');
-  const doneCount = list.filter(t=>t.status==='done').length;
+}
+function categoryVisibleTasks(){
+  return applySortMode(categoryMatchingTasks()).filter(t => showDone || t.status!=='done');
+}
+
+// Just the <ul class="tasks"> markup (or the empty-state div) — pure,
+// same reason as categoryVisibleTasks() above.
+function categoryListHtml(){
+  const visible = categoryVisibleTasks();
+  return visible.length===0
+    ? `<div class="empty">${EMPTY_MSG[activeTab] || 'Nothing here yet.'}</div>`
+    : visible.map(t=>taskRowHtml(t, activeTab==='all', false)).join('') + dropEndHtml(visible);
+}
+
+function renderList(){
+  const doneCount = categoryMatchingTasks().filter(t=>t.status==='done').length;
 
   document.getElementById('sortRow').innerHTML = `
     <label class="fieldlabel">SORT</label>
     <select onchange="setSortMode(this.value)">${sortModeOptionsHtml(activeTab==='all')}</select>
   `;
 
-  const el = document.getElementById('taskList');
-  if(visible.length===0){
-    el.innerHTML = `<div class="empty">${EMPTY_MSG[activeTab] || 'Nothing here yet.'}</div>`;
-  } else {
-    el.innerHTML = visible.map(t=>taskRowHtml(t, activeTab==='all', false)).join('') + dropEndHtml(visible);
-  }
+  document.getElementById('taskList').innerHTML = categoryListHtml();
 
   const btn = document.getElementById('showDoneBtn');
   btn.textContent = showDone ? `Hide completed (${doneCount})` : `Show completed (${doneCount})`;
@@ -471,6 +484,34 @@ function escapeHtml(s){
 // that isn't anchored to a .stackedpage (see .pagetag.compact).
 function pageTagHtml(onclick, label, compact){
   return `<button class="pagetag${compact?' compact':''}" onclick="${onclick}"><span class="pagetagtip"></span><span class="pagetaglabel">${escapeHtml(label)}</span></button>`;
+}
+
+// What activeTab's own base view currently shows — pure mirror of
+// render()'s own isDaily/isChecklist/isCalendar/else dispatch below, and
+// of renderDaily()'s/renderChecklist()'s own internal sub-state dispatch,
+// but returning a string instead of writing into #dailyView/#checklistView/
+// etc. Exists for swipeBackPreviewHtml() in 19-bootstrap.js, which needs
+// to preview "whatever's behind Settings/the Claude view/a long-pressed
+// task's full-page detail" for a back-swipe ghost — all three back to
+// activeTab's own base view unchanged, without going through any of
+// those overlays' own state. Not used by render() itself, which still
+// writes directly into each view's real DOM element — this is strictly
+// an additional read path for a preview that must never touch the real
+// document.
+function currentTabBodyHtml(){
+  if(activeTab === 'daily'){
+    if(dailyCalendarOpen) return renderDailyCalendar();
+    if(selectedDay && taskDetailId) return renderTaskDetailPage(taskDetailId, 'closeTaskDetail()', 'Daily');
+    if(selectedDay) return renderDayDetail(selectedDay);
+    return renderDayList();
+  }
+  if(isChecklistCategory(activeTab)){
+    if(checklistPendingOpen) return renderChecklistPending(activeTab);
+    if(selectedListId) return renderChecklistDetail(selectedListId);
+    return renderChecklistOverview(activeTab);
+  }
+  if(isCalendarCategory(activeTab)) return calendarTabBodyHtml();
+  return categoryListHtml();
 }
 
 function render(){

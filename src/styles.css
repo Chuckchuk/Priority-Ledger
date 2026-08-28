@@ -1013,15 +1013,20 @@
      heavier shadow makes it unmistakably a distinct surface sitting a
      little lower down, and this rule's later position in the cascade
      (same 0-1-0 specificity as .stackedpage's own) is what lets it win
-     without needing !important. display:flex/column here (not on
-     .stackedpage generally, which holds arbitrary markup) since this
-     element's own content is always the fixed label/heading/rows list
-     swipeBackGhostContentHtml() builds. */
+     without needing !important. Real destination content (see
+     swipeBackPreviewHtml() in 19-bootstrap.js) is inserted with no extra
+     layout override — it's built by the actual page's own render
+     function, so it already carries correct spacing via the real
+     classes it uses. .skeleton is the content-shaped *fallback* only
+     (swipeBackGhostContentHtml()'s fixed label/heading/rows list) —
+     display:flex/column there since that markup has no layout of its
+     own otherwise. */
   .swipebackghost{
     background: var(--card-bg-dim);
     box-shadow: 0 16px 34px rgba(0,0,0,0.34), 0 5px 12px rgba(0,0,0,0.18);
-    display:flex; flex-direction:column; gap:14px; overflow:hidden;
+    overflow:hidden;
   }
+  .swipebackghost.skeleton{ display:flex; flex-direction:column; gap:14px; }
   .ghostlabel{
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.06em;
     text-transform:uppercase; color: var(--ink-soft); opacity:0.75;

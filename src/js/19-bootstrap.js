@@ -221,12 +221,6 @@ function swipeSnapBack(card, g){
 // (render() wipes an inactive view's innerHTML to avoid duplicate task-
 // row ids, see the comment there), so without this there's genuinely
 // nothing behind the page as it slides: just #appCard's bare background.
-// Rather than keeping the real destination view mounted and visible
-// (which risks ITS OWN .pagetag — or another .stackedpage's — jutting
-// out from behind the one currently mid-drag, since both would be full,
-// live, differently-sized pages), this is a content-*shaped* stand-in —
-// see swipeBackGhostContentHtml() below for what it's actually built of
-// and why it isn't the real thing.
 //
 // Two things a first pass at this got wrong, both because it exactly
 // matched the real page's own box: (1) .stackedpage's own background is
@@ -245,20 +239,90 @@ function swipeSnapBack(card, g){
 // before a normal decisive swipe has already committed and flown away.
 const SWIPE_BACK_GHOST_PEEK_PX = 7;
 
-// Content-shaped filler for the ghost — not the real destination's actual
-// data (see the project owner's own call: a full real-copy preview would
-// need separating "build the HTML" from "write it to the DOM" across
-// every view type, a real refactor of core rendering just for a cosmetic
-// mid-drag preview), but real .stackedpage-shaped structure (a checkbox
-// circle + title bar per row, occasional tag pill) with blurred/muted
+// The real destination content, sanitized — see swipeBackPreviewHtml()
+// below for how this is actually obtained. `id="..."` attributes are
+// stripped so nothing here can collide with the real document's ids
+// (e.g. `exp-<taskId>` on an expand block) even though this markup
+// briefly sits in the live DOM; every inline event-handler attribute
+// (onclick, onchange, ondragstart, ...) is stripped too, so the preview
+// is genuinely inert — exactly the "locked version... no actions linked
+// to it" the project owner asked for — on top of the ghost's own
+// pointer-events:none already blocking mouse interaction regardless.
+function sanitizeGhostHtml(html){
+  return html.replace(/\sid="[^"]*"/g, '').replace(/\son[a-z]+="[^"]*"/gi, '');
+}
+
+// Some of swipeBackPreviewHtml()'s cases (renderDayDetail(),
+// renderChecklistDetail() when reached via checklistReturnDay) return
+// markup that's normally itself a drilldown, so it comes wrapped in its
+// own `<div class="stackedpage">` — inserted as-is, that would nest a
+// second .stackedpage (padding, background, shadow, radius, all doubled)
+// inside the ghost's own. Since the ghost element itself already carries
+// the .stackedpage class, this strips exactly that one outer wrapper
+// (safe no-op for every other case, which never starts with it) so the
+// content sits directly in the ghost's own single padding/background,
+// same as any of the other cases that were never wrapped to begin with.
+function unwrapStackedPage(html){
+  const trimmed = html.trim();
+  const prefix = '<div class="stackedpage">';
+  if(!trimmed.startsWith(prefix)) return html;
+  const inner = trimmed.slice(prefix.length);
+  const lastClose = inner.lastIndexOf('</div>');
+  return lastClose === -1 ? html : inner.slice(0, lastClose);
+}
+
+// What's actually behind this specific .stackedpage — computed from the
+// exact same state each real closeX() function already reads to decide
+// where to go, just read here instead of acted on, and building HTML
+// via a pure function instead of writing to the real DOM. Keyed off
+// which container the dragged page lives in (not global flags alone —
+// e.g. selectedDay can stay set while Settings is open over top of a
+// day, which must not be mistaken for "this is the day-detail page's
+// own back-swipe") so it always matches what render() itself treats as
+// "behind" that specific container:
+//   #settingsView / #mobileTaskDetailView -> currentTabBodyHtml()
+//     (both float over activeTab's own view unchanged underneath)
+//   #dailyView -> a task detail (taskDetailId set) backs to its day's
+//     own detail page; the day detail itself backs to the day list or
+//     the calendar, matching dayReturnToCalendar exactly like closeDay()
+//   #checklistView -> a list opened from a specific day (checklistReturnDay,
+//     see openChecklistListFromDay()) backs to that day; otherwise back
+//     to the category's own checklist overview
+// #claudeView is deliberately left unhandled (falls through to null,
+// the content-shaped fallback below) — it backs to Settings, which isn't
+// a pure function today, and Claude view is rare enough not to be worth
+// its own carve-out. Wrapped by the caller in a try/catch: these are the
+// app's real render functions, running slightly outside their usual
+// context (mid-gesture, not from render() itself), so a bad edge case
+// here must never break the actual swipe.
+function swipeBackPreviewHtml(card){
+  const containerId = card.parentElement && card.parentElement.id;
+  if(containerId === 'settingsView' || containerId === 'mobileTaskDetailView'){
+    return currentTabBodyHtml();
+  }
+  if(containerId === 'dailyView'){
+    if(taskDetailId) return renderDayDetail(selectedDay);
+    return dayReturnToCalendar ? renderDailyCalendar() : renderDayList();
+  }
+  if(containerId === 'checklistView'){
+    if(selectedListId && checklistReturnDay) return renderDayDetail(checklistReturnDay);
+    return renderChecklistOverview(activeTab);
+  }
+  return null;
+}
+
+// Content-*shaped* filler for when swipeBackPreviewHtml() can't say what
+// the real destination is (the #claudeView case above, or a real render
+// call throwing) — real .stackedpage-shaped structure (a checkbox circle
+// + title bar per row, occasional tag pill) with blurred/muted
 // placeholder bars standing in for actual text, so it reads as "a page
-// with some items on it" rather than an empty box. Row count scales with
-// the real page's own height (SWIPE_GHOST_ROW_PX per row) so a tall page
-// like Settings doesn't look sparse and a short one doesn't look
-// overstuffed. The one genuinely real detail included is the label off
-// `g.backTag` itself — the actual name of wherever this swipe is headed
-// (e.g. "Daily", "All Days", "Calendar") — since that's already sitting
-// right there for free.
+// with some items on it" rather than an empty box, instead of nothing at
+// all. Row count scales with the real page's own height (SWIPE_GHOST_ROW_PX
+// per row) so a tall page doesn't look sparse and a short one doesn't
+// look overstuffed. The one genuinely real detail included is the label
+// off `g.backTag` itself — the actual name of wherever this swipe is
+// headed (e.g. "Daily", "All Days") — since that's already sitting right
+// there for free.
 const SWIPE_GHOST_ROW_PX = 46;
 const SWIPE_GHOST_ROW_WIDTHS = [92, 68, 100, 78, 85, 60, 95, 72];
 function swipeBackGhostContentHtml(g, heightPx){
@@ -289,9 +353,17 @@ function swipeBackGhostShow(g){
   const r = card.getBoundingClientRect();
   const peek = SWIPE_BACK_GHOST_PEEK_PX;
   const ghost = document.createElement('div');
-  ghost.className = 'stackedpage swipebackghost';
+  let realHtml = null;
+  try { realHtml = swipeBackPreviewHtml(card); if(realHtml) realHtml = unwrapStackedPage(realHtml); } catch(e) { realHtml = null; }
+  // .skeleton (the flex/gap layout the placeholder rows need) only
+  // applies to the fallback content — real content already carries its
+  // own real layout/spacing via the exact same classes the actual page
+  // uses (it's built by the actual page's own render function), so
+  // forcing a flex gap onto its top-level children here would just
+  // introduce spacing that doesn't match the real thing.
+  ghost.className = realHtml ? 'stackedpage swipebackghost' : 'stackedpage swipebackghost skeleton';
   ghost.style.cssText = `position:fixed; margin:0; left:${r.left + peek}px; top:${r.top + peek}px; width:${r.width}px; height:${r.height}px; opacity:0; transition:opacity 120ms ease; pointer-events:none;`;
-  ghost.innerHTML = swipeBackGhostContentHtml(g, r.height);
+  ghost.innerHTML = realHtml ? sanitizeGhostHtml(realHtml) : swipeBackGhostContentHtml(g, r.height);
   card.parentElement.insertBefore(ghost, card);
   g.ghost = ghost;
   requestAnimationFrame(() => { if(g.ghost) g.ghost.style.opacity = '1'; });

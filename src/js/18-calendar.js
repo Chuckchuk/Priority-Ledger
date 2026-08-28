@@ -161,18 +161,24 @@ function calendarBodyHtml(monthKeyStr){
 // and a tab of that type exists — see toggleDevSetting('calendarTabTypeEnabled', ...)
 // in the Dev Settings section. Not the normal path any more (that's
 // renderDailyCalendar() below) but kept working since the rendering code
-// underneath (calendarBodyHtml() etc.) is the same either way.
-function renderCalendar(){
-  const el = document.getElementById('calendarView');
+// underneath (calendarBodyHtml() etc.) is the same either way. Pure
+// (reads global state, no DOM writes) so currentTabBodyHtml() in
+// 08-render-core.js — used to preview a tab's real content behind a
+// back-swipe (see swipeBackPreviewHtml() in 19-bootstrap.js) — can call
+// it directly rather than duplicating this markup.
+function calendarTabBodyHtml(){
   const todayOpen = tabOpenCount('daily');
   // A compact page tag, same component the checklist overview's "Pending"
   // trigger uses — matched purely by sharing the .pagetag.compact class,
   // so it automatically picks up whatever dev pendingTagStyle/
   // pendingTagColor is set, no calendar-specific wiring needed.
-  el.innerHTML = `
+  return `
     ${pageTagHtml(`openCalendarDay('${todayStr()}')`, todayOpen > 0 ? `Today · ${todayOpen}` : 'Today', true)}
     ${calendarBodyHtml(calendarMonth())}
   `;
+}
+function renderCalendar(){
+  document.getElementById('calendarView').innerHTML = calendarTabBodyHtml();
 }
 
 // The normal way to reach a calendar view — a compact "Calendar" tag on
