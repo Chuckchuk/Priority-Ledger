@@ -4403,7 +4403,20 @@ function renderTabs(){
       ? ` style="--tabhex:${cat.hex};--tabtext:${relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9'};--tabedge:${shadeHex(cat.hex, -0.25)};--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`
       : ` style="--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`;
     const hoverAttrs = pushMode ? ` onmouseenter="overlapTabHoverStart(${idx})" onmouseleave="overlapTabHoverEnd(${idx})"` : '';
-    return `<button class="tab ${activeTab===key?'active':''}"${hexStyle}${hoverAttrs} onclick="switchTab('${key}')">${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
+    // Re-clicking the tab you're already on is a genuine no-op everywhere
+    // else (switchTab() still runs, mainly to close whatever overlay
+    // might be open) — but in overlap style it rebuilds every .tab
+    // element from scratch, and re-running solveGapOverlaps()/
+    // computeOverlapPush() against fresh DOM occasionally lands a hair's
+    // width off the previous pass (sub-pixel measurement noise), which
+    // the transform transition then visibly animates through as a small
+    // unwanted "pulse" on the neighbors. Overlap style's active tab
+    // (and its #tabConnector clone, which copies this same markup) skips
+    // the onclick entirely instead of trying to chase that noise down —
+    // there's nothing else it needs a click for either, per the same
+    // reasoning :hover was already turned off for it.
+    const clickAttr = (overlapStyle && activeTab===key) ? '' : ` onclick="switchTab('${key}')"`;
+    return `<button class="tab ${activeTab===key?'active':''}"${hexStyle}${hoverAttrs}${clickAttr}>${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
   renderTabRowLines();
   updateTabScrollFade();
@@ -4457,6 +4470,11 @@ const OVERLAP_REVEAL_HARD = 10;      // relaxed floor tried once comfort alone c
 const OVERLAP_REVEAL_ABSOLUTE = 3;   // last-resort floor — "never fully hides a tab" loses to "must fit" past this
 const OVERLAP_MIN_HPAD = 5;          // floor for the secondary lever (horizontal padding) below
 const OVERLAP_MAX_PRESSURE = 400;    // solveGapOverlaps()'s search ceiling — plenty for any realistic tab count
+const OVERLAP_PUSH1_SLACK = 6;       // px of deliberate residual overlap computeOverlapPush() leaves an
+                                      // immediate neighbor with, rather than clearing it completely — lands
+                                      // in the neighbor's own --tab-hpad padding, not its label text
+const OVERLAP_PUSH2_FRACTION = 0.4;  // how much of a distance-2 tab's own edge gap it gets pushed by —
+                                      // noticeably less than a distance-1 neighbor's push, per the ask
 const OVERLAP_STAGGER_MAX = 6;       // overlapRankStagger's max lift for the very back-most tab — kept well
                                       // under .active's own dedicated lift (see the .tab.active rule in
                                       // <style>) so "selected always highest" still holds even stacked with
@@ -4755,9 +4773,23 @@ function computeOverlapPush(sources){
   const srcs = sources.filter(s => s != null && s >= 0);
   const dx = new Array(tabs.length).fill(0);
   srcs.forEach(s=>{
-    [s - 1, s + 1].forEach(n=>{
+    // Distance-1 neighbors get pushed clear of the source, minus
+    // OVERLAP_PUSH1_SLACK — leaving a few px of deliberate residual
+    // overlap rather than clearing it completely. That residual only
+    // ever eats into the neighbor's own --tab-hpad padding, never its
+    // label text (the label sits inboard of the padding on both sides),
+    // so it costs nothing to look at while meaningfully shortening how
+    // far the neighbor visibly travels. Distance-2 gets a fraction of ITS
+    // OWN edge gap with the source instead — smaller both because
+    // OVERLAP_PUSH2_FRACTION < 1 and because a tab two away typically
+    // overlaps the source less to begin with, if at all (overlapEdgeGap
+    // returns 0 once they don't overlap in their natural resting
+    // positions, so this is a genuine no-op past wherever the row
+    // actually stops overlapping that far).
+    [[s - 1, false], [s + 1, false], [s - 2, true], [s + 2, true]].forEach(([n, dist2])=>{
       if(n < 0 || n >= tabs.length) return;
-      const amt = overlapEdgeGap(s, n);
+      const gap = overlapEdgeGap(s, n);
+      const amt = dist2 ? gap * OVERLAP_PUSH2_FRACTION : Math.max(0, gap - OVERLAP_PUSH1_SLACK);
       dx[n] += (n < s ? -1 : 1) * amt;
     });
   });
