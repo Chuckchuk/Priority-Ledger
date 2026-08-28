@@ -130,10 +130,12 @@ function tabSubtagHtml(key, openCount){
   const icon = categoryDotHtml(cat, 'dot');
   // Two independent flags, not one flag with the "!" tucked into a
   // corner of it — the project owner asked for the urgent marker to be
-  // its own separate tag, mirrored on the opposite (top-right) side of
-  // the tab from the count flag (top-left). tabHasUrgentTask() can only
-  // be true alongside openCount>0 (an overdue/High task is itself still
-  // open), so no separate guard is needed for it here.
+  // its own separate tag, sitting further out at the tab's left edge
+  // than the count flag (which stays put where it's always been — see
+  // the .tabsubtag/.tabsubtag-urgent rules in <style> for the actual
+  // positions). tabHasUrgentTask() can only be true alongside openCount>0
+  // (an overdue/High task is itself still open), so no separate guard is
+  // needed for it here.
   const countFlag = `<div class="tabsubtag tabsubtag-count">${icon}<span class="tabsubtag-num">${openCount}</span></div>`;
   const urgentFlag = tabHasUrgentTask(key) ? `<div class="tabsubtag tabsubtag-urgent">!</div>` : '';
   return countFlag + urgentFlag;

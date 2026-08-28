@@ -2346,16 +2346,17 @@
     width:auto; height:auto; font-size:0.62rem;
   }
   /* The urgent marker is its own separate flag now, not a corner mark
-     tucked inside the count flag — mirrored to the tab's top-RIGHT edge
-     (left:auto/right:10px overriding the shared .tabsubtag left:10px)
-     so the two flags read as a pair, one on each shoulder. It gets an
+     tucked inside the count flag — sitting right at the tab's own left
+     edge (left:-4px, further out than the count flag's left:10px, which
+     stays put) rather than mirrored to the right: both flags read as a
+     pair on the same (left) shoulder instead of one on each. It gets an
      alert color (--estate, the same rust .badge.overdue/.badge.priority-
      high already use elsewhere) instead of the category's own hex —
      unlike the count, which belongs to the category, "something here is
      overdue or High priority" is the same kind of fact regardless of
      which category it's in, so it stays the same color everywhere. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag-urgent{
-    left:auto; right:10px; width:18px;
+    left:-4px; width:18px;
     justify-content:center; align-items:center; padding-bottom:0;
     background: var(--estate); color:white; border-color: color-mix(in srgb, var(--estate) 70%, black);
     font-weight:700; font-size:0.68rem;
@@ -4442,10 +4443,12 @@ function tabSubtagHtml(key, openCount){
   const icon = categoryDotHtml(cat, 'dot');
   // Two independent flags, not one flag with the "!" tucked into a
   // corner of it — the project owner asked for the urgent marker to be
-  // its own separate tag, mirrored on the opposite (top-right) side of
-  // the tab from the count flag (top-left). tabHasUrgentTask() can only
-  // be true alongside openCount>0 (an overdue/High task is itself still
-  // open), so no separate guard is needed for it here.
+  // its own separate tag, sitting further out at the tab's left edge
+  // than the count flag (which stays put where it's always been — see
+  // the .tabsubtag/.tabsubtag-urgent rules in <style> for the actual
+  // positions). tabHasUrgentTask() can only be true alongside openCount>0
+  // (an overdue/High task is itself still open), so no separate guard is
+  // needed for it here.
   const countFlag = `<div class="tabsubtag tabsubtag-count">${icon}<span class="tabsubtag-num">${openCount}</span></div>`;
   const urgentFlag = tabHasUrgentTask(key) ? `<div class="tabsubtag tabsubtag-urgent">!</div>` : '';
   return countFlag + urgentFlag;

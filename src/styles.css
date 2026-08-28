@@ -2314,16 +2314,17 @@
     width:auto; height:auto; font-size:0.62rem;
   }
   /* The urgent marker is its own separate flag now, not a corner mark
-     tucked inside the count flag — mirrored to the tab's top-RIGHT edge
-     (left:auto/right:10px overriding the shared .tabsubtag left:10px)
-     so the two flags read as a pair, one on each shoulder. It gets an
+     tucked inside the count flag — sitting right at the tab's own left
+     edge (left:-4px, further out than the count flag's left:10px, which
+     stays put) rather than mirrored to the right: both flags read as a
+     pair on the same (left) shoulder instead of one on each. It gets an
      alert color (--estate, the same rust .badge.overdue/.badge.priority-
      high already use elsewhere) instead of the category's own hex —
      unlike the count, which belongs to the category, "something here is
      overdue or High priority" is the same kind of fact regardless of
      which category it's in, so it stays the same color everywhere. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag-urgent{
-    left:auto; right:10px; width:18px;
+    left:-4px; width:18px;
     justify-content:center; align-items:center; padding-bottom:0;
     background: var(--estate); color:white; border-color: color-mix(in srgb, var(--estate) 70%, black);
     font-weight:700; font-size:0.68rem;
