@@ -2127,29 +2127,37 @@
      two-line's -6px, and overlapRankStagger's up to -10px, worst case
      -19px combined, leaving a real margin rather than a hairline one)
      while still leaving slack for layoutOverlapTabs()'s --tab-connect to
-     dial in a deep, unambiguous overlap (OVERLAP_CONNECT_MIN/MAX, 14-30px)
-     by measurement rather than guessed font metrics — "look like you
-     opened up to the tag," not a flap resting on top of it. The padding-
-     bottom bump (50px -> 66px) exactly offsets the lift increase (-12px
-     -> -28px) so the actual overlap depth this produces is unchanged —
-     only how much higher the *top* of the tab pokes above
-     its resting neighbors changes. box-shadow:none is deliberate: with a
-     real 15px+ overlap there's nothing for a drop shadow to float over,
-     and keeping one just re-introduces a "hovering" look by another
-     route. rotate(var(--tab-angle)) (a small stable per-category tilt,
-     see tabAngleDeg() in 06-tabs-render.js — same hashStr() idiom as
-     --tab-jitter, not truly random, so it doesn't reshuffle mid-session)
-     plus transform-origin:bottom center is what gives the connecting edge
-     its "flat but at a bit of an angle" read: rotating around the bottom
+     dial in a modest, unambiguous overlap (OVERLAP_CONNECT_MIN/MAX,
+     7-16px — dialed back from an original 14-30px band that read as
+     dipping distractingly far into the card) by measurement rather than
+     guessed font metrics — "look like you opened up to the tag," not a
+     flap resting on top of it. The padding-bottom bump (50px -> 66px)
+     exactly offsets the lift increase (-12px -> -28px) so the actual
+     overlap depth this produces is unchanged — only how much higher the
+     *top* of the tab pokes above its resting neighbors changes. box-
+     shadow:none is deliberate: with a real overlap there's nothing for a
+     drop shadow to float over, and keeping one just re-introduces a
+     "hovering" look by another route. Background/text color stay the
+     tab's own category color (--tabhex/--tabtext) rather than switching
+     to --card-bg — selecting a tab shouldn't bleach it; the deep connect
+     overlap plus the clone sitting on top of #appCard already carries
+     "this one's open" on its own, and keeping the color is one less
+     change happening at once. The white gradient reads as a sheen on
+     that color instead of a page-tint, which works just as well.
+     rotate(var(--tab-angle)) (a small stable per-category tilt, see
+     tabAngleDeg() in 06-tabs-render.js — same hashStr() idiom as --tab-
+     jitter, not truly random, so it doesn't reshuffle mid-session) plus
+     transform-origin:bottom center is what gives the connecting edge its
+     "flat but at a bit of an angle" read: rotating around the bottom
      center keeps that edge anchored in place while the top leans a
      couple degrees either way, so one bottom corner sits fractionally
      deeper into the page than the other — a crooked dog-ear, not a
      perfectly square chip — without needing to actually carve a slanted
      bottom edge via clip-path. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab.active{
-    background-image: linear-gradient(to top, rgba(255,255,255,0.55), rgba(255,255,255,0) 40%);
-    background-color: var(--card-bg);
-    color: var(--ink); font-weight:500;
+    background-image: linear-gradient(to top, rgba(255,255,255,0.3), rgba(255,255,255,0) 40%);
+    background-color: var(--tabhex, var(--primary));
+    color: var(--tabtext, white); font-weight:500;
     padding-bottom:66px;
     border-top-color: var(--tabedge, var(--primary));
     transform: translate(var(--tab-dx, 0px), calc(-28px + var(--tab-connect, 0px))) rotate(var(--tab-angle, 0deg)) !important;

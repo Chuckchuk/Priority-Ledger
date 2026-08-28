@@ -249,9 +249,11 @@ const OVERLAP_STAGGER_MAX = 10;      // overlapRankStagger's max lift for the ve
                                       // under .active's own dedicated lift (see the .tab.active rule in
                                       // <style>) so "selected always highest" still holds even stacked with
                                       // the worst-case jitter + two-line bonus a resting tab can also have.
-const OVERLAP_CONNECT_MIN = 14;      // px the active tab's tail must overlap #appCard's top edge by, at minimum —
-                                      // deep enough to read as "the page is open here," not a flap resting on top
-const OVERLAP_CONNECT_MAX = 30;      // ...and at most, so a 2-3 line label doesn't dip too far into the card
+const OVERLAP_CONNECT_MIN = 7;       // px the active tab's tail must overlap #appCard's top edge by, at minimum —
+                                      // enough to read as "the page is open here," not a flap resting on top,
+                                      // without the deeper 14-30px band this started at, which read as the
+                                      // clone dipping distractingly far into the card
+const OVERLAP_CONNECT_MAX = 16;      // ...and at most, so a 2-3 line label doesn't dip too far into the card
 
 // Solves each gap's own overlap independently, capped by that ONE gap's
 // two neighboring tab widths — not a single value derived from the
@@ -557,9 +559,19 @@ function overlapActiveIdx(tabs){
 function overlapTabHoverStart(idx){
   const dev = state.devSettings || {};
   if(dev.tabBarDesktopStyle !== 'overlap' || dev.overlapHoverMode !== 'push') return;
-  overlapHoveredIdx = idx;
   const tabs = Array.from(document.getElementById('tabs').querySelectorAll('.tab'));
-  computeOverlapPush([overlapActiveIdx(tabs), idx]);
+  const activeIdx = overlapActiveIdx(tabs);
+  // Hovering the already-active tab (including its #tabConnector clone,
+  // which carries this same handler — see layoutOverlapTabs()) isn't a
+  // new source of push: it's already permanently pushing its neighbors
+  // (see layoutOverlapTabs()'s own computeOverlapPush([activeIdx]) call),
+  // and passing it twice here doubled that push on each neighbor —
+  // reported as hovering the selected tab "still scooches other tabs
+  // unnecessarily." A no-op guard here is simpler and more correct than
+  // deduping the sources list.
+  if(idx === activeIdx) return;
+  overlapHoveredIdx = idx;
+  computeOverlapPush([activeIdx, idx]);
 }
 
 function overlapTabHoverEnd(idx){
