@@ -2097,7 +2097,22 @@
     padding:9px var(--tab-hpad, 14px) 37px; white-space:nowrap;
     border-top:3px solid var(--tabedge, color-mix(in srgb, var(--primary) 70%, black));
     box-shadow:0 -1px 5px rgba(0,0,0,0.3);
-    transition: transform .16s ease, box-shadow .18s ease, margin-left .16s ease;
+    /* margin-left is deliberately NOT transitioned (it once was, for a
+       smooth scrunch-in animation) — layoutOverlapTabs() in
+       06-tabs-render.js sets it via JS and then, in the very same
+       synchronous call, reads offsetLeft/offsetWidth back off these same
+       elements (for overlapNaturalRects, the active tab's #tabConnector
+       clone position, computeOverlapPush()'s math, all of it). A
+       transitioned property doesn't take its new computed value until the
+       next paint — read synchronously right after the change, it's still
+       reporting the OLD margin — so every one of those measurements was
+       silently stale, occasionally by a lot: reported as tabs "shooting
+       out to a fixed position completely in the wrong spot" after a
+       click. Letting margin-left apply instantly avoids the whole class
+       of bug; only transform/box-shadow (paint-only, never read back
+       synchronously — see the .tab.active --tab-connect comment for how
+       that one avoids the same trap) still animate. */
+    transition: transform .16s ease, box-shadow .18s ease;
     /* Resting position: a small stable per-tab jitter (hashStr()'d off the
        tab's own id, see tabJitterPx()) so a row of same-height pills reads
        a little more like a hand-fanned stack of index cards; --tab-stagger
@@ -2154,19 +2169,21 @@
      drape a hover gets" idea, which fell apart in practice: a *short* tail
      plus a lift big enough to clear every jittered/two-line neighbor
      (guaranteeing "selected always highest") left a visible gap above
-     #appCard on a single-line label. A tall tail plus a firm -28px lift
+     #appCard on a single-line label. A tall tail plus a firm -20px lift
      comfortably clears every resting tab's own max poke (jitter's ±3px,
-     two-line's -6px, and overlapRankStagger's up to -10px, worst case
-     -19px combined, leaving a real margin rather than a hairline one)
-     while still leaving slack for layoutOverlapTabs()'s --tab-connect to
-     dial in a modest, unambiguous overlap (OVERLAP_CONNECT_MIN/MAX,
-     7-16px — dialed back from an original 14-30px band that read as
-     dipping distractingly far into the card) by measurement rather than
-     guessed font metrics — "look like you opened up to the tag," not a
-     flap resting on top of it. The padding-bottom bump (50px -> 66px)
-     exactly offsets the lift increase (-12px -> -28px) so the actual
-     overlap depth this produces is unchanged — only how much higher the
-     *top* of the tab pokes above its resting neighbors changes. box-
+     two-line's -6px, and overlapRankStagger's up to -6px — see
+     OVERLAP_STAGGER_MAX in 06-tabs-render.js — worst case -15px combined,
+     leaving a real margin rather than a hairline one; dialed back from an
+     original -28px, which read as jutting up too far) while still leaving
+     slack for layoutOverlapTabs()'s --tab-connect to dial in a modest,
+     unambiguous overlap (OVERLAP_CONNECT_MIN/MAX, 7-16px — itself dialed
+     back from an original 14-30px band that read as dipping distractingly
+     far into the card) by measurement rather than guessed font metrics —
+     "look like you opened up to the tag," not a flap resting on top of
+     it. The padding-bottom (50px -> 58px) exactly offsets the lift
+     increase (-12px -> -20px) so the actual overlap depth this produces
+     is unchanged — only how much higher the *top* of the tab pokes above
+     its resting neighbors changes. box-
      shadow:none is deliberate: with a real overlap there's nothing for a
      drop shadow to float over, and keeping one just re-introduces a
      "hovering" look by another route. Background/text color stay the
@@ -2186,13 +2203,28 @@
      deeper into the page than the other — a crooked dog-ear, not a
      perfectly square chip — without needing to actually carve a slanted
      bottom edge via clip-path. */
-  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab.active{
+  /* The :hover variant here is deliberate, not a duplicate: hovering the
+     already-selected tab used to snap it to the plain :hover treatment
+     (-8px, no tilt, no deep connect) instead of leaving it alone — jarring
+     ("way up high to way down low"), and pointless besides, since there's
+     no separate action to take by hovering a tab you're already on. Per-
+     rule specificity is why plain !important on .tab.active alone didn't
+     already win that fight: push mode's own :hover rule above carries an
+     extra [data-overlap-hover-mode="push"] attribute selector, making it
+     MORE specific than .tab.active by itself, !important or not.
+     Compounding :hover directly onto this selector (rather than writing a
+     separate rule) raises this rule to that same specificity, so the tie
+     is broken by source order instead — and this rule already sits after
+     both :hover blocks above. Net effect: hovering .active now computes
+     to these exact values, i.e. no visible change at all. */
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab.active,
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab.active:hover{
     background-image: linear-gradient(to top, rgba(255,255,255,0.3), rgba(255,255,255,0) 40%);
     background-color: var(--tabhex, var(--primary));
     color: var(--tabtext, white); font-weight:500;
-    padding-bottom:66px;
+    padding-bottom:58px;
     border-top-color: var(--tabedge, var(--primary));
-    transform: translate(var(--tab-dx, 0px), calc(-28px + var(--tab-connect, 0px))) rotate(var(--tab-angle, 0deg)) !important;
+    transform: translate(var(--tab-dx, 0px), calc(-20px + var(--tab-connect, 0px))) rotate(var(--tab-angle, 0deg)) !important;
     transform-origin: bottom center;
     z-index:500 !important;
     box-shadow:none;
@@ -4425,7 +4457,7 @@ const OVERLAP_REVEAL_HARD = 10;      // relaxed floor tried once comfort alone c
 const OVERLAP_REVEAL_ABSOLUTE = 3;   // last-resort floor — "never fully hides a tab" loses to "must fit" past this
 const OVERLAP_MIN_HPAD = 5;          // floor for the secondary lever (horizontal padding) below
 const OVERLAP_MAX_PRESSURE = 400;    // solveGapOverlaps()'s search ceiling — plenty for any realistic tab count
-const OVERLAP_STAGGER_MAX = 10;      // overlapRankStagger's max lift for the very back-most tab — kept well
+const OVERLAP_STAGGER_MAX = 6;       // overlapRankStagger's max lift for the very back-most tab — kept well
                                       // under .active's own dedicated lift (see the .tab.active rule in
                                       // <style>) so "selected always highest" still holds even stacked with
                                       // the worst-case jitter + two-line bonus a resting tab can also have.
@@ -4656,6 +4688,14 @@ function layoutOverlapTabs(){
         clone.style.left = (tabsRect.left + activeTabEl.offsetLeft - cardRect.left) + 'px';
         clone.style.top = (tabsRect.top + activeTabEl.offsetTop - cardRect.top) + 'px';
         clone.style.pointerEvents = 'auto';
+        // --tab-hpad lives on #tabs itself (see step 2 above), not on any
+        // individual .tab — inherited by the real tabs, but the clone is
+        // about to move to a #appCard subtree that isn't a descendant of
+        // #tabs at all, so it would otherwise fall back to the padding
+        // rule's own 14px default regardless of how tight the actual
+        // scrunch is, sizing the clone differently from the real tab it's
+        // meant to be standing in for.
+        clone.style.setProperty('--tab-hpad', getComputedStyle(wrap).getPropertyValue('--tab-hpad'));
         connector.appendChild(clone);
         activeTabEl.style.visibility = 'hidden';
       }

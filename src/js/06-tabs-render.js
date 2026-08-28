@@ -245,7 +245,7 @@ const OVERLAP_REVEAL_HARD = 10;      // relaxed floor tried once comfort alone c
 const OVERLAP_REVEAL_ABSOLUTE = 3;   // last-resort floor — "never fully hides a tab" loses to "must fit" past this
 const OVERLAP_MIN_HPAD = 5;          // floor for the secondary lever (horizontal padding) below
 const OVERLAP_MAX_PRESSURE = 400;    // solveGapOverlaps()'s search ceiling — plenty for any realistic tab count
-const OVERLAP_STAGGER_MAX = 10;      // overlapRankStagger's max lift for the very back-most tab — kept well
+const OVERLAP_STAGGER_MAX = 6;       // overlapRankStagger's max lift for the very back-most tab — kept well
                                       // under .active's own dedicated lift (see the .tab.active rule in
                                       // <style>) so "selected always highest" still holds even stacked with
                                       // the worst-case jitter + two-line bonus a resting tab can also have.
@@ -476,6 +476,14 @@ function layoutOverlapTabs(){
         clone.style.left = (tabsRect.left + activeTabEl.offsetLeft - cardRect.left) + 'px';
         clone.style.top = (tabsRect.top + activeTabEl.offsetTop - cardRect.top) + 'px';
         clone.style.pointerEvents = 'auto';
+        // --tab-hpad lives on #tabs itself (see step 2 above), not on any
+        // individual .tab — inherited by the real tabs, but the clone is
+        // about to move to a #appCard subtree that isn't a descendant of
+        // #tabs at all, so it would otherwise fall back to the padding
+        // rule's own 14px default regardless of how tight the actual
+        // scrunch is, sizing the clone differently from the real tab it's
+        // meant to be standing in for.
+        clone.style.setProperty('--tab-hpad', getComputedStyle(wrap).getPropertyValue('--tab-hpad'));
         connector.appendChild(clone);
         activeTabEl.style.visibility = 'hidden';
       }
