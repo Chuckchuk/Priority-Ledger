@@ -472,9 +472,10 @@ function defaultDevSettings(){
 // downstream has to special-case an example task as different from a
 // real one.
 function defaultTasks(){
-  const mk = (title, category) => ({
+  const mk = (title, category, extra) => ({
     id: newId('task'), title, category, status:'open', urgent:false, dueDate:'', notes:'',
-    subtasks: [], plannedDates: [], timeframe:'', priority:0, completedAt:'', createdAt: todayStr()
+    subtasks: [], plannedDates: [], timeframe:'', priority:0, completedAt:'', createdAt: todayStr(),
+    ...extra
   });
   const list = mk('Packing list', 'lists');
   list.subtasks = [
@@ -483,6 +484,11 @@ function defaultTasks(){
     { id:newId('sub'), text:'Toothbrush', done:true, dueDate:'', plannedDates:[] }
   ];
   return [
+    // High priority + a short timeframe, with wording that reads as
+    // urgent on its own — so a fresh account has at least one example of
+    // what that combination actually looks like (the overlap tab bar's
+    // "!" flag included) without needing a due date to explain why.
+    mk("Call the client back — they're waiting", 'work', { priority:3, timeframe:'short' }),
     mk("Reply to that email you've been putting off", 'work'),
     mk('Fix the squeaky door', 'household'),
     mk('Book a dentist appointment', 'personal'),

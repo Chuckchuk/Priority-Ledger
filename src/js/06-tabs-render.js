@@ -67,7 +67,14 @@ function tabOpenCount(key){
     }).length;
   }
   if(isChecklistCategory(key)){
-    return state.tasks.filter(t=>t.category===key).reduce((sum,t)=>sum+(t.subtasks||[]).filter(s=>!s.done).length, 0);
+    // checklistPendingItems() (13-checklist.js) is the canonical "how many
+    // items in this list still count as pending" answer — it already
+    // knows a list marked done retires ALL its items from pending
+    // regardless of their own individual done flags (see its own comment).
+    // This used to re-count !s.done items directly instead, which ignored
+    // the list's own status entirely: completing a whole checklist left
+    // its still-unchecked items counting toward this tab's badge forever.
+    return state.tasks.filter(t=>t.category===key).reduce((sum,t)=>sum+checklistPendingItems(t).length, 0);
   }
   return state.tasks.filter(t => t.category===key && t.status!=='done').length;
 }
@@ -121,8 +128,15 @@ function tabSubtagHtml(key, openCount){
   const cat = CATEGORIES[key];
   if(!cat) return '';
   const icon = categoryDotHtml(cat, 'dot');
-  const urgent = tabHasUrgentTask(key);
-  return `<div class="tabsubtag">${icon}<span class="tabsubtag-count">${openCount}</span>${urgent ? '<span class="tabsubtag-urgent">!</span>' : ''}</div>`;
+  // Two independent flags, not one flag with the "!" tucked into a
+  // corner of it — the project owner asked for the urgent marker to be
+  // its own separate tag, mirrored on the opposite (top-right) side of
+  // the tab from the count flag (top-left). tabHasUrgentTask() can only
+  // be true alongside openCount>0 (an overdue/High task is itself still
+  // open), so no separate guard is needed for it here.
+  const countFlag = `<div class="tabsubtag tabsubtag-count">${icon}<span class="tabsubtag-num">${openCount}</span></div>`;
+  const urgentFlag = tabHasUrgentTask(key) ? `<div class="tabsubtag tabsubtag-urgent">!</div>` : '';
+  return countFlag + urgentFlag;
 }
 
 function renderTabs(){

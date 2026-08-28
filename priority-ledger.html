@@ -2304,9 +2304,20 @@
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag .dot{
     width:auto; height:auto; font-size:0.62rem;
   }
+  /* The urgent marker is its own separate flag now, not a corner mark
+     tucked inside the count flag — mirrored to the tab's top-RIGHT edge
+     (left:auto/right:10px overriding the shared .tabsubtag left:10px)
+     so the two flags read as a pair, one on each shoulder. It gets an
+     alert color (--estate, the same rust .badge.overdue/.badge.priority-
+     high already use elsewhere) instead of the category's own hex —
+     unlike the count, which belongs to the category, "something here is
+     overdue or High priority" is the same kind of fact regardless of
+     which category it's in, so it stays the same color everywhere. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag-urgent{
-    position:absolute; top:2px; right:3px;
-    color:#ffce54; font-weight:700; font-size:0.6rem; line-height:1;
+    left:auto; right:10px; width:18px;
+    justify-content:center; align-items:center; padding-bottom:0;
+    background: var(--estate); color:white; border-color: color-mix(in srgb, var(--estate) 70%, black);
+    font-weight:700; font-size:0.68rem;
   }
   /* The shadow "the pages are on top of the tab" asked for — appended to
      #appCard's own base box-shadow (not replacing it) so both still show.
@@ -3713,9 +3724,10 @@ function defaultDevSettings(){
 // downstream has to special-case an example task as different from a
 // real one.
 function defaultTasks(){
-  const mk = (title, category) => ({
+  const mk = (title, category, extra) => ({
     id: newId('task'), title, category, status:'open', urgent:false, dueDate:'', notes:'',
-    subtasks: [], plannedDates: [], timeframe:'', priority:0, completedAt:'', createdAt: todayStr()
+    subtasks: [], plannedDates: [], timeframe:'', priority:0, completedAt:'', createdAt: todayStr(),
+    ...extra
   });
   const list = mk('Packing list', 'lists');
   list.subtasks = [
@@ -3724,6 +3736,11 @@ function defaultTasks(){
     { id:newId('sub'), text:'Toothbrush', done:true, dueDate:'', plannedDates:[] }
   ];
   return [
+    // High priority + a short timeframe, with wording that reads as
+    // urgent on its own — so a fresh account has at least one example of
+    // what that combination actually looks like (the overlap tab bar's
+    // "!" flag included) without needing a due date to explain why.
+    mk("Call the client back — they're waiting", 'work', { priority:3, timeframe:'short' }),
     mk("Reply to that email you've been putting off", 'work'),
     mk('Fix the squeaky door', 'household'),
     mk('Book a dentist appointment', 'personal'),
@@ -4309,7 +4326,14 @@ function tabOpenCount(key){
     }).length;
   }
   if(isChecklistCategory(key)){
-    return state.tasks.filter(t=>t.category===key).reduce((sum,t)=>sum+(t.subtasks||[]).filter(s=>!s.done).length, 0);
+    // checklistPendingItems() (13-checklist.js) is the canonical "how many
+    // items in this list still count as pending" answer — it already
+    // knows a list marked done retires ALL its items from pending
+    // regardless of their own individual done flags (see its own comment).
+    // This used to re-count !s.done items directly instead, which ignored
+    // the list's own status entirely: completing a whole checklist left
+    // its still-unchecked items counting toward this tab's badge forever.
+    return state.tasks.filter(t=>t.category===key).reduce((sum,t)=>sum+checklistPendingItems(t).length, 0);
   }
   return state.tasks.filter(t => t.category===key && t.status!=='done').length;
 }
@@ -4363,8 +4387,15 @@ function tabSubtagHtml(key, openCount){
   const cat = CATEGORIES[key];
   if(!cat) return '';
   const icon = categoryDotHtml(cat, 'dot');
-  const urgent = tabHasUrgentTask(key);
-  return `<div class="tabsubtag">${icon}<span class="tabsubtag-count">${openCount}</span>${urgent ? '<span class="tabsubtag-urgent">!</span>' : ''}</div>`;
+  // Two independent flags, not one flag with the "!" tucked into a
+  // corner of it — the project owner asked for the urgent marker to be
+  // its own separate tag, mirrored on the opposite (top-right) side of
+  // the tab from the count flag (top-left). tabHasUrgentTask() can only
+  // be true alongside openCount>0 (an overdue/High task is itself still
+  // open), so no separate guard is needed for it here.
+  const countFlag = `<div class="tabsubtag tabsubtag-count">${icon}<span class="tabsubtag-num">${openCount}</span></div>`;
+  const urgentFlag = tabHasUrgentTask(key) ? `<div class="tabsubtag tabsubtag-urgent">!</div>` : '';
+  return countFlag + urgentFlag;
 }
 
 function renderTabs(){

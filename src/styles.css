@@ -2272,9 +2272,20 @@
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag .dot{
     width:auto; height:auto; font-size:0.62rem;
   }
+  /* The urgent marker is its own separate flag now, not a corner mark
+     tucked inside the count flag — mirrored to the tab's top-RIGHT edge
+     (left:auto/right:10px overriding the shared .tabsubtag left:10px)
+     so the two flags read as a pair, one on each shoulder. It gets an
+     alert color (--estate, the same rust .badge.overdue/.badge.priority-
+     high already use elsewhere) instead of the category's own hex —
+     unlike the count, which belongs to the category, "something here is
+     overdue or High priority" is the same kind of fact regardless of
+     which category it's in, so it stays the same color everywhere. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag-urgent{
-    position:absolute; top:2px; right:3px;
-    color:#ffce54; font-weight:700; font-size:0.6rem; line-height:1;
+    left:auto; right:10px; width:18px;
+    justify-content:center; align-items:center; padding-bottom:0;
+    background: var(--estate); color:white; border-color: color-mix(in srgb, var(--estate) 70%, black);
+    font-weight:700; font-size:0.68rem;
   }
   /* The shadow "the pages are on top of the tab" asked for — appended to
      #appCard's own base box-shadow (not replacing it) so both still show.
