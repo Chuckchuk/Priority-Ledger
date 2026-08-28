@@ -28,6 +28,7 @@ document.addEventListener('keydown', (e) => {
     // both float above literally everything else including Settings, so
     // they're checked before any of it.
     if(fabAddOpen){ closeFabAdd(); return; }
+    if(ctxMenuTaskId){ closeTaskContextMenu(); return; }
     if(taskSettingsOpenId){ closeTaskSettingsSheet(); return; }
     if(quickAddOpen){ toggleQuickAddSheet(false); return; }
     if(claudeView){ closeClaudeView(); return; }
@@ -254,6 +255,35 @@ window.addEventListener('resize', () => {
 // tabBarMobileStyle's "scroll" variant isn't active — see the comment on
 // updateTabScrollFade() for why.
 document.getElementById('tabs').addEventListener('scroll', updateTabScrollFade, { passive:true });
+
+// ---------- customContextMenu: app-wide right-click suppression ----------
+// A task row's own oncontextmenu (see taskRowHtml() in 08-render-core.js)
+// already handles the one case with a real replacement menu; this is the
+// fallback for right-clicking literally anywhere else in the app (blank
+// card space, a tab, Settings, a button) — once the setting is on, the
+// browser's generic Back/Reload/Inspect/"Look Up" menu doesn't belong
+// anywhere in what's supposed to read as an app, not a page, so it's
+// suppressed there too rather than only on tasks. input/textarea/select
+// are the one exception (spellcheck/Copy/Paste is still genuinely useful
+// while actually editing text) — mirrors the same exception
+// -webkit-user-select carves out in <style> for the long-press callout.
+document.addEventListener('contextmenu', (e) => {
+  if(!state.devSettings || !state.devSettings.customContextMenu || mobileUiActive()) return;
+  const appShell = document.getElementById('appShell');
+  if(!appShell || appShell.style.display === 'none') return;
+  if(e.target.closest('input, textarea, select')) return;
+  if(e.target.closest('.row')) return; // that row's own handler already decided
+  e.preventDefault();
+});
+// A plain left-click anywhere outside the menu closes it, same as a
+// native context menu would — checked via closest() rather than an exact
+// id match so clicking one of the menu's own buttons (which already
+// closes it via ctxMenuAction()) doesn't also trip this a second time
+// pointlessly.
+document.addEventListener('click', (e) => {
+  if(ctxMenuTaskId && !e.target.closest('#ctxMenu')) closeTaskContextMenu();
+});
+document.addEventListener('scroll', () => { if(ctxMenuTaskId) closeTaskContextMenu(); }, { capture:true, passive:true });
 
 // saveState() now retries indefinitely rather than dropping a failed save,
 // but that only helps while the tab stays open — closing it mid-retry

@@ -698,6 +698,10 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap shows Steps, long-press opens settings</option>
       </select>
     </div>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.customContextMenu?'checked':''} onchange="toggleDevSetting('customContextMenu', this.checked)">
+      Custom right-click menu on a task (desktop) — replaces the browser's own menu with app actions; still native inside text fields
+    </label>
   `;
 }
 

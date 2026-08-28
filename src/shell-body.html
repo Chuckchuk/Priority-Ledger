@@ -135,6 +135,13 @@
     </div>
     <div id="taskSettingsBody"></div>
   </div>
+
+  <!-- customContextMenu (desktop-only, see handleTaskContextMenu() in
+       08-render-core.js) — position:fixed and placed at click coordinates
+       by openTaskContextMenu(), so a fixed spot in the DOM is all this
+       needs; no scrim, closed by the document-level click/Esc/scroll
+       listeners in 19-bootstrap.js instead. -->
+  <div class="ctxmenu" id="ctxMenu"></div>
 </div>
 
 <div class="devpanel" id="devPanel" style="display:none;">

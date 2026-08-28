@@ -152,6 +152,23 @@
        html's background above shows through behind both instead of
        white — the two fixes only work together, not separately. */
     padding: calc(36px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(70px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+    /* Off everywhere by default — a long-press meant to trigger this
+       app's own behavior (taskPressStart() and friends in 08-render-
+       core.js, or just tapping-and-holding a button) shouldn't also
+       trigger the browser's native text-selection/callout, which is what
+       made the whole app read as a webpage instead of an app under a
+       long press. -webkit-touch-callout is the iOS Safari-specific
+       property for the "Copy/Look Up/Share…" bubble a long-press on text
+       (or an image/link) raises; user-select is the cross-browser one
+       that also blocks Android Chrome's select-word magnifier. Both are
+       re-enabled just below for the one place selectable text is
+       actually the point: typing into a field. */
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
+  input, textarea{
+    -webkit-user-select: text; user-select: text;
+    -webkit-touch-callout: default;
   }
   .shell{ max-width: 720px; margin: 0 auto; }
   .masthead{ text-align:center; margin-bottom: 22px; position:relative; }
@@ -2280,6 +2297,28 @@
   body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap .catdelete:not(:disabled):active{
     opacity:1; border-color:var(--line); background:var(--card-bg-dim);
   }
+
+  /* ---- customContextMenu: a task's own right-click menu ----
+     position:fixed and placed at the click point by openTaskContextMenu()
+     (08-render-core.js) rather than anchored to the row, since it has to
+     land wherever the pointer actually was. No scrim — closed by a
+     document-level click/Esc/scroll listener instead (19-bootstrap.js),
+     same as any native context menu would be. */
+  .ctxmenu{
+    display:none; position:fixed; z-index:200; min-width:190px;
+    flex-direction:column; gap:1px;
+    background: var(--card-bg); border:1px solid var(--line); border-radius:8px;
+    box-shadow:0 10px 28px rgba(0,0,0,0.35); padding:6px;
+  }
+  .ctxmenu.open{ display:flex; }
+  .ctxmenu button{
+    display:block; width:100%; text-align:left; background:none; border:none; border-radius:5px;
+    padding:8px 10px; font-family:'IBM Plex Sans', sans-serif; font-size:0.85rem; color:var(--ink); cursor:pointer;
+  }
+  .ctxmenu button:hover{ background: var(--card-bg-dim); }
+  .ctxmenu-sep{ height:1px; background:var(--line); margin:4px 2px; }
+  .ctxmenu-danger{ color: var(--estate); }
+  .ctxmenu-danger:hover{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
 </style>
 </head>
 <body>
@@ -2417,6 +2456,13 @@
     </div>
     <div id="taskSettingsBody"></div>
   </div>
+
+  <!-- customContextMenu (desktop-only, see handleTaskContextMenu() in
+       08-render-core.js) — position:fixed and placed at click coordinates
+       by openTaskContextMenu(), so a fixed spot in the DOM is all this
+       needs; no scrim, closed by the document-level click/Esc/scroll
+       listeners in 19-bootstrap.js instead. -->
+  <div class="ctxmenu" id="ctxMenu"></div>
 </div>
 
 <div class="devpanel" id="devPanel" style="display:none;">
@@ -3126,6 +3172,10 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap shows Steps, long-press opens settings</option>
       </select>
     </div>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.customContextMenu?'checked':''} onchange="toggleDevSetting('customContextMenu', this.checked)">
+      Custom right-click menu on a task (desktop) — replaces the browser's own menu with app actions; still native inside text fields
+    </label>
   `;
 }
 
@@ -3593,7 +3643,19 @@ function defaultDevSettings(){
   // or by importance) sits a little higher at rest, just enough that its
   // own label peeks above whichever tab is currently covering it, rather
   // than a covered tab being unreadable until you interact with it.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', overlapSubtags:false, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default' };
+  // customContextMenu (desktop-only — see mobileUiActive() gating in
+  // handleTaskContextMenu(), 08-render-core.js): replaces the browser's
+  // own right-click menu on a task row with a small app-specific one
+  // (toggle complete/urgent/today, edit, copy title, delete) instead of
+  // the generic Back/Reload/Inspect/"Look Up" chrome no web app actually
+  // wants. Off by default since silently swallowing right-click
+  // everywhere is a meaningfully different (and less reversible-feeling)
+  // change than the rest of this file's purely visual toggles. Right-
+  // clicking inside an actual text field (input/textarea) always keeps
+  // the native menu regardless of this setting — Copy/Paste/spellcheck
+  // there is exactly the "some of it is still useful" case the project
+  // owner asked to keep.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', overlapSubtags:false, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default', customContextMenu:false };
 }
 
 function defaultState(){
@@ -3665,6 +3727,7 @@ function normalizeState(){
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
   if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'default';
+  if(typeof state.devSettings.customContextMenu !== 'boolean') state.devSettings.customContextMenu = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)
@@ -5088,10 +5151,15 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
     ? ` ontouchstart="taskPressStart(event,'${t.id}')" ontouchmove="taskPressMove(event)" ontouchend="taskPressEnd()" ontouchcancel="taskPressEnd()" onmousedown="taskPressStart(event,'${t.id}')" onmouseup="taskPressEnd()" onmouseleave="taskPressEnd()"`
     : '';
   const expandInner = useSplitPress ? taskSubtasksHtml(t) : taskExpandFieldsHtml(t, canRemoveHere);
+  // customContextMenu (desktop-only, see handleTaskContextMenu() below) —
+  // scoped to !inDaily for the same reason useSplitPress is: a Daily row
+  // already has its own click behavior and canRemoveHere rules that
+  // don't map cleanly onto this.
+  const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
   <li class="task" ${dragTargetAttrs}>
-    <div class="row"${pressAttrs} onclick="${rowClick}">
+    <div class="row"${pressAttrs}${ctxMenuAttr} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
         <div class="check ${t.status==='done'?'done':''}" onclick="toggleStatus('${t.id}')"></div>
@@ -5152,6 +5220,71 @@ function taskPressEnd(){
 function taskRowTap(e, taskId){
   if(taskLongPressFired){ taskLongPressFired = false; e.preventDefault(); return; }
   toggleExpand(e, taskId);
+}
+
+// ---------- customContextMenu: a task's own right-click menu ----------
+// Returned directly from a row's oncontextmenu attribute (see taskRowHtml()
+// above) — `return false` there is the inline-handler equivalent of
+// e.preventDefault(), which is what actually keeps the browser's native
+// menu from also showing. Desktop-only: on an actual touch device
+// there's no right-click to intercept in the first place, and
+// mobileUiActive() already covers "acting like a phone" for
+// mobileUiPreviewOnDesktop too, so the same gate this whole file's other
+// desktop-only features use applies here without a separate check.
+function handleTaskContextMenu(e, taskId){
+  if(!state.devSettings || !state.devSettings.customContextMenu || mobileUiActive()) return true;
+  openTaskContextMenu(taskId, e.clientX, e.clientY);
+  return false;
+}
+
+let ctxMenuTaskId = null;
+
+function taskContextMenuHtml(t){
+  const plannedToday = (t.plannedDates||[]).includes(todayStr());
+  return `
+    <button onclick="ctxMenuAction(()=>toggleStatus('${t.id}'))">${t.status==='done' ? 'Reopen' : 'Mark complete'}</button>
+    <button onclick="ctxMenuAction(()=>toggleUrgent('${t.id}'))">${t.urgent ? 'Unmark urgent' : 'Mark urgent'}</button>
+    <button onclick="ctxMenuAction(()=>toggleTaskToday('${t.id}'))">${plannedToday ? 'Remove from today' : 'Add to today'}</button>
+    <button onclick="ctxMenuAction(()=>toggleExpand(event,'${t.id}'))">Edit details</button>
+    <button onclick="ctxMenuCopyTitle('${t.id}')">Copy title</button>
+    <div class="ctxmenu-sep"></div>
+    <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteTask('${t.id}'))">Delete</button>
+  `;
+}
+
+// Positioned at the click point, then nudged back onto screen after a
+// layout pass — its own width/height aren't known until the browser has
+// actually laid out the menu just rendered into it.
+function openTaskContextMenu(taskId, x, y){
+  const t = state.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  ctxMenuTaskId = taskId;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = taskContextMenuHtml(t);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('open');
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+  });
+}
+function closeTaskContextMenu(){
+  ctxMenuTaskId = null;
+  document.getElementById('ctxMenu').classList.remove('open');
+}
+// Every menu item routes through this — closes the menu first, then runs
+// the actual action, so a slow-ish action (all of these call render())
+// never leaves a stale menu sitting on screen mid-update.
+function ctxMenuAction(fn){
+  closeTaskContextMenu();
+  fn();
+}
+function ctxMenuCopyTitle(taskId){
+  const t = state.tasks.find(x=>x.id===taskId);
+  closeTaskContextMenu();
+  if(t && navigator.clipboard) navigator.clipboard.writeText(t.title).catch(()=>{});
 }
 
 // The long-press settings sheet itself — everything taskManagementFieldsHtml()
@@ -8212,6 +8345,7 @@ document.addEventListener('keydown', (e) => {
     // both float above literally everything else including Settings, so
     // they're checked before any of it.
     if(fabAddOpen){ closeFabAdd(); return; }
+    if(ctxMenuTaskId){ closeTaskContextMenu(); return; }
     if(taskSettingsOpenId){ closeTaskSettingsSheet(); return; }
     if(quickAddOpen){ toggleQuickAddSheet(false); return; }
     if(claudeView){ closeClaudeView(); return; }
@@ -8438,6 +8572,35 @@ window.addEventListener('resize', () => {
 // tabBarMobileStyle's "scroll" variant isn't active — see the comment on
 // updateTabScrollFade() for why.
 document.getElementById('tabs').addEventListener('scroll', updateTabScrollFade, { passive:true });
+
+// ---------- customContextMenu: app-wide right-click suppression ----------
+// A task row's own oncontextmenu (see taskRowHtml() in 08-render-core.js)
+// already handles the one case with a real replacement menu; this is the
+// fallback for right-clicking literally anywhere else in the app (blank
+// card space, a tab, Settings, a button) — once the setting is on, the
+// browser's generic Back/Reload/Inspect/"Look Up" menu doesn't belong
+// anywhere in what's supposed to read as an app, not a page, so it's
+// suppressed there too rather than only on tasks. input/textarea/select
+// are the one exception (spellcheck/Copy/Paste is still genuinely useful
+// while actually editing text) — mirrors the same exception
+// -webkit-user-select carves out in <style> for the long-press callout.
+document.addEventListener('contextmenu', (e) => {
+  if(!state.devSettings || !state.devSettings.customContextMenu || mobileUiActive()) return;
+  const appShell = document.getElementById('appShell');
+  if(!appShell || appShell.style.display === 'none') return;
+  if(e.target.closest('input, textarea, select')) return;
+  if(e.target.closest('.row')) return; // that row's own handler already decided
+  e.preventDefault();
+});
+// A plain left-click anywhere outside the menu closes it, same as a
+// native context menu would — checked via closest() rather than an exact
+// id match so clicking one of the menu's own buttons (which already
+// closes it via ctxMenuAction()) doesn't also trip this a second time
+// pointlessly.
+document.addEventListener('click', (e) => {
+  if(ctxMenuTaskId && !e.target.closest('#ctxMenu')) closeTaskContextMenu();
+});
+document.addEventListener('scroll', () => { if(ctxMenuTaskId) closeTaskContextMenu(); }, { capture:true, passive:true });
 
 // saveState() now retries indefinitely rather than dropping a failed save,
 // but that only helps while the tab stays open — closing it mid-retry

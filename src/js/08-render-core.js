@@ -203,10 +203,15 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
     ? ` ontouchstart="taskPressStart(event,'${t.id}')" ontouchmove="taskPressMove(event)" ontouchend="taskPressEnd()" ontouchcancel="taskPressEnd()" onmousedown="taskPressStart(event,'${t.id}')" onmouseup="taskPressEnd()" onmouseleave="taskPressEnd()"`
     : '';
   const expandInner = useSplitPress ? taskSubtasksHtml(t) : taskExpandFieldsHtml(t, canRemoveHere);
+  // customContextMenu (desktop-only, see handleTaskContextMenu() below) —
+  // scoped to !inDaily for the same reason useSplitPress is: a Daily row
+  // already has its own click behavior and canRemoveHere rules that
+  // don't map cleanly onto this.
+  const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
   <li class="task" ${dragTargetAttrs}>
-    <div class="row"${pressAttrs} onclick="${rowClick}">
+    <div class="row"${pressAttrs}${ctxMenuAttr} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
         <div class="check ${t.status==='done'?'done':''}" onclick="toggleStatus('${t.id}')"></div>
@@ -267,6 +272,71 @@ function taskPressEnd(){
 function taskRowTap(e, taskId){
   if(taskLongPressFired){ taskLongPressFired = false; e.preventDefault(); return; }
   toggleExpand(e, taskId);
+}
+
+// ---------- customContextMenu: a task's own right-click menu ----------
+// Returned directly from a row's oncontextmenu attribute (see taskRowHtml()
+// above) — `return false` there is the inline-handler equivalent of
+// e.preventDefault(), which is what actually keeps the browser's native
+// menu from also showing. Desktop-only: on an actual touch device
+// there's no right-click to intercept in the first place, and
+// mobileUiActive() already covers "acting like a phone" for
+// mobileUiPreviewOnDesktop too, so the same gate this whole file's other
+// desktop-only features use applies here without a separate check.
+function handleTaskContextMenu(e, taskId){
+  if(!state.devSettings || !state.devSettings.customContextMenu || mobileUiActive()) return true;
+  openTaskContextMenu(taskId, e.clientX, e.clientY);
+  return false;
+}
+
+let ctxMenuTaskId = null;
+
+function taskContextMenuHtml(t){
+  const plannedToday = (t.plannedDates||[]).includes(todayStr());
+  return `
+    <button onclick="ctxMenuAction(()=>toggleStatus('${t.id}'))">${t.status==='done' ? 'Reopen' : 'Mark complete'}</button>
+    <button onclick="ctxMenuAction(()=>toggleUrgent('${t.id}'))">${t.urgent ? 'Unmark urgent' : 'Mark urgent'}</button>
+    <button onclick="ctxMenuAction(()=>toggleTaskToday('${t.id}'))">${plannedToday ? 'Remove from today' : 'Add to today'}</button>
+    <button onclick="ctxMenuAction(()=>toggleExpand(event,'${t.id}'))">Edit details</button>
+    <button onclick="ctxMenuCopyTitle('${t.id}')">Copy title</button>
+    <div class="ctxmenu-sep"></div>
+    <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteTask('${t.id}'))">Delete</button>
+  `;
+}
+
+// Positioned at the click point, then nudged back onto screen after a
+// layout pass — its own width/height aren't known until the browser has
+// actually laid out the menu just rendered into it.
+function openTaskContextMenu(taskId, x, y){
+  const t = state.tasks.find(x=>x.id===taskId);
+  if(!t) return;
+  ctxMenuTaskId = taskId;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = taskContextMenuHtml(t);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('open');
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+  });
+}
+function closeTaskContextMenu(){
+  ctxMenuTaskId = null;
+  document.getElementById('ctxMenu').classList.remove('open');
+}
+// Every menu item routes through this — closes the menu first, then runs
+// the actual action, so a slow-ish action (all of these call render())
+// never leaves a stale menu sitting on screen mid-update.
+function ctxMenuAction(fn){
+  closeTaskContextMenu();
+  fn();
+}
+function ctxMenuCopyTitle(taskId){
+  const t = state.tasks.find(x=>x.id===taskId);
+  closeTaskContextMenu();
+  if(t && navigator.clipboard) navigator.clipboard.writeText(t.title).catch(()=>{});
 }
 
 // The long-press settings sheet itself — everything taskManagementFieldsHtml()

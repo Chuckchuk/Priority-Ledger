@@ -445,7 +445,19 @@ function defaultDevSettings(){
   // or by importance) sits a little higher at rest, just enough that its
   // own label peeks above whichever tab is currently covering it, rather
   // than a covered tab being unreadable until you interact with it.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', overlapSubtags:false, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default' };
+  // customContextMenu (desktop-only — see mobileUiActive() gating in
+  // handleTaskContextMenu(), 08-render-core.js): replaces the browser's
+  // own right-click menu on a task row with a small app-specific one
+  // (toggle complete/urgent/today, edit, copy title, delete) instead of
+  // the generic Back/Reload/Inspect/"Look Up" chrome no web app actually
+  // wants. Off by default since silently swallowing right-click
+  // everywhere is a meaningfully different (and less reversible-feeling)
+  // change than the rest of this file's purely visual toggles. Right-
+  // clicking inside an actual text field (input/textarea) always keeps
+  // the native menu regardless of this setting — Copy/Paste/spellcheck
+  // there is exactly the "some of it is still useful" case the project
+  // owner asked to keep.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', overlapSubtags:false, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default', customContextMenu:false };
 }
 
 function defaultState(){
@@ -517,6 +529,7 @@ function normalizeState(){
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
   if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'default';
+  if(typeof state.devSettings.customContextMenu !== 'boolean') state.devSettings.customContextMenu = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)

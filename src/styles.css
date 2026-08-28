@@ -120,6 +120,23 @@
        html's background above shows through behind both instead of
        white — the two fixes only work together, not separately. */
     padding: calc(36px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(70px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+    /* Off everywhere by default — a long-press meant to trigger this
+       app's own behavior (taskPressStart() and friends in 08-render-
+       core.js, or just tapping-and-holding a button) shouldn't also
+       trigger the browser's native text-selection/callout, which is what
+       made the whole app read as a webpage instead of an app under a
+       long press. -webkit-touch-callout is the iOS Safari-specific
+       property for the "Copy/Look Up/Share…" bubble a long-press on text
+       (or an image/link) raises; user-select is the cross-browser one
+       that also blocks Android Chrome's select-word magnifier. Both are
+       re-enabled just below for the one place selectable text is
+       actually the point: typing into a field. */
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+  }
+  input, textarea{
+    -webkit-user-select: text; user-select: text;
+    -webkit-touch-callout: default;
   }
   .shell{ max-width: 720px; margin: 0 auto; }
   .masthead{ text-align:center; margin-bottom: 22px; position:relative; }
@@ -2248,3 +2265,25 @@
   body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap .catdelete:not(:disabled):active{
     opacity:1; border-color:var(--line); background:var(--card-bg-dim);
   }
+
+  /* ---- customContextMenu: a task's own right-click menu ----
+     position:fixed and placed at the click point by openTaskContextMenu()
+     (08-render-core.js) rather than anchored to the row, since it has to
+     land wherever the pointer actually was. No scrim — closed by a
+     document-level click/Esc/scroll listener instead (19-bootstrap.js),
+     same as any native context menu would be. */
+  .ctxmenu{
+    display:none; position:fixed; z-index:200; min-width:190px;
+    flex-direction:column; gap:1px;
+    background: var(--card-bg); border:1px solid var(--line); border-radius:8px;
+    box-shadow:0 10px 28px rgba(0,0,0,0.35); padding:6px;
+  }
+  .ctxmenu.open{ display:flex; }
+  .ctxmenu button{
+    display:block; width:100%; text-align:left; background:none; border:none; border-radius:5px;
+    padding:8px 10px; font-family:'IBM Plex Sans', sans-serif; font-size:0.85rem; color:var(--ink); cursor:pointer;
+  }
+  .ctxmenu button:hover{ background: var(--card-bg-dim); }
+  .ctxmenu-sep{ height:1px; background:var(--line); margin:4px 2px; }
+  .ctxmenu-danger{ color: var(--estate); }
+  .ctxmenu-danger:hover{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
