@@ -40,6 +40,14 @@
     <div class="leathercover" id="leatherCover">
       <div class="bookmark"></div>
       <div class="card" id="appCard">
+      <!-- tabBarDesktopStyle "overlap"'s active-tab connector (see
+           layoutOverlapTabs() in 06-tabs-render.js and the .tabconnector
+           rule in <style>) — empty/inert by default. A genuine #appCard
+           child so it trivially paints above #appCard's own background
+           and above the whole (separately stacked, see .tabs) tab bar,
+           without needing to fight #appCard for z-index priority the way
+           the real .tab.active element itself never successfully could. -->
+      <div class="tabconnector" id="tabConnector"></div>
       <div id="categoryView">
         <!-- Mobile UI Lab (quickAddMobileStyle) — inert unless mobileui-active
              AND a non-default style is chosen (see the body[data-quickadd-mode]

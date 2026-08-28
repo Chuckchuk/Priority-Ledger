@@ -2032,16 +2032,16 @@
     background:none; border:none; flex-wrap:nowrap; gap:0; padding:8px 8px 0;
     align-items:flex-start; margin-bottom:-26px;
   }
-  /* --tab-overlap/--tab-dx/--tab-connect are all set by layoutOverlapTabs()/
-     computeOverlapPush() in 06-tabs-render.js, never hardcoded here —
-     --tab-overlap (how negative each tab's margin-left is) is solved per-
-     render so a long row of tabs scrunches tighter to fit the available
-     width instead of running past the card's right edge; --tab-dx/--tab-
-     jitter/--tab-connect are covered below. white-space:nowrap is the
-     default the same JS tries hard to keep every label on — see .two-line
-     below for the fallback when it can't. */
+  /* margin-left is set inline per-tab by layoutOverlapTabs() (see
+     solveGapOverlaps() in 06-tabs-render.js) — each GAP gets its own
+     overlap capped by that pair's own widths, not one shared value, so
+     scrunching a wide tab further never starves a narrow neighbor
+     elsewhere in the row; -16px here is only the pre-JS fallback. --tab-dx/
+     --tab-jitter/--tab-connect/--tab-angle are covered below. white-
+     space:nowrap is the default the same JS tries hard to keep every
+     label on — see .two-line below for the fallback when it can't. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab{
-    position:relative; margin-left: var(--tab-overlap, -16px);
+    position:relative; margin-left: -16px;
     z-index:calc(var(--tabidx, 1) - 100);
     background: var(--tabhex, var(--primary)); color: var(--tabtext, white);
     border-radius:8px 8px 0 0; align-items:flex-start;
@@ -2051,11 +2051,14 @@
     transition: transform .16s ease, box-shadow .18s ease, margin-left .16s ease;
     /* Resting position: a small stable per-tab jitter (hashStr()'d off the
        tab's own id, see tabJitterPx()) so a row of same-height pills reads
-       a little more like a hand-fanned stack of index cards, plus
-       whatever horizontal push computeOverlapPush() has assigned it (0
-       unless overlapHoverMode is "push" and this tab has a hovered/
-       selected neighbor). */
-    transform: translate(var(--tab-dx, 0px), var(--tab-jitter, 0px));
+       a little more like a hand-fanned stack of index cards; --tab-stagger
+       (0 unless overlapRankStagger is on) adds a further-back tab's own
+       rank-based lift on top, so a covered tab's label has a better shot
+       at peeking above whatever's covering it (see renderTabs() in
+       06-tabs-render.js); plus whatever horizontal push computeOverlapPush()
+       has assigned it (0 unless overlapHoverMode is "push" and this tab
+       has a hovered/selected neighbor). */
+    transform: translate(var(--tab-dx, 0px), calc(var(--tab-jitter, 0px) + var(--tab-stagger, 0px)));
   }
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab:first-child{ margin-left:0; }
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab .count{ color:inherit; opacity:0.8; }
@@ -2067,24 +2070,34 @@
      .active's own transform rule below always wins regardless of line
      count (see OVERLAP_CONNECT_MIN/MAX in 06-tabs-render.js for how). */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab.two-line{
-    transform: translate(var(--tab-dx, 0px), calc(var(--tab-jitter, 0px) - 6px));
+    transform: translate(var(--tab-dx, 0px), calc(var(--tab-jitter, 0px) + var(--tab-stagger, 0px) - 6px));
   }
-  /* !important on z-index/transform here is load-bearing, not decorative
-     — both rules need to outrank the inline --tabidx-driven stacking
-     order above (an inline style otherwise beats a plain class rule
-     regardless of source order), which is exactly the point: hovering
-     any tab must always win, and the active tab must always sit above
-     its plain (non-hovered) neighbors, no matter where either falls in
-     the fan. Both also now outrank #appCard's own z-index:1 — on
-     purpose, so a raised tab's tail (still there underneath it) drapes
-     forward over the page's top edge instead of staying tucked behind
-     it, the "you can tell this is the one you're looking at/reaching
-     for" cue the resting state doesn't have. --tab-dx still applies while
-     hovering (not just --tab-jitter) since a hovered tab can itself be a
-     neighbor the *active* tab is permanently pushing aside in push mode. */
-  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab:hover{
+  /* !important on transform here is load-bearing, not decorative — it
+     needs to outrank the inline --tabidx-driven stacking order above (an
+     inline style otherwise beats a plain class rule regardless of source
+     order). Split in two because the two overlapHoverMode variants (see
+     devSettingsFieldsHtml() in 01-categories-theme.js and applyDevSettings()
+     for the body[data-overlap-hover-mode] attribute) disagree about
+     z-index specifically: the *default* variant wants hovering to reorder
+     to the very front (z-index:999), the whole point of that look. */
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"]:not([data-overlap-hover-mode="push"]) .tab:hover{
     transform: translate(var(--tab-dx, 0px), -8px) !important;
     z-index:999 !important;
+    box-shadow:0 5px 16px rgba(0,0,0,0.4);
+  }
+  /* overlapHoverMode's 'push' variant explicitly wants a FIXED stacking
+     order (tabImportanceRank()) that never reorders — reveal comes from
+     computeOverlapPush() physically moving the covering neighbor away
+     instead. z-index:999 here was a real bug, not a harmless leftover: it
+     let a hovered tab leap above tabs it doesn't normally beat, which
+     could hide a *third*, unrelated tab sandwiched behind it that was
+     visible a moment earlier — reported as "the small tag gets lost, you
+     have to completely unhover the adjacent tags to reach it." Keeping
+     --tabidx's own z-index (no override at all here) fixes that outright:
+     once its covering neighbor has moved out of the way, the hovered tab
+     doesn't need to win a stacking fight it was never meant to be in. */
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"][data-overlap-hover-mode="push"] .tab:hover{
+    transform: translate(var(--tab-dx, 0px), -8px) !important;
     box-shadow:0 5px 16px rgba(0,0,0,0.4);
   }
   /* .active's own tail is taller than a resting tab's, not shorter — the
@@ -2092,48 +2105,116 @@
      drape a hover gets" idea, which fell apart in practice: a *short* tail
      plus a lift big enough to clear every jittered/two-line neighbor
      (guaranteeing "selected always highest") left a visible gap above
-     #appCard on a single-line label (nothing tucked in to reach the page —
-     see the project owner's "ends up hovering" / "doesn't display over the
-     page" reports). A tall tail plus a firm -12px lift comfortably clears
-     every resting tab's own max poke (jitter's ±3px plus two-line's -6px,
-     worst case -9px) while still leaving slack for
-     layoutOverlapTabs()'s --tab-connect to fine-tune the exact overlap
-     amount by measurement rather than by guessing font metrics. box-
-     shadow:none is deliberate too — with the gap closed there's nothing
-     for a drop shadow to float over; keeping one just re-introduces the
-     "hovering" look by another route. */
+     #appCard on a single-line label. A tall tail plus a firm -28px lift
+     comfortably clears every resting tab's own max poke (jitter's ±3px,
+     two-line's -6px, and overlapRankStagger's up to -10px, worst case
+     -19px combined, leaving a real margin rather than a hairline one)
+     while still leaving slack for layoutOverlapTabs()'s --tab-connect to
+     dial in a deep, unambiguous overlap (OVERLAP_CONNECT_MIN/MAX, 14-30px)
+     by measurement rather than guessed font metrics — "look like you
+     opened up to the tag," not a flap resting on top of it. The padding-
+     bottom bump (50px -> 66px) exactly offsets the lift increase (-12px
+     -> -28px) so the actual overlap depth this produces is unchanged —
+     only how much higher the *top* of the tab pokes above
+     its resting neighbors changes. box-shadow:none is deliberate: with a
+     real 15px+ overlap there's nothing for a drop shadow to float over,
+     and keeping one just re-introduces a "hovering" look by another
+     route. rotate(var(--tab-angle)) (a small stable per-category tilt,
+     see tabAngleDeg() in 06-tabs-render.js — same hashStr() idiom as
+     --tab-jitter, not truly random, so it doesn't reshuffle mid-session)
+     plus transform-origin:bottom center is what gives the connecting edge
+     its "flat but at a bit of an angle" read: rotating around the bottom
+     center keeps that edge anchored in place while the top leans a
+     couple degrees either way, so one bottom corner sits fractionally
+     deeper into the page than the other — a crooked dog-ear, not a
+     perfectly square chip — without needing to actually carve a slanted
+     bottom edge via clip-path. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tab.active{
-    background: var(--card-bg); color: var(--ink); font-weight:500;
-    padding-bottom:50px;
+    background-image: linear-gradient(to top, rgba(255,255,255,0.55), rgba(255,255,255,0) 40%);
+    background-color: var(--card-bg);
+    color: var(--ink); font-weight:500;
+    padding-bottom:66px;
     border-top-color: var(--tabedge, var(--primary));
-    transform: translate(var(--tab-dx, 0px), calc(-12px + var(--tab-connect, 0px))) !important;
+    transform: translate(var(--tab-dx, 0px), calc(-28px + var(--tab-connect, 0px))) rotate(var(--tab-angle, 0deg)) !important;
+    transform-origin: bottom center;
     z-index:500 !important;
     box-shadow:none;
   }
+  /* Why .tab.active's own transform/z-index above was never actually
+     enough to make it paint over #appCard, and why .tabconnector (a real
+     #appCard child, styled/positioned by layoutOverlapTabs() in
+     06-tabs-render.js) exists instead: .tabs establishes its own stacking
+     context (position:relative + a non-auto z-index, see the base .tabs
+     rule near the top of <style>), which traps every .tab's z-index as
+     purely an ordering AMONG SIBLING tabs — outside that context, the
+     whole .tabs box competes with #appCard as a single unit. Both sit at
+     z-index:1 there, a tie #appCard wins by DOM order (it comes later,
+     inside .leathercover), so #appCard painted over the *entire* tab bar
+     regardless of any individual tab's 500 or 999. The fix isn't to strip
+     .tabs' own stacking context — tried that, and it broke resting tabs
+     outright: without it, their negative z-index no longer had .tabs' own
+     (practically invisible, background:none) box to sit "just behind" and
+     instead escaped all the way up to sit behind the page's own opaque
+     background, vanishing completely. Recreating just the overlapping
+     sliver as #appCard's own child sidesteps the whole fight: as a
+     genuine descendant, it trivially paints above #appCard's background
+     (and therefore above the entire, separately-stacked-behind tab bar)
+     with no z-index tricks needed at all — the same reason #appCard's own
+     .texture-grain::before/.texture-pages::after already do. z-index:6
+     only matters relative to *those* two (grain's 5), so this still shows
+     up over a textured card if that theme option happens to be on too. */
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabconnector{
+    position:absolute; top:0; left:0; width:0; height:0;
+    z-index:6; pointer-events:none; overflow:hidden;
+    /* Same look as .tab.active's own background (see above) — this patch
+       exists purely to continue it seamlessly past the seam at #appCard's
+       top edge, so it has to actually match, not just gesture at it. */
+    background-image: linear-gradient(to top, rgba(255,255,255,0.55), rgba(255,255,255,0) 40%);
+    background-color: var(--card-bg);
+    background-size: 100% 50px; background-position: bottom; background-repeat: no-repeat;
+  }
   /* overlapSubtags (see devSettingsFieldsHtml() in 01-categories-theme.js
-     and tabSubtagHtml() in 06-tabs-render.js): a small floating badge
-     above the tab instead of its inline dot+count, shown only when
-     tabSubtagHtml() actually rendered one (a category with zero open
-     tasks gets no badge and no inline count either, matching the feature
-     as asked — "only if there's currently open tasks"). Sits above the
-     tab's own top edge via a negative `top`, same trick .locbadge/.pagetag
-     use elsewhere; pointer-events:none so it never steals the tab's own
-     click/hover target despite visually overlapping neighbors when the
-     row is scrunched tight. */
+     and tabSubtagHtml() in 06-tabs-render.js): a small pennant-shaped flag
+     peeking up above the tab instead of its inline dot+count, shown only
+     when tabSubtagHtml() actually rendered one (a category with zero open
+     tasks gets no flag and no inline count either — "only if there's
+     currently open tasks"). Deliberately NOT a rounded floating pill —
+     the project owner asked for "an individual tag that juts out behind
+     the tag it's on," with a square or triangle tip, only slightly
+     rounded — so this is a real flag shape (clip-path, pointed top,
+     flared out toward the base) sitting toward the tab's own left edge
+     rather than centered.
+     Positioned to clear the tab's own top edge entirely (top+height add up
+     to a couple px shy of 0) rather than physically overlapping the tab
+     and relying on z-index to hide the overlap: .tab establishes its own
+     stacking context (position:relative plus a non-auto z-index), and
+     within that context a NEGATIVE z-index child paints behind the tab's
+     background but still *in front of* its own in-flow text content (see
+     the CSS2.1 stacking-order appendix — text is step 3/5, negative
+     z-index children are step 2) — so a negative z-index alone doesn't
+     actually tuck it behind the label the way "juts out from behind"
+     implies; it very visibly painted a colored patch across the top of
+     the tab's own text instead. Sitting entirely above the tab's top edge
+     sidesteps the whole question and reads just as much like "a little
+     tag peeking out" without touching the label at all. pointer-events:
+     none keeps it from ever stealing the tab's own click/hover target. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag{
-    position:absolute; top:-13px; left:50%; transform:translateX(-50%);
-    display:flex; align-items:center; gap:3px;
+    position:absolute; top:-22px; left:10px;
+    width:28px; height:20px;
+    display:flex; align-items:flex-end; justify-content:center; gap:2px;
+    padding-bottom:3px;
     background: var(--tabhex, var(--primary)); color: var(--tabtext, white);
     border: 1px solid var(--tabedge, color-mix(in srgb, var(--primary) 70%, black));
-    border-radius:9px; padding:1px 6px; font-size:0.62rem; line-height:1.4;
-    box-shadow:0 2px 5px rgba(0,0,0,0.35);
-    pointer-events:none; white-space:nowrap;
+    clip-path: polygon(38% 0%, 62% 0%, 100% 40%, 100% 100%, 0% 100%, 0% 40%);
+    font-size:0.6rem; line-height:1;
+    pointer-events:none; white-space:nowrap; overflow:hidden;
   }
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag .dot{
-    color:inherit !important; width:auto; height:auto;
+    width:auto; height:auto; font-size:0.62rem;
   }
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] .tabsubtag-urgent{
-    color:#ffce54; font-weight:700;
+    position:absolute; top:2px; right:3px;
+    color:#ffce54; font-weight:700; font-size:0.6rem; line-height:1;
   }
   /* The shadow "the pages are on top of the tab" asked for — appended to
      #appCard's own base box-shadow (not replacing it) so both still show.

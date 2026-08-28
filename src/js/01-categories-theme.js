@@ -329,6 +329,16 @@ function applyDevSettings(){
   document.body.classList.toggle('fab-on', !!d.floatingAddButton);
   document.body.dataset.tabbarMobile = d.tabBarMobileStyle || 'default';
   document.body.dataset.tabbarDesktop = d.tabBarDesktopStyle || 'default';
+  // Read by the .tab:hover rules in <style> — push mode's hovered tab must
+  // NOT jump to a blanket top z-index the way the default look's does: a
+  // fixed order is the whole point of "push" (see tabImportanceRank()),
+  // and blanket-topping a hovered tab let it leap above tabs it doesn't
+  // normally beat, hiding a *third*, unrelated tab sandwiched behind it
+  // that was visible a moment before — exactly the "small tag gets lost"
+  // bug the project owner hit. Push mode reveals a hovered tab by moving
+  // its covering neighbor away (computeOverlapPush() in 06-tabs-render.js)
+  // instead, so it never needs to reorder at all.
+  document.body.dataset.overlapHoverMode = d.overlapHoverMode || 'default';
   document.body.dataset.settingsrowMobile = d.settingsRowMobileStyle || 'default';
   // Not gated by mobileui-active (see the comment on fieldPickerStyle in
   // defaultDevSettings()) — read directly by fieldPickerHtml() in
@@ -661,6 +671,10 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="push" ${dev.overlapHoverMode==='push'?'selected':''}>Fixed order — hovering/selecting pushes neighbors aside instead</option>
       </select>
     </div>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.overlapRankStagger?'checked':''} onchange="toggleDevSetting('overlapRankStagger', this.checked)">
+      Overlap tabs: stagger by stacking rank (a covered tab sits a little higher at rest so its own label still peeks over the one covering it)
+    </label>
     ` : ''}
     <div class="${fieldClass}">
       <span class="${captionClass}">Settings category rows (mobile)</span>

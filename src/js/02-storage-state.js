@@ -440,8 +440,12 @@ function defaultDevSettings(){
   // fixed stacking order (by open-task "importance", see
   // tabImportanceRank()) plus neighbors sliding away from whichever tab is
   // hovered or selected instead (see computeOverlapPush()) — both in
-  // 06-tabs-render.js.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', overlapSubtags:false, overlapHoverMode:'default', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default' };
+  // 06-tabs-render.js. overlapRankStagger is independent of hover mode —
+  // a further-back tab (lower --tabidx, whether that's ranked by position
+  // or by importance) sits a little higher at rest, just enough that its
+  // own label peeks above whichever tab is currently covering it, rather
+  // than a covered tab being unreadable until you interact with it.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'default', overlapSubtags:false, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default' };
 }
 
 function defaultState(){
@@ -509,6 +513,7 @@ function normalizeState(){
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
   if(typeof state.devSettings.overlapSubtags !== 'boolean') state.devSettings.overlapSubtags = false;
   if(typeof state.devSettings.overlapHoverMode !== 'string') state.devSettings.overlapHoverMode = 'default';
+  if(typeof state.devSettings.overlapRankStagger !== 'boolean') state.devSettings.overlapRankStagger = false;
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
   if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'default';

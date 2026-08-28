@@ -107,12 +107,15 @@ function tabImportanceRank(keys){
 }
 
 // overlapSubtags (see devSettingsFieldsHtml()) trades a tab's own inline
-// dot+count for a small badge floating above it — the category's own icon
-// glyph plus its open count, plus a "!" when tabHasUrgentTask() is true —
-// so it only ever appears when there's actually something to say, unlike
-// the always-on inline count it replaces (which shows "0" just as
-// prominently as anything else). Skipped entirely for a tab with nothing
-// open, and for 'all'/'daily' (no single category icon to show).
+// dot+count for a small flag-shaped tag peeking out from behind it — the
+// category's own icon glyph plus its open count, plus a "!" when
+// tabHasUrgentTask() is true — so it only ever appears when there's
+// actually something to say, unlike the always-on inline count it
+// replaces (which shows "0" just as prominently as anything else).
+// Skipped entirely for a tab with nothing open, and for 'all'/'daily' (no
+// single category icon to show). The markup here is just content — its
+// pennant shape, "behind the tab" z-index trick, and position all live in
+// the .tabsubtag rules in <style>.
 function tabSubtagHtml(key, openCount){
   if(key==='all' || key==='daily' || openCount<=0) return '';
   const cat = CATEGORIES[key];
@@ -134,6 +137,7 @@ function renderTabs(){
   const overlapStyle = dev.tabBarDesktopStyle === 'overlap' && !mobileUiActive();
   const subtagsOn = overlapStyle && !!dev.overlapSubtags;
   const pushMode = overlapStyle && dev.overlapHoverMode === 'push';
+  const staggerOn = overlapStyle && !!dev.overlapRankStagger;
   const importanceRank = pushMode ? tabImportanceRank(keys) : null;
   wrap.innerHTML = keys.map((key, idx)=>{
     const openCount = tabOpenCount(key);
@@ -169,9 +173,23 @@ function renderTabs(){
     const cat = (key!=='all' && key!=='daily') ? CATEGORIES[key] : null;
     const tabidx = importanceRank ? importanceRank[key] : idx+1;
     const jitter = tabJitterPx(key);
+    // --tab-angle is only ever read by .tab.active's own transform (see
+    // <style>) — a small stable per-category tilt (same hashStr() idiom as
+    // --tab-jitter) so the selected tab reads as a real dog-eared page
+    // tucked in slightly crooked, rather than a perfectly square chip.
+    // Harmless to set on every tab, same reasoning as --tabidx elsewhere.
+    const angle = tabAngleDeg(key);
+    // overlapRankStagger (see devSettingsFieldsHtml()): a tab further back
+    // in the stack (lower tabidx, whether that's ranked by position or by
+    // importance) sits a little higher at rest — proportional to how far
+    // back it is, capped at OVERLAP_STAGGER_MAX — so its own label has a
+    // better chance of peeking above whichever tab is currently covering
+    // it, instead of a covered tab being unreadable until you interact
+    // with it. 0 (no offset) for the frontmost tab either way.
+    const stagger = staggerOn ? -((keys.length - tabidx) / Math.max(1, keys.length - 1)) * OVERLAP_STAGGER_MAX : 0;
     const hexStyle = cat
-      ? ` style="--tabhex:${cat.hex};--tabtext:${relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9'};--tabedge:${shadeHex(cat.hex, -0.25)};--tabidx:${tabidx};--tab-jitter:${jitter}px"`
-      : ` style="--tabidx:${tabidx};--tab-jitter:${jitter}px"`;
+      ? ` style="--tabhex:${cat.hex};--tabtext:${relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9'};--tabedge:${shadeHex(cat.hex, -0.25)};--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`
+      : ` style="--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`;
     const hoverAttrs = pushMode ? ` onmouseenter="overlapTabHoverStart(${idx})" onmouseleave="overlapTabHoverEnd(${idx})"` : '';
     return `<button class="tab ${activeTab===key?'active':''}"${hexStyle}${hoverAttrs} onclick="switchTab('${key}')">${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
@@ -190,6 +208,18 @@ function tabJitterPx(key){
   return (hashStr('jitter:'+key) % (TAB_JITTER_RANGE*2+1)) - TAB_JITTER_RANGE;
 }
 
+// Same stable-hash idiom as tabJitterPx(), for .tab.active's small resting
+// tilt (see the rotate() in that rule in <style>) — a distinct hash salt
+// ('angle:' vs 'jitter:') so a tab's height jitter and its tilt-when-
+// selected don't end up correlated just because they're hashed off the
+// same id.
+const TAB_ANGLE_RANGE = 2.5; // degrees each way
+function tabAngleDeg(key){
+  const steps = 20;
+  const raw = (hashStr('angle:'+key) % (steps*2+1)) - steps;
+  return (raw / steps) * TAB_ANGLE_RANGE;
+}
+
 // ---------- tabBarDesktopStyle "overlap": scrunch, wrap-avoidance, and
 // the page-connect nudge ----------
 // overlapNaturalRects caches each tab's own settled {left,width} (post
@@ -204,16 +234,52 @@ function tabJitterPx(key){
 let overlapNaturalRects = null;
 let overlapHoveredIdx = null;
 
-const OVERLAP_MAX_LABEL_WIDTH = 150; // soft width budget tried before allowing a real 2nd line
+const OVERLAP_MAX_LABEL_WIDTH = 92;  // soft width budget tried before allowing a real 2nd line — kept
+                                      // tight on purpose (a category name isn't a sentence) so one long
+                                      // name wraps to 2 lines instead of ballooning into a tab twice
+                                      // anyone else's width; see the .two-line lift in <style>.
 const OVERLAP_MIN_FONT_PX = 8.5;     // floor for the "shrink to fit one line" attempt below that
 const OVERLAP_BASE_OVERLAP = 16;     // default -margin-left between tabs, matches the old hardcoded value
-const OVERLAP_MIN_TAB_REVEAL = 24;   // comfortable px of a tab's own width left peeking out at max scrunch
-const OVERLAP_HARD_MIN_REVEAL = 8;   // last-resort floor — never fully hides a tab, but "must fit" wins past this
+const OVERLAP_REVEAL_COMFORT = 24;   // comfortable px of a tab's own width left peeking out at rest
+const OVERLAP_REVEAL_HARD = 10;      // relaxed floor tried once comfort alone can't make everything fit
+const OVERLAP_REVEAL_ABSOLUTE = 3;   // last-resort floor — "never fully hides a tab" loses to "must fit" past this
 const OVERLAP_MIN_HPAD = 5;          // floor for the secondary lever (horizontal padding) below
-const OVERLAP_PUSH1 = 16;            // how far an immediate neighbor scoots away from a hovered/selected tab
-const OVERLAP_PUSH2 = 7;             // same, for the neighbor one further out
-const OVERLAP_CONNECT_MIN = 4;       // px the active tab's tail must overlap #appCard's top edge by, at minimum
-const OVERLAP_CONNECT_MAX = 16;      // ...and at most, so a 2-3 line label doesn't dip deep into the card
+const OVERLAP_MAX_PRESSURE = 400;    // solveGapOverlaps()'s search ceiling — plenty for any realistic tab count
+const OVERLAP_STAGGER_MAX = 10;      // overlapRankStagger's max lift for the very back-most tab — kept well
+                                      // under .active's own dedicated lift (see the .tab.active rule in
+                                      // <style>) so "selected always highest" still holds even stacked with
+                                      // the worst-case jitter + two-line bonus a resting tab can also have.
+const OVERLAP_CONNECT_MIN = 14;      // px the active tab's tail must overlap #appCard's top edge by, at minimum —
+                                      // deep enough to read as "the page is open here," not a flap resting on top
+const OVERLAP_CONNECT_MAX = 30;      // ...and at most, so a 2-3 line label doesn't dip too far into the card
+
+// Solves each gap's own overlap independently, capped by that ONE gap's
+// two neighboring tab widths — not a single value derived from the
+// narrowest tab anywhere in the row — so scrunching a wide tab further
+// never comes at a narrow neighbor's expense. `floor` is how many px of a
+// tab's own width must stay peeking out past its neighbor's overlap;
+// layoutOverlapTabs() tries OVERLAP_REVEAL_COMFORT first and only relaxes
+// it if that alone can't fit the row. Works by walking a single shared
+// "pressure" up from the default spacing, capping each gap's actual
+// overlap at min(pressure, the two neighbors' widths minus floor) — so
+// pressure only ever *adds* overlap where a gap can actually afford it.
+function solveGapOverlaps(widths, available, floor){
+  const n = widths.length;
+  const gaps = new Array(Math.max(0, n - 1)).fill(0);
+  if(n <= 1) return { gaps, displayed: widths[0] || 0 };
+  let displayed = widths.reduce((a,b)=>a+b, 0);
+  for(let pressure = OVERLAP_BASE_OVERLAP; pressure <= OVERLAP_MAX_PRESSURE; pressure++){
+    displayed = widths[0];
+    for(let i = 1; i < n; i++){
+      const cap = Math.max(0, Math.min(widths[i - 1], widths[i]) - floor);
+      const g = Math.min(pressure, cap);
+      gaps[i - 1] = g;
+      displayed += widths[i] - g;
+    }
+    if(displayed <= available) break;
+  }
+  return { gaps, displayed };
+}
 
 // Called at the end of renderTabs() (and on resize, see 19-bootstrap.js) —
 // a no-op for every tabBarDesktopStyle except "overlap", and for the
@@ -276,49 +342,39 @@ function layoutOverlapTabs(){
     }
   });
 
-  // ---- 2. Scrunch to fit: solve for how much overlap is needed to keep
-  // every tab's settled (post font-shrink) width within the row's actual
-  // available width, instead of letting the row run past its right edge.
-  // Overlap alone (capped at OVERLAP_MIN_TAB_REVEAL of comfortable reveal
-  // per tab) isn't always enough — a wide category list in a narrow window
-  // can need more scrunching than that cap comfortably allows — so this
-  // also leans on a second lever, shrinking each tab's own horizontal
-  // padding (--tab-hpad, read by the .tab padding rule in <style>), before
-  // finally just accepting a tighter reveal (down to OVERLAP_HARD_MIN_
-  // REVEAL) as a last resort: the project owner's explicit priority is "no
-  // tab may run past the row's edge," which beats "every tab keeps a
-  // comfortable 24px peeking out." ----
+  // ---- 2. Scrunch to fit: solve for how much each individual GAP needs to
+  // overlap to keep the row within its actual available width, instead of
+  // letting it run past the right edge. This used to be one shared overlap
+  // value applied to every gap alike, capped by the single narrowest tab
+  // in the whole row — which meant a merely-smallish tab (Misc, Design)
+  // got squeezed by the same aggressive amount needed to protect the
+  // narrowest one (All), and once even that cap wasn't enough the leftover
+  // overflow surfaced wherever it landed (the last tab, "Daily," peeking
+  // past the edge). solveGapOverlaps() instead caps each gap by its own
+  // two neighbors' widths, so scrunching a wide tab further never comes at
+  // a narrow neighbor's expense elsewhere in the row. Horizontal padding
+  // (--tab-hpad) is tried first as a cheaper, uniform lever; only once
+  // that's exhausted does the reveal floor itself relax (comfort -> hard
+  // -> absolute) — the project owner's explicit priority is "no tab may
+  // run past the row's edge," which beats "every tab keeps a comfortable
+  // 24px peeking out." ----
   const n = tabs.length;
   const available = wrap.clientWidth;
-  let widths, overlap = OVERLAP_BASE_OVERLAP;
-  let hpad = 14;
+  let widths, hpad = 14;
   wrap.style.setProperty('--tab-hpad', hpad + 'px');
+  let solved = { gaps: new Array(Math.max(0, n - 1)).fill(OVERLAP_BASE_OVERLAP), displayed: Infinity };
   for(let iter = 0; iter < 6; iter++){
     widths = tabs.map(t=>t.offsetWidth);
-    const total = widths.reduce((a,b)=>a+b, 0);
-    overlap = OVERLAP_BASE_OVERLAP;
-    if(n > 1 && total > available){
-      const needed = (total - available) / (n - 1) + OVERLAP_BASE_OVERLAP;
-      const comfortableMax = Math.max(OVERLAP_BASE_OVERLAP, Math.min(...widths) - OVERLAP_MIN_TAB_REVEAL);
-      overlap = Math.min(needed, comfortableMax);
-    }
-    const displayed = total - (n - 1) * overlap;
-    if(displayed <= available || hpad <= OVERLAP_MIN_HPAD) break;
+    solved = solveGapOverlaps(widths, available, OVERLAP_REVEAL_COMFORT);
+    if(solved.displayed <= available || hpad <= OVERLAP_MIN_HPAD) break;
     hpad = Math.max(OVERLAP_MIN_HPAD, hpad - 2);
     wrap.style.setProperty('--tab-hpad', hpad + 'px');
   }
-  // Padding/font shrinking exhausted and it still doesn't fit — drop the
-  // comfortable-reveal cap down to the hard floor rather than let the row
-  // run past the card's edge.
-  if(n > 1){
-    const total = widths.reduce((a,b)=>a+b, 0);
-    if(total - (n - 1) * overlap > available){
-      const needed = (total - available) / (n - 1) + OVERLAP_BASE_OVERLAP;
-      const hardMax = Math.max(OVERLAP_BASE_OVERLAP, Math.min(...widths) - OVERLAP_HARD_MIN_REVEAL);
-      overlap = Math.min(needed, hardMax);
-    }
-  }
-  wrap.style.setProperty('--tab-overlap', (-overlap) + 'px');
+  if(solved.displayed > available) solved = solveGapOverlaps(widths, available, OVERLAP_REVEAL_HARD);
+  if(solved.displayed > available) solved = solveGapOverlaps(widths, available, OVERLAP_REVEAL_ABSOLUTE);
+  tabs.forEach((t, i)=>{
+    t.style.marginLeft = i === 0 ? '0px' : (-solved.gaps[i - 1]) + 'px';
+  });
 
   // ---- 3. Cache settled positions for computeOverlapPush() ----
   overlapNaturalRects = tabs.map(t=>({ left: t.offsetLeft, width: t.offsetWidth }));
@@ -334,56 +390,93 @@ function layoutOverlapTabs(){
 
   // ---- 4. Connect the active tab to the page ----
   const card = document.getElementById('appCard');
+  const connector = document.getElementById('tabConnector');
+  if(connector) connector.style.width = '0px'; // reset; only re-shown below if there's an active tab to connect
   if(activeIdx >= 0 && card){
     const activeTabEl = tabs[activeIdx];
-    const cardTop = card.getBoundingClientRect().top;
-    const tabBottom = activeTabEl.getBoundingClientRect().bottom;
+    const cardRect = card.getBoundingClientRect();
+    const tabRect = activeTabEl.getBoundingClientRect();
     let nudge = 0;
-    if(tabBottom < cardTop + OVERLAP_CONNECT_MIN) nudge = (cardTop + OVERLAP_CONNECT_MIN) - tabBottom;
-    else if(tabBottom > cardTop + OVERLAP_CONNECT_MAX) nudge = (cardTop + OVERLAP_CONNECT_MAX) - tabBottom;
+    if(tabRect.bottom < cardRect.top + OVERLAP_CONNECT_MIN) nudge = (cardRect.top + OVERLAP_CONNECT_MIN) - tabRect.bottom;
+    else if(tabRect.bottom > cardRect.top + OVERLAP_CONNECT_MAX) nudge = (cardRect.top + OVERLAP_CONNECT_MAX) - tabRect.bottom;
     if(nudge) activeTabEl.style.setProperty('--tab-connect', nudge + 'px');
+    // tabRect was measured before the nudge above ever takes visual effect
+    // (transform transitions animate from the OLD value, so re-measuring
+    // synchronously here would just read that stale frame back) — but the
+    // nudge is a pure vertical translate, so the final overlap depth is
+    // knowable by arithmetic alone (tabRect.bottom + nudge), and left/
+    // width are untouched by a Y-only translate either way. See the
+    // .tabconnector comment in <style> for why this patch — not the real
+    // .tab.active element — is what actually ends up visible here.
+    if(connector){
+      const depth = (tabRect.bottom + nudge) - cardRect.top;
+      connector.style.left = (tabRect.left - cardRect.left) + 'px';
+      connector.style.width = tabRect.width + 'px';
+      connector.style.height = Math.max(0, depth + 2) + 'px';
+    }
   }
+}
+
+// The exact overlap currently sitting between a source tab and ONE of its
+// immediate neighbors, in overlapNaturalRects' un-pushed coordinate space
+// — i.e. exactly how far the neighbor would need to move to clear the
+// source's edge with nothing left over. Used by computeOverlapPush() so a
+// pushed neighbor "scoots only till the edge of the selected tag" (the
+// project owner's own words), never further, rather than a flat guessed
+// distance that could either undershoot (leaving overlap behind) or
+// overshoot (shoving it needlessly far, which is exactly what was
+// compounding into neighbors two tabs away shoving each other closer
+// together instead of apart — see the comment on computeOverlapPush()).
+function overlapEdgeGap(sourceIdx, neighborIdx){
+  const s = overlapNaturalRects[sourceIdx], t = overlapNaturalRects[neighborIdx];
+  if(!s || !t) return 0;
+  return neighborIdx < sourceIdx
+    ? Math.max(0, (t.left + t.width) - s.left)
+    : Math.max(0, (s.left + s.width) - t.left);
 }
 
 // overlapHoverMode's 'push' variant (see devSettingsFieldsHtml() in
 // 01-categories-theme.js): rather than the default look's hover-lifts-
 // above-everything trick, a hovered or selected tab instead shoves its
-// immediate neighbor(s) sideways, away from it, revealing more of itself
-// without needing to reorder the (now fixed, see tabImportanceRank())
-// stack. `sources` is the set of tab indices currently pushing (the
-// active tab always, plus whichever tab is hovered) — each contributes an
-// independent push to every other tab based on distance, and the results
-// simply add together where they overlap (e.g. hovering a tab right next
-// to the active one). Pushes are applied as a `transform: translateX()`
-// (via --tab-dx, combined with the vertical lift/jitter transform — see
-// the .tab rules in <style>) rather than by touching margins, so pushing
-// tab N can never cascade into shifting every tab after it — each tab's
-// own displacement is independent and computed from its ORIGINAL
-// (overlapNaturalRects) position every time, not the current one.
-// Finally, each tab's target position is clamped to stay within the row's
-// own width — the project owner's explicit ask that a pushed end tab
-// never scoots off the page — which can only ever pull a push *in*, never
-// send a tab further out than the row itself.
+// immediate neighbor(s) sideways, away from it, revealing itself without
+// needing to reorder the (now fixed, see tabImportanceRank()) stack.
+// `sources` is the set of tab indices currently pushing (the active tab
+// always, plus whichever tab is hovered) — each pushes only its own two
+// immediate neighbors (not a wider fan-out — see overlapEdgeGap() above
+// for why going further caused more harm than good), and results from
+// multiple sources simply add together where they overlap (e.g. hovering
+// a tab right next to the active one). Pushes are applied as a
+// `transform: translateX()` (via --tab-dx, combined with the vertical
+// lift/jitter transform — see the .tab rules in <style>) rather than by
+// touching margins, so pushing tab N can never cascade into shifting
+// every tab after it — each tab's own displacement is independent and
+// computed from its ORIGINAL (overlapNaturalRects) position every time,
+// not the current one. Finally, each tab's target position is clamped to
+// stay within the row's own width — the project owner's explicit ask that
+// a pushed end tab never scoots off the page — which can only ever pull a
+// push *in*, never send a tab further out than the row itself.
 function computeOverlapPush(sources){
   const wrap = document.getElementById('tabs');
   if(!wrap || !overlapNaturalRects) return;
   const tabs = Array.from(wrap.querySelectorAll('.tab'));
   const containerWidth = wrap.clientWidth;
   const srcs = sources.filter(s => s != null && s >= 0);
-  tabs.forEach((t, i)=>{
-    let dx = 0;
-    srcs.forEach(s=>{
-      if(s === i) return;
-      const dist = i - s;
-      const mag = Math.abs(dist) === 1 ? OVERLAP_PUSH1 : Math.abs(dist) === 2 ? OVERLAP_PUSH2 : 0;
-      dx += Math.sign(dist) * mag;
+  const dx = new Array(tabs.length).fill(0);
+  srcs.forEach(s=>{
+    [s - 1, s + 1].forEach(n=>{
+      if(n < 0 || n >= tabs.length) return;
+      const amt = overlapEdgeGap(s, n);
+      dx[n] += (n < s ? -1 : 1) * amt;
     });
+  });
+  tabs.forEach((t, i)=>{
+    let d = dx[i];
     const rect = overlapNaturalRects[i];
-    if(rect && dx !== 0){
-      const clampedLeft = Math.max(0, Math.min(containerWidth - rect.width, rect.left + dx));
-      dx = clampedLeft - rect.left;
+    if(rect && d !== 0){
+      const clampedLeft = Math.max(0, Math.min(containerWidth - rect.width, rect.left + d));
+      d = clampedLeft - rect.left;
     }
-    t.style.setProperty('--tab-dx', dx + 'px');
+    t.style.setProperty('--tab-dx', d + 'px');
   });
 }
 
