@@ -2198,19 +2198,17 @@
      inside its own 22px padding (see .card{padding} above) and short of
      where any real content (the quick-add row, task list, etc.) starts,
      with a few px of breathing room to spare rather than butting right up
-     against it. The mask-image fade below is a second, belt-and-suspenders
-     safety margin on top of this, not a substitute for getting the tuck
-     depth itself right. position:relative only so hover/.active below can
-     use z-index (it has no effect on a static element) — it doesn't
-     otherwise change this box's place in the column's normal flow. */
+     against it. position:relative only so hover/.active below can use
+     z-index (it has no effect on a static element) — it doesn't otherwise
+     change this box's place in the column's normal flow. No mask-image
+     fade here (a first pass put one on every tab — see .tab.active below
+     for why that was wrong on two counts). */
   .sidetabspeek .tab{
     width:84px; height:44px; margin-left:-72px; margin-top:-10px;
     padding:0 10px 0 18px; border-radius:0; justify-content:flex-start;
     box-shadow: -2px 3px 6px rgba(0,0,0,0.35);
     position:relative; pointer-events:auto;
     background: var(--sidetab-fill, var(--tabhex, var(--primary)));
-    -webkit-mask-image: linear-gradient(to right, black 0%, black 80%, transparent 100%);
-    mask-image: linear-gradient(to right, black 0%, black 80%, transparent 100%);
     transition: transform .15s ease, box-shadow .15s ease;
   }
   .sidetabspeek .tab:first-child{ margin-top:0; }
@@ -2230,10 +2228,33 @@
   }
   /* The active tab sits out a bit further even at rest, so it's always
      legible without needing a hover — and above every resting neighbor it
-     might overlap in the column. */
+     might overlap in the column. It's also the one tab allowed to tuck a
+     little deeper than the fixed 12px every resting tab keeps to (the
+     project owner's own "they can also go a little further in," said
+     right after asking the fade be scoped to just this tab) — width:96px
+     (12px more than the 84px base, all of it added on the tucked/right
+     side since margin-left is unchanged) nets an 18px tuck once the -6px
+     translateX above is applied, still short of #appCard's 22px padding.
+     The mask-image fade is ONLY here, not on the base .tab rule — a first
+     pass put a wide 20%-of-width fade on EVERY tab, which (a) doesn't
+     make sense for a resting tab that isn't tucked deep enough to need
+     one, and (b) actively broke every outward-pointing shape below:
+     mask-image's own coordinate space is the element's plain border-box,
+     0 to its own width, so a clip-path point sitting at a negative
+     x-offset (pagetab/arrows/sawtooth/jagged all protrude past x:0 — see
+     sidetabsShape below) fell entirely outside that space and got masked
+     to nothing, which is why every shape but invertedv (the one shape
+     whose point stays inside the box, since it cuts *inward*) looked
+     "stopped working." Scoped to only the active tab's own tucked/right
+     edge instead (90%-100% of its width — well past both the label, which
+     ends inside its own 10px right padding, and the pointed shapes, whose
+     protruding tips sit on the opposite, LEFT side entirely) — "fade at
+     the very tip, never the text," per the project owner's own ask. */
   .sidetabspeek .tab.active{
-    transform: translateX(-6px); z-index:4; font-weight:500;
+    width:96px; transform: translateX(-6px); z-index:4; font-weight:500;
     background: var(--sidetab-fill, var(--tabhex, var(--primary)));
+    -webkit-mask-image: linear-gradient(to right, black 0%, black 90%, transparent 100%);
+    mask-image: linear-gradient(to right, black 0%, black 90%, transparent 100%);
   }
   /* ---- sidetabsAppearance (see defaultDevSettings() in 02-storage-
      state.js) ---- each mode only sets --sidetab-fill/color (read by the
@@ -2249,6 +2270,25 @@
   body[data-sidetabs-appearance="classicband"] .sidetabspeek .tab{
     --sidetab-fill: rgba(0,0,0,0.18); color: rgba(241,234,217,0.65);
   }
+  /* 'classic' specifically (not 'classicband') is meant to recreate the
+     original pre-rework sidetabs look exactly — "rounded pill bubbles,
+     without the color band" — so it opts back OUT of sidetabsShape and
+     the color band entirely, regardless of which shape is picked in the
+     dropdown: a plain half-round left end (border-radius using half the
+     tab's own 44px height, a true pill/stadium curve) instead of any
+     clip-path, no ::before band, and no fade. The extra body[attr] in
+     this selector (specificity (0,3,1)) is what lets a single rule beat
+     every .tab[data-shape="…"] rule below (0,3,0) regardless of source
+     order, without needing !important or a copy per shape; it only
+     resets the specific properties named here, so .tab.active's own
+     transform/width/z-index (a different property set entirely) still
+     apply normally on top. */
+  body[data-sidetabs-appearance="classic"] .sidetabspeek .tab{
+    clip-path:none; border-radius:22px 0 0 22px;
+    background: var(--sidetab-fill);
+    mask-image:none; -webkit-mask-image:none;
+  }
+  body[data-sidetabs-appearance="classic"] .sidetabspeek .tab::before{ content:none; }
   /* 'edge' / 'classicband': drop the icon glyph (.dot — see
      categoryDotHtml() in 01-categories-theme.js) in favor of the color
      band on ::before below doing the identifying instead — the "left edge
@@ -2316,9 +2356,22 @@
   .sidetabspeek .tab[data-shape="pagetab"]::before{
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 62%, -22px 50%, 0 38%);
   }
-  .sidetabspeek .tab[data-shape="invertedv"],
-  .sidetabspeek .tab[data-shape="invertedv"]::before{
+  /* invertedv is the one shape whose point cuts INWARD (a positive x
+     offset, toward the tab's own tucked side) rather than protruding out
+     past x:0 like the other three — sharing the exact same point value
+     with ::before doesn't work here the way it does for pagetab/arrows/
+     sawtooth/jagged below: the band is only 10px wide, and the tab's own
+     14px point sits well past that width, so on the band that "notch"
+     line overshoots its own right edge entirely instead of reading as a
+     clean inward wedge (reported as "the color band doesn't follow the
+     shape of the inverted V"). Giving the band its own smaller point
+     (6px, safely inside its 10px width) keeps the two proportional
+     instead of literally identical. */
+  .sidetabspeek .tab[data-shape="invertedv"]{
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
+  }
+  .sidetabspeek .tab[data-shape="invertedv"]::before{
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 6px 50%);
   }
   .sidetabspeek .tab[data-shape="arrows"],
   .sidetabspeek .tab[data-shape="arrows"]::before{
