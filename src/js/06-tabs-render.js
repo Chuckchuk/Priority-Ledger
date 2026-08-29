@@ -258,19 +258,20 @@ const SIDETAB_HEIGHT_2LINE = 60; // vs. the base 44px — see .sidetabspeek .tab
 // edge flat) don't paint. Every OUTWARD-pointing shape here places its
 // point at a NEGATIVE x offset (protruding left past the tab's own edge),
 // which never rendered until padded/shifted in-bounds like this. invertedv
-// is the one exception — a genuine concave notch (a bookmark's own V-cut
-// ribbon tail is the mental model, per the project owner), cutting INWARD
-// (positive x, already inside the box) rather than protruding, so it needs
-// no extra room — see its own rule in <style> for how its depth is kept
-// shallow enough to never reach the label text, and the two-layer trick
-// (a shallower "gold" notch behind, a deeper "fill" notch on top) that
-// gives it a gilded border tracing the cut instead of a flat color there.
+// is the different case — a genuine concave notch (a bookmark's own V-cut
+// ribbon tail is the mental model, per the project owner) cutting INWARD
+// rather than protruding — but it still gets a few px of extra room here:
+// "the label should come further out when using this setting" was the
+// project owner's own preferred fix once the notch needed to be deep
+// enough for a properly wide, same-angle gilded border (see that shape's
+// own rule in <style>) rather than the too-thin, mismatched-angle version
+// a first pass at this shipped with.
 // Padding the box by the same amount the point(s) protrude and shifting
 // the whole polygon over by that amount keeps every vertex non-negative
 // while the tab's own on-screen position (and thus how far it visually
 // pokes out) stays exactly the same — see the .sidetabspeek
 // .tab[data-shape="…"] rules in <style> for the actual shifted polygons.
-const SIDETAB_SHAPE_EXTRA = { pagetab:14, arrows:20, invertedv:0, sawtooth:7, jagged:13, flat:0 };
+const SIDETAB_SHAPE_EXTRA = { pagetab:14, arrows:20, invertedv:6, sawtooth:7, jagged:13, flat:0 };
 function layoutSidetabsPeek(){
   const peek = document.getElementById('sidetabsPeek');
   if(!peek) return;

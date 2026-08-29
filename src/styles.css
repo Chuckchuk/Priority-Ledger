@@ -2455,31 +2455,44 @@
      — with a gilded border tracing the cut, like a ribbon's own edge
      trim. Two layers, not the shared gradient every other shape uses,
      since a flat left-to-right split can't trace a diagonal edge:
-     - .tab itself (the "gold" layer) is clipped to a SHALLOW notch (6px)
-       and filled with --tabband. This is deliberately the shallower of
-       the two — since clip-path on a parent bounds what its own ::before
-       can ever show (a child can never poke out past its parent's own
-       clip), whichever layer is shallower here is the one that actually
-       decides how deep the notch reads on screen. 6px stays well clear of
-       the label text at any appearance's padding-left (10px at its
-       tightest, 'color' mode) — the original version of this shape used
-       one deep notch for both role and read, which is exactly what ate
-       into the text ("removing text from the label").
-     - ::before (the "fill" layer) sits on top, covers the full tab, and
-       is clipped to a DEEPER notch (9px) filled with --sidetab-fill. Since
-       9 > 6, its own missing wedge is bigger than what .tab's shallower
-       clip would show as gold — so ::before's fill covers all of .tab's
-       gold EXCEPT a ~3px sliver between the 6px and 9px cuts, where
-       .tab's own background is all that's left to show through. That
-       sliver is the gilded border — a real gap between two clipped
-       layers, not a stroke, but it reads as one. */
+     - .tab itself (the "gold" layer) is clipped to a notch (10px) and
+       filled with --tabband. This is deliberately the SHALLOWER of the
+       two layers — since clip-path on a parent bounds what its own
+       ::before can ever show (a child can never poke out past its
+       parent's own clip), whichever layer is shallower here is the one
+       that actually decides how deep the notch reads on screen. 10px
+       plus SIDETAB_SHAPE_EXTRA's own 6px (06-tabs-render.js, added to
+       this shape's padding-left) leaves a real buffer before the label
+       text at every appearance's padding — "the label should come
+       further out when using this setting" was the project owner's own
+       fix once a wider border needed a deeper notch to sit inside.
+     - ::before (the "fill" layer) sits on top, clipped to a DEEPER notch
+       (14px) filled with --sidetab-fill — 4px deeper than the gold layer,
+       which is what a matching perpendicular border width works out to
+       for a V this size (a fixed x-depth difference alone gives a border
+       that pinches to nothing at the notch's own tip and flares wide at
+       its mouth, which is the "doesn't have the same angle" a first pass
+       had — 14 vs 10 was picked to keep the two edges close to parallel
+       instead). left/top/bottom/width:16px (not inset:0 — see below for
+       why that mattered) is plenty to contain a 14px-deep notch.
+       position:absolute is required for clip-path here to size against a
+       box independent of the button's own layout, but it ALSO promotes
+       this pseudo-element into the "positioned" paint step, which comes
+       AFTER plain in-flow content (the tab's real icon/label/count) no
+       matter what DOM order says — a first pass used inset:0 (covering
+       the tab's FULL width) and silently painted this solid layer clean
+       over the label text. Capping the width at 16px — comfortably past
+       the 14px notch but short of where padding-left actually puts the
+       text (16px+ once SIDETAB_SHAPE_EXTRA is added) — sidesteps that
+       paint-order trap entirely by simply never geometrically overlapping
+       the text, rather than trying to fight it with z-index. */
   .sidetabspeek .tab[data-shape="invertedv"]{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 6px 50%);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 10px 50%);
     background: var(--tabband, var(--tabhex, var(--primary)));
   }
   .sidetabspeek .tab[data-shape="invertedv"]::before{
-    content:''; position:absolute; inset:0;
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 9px 50%);
+    content:''; position:absolute; left:0; top:0; bottom:0; width:16px;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
     background: var(--sidetab-fill, var(--tabhex, var(--primary))); pointer-events:none;
   }
   .sidetabspeek .tab[data-shape="arrows"]{
