@@ -1338,15 +1338,15 @@
   }
   .daytreecat:hover{ border-color: var(--primary); }
   /* Whenever the tab bar itself is showing pure category color with no
-     icon (the desktop "sidetabs" style set to its "edge" appearance —
-     see the body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"]
-     [data-sidetabs-appearance="edge"] rules elsewhere in this file), the
-     tree's own category pills follow suit: the glyph is hidden (font-
-     size:0) and the dot becomes a plain color swatch via currentColor,
-     which categoryDotHtml() already sets as this span's inline `color`.
-     No separate dev setting for this — it's purely derived from whatever
-     the tab bar is already doing. */
-  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="edge"] .daytreecat .dot{
+     icon (the desktop "sidetabs" style set to its "edge" or "classicband"
+     appearance — see the [data-sidetabs-appearance] rules elsewhere in
+     this file), the tree's own category pills follow suit: the glyph is
+     hidden (font-size:0) and the dot becomes a plain color swatch via
+     currentColor, which categoryDotHtml() already sets as this span's
+     inline `color`. No separate dev setting for this — it's purely
+     derived from whatever the tab bar is already doing. */
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="edge"] .daytreecat .dot,
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="classicband"] .daytreecat .dot{
     font-size:0; background: currentColor; border-radius:50%;
   }
   .daytreetaskrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:6px; position:relative; }
@@ -2145,23 +2145,20 @@
   body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .tabswrap{ display:none; }
   body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .leathercover{ flex:1; min-width:0; }
   /* #sidetabspeek's own left:0 lands exactly on #appCard's rendered left
-     edge — an absolutely positioned child is placed relative to the
-     PADDING edge of its nearest positioned ancestor (.leathercover, see
-     .leathercover{position:relative} above), and #appCard's own left edge
-     sits at that exact same point (it's the next thing in normal flow
-     after .leathercover's own padding, whatever that padding currently
-     is). That's what makes "poking out past the page regardless of the
-     leather preset" free: every .sidetabspeek .tab below pokes out a FIXED
-     amount from this one shared anchor, so it always reads as poking past
-     the page itself — never past .leathercover's own outer edge instead —
-     whether leather is on or off, and at any --leather-pad-left value (see
-     :root and the body[data-leather-inset] overrides). No explicit
-     z-index here (deliberately): #appCard's own z-index:1 (see .card
-     above) already unconditionally outranks any *unpositioned-or-z-index-
-     auto* box regardless of DOM order, so leaving this at the auto default
-     is what guarantees it always paints below #appCard — an explicit
-     value here would just be one more number to keep in sync with .card's
-     for no benefit. Being a real element placed after .leathercover's own
+     edge ONLY while leather is off (see the .leathercover.leather-on
+     override right below for why it needs one) — an absolutely positioned
+     child is placed relative to the PADDING edge of its nearest positioned
+     ancestor (.leathercover, see .leathercover{position:relative} above),
+     which is .leathercover's own OUTER edge, not wherever its padding
+     happens to push #appCard to. With no leather, .leathercover has no
+     padding of its own, so that outer edge and #appCard's edge are the
+     same point and left:0 just works. No explicit z-index here
+     (deliberately): #appCard's own z-index:1 (see .card above) already
+     unconditionally outranks any *unpositioned-or-z-index-auto* box
+     regardless of DOM order, so leaving this at the auto default is what
+     guarantees it always paints below #appCard — an explicit value here
+     would just be one more number to keep in sync with .card's for no
+     benefit. Being a real element placed after .leathercover's own
      ::before (the leather grain texture, generated as that element's
      conceptual first child) is what keeps it painting above that texture,
      same idea as .bookmark just above it in shell-body.html. */
@@ -2169,22 +2166,45 @@
     position:absolute; left:0; top:28px; display:flex; flex-direction:column;
     pointer-events:none;
   }
+  /* Once leather is on, .leathercover.leather-on adds padding-left:
+     var(--leather-pad-left) (see that rule above) which pushes #appCard's
+     own edge inward by that same amount — without this override
+     #sidetabspeek stayed anchored to .leathercover's now-unmoved OUTER
+     edge, so every tab under it drifted further and further UNDER the
+     page as the preset's padding grew, reading as "tabs going way too far
+     in, covering elements inside the page." Reusing the exact same
+     variable #appCard's own inset is built from is what guarantees this
+     tracks it exactly, at every preset, instead of needing its own
+     hand-tuned number per preset the way an earlier pass tried and got
+     wrong. This is the actual fix for "they should always have the same
+     position on the side of the page" — same position *relative to the
+     page*, which is what makes the leather's own inward shift something
+     to compensate for rather than something to match. */
+  .leathercover.leather-on .sidetabspeek{ left: var(--leather-pad-left); }
   /* Fixed height + a negative margin-top overlap (not a dynamic solver
      the way layoutOverlapTabs()'s horizontal row needs — see the comment
      on layoutSidetabsPeek()) is enough room for any realistic category
      count down a column this tall. margin-left is the fixed "poke past
-     the page" amount: with the container itself anchored flush at
-     #appCard's edge (see .sidetabspeek above), every tab here starts 26px
-     to the LEFT of that edge and runs 92px wide, so ~66px of it is always
-     tucked under the page regardless of how much (or how little) leather
-     shows between them. position:relative only so hover/.active below can
+     the page" amount: with the container anchored flush at #appCard's
+     edge (see .sidetabspeek above), every tab starts 72px to the LEFT of
+     that edge — plenty of room for a label to actually read — and runs
+     84px wide, so only 12px of it ever reaches past #appCard's edge: well
+     inside its own 22px padding (see .card{padding} above) and short of
+     where any real content (the quick-add row, task list, etc.) starts,
+     with a few px of breathing room to spare rather than butting right up
+     against it. The mask-image fade below is a second, belt-and-suspenders
+     safety margin on top of this, not a substitute for getting the tuck
+     depth itself right. position:relative only so hover/.active below can
      use z-index (it has no effect on a static element) — it doesn't
      otherwise change this box's place in the column's normal flow. */
   .sidetabspeek .tab{
-    width:92px; height:44px; margin-left:-26px; margin-top:-10px;
-    padding:0 10px 0 16px; border-radius:0; justify-content:flex-start;
+    width:84px; height:44px; margin-left:-72px; margin-top:-10px;
+    padding:0 10px 0 18px; border-radius:0; justify-content:flex-start;
     box-shadow: -2px 3px 6px rgba(0,0,0,0.35);
     position:relative; pointer-events:auto;
+    background: var(--sidetab-fill, var(--tabhex, var(--primary)));
+    -webkit-mask-image: linear-gradient(to right, black 0%, black 80%, transparent 100%);
+    mask-image: linear-gradient(to right, black 0%, black 80%, transparent 100%);
     transition: transform .15s ease, box-shadow .15s ease;
   }
   .sidetabspeek .tab:first-child{ margin-top:0; }
@@ -2206,77 +2226,120 @@
      legible without needing a hover — and above every resting neighbor it
      might overlap in the column. */
   .sidetabspeek .tab.active{
-    transform: translateX(-6px); z-index:4;
-    background: var(--tabhex, var(--primary)); color: var(--tabtext, white); font-weight:500;
+    transform: translateX(-6px); z-index:4; font-weight:500;
+    background: var(--sidetab-fill, var(--tabhex, var(--primary)));
   }
   /* ---- sidetabsAppearance (see defaultDevSettings() in 02-storage-
-     state.js) ---- 'color' (default) needs no override beyond the base
-     --tabhex/--tabtext already set inline by renderTabs() (copied onto
-     every clone by cloneNode(true)). */
-  body[data-sidetabs-appearance="color"] .sidetabspeek .tab,
-  body[data-sidetabs-appearance="textured"] .sidetabspeek .tab{
-    background: var(--tabhex, var(--primary)); color: var(--tabtext, white);
+     state.js) ---- each mode only sets --sidetab-fill/color (read by the
+     background/color declarations above) rather than background directly,
+     so .tab and .tab.active never need their own per-mode copy, and the
+     sawtooth/jagged shape override further down can layer its own
+     gradient on top of whichever fill is currently active without needing
+     a copy per appearance mode either. 'color' (default) needs no
+     override beyond the --tabhex/--tabtext already set inline by
+     renderTabs() (copied onto every clone by cloneNode(true)) — --sidetab-
+     fill's own fallback chain already lands there. */
+  body[data-sidetabs-appearance="classic"] .sidetabspeek .tab,
+  body[data-sidetabs-appearance="classicband"] .sidetabspeek .tab{
+    --sidetab-fill: rgba(0,0,0,0.18); color: rgba(241,234,217,0.65);
   }
-  /* 'textured': same fill, plus a grain overlay on ::after (::before is
-     'edge' mode's own color stripe below — the two appearance modes never
-     apply at once, so reusing one pseudo-element slot per purpose instead
-     of needing two of each is safe). Same feTurbulence idea #appCard's own
-     "Grain" texture and the leather cover's own noise use — a third,
-     independent application of the same trick, not a shared asset, since
-     each needs its own frequency/opacity tuned to its own element size. */
-  body[data-sidetabs-appearance="textured"] .sidetabspeek .tab::after{
-    content:''; position:absolute; inset:0;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-    opacity:0.35; mix-blend-mode:overlay; pointer-events:none;
-  }
-  /* 'edge': drop the fill (back to the plain card color, so the tab reads
-     as part of the page it's tucked behind) and drop the icon glyph
-     (.dot — see categoryDotHtml() in 01-categories-theme.js), leaving just
-     the label plus a colored stripe down the tab's own left edge on
-     ::before — the "left edge of the tab with a color instead of the
-     icon" ask. The stripe is its own element (not a border-left) so a
-     clip-path shape (see sidetabsShape below) can cut the tab's outer
-     silhouette without also notching the stripe's own straight inner
-     edge. */
+  /* 'edge' / 'classicband': drop the icon glyph (.dot — see
+     categoryDotHtml() in 01-categories-theme.js) in favor of the color
+     band on ::before below doing the identifying instead — the "left edge
+     of the tab with a color instead of the icon" ask, offered against
+     both a page-blending fill ('edge') and the plain classic fill
+     ('classicband'). 'edge' additionally swaps to the page's own color so
+     it reads as part of the page it's tucked behind rather than its own
+     separate chip. */
   body[data-sidetabs-appearance="edge"] .sidetabspeek .tab{
-    background: var(--card-bg); color: var(--ink);
+    --sidetab-fill: var(--card-bg); color: var(--ink);
   }
-  body[data-sidetabs-appearance="edge"] .sidetabspeek .tab.active{
-    background: var(--card-bg); color: var(--ink);
+  body[data-sidetabs-appearance="edge"] .sidetabspeek .dot,
+  body[data-sidetabs-appearance="classicband"] .sidetabspeek .dot{
+    display:none;
   }
-  body[data-sidetabs-appearance="edge"] .sidetabspeek .dot{ display:none; }
-  body[data-sidetabs-appearance="edge"] .sidetabspeek .tab::before{
-    content:''; position:absolute; left:0; top:0; bottom:0; width:6px;
-    background: var(--tabhex, var(--primary));
+  /* The color band itself — every appearance mode gets one now (including
+     'color', the project owner's own ask: "give the Colored Label version
+     a color band at the edge as well"), not just 'edge'/'classicband'.
+     'color' mode uses --tabedge (the same pre-shaded darker tone the
+     overlap look's own border-top already reads — see renderTabs() in
+     06-tabs-render.js) since the band needs to read as a distinct trim
+     against a fill that's already the tab's own color; every other mode
+     uses the bold true --tabhex, since their base fill is neutral and the
+     band is the only thing actually carrying the category's color. Its
+     own left/top/bottom/width (not a border-left) is what lets the
+     shape rules below give it its own clip-path independent of the
+     stripe's straight inner edge. */
+  .sidetabspeek .tab::before{
+    content:''; position:absolute; left:0; top:0; bottom:0; width:10px;
+    background: var(--tabhex, var(--primary)); pointer-events:none;
+  }
+  body[data-sidetabs-appearance="color"] .sidetabspeek .tab::before{
+    background: var(--tabedge, var(--primary-light));
   }
   /* sidetabsNoBg — independent of appearance/shape, see defaultDevSettings()
-     — strips whichever background the appearance mode above painted,
-     leaving icon/label (or 'edge' mode's stripe) floating directly over
-     bare leather/page. !important since it needs to beat the appearance-
-     mode backgrounds above regardless of which one is active. */
+     — strips whichever fill the appearance mode above chose, leaving
+     icon/label plus the color band floating directly over bare
+     leather/page. !important since it needs to beat --sidetab-fill
+     regardless of which mode set it. The band on ::before is deliberately
+     NOT hidden here — with the fill gone it becomes the one remaining
+     thing identifying the tab's category at a glance, which is more
+     useful than a fully blank chip. */
   body.sidetabs-nobg .sidetabspeek .tab{ background:transparent !important; box-shadow:none; }
-  body.sidetabs-nobg .sidetabspeek .tab::after{ display:none; }
   /* ---- sidetabsShape — cuts the tab's own left (poking-out) edge; top/
      right/bottom stay straight since those are shared with the column and
      with #appCard, not part of what's actually visible poking out. Every
      polygon below only differs in that left edge for exactly that reason.
      'jagged' is intentionally never assigned by resolveSidetabShape() for
      'random'/'iconstyle' (06-tabs-render.js) — it's the one shape meant to
-     only ever show up when explicitly picked. ---- */
-  .sidetabspeek .tab[data-shape="pagetab"]{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 62%, -13px 50%, 0 38%);
+     only ever show up when explicitly picked.
+     For the three pointed shapes, ::before (the color band) below gets the
+     exact same polygon as the tab itself — "have the color bands follow
+     the shape," per the project owner's own ask. That works with no extra
+     per-shape math: clip-path's px coordinates are absolute regardless of
+     the element's own width, and its %-based y coordinates resolve
+     against each element's own height, which the band already matches
+     (top:0;bottom:0 above) — so the same polygon traces the same point on
+     a narrower box for free. sawtooth/jagged deliberately do NOT do this
+     (the project owner's own callout: a stripe trying to trace a zigzag
+     "would look weird") — the band stays the default straight rectangle,
+     and the tab's own background gets a second gradient layer below
+     instead, so the zigzag teeth themselves read as the band color rather
+     than the band having to chase their contour. ---- */
+  .sidetabspeek .tab[data-shape="pagetab"],
+  .sidetabspeek .tab[data-shape="pagetab"]::before{
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 62%, -22px 50%, 0 38%);
   }
-  .sidetabspeek .tab[data-shape="invertedv"]{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 10px 50%);
+  .sidetabspeek .tab[data-shape="invertedv"],
+  .sidetabspeek .tab[data-shape="invertedv"]::before{
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
   }
-  .sidetabspeek .tab[data-shape="arrows"]{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -14px 50%);
+  .sidetabspeek .tab[data-shape="arrows"],
+  .sidetabspeek .tab[data-shape="arrows"]::before{
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -20px 50%);
   }
-  .sidetabspeek .tab[data-shape="sawtooth"]{
+  .sidetabspeek .tab[data-shape="sawtooth"],
+  .sidetabspeek .tab[data-shape="jagged"]{
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -7px 87.5%, 0 75%, -7px 62.5%, 0 50%, -7px 37.5%, 0 25%, -7px 12.5%, 0 0);
   }
   .sidetabspeek .tab[data-shape="jagged"]{
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -3px 91%, -11px 82%, -2px 74%, -9px 63%, -4px 55%, -13px 46%, -3px 38%, -8px 27%, -2px 18%, -10px 9%, 0 0);
+  }
+  /* sawtooth/jagged: the tab's own background gets a second layer on top
+     of --sidetab-fill — transparent for the first 10px (letting the true
+     --tabhex base layer show through exactly where the teeth are cut, so
+     they read as the band color) then --sidetab-fill for the rest, same
+     "outer zone is band-colored, inner zone is the appearance mode's own
+     fill" split the project owner asked for as the alternative to a
+     shape-following band. Repeated for .active so a sawtooth/jagged tab
+     doesn't lose this split the one render it's also selected (that
+     combination ties both rules at equal specificity, so without its own
+     copy here source order alone would decide which one wins). */
+  .sidetabspeek .tab[data-shape="sawtooth"],
+  .sidetabspeek .tab[data-shape="jagged"],
+  .sidetabspeek .tab.active[data-shape="sawtooth"],
+  .sidetabspeek .tab.active[data-shape="jagged"]{
+    background: linear-gradient(to right, transparent 0 10px, var(--sidetab-fill, var(--tabhex)) 10px 100%), var(--tabhex, var(--primary));
   }
 
   /* indextabs: pure restyle of the existing horizontal row — no wrap/
@@ -3516,7 +3579,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <span class="${captionClass}">Side tabs: appearance</span>
       <select class="${selectClass}" onchange="setDevSidetabsAppearance(this.value)">
         <option value="color" ${dev.sidetabsAppearance==='color'?'selected':''}>Colored label (default)</option>
-        <option value="textured" ${dev.sidetabsAppearance==='textured'?'selected':''}>Colored + textured</option>
+        <option value="classic" ${dev.sidetabsAppearance==='classic'?'selected':''}>Classic (translucent, with icon)</option>
+        <option value="classicband" ${dev.sidetabsAppearance==='classicband'?'selected':''}>Classic + color band (no icon)</option>
         <option value="edge" ${dev.sidetabsAppearance==='edge'?'selected':''}>Left edge color only, no icon</option>
       </select>
     </div>
@@ -4268,6 +4332,13 @@ function normalizeState(){
   if(typeof state.devSettings.overlapHoverMode !== 'string') state.devSettings.overlapHoverMode = 'default';
   if(typeof state.devSettings.overlapRankStagger !== 'boolean') state.devSettings.overlapRankStagger = false;
   if(typeof state.devSettings.sidetabsAppearance !== 'string') state.devSettings.sidetabsAppearance = 'color';
+  // 'textured' was removed (a plain noise-filter overlay, not a real
+  // material texture — didn't hold up) in favor of 'classic'/'classicband'.
+  // Only ever reachable by an account that had it selected before the
+  // removal, so falling it back to the plain colored look is the same
+  // "point at something that still renders" idea as the calendar-type
+  // migration above.
+  if(state.devSettings.sidetabsAppearance === 'textured') state.devSettings.sidetabsAppearance = 'color';
   if(typeof state.devSettings.sidetabsShape !== 'string') state.devSettings.sidetabsShape = 'pagetab';
   if(typeof state.devSettings.sidetabsNoBg !== 'boolean') state.devSettings.sidetabsNoBg = false;
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';

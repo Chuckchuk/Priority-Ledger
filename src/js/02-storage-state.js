@@ -627,6 +627,13 @@ function normalizeState(){
   if(typeof state.devSettings.overlapHoverMode !== 'string') state.devSettings.overlapHoverMode = 'default';
   if(typeof state.devSettings.overlapRankStagger !== 'boolean') state.devSettings.overlapRankStagger = false;
   if(typeof state.devSettings.sidetabsAppearance !== 'string') state.devSettings.sidetabsAppearance = 'color';
+  // 'textured' was removed (a plain noise-filter overlay, not a real
+  // material texture — didn't hold up) in favor of 'classic'/'classicband'.
+  // Only ever reachable by an account that had it selected before the
+  // removal, so falling it back to the plain colored look is the same
+  // "point at something that still renders" idea as the calendar-type
+  // migration above.
+  if(state.devSettings.sidetabsAppearance === 'textured') state.devSettings.sidetabsAppearance = 'color';
   if(typeof state.devSettings.sidetabsShape !== 'string') state.devSettings.sidetabsShape = 'pagetab';
   if(typeof state.devSettings.sidetabsNoBg !== 'boolean') state.devSettings.sidetabsNoBg = false;
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';

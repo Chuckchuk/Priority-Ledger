@@ -691,7 +691,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <span class="${captionClass}">Side tabs: appearance</span>
       <select class="${selectClass}" onchange="setDevSidetabsAppearance(this.value)">
         <option value="color" ${dev.sidetabsAppearance==='color'?'selected':''}>Colored label (default)</option>
-        <option value="textured" ${dev.sidetabsAppearance==='textured'?'selected':''}>Colored + textured</option>
+        <option value="classic" ${dev.sidetabsAppearance==='classic'?'selected':''}>Classic (translucent, with icon)</option>
+        <option value="classicband" ${dev.sidetabsAppearance==='classicband'?'selected':''}>Classic + color band (no icon)</option>
         <option value="edge" ${dev.sidetabsAppearance==='edge'?'selected':''}>Left edge color only, no icon</option>
       </select>
     </div>
