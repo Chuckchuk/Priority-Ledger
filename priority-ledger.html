@@ -2002,11 +2002,15 @@
      without scrolling away, while still costing nothing extra in layout
      terms (it reserves its own space same as any other in-flow element,
      so no #categoryView padding compensation is needed the way 'bottom'
-     needs). top:0 anchors it to the very top of the viewport once
-     scrolled that far, same edge the tab bar itself docks to if
-     stickyTabBar is also on. */
+     needs). top is env(safe-area-inset-top) plus a small gap, NOT a bare
+     0 — on an iPhone with a notch/Dynamic Island, a sticky element with
+     top:0 sticks flush to the true top of the viewport, which is the
+     unsafe area itself (reported: it was ending up underneath the
+     FaceTime camera). Anchoring to the safe-area inset instead means it
+     stops just clear of that, same idiom body's own top padding already
+     uses for the masthead. */
   body.mobileui-active[data-quickadd-trigger-pos="top"] .quickaddtrigger{
-    position:sticky; top:0; z-index:45; width:100%;
+    position:sticky; top: calc(8px + env(safe-area-inset-top)); z-index:45; width:100%;
     padding:14px; margin-bottom:16px;
   }
   /* Grabber + close row — only meaningful once #quickAddBar itself has
