@@ -2286,6 +2286,23 @@
     transition: transform .15s ease, box-shadow .15s ease;
   }
   .sidetabspeek .tab:first-child{ margin-top:0; }
+  /* Past SIDETAB_MAX_POKE (layoutSidetabsPeek(), 06-tabs-render.js) a long
+     label stops growing the tab wider and wraps here instead — height is
+     set inline per tab (SIDETAB_HEIGHT_2LINE) since only labels that
+     actually need it get taller, not every tab uniformly. -webkit-line-
+     clamp:2 does double duty as both "wrap to a second line" AND "if it's
+     STILL too long even wrapped, ellipsize" in one property, rather than
+     needing a separate overflow check for the pathological-single-long-
+     word case. flex:1;min-width:0 on the label is required for it to
+     actually shrink/wrap inside the tab's flex row at all — a flex item's
+     default min-width:auto would otherwise hold it at its own intrinsic
+     (unwrapped) width and force the tab wider regardless of what's set
+     above it. */
+  .sidetabspeek .tab.two-line .tablabel{
+    flex:1; min-width:0; white-space:normal; line-height:1.15;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
   /* Hovering brings a tab out a little further rather than reordering the
      stack (there's nothing to reorder — position:relative in a normal-
      flow column, not the overlap look's z-index-stacked pile) — the
@@ -5149,6 +5166,11 @@ const SIDETAB_TUCK_ACTIVE = 18;  // the active tab gets to tuck a bit deeper —
                                   // as covering page content
 const SIDETAB_MIN_POKE = 58;     // floor so a short label ("ALL") doesn't shrink
                                   // the tab down to an unreadably small nub
+const SIDETAB_MAX_POKE = 112;    // ceiling on how wide a single-line label can push
+                                  // a tab — past this it wraps to a second line
+                                  // instead (see .two-line in <style>), and past
+                                  // that it ellipsizes rather than growing forever
+const SIDETAB_HEIGHT_2LINE = 60; // vs. the base 44px — see .sidetabspeek .tab.two-line
 function layoutSidetabsPeek(){
   const peek = document.getElementById('sidetabsPeek');
   if(!peek) return;
@@ -5174,8 +5196,7 @@ function layoutSidetabsPeek(){
     clone.style.pointerEvents = 'auto';
     // Measure this clone's own natural (unwrapped) content width before
     // pinning it to a fixed px width below — max-content plus nowrap on
-    // the label (a two-line "House Upkeep" is exactly the case this is
-    // for) makes getBoundingClientRect() report how wide it actually
+    // the label makes getBoundingClientRect() report how wide it actually
     // wants to be, independent of whatever the shared .sidetabspeek .tab
     // rule's own width:84px fallback says.
     clone.style.width = 'max-content';
@@ -5183,7 +5204,19 @@ function layoutSidetabsPeek(){
     if(label) label.style.whiteSpace = 'nowrap';
     peek.appendChild(clone);
     const natural = clone.getBoundingClientRect().width;
-    const poke = Math.max(SIDETAB_MIN_POKE, natural);
+    // Past SIDETAB_MAX_POKE, stop growing the tab for a long label and
+    // wrap it onto a second line instead (.two-line — see <style> for the
+    // -webkit-line-clamp:2 that does the actual wrapping/measuring). A
+    // label that's STILL too long even wrapped to two lines (one
+    // pathologically long word, in practice) gets ellipsized by that same
+    // line-clamp rather than a third case to handle here.
+    const poke = Math.min(SIDETAB_MAX_POKE, Math.max(SIDETAB_MIN_POKE, natural));
+    const twoLine = natural > SIDETAB_MAX_POKE;
+    if(twoLine){
+      clone.classList.add('two-line');
+      clone.style.height = SIDETAB_HEIGHT_2LINE + 'px';
+      if(label) label.style.whiteSpace = '';
+    }
     const tuck = clone.classList.contains('active') ? SIDETAB_TUCK_ACTIVE : SIDETAB_TUCK;
     clone.style.width = (poke + tuck) + 'px';
     clone.style.marginLeft = -poke + 'px';

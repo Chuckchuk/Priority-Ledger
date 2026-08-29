@@ -2254,6 +2254,23 @@
     transition: transform .15s ease, box-shadow .15s ease;
   }
   .sidetabspeek .tab:first-child{ margin-top:0; }
+  /* Past SIDETAB_MAX_POKE (layoutSidetabsPeek(), 06-tabs-render.js) a long
+     label stops growing the tab wider and wraps here instead — height is
+     set inline per tab (SIDETAB_HEIGHT_2LINE) since only labels that
+     actually need it get taller, not every tab uniformly. -webkit-line-
+     clamp:2 does double duty as both "wrap to a second line" AND "if it's
+     STILL too long even wrapped, ellipsize" in one property, rather than
+     needing a separate overflow check for the pathological-single-long-
+     word case. flex:1;min-width:0 on the label is required for it to
+     actually shrink/wrap inside the tab's flex row at all — a flex item's
+     default min-width:auto would otherwise hold it at its own intrinsic
+     (unwrapped) width and force the tab wider regardless of what's set
+     above it. */
+  .sidetabspeek .tab.two-line .tablabel{
+    flex:1; min-width:0; white-space:normal; line-height:1.15;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
   /* Hovering brings a tab out a little further rather than reordering the
      stack (there's nothing to reorder — position:relative in a normal-
      flow column, not the overlap look's z-index-stacked pile) — the

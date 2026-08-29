@@ -245,6 +245,11 @@ const SIDETAB_TUCK_ACTIVE = 18;  // the active tab gets to tuck a bit deeper —
                                   // as covering page content
 const SIDETAB_MIN_POKE = 58;     // floor so a short label ("ALL") doesn't shrink
                                   // the tab down to an unreadably small nub
+const SIDETAB_MAX_POKE = 112;    // ceiling on how wide a single-line label can push
+                                  // a tab — past this it wraps to a second line
+                                  // instead (see .two-line in <style>), and past
+                                  // that it ellipsizes rather than growing forever
+const SIDETAB_HEIGHT_2LINE = 60; // vs. the base 44px — see .sidetabspeek .tab.two-line
 function layoutSidetabsPeek(){
   const peek = document.getElementById('sidetabsPeek');
   if(!peek) return;
@@ -270,8 +275,7 @@ function layoutSidetabsPeek(){
     clone.style.pointerEvents = 'auto';
     // Measure this clone's own natural (unwrapped) content width before
     // pinning it to a fixed px width below — max-content plus nowrap on
-    // the label (a two-line "House Upkeep" is exactly the case this is
-    // for) makes getBoundingClientRect() report how wide it actually
+    // the label makes getBoundingClientRect() report how wide it actually
     // wants to be, independent of whatever the shared .sidetabspeek .tab
     // rule's own width:84px fallback says.
     clone.style.width = 'max-content';
@@ -279,7 +283,19 @@ function layoutSidetabsPeek(){
     if(label) label.style.whiteSpace = 'nowrap';
     peek.appendChild(clone);
     const natural = clone.getBoundingClientRect().width;
-    const poke = Math.max(SIDETAB_MIN_POKE, natural);
+    // Past SIDETAB_MAX_POKE, stop growing the tab for a long label and
+    // wrap it onto a second line instead (.two-line — see <style> for the
+    // -webkit-line-clamp:2 that does the actual wrapping/measuring). A
+    // label that's STILL too long even wrapped to two lines (one
+    // pathologically long word, in practice) gets ellipsized by that same
+    // line-clamp rather than a third case to handle here.
+    const poke = Math.min(SIDETAB_MAX_POKE, Math.max(SIDETAB_MIN_POKE, natural));
+    const twoLine = natural > SIDETAB_MAX_POKE;
+    if(twoLine){
+      clone.classList.add('two-line');
+      clone.style.height = SIDETAB_HEIGHT_2LINE + 'px';
+      if(label) label.style.whiteSpace = '';
+    }
     const tuck = clone.classList.contains('active') ? SIDETAB_TUCK_ACTIVE : SIDETAB_TUCK;
     clone.style.width = (poke + tuck) + 'px';
     clone.style.marginLeft = -poke + 'px';
