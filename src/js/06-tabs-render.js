@@ -50,12 +50,7 @@ function renderLocBadge(){
 // useful number for that kind of tab. "All" excludes checklist-owned
 // tasks entirely, matching what renderList() actually shows there.
 function tabOpenCount(key){
-  // A calendar tab has no tasks of its own to count (see
-  // isCalendarCategory()'s comment) — today's own open count is the most
-  // relevant single number to show on its tab, same reasoning as 'daily'
-  // itself, and the two intentionally share this branch rather than each
-  // recomputing it.
-  if(key==='daily' || isCalendarCategory(key)){
+  if(key==='daily'){
     const s = dayItemsSummary(todayStr());
     return s.total - s.done;
   }
@@ -81,14 +76,13 @@ function tabOpenCount(key){
 
 // Feeds both the overlapSubtags "!" badge and (via tabImportanceRank())
 // overlapHoverMode's "fixed order" ranking — a category counts as urgent
-// if it has any not-done task that's overdue or High priority. Checklist/
-// calendar tabs have no such fields on their own "tasks" (a checklist's
-// task is a whole list, a calendar tab has none at all — see
-// isChecklistCategory()/isCalendarCategory()), so they're never urgent by
-// this measure; 'all'/'daily' aren't a single category either and are
+// if it has any not-done task that's overdue or High priority. A
+// checklist tab has no such fields on its own "tasks" (a checklist's
+// task is a whole list — see isChecklistCategory()), so it's never urgent
+// by this measure; 'all'/'daily' aren't a single category either and are
 // excluded the same way.
 function tabHasUrgentTask(key){
-  if(key==='all' || key==='daily' || isChecklistCategory(key) || isCalendarCategory(key)) return false;
+  if(key==='all' || key==='daily' || isChecklistCategory(key)) return false;
   return state.tasks.some(t => t.category===key && t.status!=='done' && (isOverdue(t) || t.priority===3));
 }
 

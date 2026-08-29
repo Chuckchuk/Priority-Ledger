@@ -1085,11 +1085,15 @@
   body[data-stackedpage-inset="leftheavy"]{
     /* Top pushed from -19px to -21px (frame: 3px -> 1px) per the project
        owner's explicit "take out even more margin from the top" — see
-       the design-direction note on --stackpage-margin-top above. */
+       the design-direction note on --stackpage-margin-top above. Left
+       pushed from -8px to -3px (frame widened ~5px) since .pagetag was
+       reading as right up against #appCard's outer edge, hard to read —
+       this is also now the default preset (see defaultDevSettings() in
+       02-storage-state.js), so that room matters more than it used to. */
     --stackpage-margin-top: -21px;
     --stackpage-margin-right: -16px;
     --stackpage-margin-bottom: -8px;
-    --stackpage-margin-left: -8px;
+    --stackpage-margin-left: -3px;
     --stackpage-radius: 5px 5px 7px 5px;
   }
   body[data-stackedpage-inset="slim"]{
@@ -1140,30 +1144,25 @@
   .pagetag.compact .pagetaglabel{ font-size:0.6rem; padding:5px 10px 5px 11px; }
   /* The pending-items tag is the one place in the app that's Secondary-
      colored by default, not Primary — see the --primary/--secondary note
-     in :root above. Every style variant below (jetout/sidebar/booktab/
-     cornerpeek) relies on this base rule rather than repeating its own
-     background, so they can't drift out of sync with each other; the
-     data-pending-tag-color dev overrides below win over this regardless,
-     since an attribute-selector rule always out-specifies this plain
-     two-class one. */
+     in :root above. Every style variant below (jetout/sidebar/booktab)
+     relies on this base rule rather than repeating its own background,
+     so they can't drift out of sync with each other. (A dev-only
+     per-style color override used to win over this via a
+     data-pending-tag-color attribute selector; removed — a compact tag
+     just always follows the real Secondary color now.) */
   .pagetag.compact .pagetagtip, .pagetag.compact .pagetaglabel{ background: var(--secondary); }
   /* EXPERIMENTAL — Settings → Dev Settings (see defaultDevSettings() /
-     applyDevSettings() in <script>). Two alternate looks for where the
-     .pagetagtip meets .pagetaglabel, toggled independently so the
-     project owner can compare them (including together) before
-     deciding whether either is worth keeping for real. Safe to delete
-     this whole block (and its Dev Settings entry) if neither survives. */
+     applyDevSettings() in <script>). Still an open question whether this
+     is worth keeping for real (a "full outline" alternate look was tried
+     alongside it and removed — didn't survive the comparison). Safe to
+     delete this whole block (and its Dev Settings entry) if it doesn't
+     either. */
   body.devtag-seam .pagetaglabel{
     box-shadow: inset 4px 0 5px -3px rgba(0,0,0,0.45);
   }
-  /* Softer than a first pass: thinner (1px, not 1.5) and --ink-soft
-     rather than --ink, so it reads as a light pencil outline instead of
-     a hard, dark border. */
-  body.devtag-outline .pagetagtip{ border: 1px solid var(--ink-soft); }
-  body.devtag-outline .pagetaglabel{ border: 1px solid var(--ink-soft); border-left: none; }
-  /* EXPERIMENTAL — three alternate looks for the checklist overview's
-     "pending items" trigger specifically (.pagetag.compact), picked via
-     a <select> rather than checkboxes since they're mutually exclusive
+  /* EXPERIMENTAL — alternate looks for the checklist overview's "pending
+     items" trigger specifically (.pagetag.compact), picked via a
+     <select> rather than checkboxes since they're mutually exclusive
      redesigns of the same element, not independently layerable — see
      body[data-pending-tag-style] below and setDevPendingTagStyle() in
      <script>. "default" (the plain compact page tag) needs no rule
@@ -1207,53 +1206,6 @@
     padding: 8px 14px 8px 12px;
     box-shadow: -2px 3px 8px rgba(0,0,0,0.3);
   }
-  /* "cornerpeek": stays clear of the tab row (top:56px, same lane
-     jetout/sidebar already use) rather than overlapping it like booktab
-     does. No diamond tip at all — plain squared-off corners on the label
-     itself (border-radius:0, overriding the base .pagetaglabel's rounded
-     right corners) reads more like an actual index tab card than the
-     tip's pointed wedge does. Same base-rule --secondary fill as booktab
-     above (see the pendingTagColor swatches below for override options),
-     for the same reason. */
-  body[data-pending-tag-style="cornerpeek"] .pagetag.compact{ top:56px; left:-14px; right:auto; }
-  body[data-pending-tag-style="cornerpeek"] .pagetag.compact .pagetagtip{ display:none; }
-  body[data-pending-tag-style="cornerpeek"] .pagetag.compact .pagetaglabel{
-    border-radius: 0;
-    padding: 9px 14px;
-    box-shadow: -2px 3px 7px rgba(0,0,0,0.28);
-  }
-  /* Checklist overview only: a touch more breathing room between the
-     "Name a new list…" quickadd row and the first list row below it —
-     scoped to #checklistView (not a blanket change to .quickadd's own
-     margin, which is shared with every other tab's add-task row) since
-     it only matters here, where the "cornerpeek" pending tag sits right
-     in that gap and read as cramped against both neighbors without it. */
-  #checklistView .quickadd{ margin-bottom: 22px; }
-  /* EXPERIMENTAL — pendingTagColor: a dev-only OVERRIDE on top of the
-     real Secondary color (Settings → Appearance → UI Colors), for
-     quickly A/B-testing a color regardless of whichever preset someone's
-     actually chosen. "theme" (the default — see defaultDevSettings() in
-     02-storage-state.js) means "no override," so the base
-     .pagetag.compact rule above (--secondary) shows through untouched;
-     it deliberately has no rule here for that reason. Every other option
-     is a fixed color, "brass" included — it now means "match Primary"
-     specifically (not literally brass), for whenever someone wants the
-     pending tag to blend back in with the rest of the UI regardless of
-     what Secondary is set to. Placed after every style block above and
-     matched on `data-pending-tag-color` alone (not chained to
-     `data-pending-tag-style`) so it always wins the cascade at equal
-     specificity, regardless of which style rule ran before it — see
-     setDevPendingTagColor() in <script>. */
-  body[data-pending-tag-color="brass"] .pagetag.compact .pagetagtip,
-  body[data-pending-tag-color="brass"] .pagetag.compact .pagetaglabel{ background: var(--primary); }
-  body[data-pending-tag-color="rust"] .pagetag.compact .pagetagtip,
-  body[data-pending-tag-color="rust"] .pagetag.compact .pagetaglabel{ background: var(--estate); }
-  body[data-pending-tag-color="forest"] .pagetag.compact .pagetagtip,
-  body[data-pending-tag-color="forest"] .pagetag.compact .pagetaglabel{ background: var(--family); }
-  body[data-pending-tag-color="slate"] .pagetag.compact .pagetagtip,
-  body[data-pending-tag-color="slate"] .pagetag.compact .pagetaglabel{ background: var(--projects); }
-  body[data-pending-tag-color="charcoal"] .pagetag.compact .pagetagtip,
-  body[data-pending-tag-color="charcoal"] .pagetag.compact .pagetaglabel{ background: var(--ink); }
   /* The large "header" version of a list's own progress indicator atop
      its detail page (see renderChecklistDetail()) — same .checkcircle-
      wrap/.checkcircle/.peg/.progressring markup and JS as the small one
@@ -1342,17 +1294,29 @@
   .daytreelabel:hover{ background:var(--card-bg); }
   .daytreetriangle{ display:inline-block; width:12px; color:var(--ink-soft); }
   .daytreecat .dot{ width:13px; height:13px; display:inline-flex; align-items:center; justify-content:center; margin-right:7px; font-size:0.86rem; line-height:1; }
-  /* EXPERIMENTAL — Settings → Dev Settings. Off by default: a category
-     header is plain text next to its triangle/dot. On: it becomes a
-     rounded pill echoing .tab's own look (mono/uppercase, its own
-     background+border), so the tree's category level visually matches
-     the tab bar's. */
-  body.devtreebubble .daytreecat{
+  /* A category header in the "add to day" tree reads as a rounded pill
+     echoing .tab's own look (mono/uppercase, its own background+border),
+     so the tree's category level visually matches the tab bar's — used
+     to be a dev-only opt-in ("looks too boring without them" per the
+     project owner), now just how it always looks. */
+  .daytreecat{
     display:inline-flex; align-items:center; width:auto; border-radius:8px;
     background: var(--card-bg); border:1px solid var(--line); padding:6px 14px 6px 10px;
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em;
   }
-  body.devtreebubble .daytreecat:hover{ border-color: var(--primary); }
+  .daytreecat:hover{ border-color: var(--primary); }
+  /* Whenever the tab bar itself is showing pure category color with no
+     icon (the desktop "sidetabs" style set to its "edge" appearance —
+     see the body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"]
+     [data-sidetabs-appearance="edge"] rules elsewhere in this file), the
+     tree's own category pills follow suit: the glyph is hidden (font-
+     size:0) and the dot becomes a plain color swatch via currentColor,
+     which categoryDotHtml() already sets as this span's inline `color`.
+     No separate dev setting for this — it's purely derived from whatever
+     the tab bar is already doing. */
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="edge"] .daytreecat .dot{
+    font-size:0; background: currentColor; border-radius:50%;
+  }
   .daytreetaskrow{ display:flex; align-items:center; justify-content:space-between; gap:8px; border-radius:6px; position:relative; }
   .daytreetaskrow .daytreelabel{ flex:1; min-width:0; }
   .daytreemark{ color:var(--primary); font-weight:700; flex-shrink:0; margin:0 2px; }
@@ -1625,6 +1589,21 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase;
     letter-spacing:0.02em; color: var(--ink);
   }
+  /* The "Custom" tile at the end of a preset grid (Desk & Ledger, UI
+     Colors) — same .uipresetbtn shape as a real preset, but a dashed
+     border instead of solid so it reads as "open a picker" rather than
+     "apply this fixed pair." Clicking it opens dualColorCustomHtml() in
+     place of the grid (see openDualColorCustom()/closeDualColorCustom()
+     in 09-settings.js) — a two-tab wheel editor, since committing a
+     custom pair here always means setting two colors, not one. */
+  .uipresetbtn.customtile{ border-style:dashed; }
+  .uipresetbtn.customtile .uipresetswatches{ border:1px dashed var(--line); }
+  .dualcolortabs{ display:flex; gap:6px; margin-bottom:10px; }
+  .dualcolortab{
+    flex:1; font-family:'IBM Plex Mono', monospace; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px 4px; cursor:pointer; color:var(--ink-soft);
+  }
+  .dualcolortab.active{ background: var(--primary); border-color: var(--primary); color:white; }
   /* Each Settings area (Manage Tabs, Locations, ...) as its own card —
      see settingsSectionHtml() in 09-settings.js. Replaces the old flat
      .settingslabel-per-area layout, where every section just ran
@@ -1647,18 +1626,6 @@
      controls within Appearance — enough to separate "pick colors" from
      "pick a surface finish" without a second nested card. */
   .settingsdivider{ border-top:1px dashed var(--line); margin:4px 0 14px; }
-  .themerow{ display:flex; gap:20px; margin-bottom:12px; flex-wrap:wrap; }
-  /* Background/Ledger — same wheel popover as a category's custom color
-     (see themeSwatchHtml()/themeColorWheelHtml() in 09-settings.js),
-     replacing the plain native <input type=color> this used to be. */
-  .themeswatchwrap{ position:relative; display:flex; align-items:center; gap:8px; }
-  .themeswatchbtn{
-    width:28px; height:28px; padding:0; border:1px solid var(--line); border-radius:6px; cursor:pointer;
-  }
-  .themeswatchlabel{
-    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
-    letter-spacing:0.03em; color: var(--ink-soft);
-  }
   .texturerow{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
   .texturebtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.03em;
@@ -1774,10 +1741,8 @@
   }
   .claudeviewrow{ display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
   /* ---------- Calendar view ---------- */
-  /* Shared by both entry points — the "Calendar" tag on Daily's own day
-     list (the normal path, see renderDailyCalendar() in 18-calendar.js)
-     and the optional dev-only 'calendar' category type (renderCalendar()
-     there). */
+  /* Reached via the "Calendar" tag on Daily's own day list — see
+     renderDailyCalendar() in 18-calendar.js. */
   /* Same idea as .daynavrow above, reusing .navarrow — see the comment
      there for why the two share one button style instead of each
      defining a near-identical one. */
@@ -1805,8 +1770,8 @@
     aspect-ratio:1; border-radius:6px; border:1px solid var(--line); background: var(--card-bg-dim);
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
     cursor:pointer; padding:2px; font-family:'IBM Plex Sans',sans-serif; color:var(--ink);
-    /* Backstop for the EXPERIMENTAL calendarCellStyle category-chip
-       variants below (and CALENDAR_CELL_CAT_CAP, its own primary defense)
+    /* Backstop for the category-color chips below (and
+       CALENDAR_CELL_CAT_CAP, their own primary defense)
        — a fixed aspect-ratio:1 box can't grow to fit more content, so
        anything that doesn't fit should clip rather than spill past the
        cell's own edges into its neighbors, especially on a phone-width
@@ -1836,26 +1801,25 @@
      smaller cell size. */
   .calcell.today{ border-color:var(--primary); border-width:3px; }
   .calcell.today .caldatenum{ color:var(--primary); font-weight:700; }
-  /* EXPERIMENTAL — Settings → Dev Settings → "Calendar: ornate border on
-     today's cell". CSS's own border-style:double draws two parallel
-     lines with a gap between them from a single border declaration — no
-     pseudo-elements or extra box-shadow layers needed for the "engraved
-     picture-frame" look, and it needs border-width:4px (double needs a
-     little more room than a solid border to read as two distinct lines
-     rather than one thick blur). Independent of calendarCellStyle above;
-     either can be on with either. */
-  body.devtoday-ornate .calcell.today{ border-style:double; border-width:4px; }
-  /* EXPERIMENTAL — Settings → Dev Settings → "Calendar cell info". Chips
-     row for a cell's dayCategoryIds() (11-daily-core.js) — either plain
-     color dots ('dots-top', above the date number) or colored category
-     icon glyphs ('icons-below', under the ratio/dot). Sized deliberately
-     tiny (see the comment on CALENDAR_CELL_CAT_CAP in 18-calendar.js for
-     why the count itself is capped) — this is the piece that actually
-     has to survive a phone-width card's smallest cells without forcing
-     .calcell's overflow:hidden backstop to kick in under normal use. */
+  /* Ornate (double-line) border on today's cell — CSS's own
+     border-style:double draws two parallel lines with a gap between them
+     from a single border declaration, no pseudo-elements or extra
+     box-shadow layers needed for the "engraved picture-frame" look, and
+     it needs border-width:4px (double needs a little more room than a
+     solid border to read as two distinct lines rather than one thick
+     blur). Used to be a dev-only toggle ("keep it, why not" per the
+     project owner); confirmed as the permanent look. */
+  .calcell.today{ border-style:double; border-width:4px; }
+  /* Category-color chips row above a cell's date number, from that day's
+     dayCategoryIds() (11-daily-core.js) — the confirmed calendarCellStyle
+     look (an alternate under-the-ratio icon-glyph variant was tried and
+     removed once this one won). Sized deliberately tiny (see the comment
+     on CALENDAR_CELL_CAT_CAP in 18-calendar.js for why the count itself
+     is capped) — this is the piece that actually has to survive a
+     phone-width card's smallest cells without forcing .calcell's
+     overflow:hidden backstop to kick in under normal use. */
   .calcatchips{ display:flex; align-items:center; justify-content:center; gap:2px; line-height:1; }
   .calcatchip.dot{ width:5px; height:5px; border-radius:50%; flex-shrink:0; }
-  .calcatchip.icon{ font-size:0.55rem; flex-shrink:0; }
   .calcatchip.more{ font-family:'IBM Plex Mono', monospace; font-size:0.5rem; color:var(--ink-soft); flex-shrink:0; }
   @media (max-width:480px){
     .masthead h1{ font-size:1.9rem; }

@@ -118,12 +118,19 @@ let openCategoryPickerId = null;
 let uiColorPickerOpen = false;
 // Same idea for the Desk & Ledger (Background/Ledger) preset-pair popover.
 let deskPaperPickerOpen = false;
-// Which theme color's own wheel popover is open — 'bg' | 'paper' | null.
-// A separate var from customColorOpen (the category wheel) since it's a
-// wholly separate popover anchored to a different trigger; see
-// closeAllSettingsPopovers() in 09-settings.js for why only one of any of
-// these may be open at once (they share the wheel's DOM ids).
-let themeColorWheelKey = null;
+// Whichever of deskPaperPickerOpen/uiColorPickerOpen is open can show its
+// "Custom" tile's own two-tab wheel editor in place of the preset grid —
+// see dualColorCustomHtml()/openDualColorCustom() in 09-settings.js.
+// dualColorField is which tab is currently showing in the shared wheel
+// ('bg'|'paper' for Desk & Ledger, 'primary'|'secondary' for UI Colors);
+// dualColorDraft holds HSV drafts for BOTH fields at once (keyed by
+// field name) so switching tabs doesn't lose whichever one isn't showing
+// — the wheel itself only ever edits customColorDraft (the shared single-
+// color state every wheel popover uses), copied in/out of dualColorDraft
+// on each tab switch.
+let dualColorCustomOpen = false;
+let dualColorField = null;
+let dualColorDraft = {};
 // The category color/icon popover's "Custom" sub-panel (a hue ring + a
 // saturation/value square, see catWheelPointerDown() in 09-settings.js) —
 // only meaningful while openCategoryPickerId names a category.
@@ -297,34 +304,15 @@ const storage = {
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
-// EXPERIMENTAL — Settings → Dev Settings. Two alternate .pagetag looks
-// being tried out (see applyDevSettings()/toggleDevSetting() and the
-// body.devtag-seam/body.devtag-outline CSS) so the project owner can
-// compare them live and decide which, if either, to keep. Isolated in
-// its own state key and its own commit specifically so it's trivial to
-// rip out later without touching anything else.
+// EXPERIMENTAL — Settings → Dev Settings. Remaining fields here are all
+// still-open style experiments. Several that had clearly "won" have
+// already graduated into permanent, always-on behavior with their dev
+// setting removed entirely: the custom desktop right-click context menu,
+// the day-tree category bubbles, the calendar's category-color-dot cells
+// and ornate today border, and the whole 'calendar' category-type path
+// (calendarTabTypeEnabled) — see git history for what those looked like
+// as toggles before graduating.
 function defaultDevSettings(){
-  // pendingTagColor:'theme' means "no override" — the real Secondary
-  // color (state.theme.uiPreset, see UI_COLOR_PRESETS in
-  // 01-categories-theme.js) shows through untouched. See the CSS comment
-  // on .pagetag.compact's base rule for how the override rules relate.
-  // calendarTabTypeEnabled: 'Calendar' started as its own category type
-  // (a whole addable tab), but the actual ask turned out to be a compact
-  // pagetag linking Daily's own day-list to a calendar view — see
-  // openDailyCalendar()/renderDailyCalendar() in 18-calendar.js, which is
-  // what a normal user reaches now. The category-type path still works
-  // (renderCalendar(), isCalendarCategory()) and is worth keeping rather
-  // than deleting working code, but it's gated behind this flag so it
-  // doesn't show up as a real option in Settings' "add a new tab" select
-  // unless explicitly opted into here.
-  // calendarCellStyle: how much a calendar cell shows beyond the plain
-  // done/total ratio — 'ratio' (the original, still the default) shows
-  // nothing more; 'dots-top'/'icons-below' add a row of that day's
-  // category chips (see dayCategoryIds() in 11-daily-core.js and
-  // calendarCatChipsHtml() in 18-calendar.js) above or below the existing
-  // content. calendarTodayOrnate is a separate, independent toggle (like
-  // tagSeam/tagOutline above) for a double-line border on today's cell,
-  // not tied to any particular calendarCellStyle choice.
   // leatherInsetPreset: how much leather cover shows around #appCard when
   // "Leather" is on — 'classic' (the original amount) needs no CSS
   // override (see :root's --leather-* vars in <style>); 'roomier',
@@ -345,7 +333,12 @@ function defaultDevSettings(){
   // leatherInsetPreset, and also fully independent of it — one governs
   // the leather cover around the whole master view, the other governs
   // stacked pages layered on top of that view; either, both, or neither
-  // can be non-classic at once.
+  // can be non-classic at once. 'leftheavy' is the current default (per
+  // the project owner, "for now" — tabBarDesktopStyle's own comment below
+  // covers the parallel "which look actually won" question for the tab
+  // bar); the option formerly just labeled "Default" is 'classic', now
+  // labeled plainly as that instead, since it's no longer the one picked
+  // automatically.
   // fullPageSwipeNav: widens the day/month swipe-nav gesture (see
   // classifySwipeZone() in 19-bootstrap.js) from its default reserved
   // strip — .daynavrow / .calnav, the row the prev/next arrows and the
@@ -521,7 +514,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', sidetabsNoBg:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', sidetabsNoBg:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -585,6 +578,14 @@ function normalizeState(){
   // Accounts saved before category types existed only ever had the
   // 'standard' behavior, so that's the correct backfill.
   state.categories.forEach(c => { if(!c.type) c.type = 'standard'; });
+  // 'calendar' was a short-lived third category type (a whole addable
+  // tab) — the calendarTabTypeEnabled dev setting that gated it, and the
+  // renderCalendar()/isCalendarCategory() code path itself, are both gone
+  // now (the real way to reach a calendar view is the "Calendar" tag on
+  // Daily's own day list). Any account that had actually created one
+  // falls back to 'standard' rather than pointing at a type nothing
+  // renders any more.
+  state.categories.forEach(c => { if(c.type === 'calendar') c.type = 'standard'; });
   if(!Array.isArray(state.locations) || !state.locations.length) state.locations = defaultLocations();
   if(typeof state.locationEnabled !== 'boolean') state.locationEnabled = true;
   if(!state.theme) state.theme = defaultTheme();
@@ -600,21 +601,20 @@ function normalizeState(){
   if(typeof state.theme.grain !== 'boolean') state.theme.grain = false;
   if(typeof state.theme.pages !== 'boolean') state.theme.pages = false;
   if(typeof state.theme.leather !== 'boolean') state.theme.leather = false;
-  if(typeof state.theme.uiPreset !== 'string' || !UI_COLOR_PRESETS.some(p=>p.id===state.theme.uiPreset)) state.theme.uiPreset = 'classic';
+  const uiPresetIsCustom = state.theme.uiPreset === 'custom' && !!state.theme.customUi;
+  if(typeof state.theme.uiPreset !== 'string' || (!uiPresetIsCustom && !UI_COLOR_PRESETS.some(p=>p.id===state.theme.uiPreset))) state.theme.uiPreset = 'rust';
   if(typeof state.advancedTaskFields !== 'boolean') state.advancedTaskFields = true;
   if(!state.devSettings) state.devSettings = defaultDevSettings();
   if(typeof state.devSettings.tagSeam !== 'boolean') state.devSettings.tagSeam = false;
-  if(typeof state.devSettings.tagOutline !== 'boolean') state.devSettings.tagOutline = false;
   if(typeof state.devSettings.pendingTagStyle !== 'string') state.devSettings.pendingTagStyle = 'default';
-  if(typeof state.devSettings.pendingTagColor !== 'string') state.devSettings.pendingTagColor = 'theme';
+  // 'cornerpeek' was removed as a pendingTagStyle option — any account
+  // that had it selected falls back to 'default' rather than pointing at
+  // a style nothing renders any more.
+  if(state.devSettings.pendingTagStyle === 'cornerpeek') state.devSettings.pendingTagStyle = 'default';
   if(typeof state.devSettings.showListDates !== 'boolean') state.devSettings.showListDates = false;
-  if(typeof state.devSettings.dayTreeCatBubble !== 'boolean') state.devSettings.dayTreeCatBubble = false;
   if(typeof state.devSettings.sidePanelEnabled !== 'boolean') state.devSettings.sidePanelEnabled = false;
-  if(typeof state.devSettings.calendarTabTypeEnabled !== 'boolean') state.devSettings.calendarTabTypeEnabled = false;
-  if(typeof state.devSettings.calendarCellStyle !== 'string') state.devSettings.calendarCellStyle = 'ratio';
-  if(typeof state.devSettings.calendarTodayOrnate !== 'boolean') state.devSettings.calendarTodayOrnate = false;
   if(typeof state.devSettings.leatherInsetPreset !== 'string') state.devSettings.leatherInsetPreset = 'classic';
-  if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'classic';
+  if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'leftheavy';
   if(typeof state.devSettings.fullPageSwipeNav !== 'boolean') state.devSettings.fullPageSwipeNav = false;
   if(typeof state.devSettings.mobileUiPreviewOnDesktop !== 'boolean') state.devSettings.mobileUiPreviewOnDesktop = false;
   if(typeof state.devSettings.quickAddMobileStyle !== 'string') state.devSettings.quickAddMobileStyle = 'default';

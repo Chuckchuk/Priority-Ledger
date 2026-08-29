@@ -73,28 +73,13 @@ function isChecklistCategory(id){
   const c = CATEGORIES[id];
   return !!c && c.type === 'checklist';
 }
-// 'calendar' is a third type (see renderCalendar() in 18-calendar.js) —
-// unlike 'checklist', a calendar tab doesn't own any tasks of its own
-// (there's no `t.category === thisId` data anywhere); it's a whole
-// second view onto the same global state.days/plannedDates data the
-// Daily tab already reads, just gridded by month instead of listed by
-// day. Made a real category type (rather than a second fixed tab like
-// Daily itself) specifically so it's addable/renameable/reorderable/
-// deletable/colorable the same way a checklist tab is, instead of being
-// permanently pinned into every account whether or not someone wants it.
-function isCalendarCategory(id){
-  const c = CATEGORIES[id];
-  return !!c && c.type === 'calendar';
-}
 // Category selects used for *standard* tasks (quick-add, "move to
 // category", the Daily quick-add) only ever offer standard categories —
 // a checklist category's "tasks" are really named lists with no due
-// date/priority fields (and a calendar category has no tasks of its own
-// at all), so dropping a standard task into either would produce a
-// hybrid neither view knows how to render, or vanish into a tab with no
-// task list at all.
+// date/priority fields, so dropping a standard task into one would
+// produce a hybrid neither view knows how to render.
 function standardCategoryEntries(){
-  return Object.entries(CATEGORIES).filter(([,v]) => v.type !== 'checklist' && v.type !== 'calendar');
+  return Object.entries(CATEGORIES).filter(([,v]) => v.type !== 'checklist');
 }
 
 // Locations are also per-user: two editable-label entries plus a switch to
@@ -120,7 +105,12 @@ function defaultLocations(){
 // booleans, not a single exclusive choice — they're meant to layer (e.g.
 // textured AND pages together).
 function defaultTheme(){
-  return { bg:'#28362E', paper:'#F1EAD9', gradient:false, grain:false, pages:false, leather:false, uiPreset:'classic' };
+  // uiPreset:'rust' (Brass & Rust) is the shipped default — the plain
+  // 'classic' brass/brass pairing is still available as its own preset,
+  // just no longer what a new account or "Reset to classic colors" lands
+  // on. customUi holds a user's own picked Primary/Secondary pair when
+  // uiPreset is 'custom' (see uiColorPreset() below) — null until then.
+  return { bg:'#28362E', paper:'#F1EAD9', gradient:false, grain:false, pages:false, leather:false, uiPreset:'rust', customUi:null };
 }
 
 // "Primary" and "Secondary" (Settings → Appearance → UI Colors) are a
@@ -142,11 +132,13 @@ function defaultTheme(){
 //   themeable accent, and recoloring them to whatever someone picks as
 //   Secondary could stop reading as urgent at all.
 // 'classic' reproduces the app's original literal brass/brass for both
-// colors (byte-for-byte the old --brass/--brass-light hexes) so nothing
-// changes for anyone who's never opened this picker. Every other preset
-// is built from colors already used elsewhere in the app (the pre-dynamic
-// category accents / the pendingTagColor dev experiment's own choices)
-// rather than introducing new one-off hues.
+// colors (byte-for-byte the old --brass/--brass-light hexes) — no longer
+// the default (see defaultTheme() above, now 'rust'/Brass & Rust) but
+// kept as its own preset for anyone who wants the original look back.
+// Every other preset is built from colors already used elsewhere in the
+// app (the pre-dynamic category accents / the old pendingTagColor dev
+// experiment's own choices, since removed) rather than introducing new
+// one-off hues.
 const UI_COLOR_PRESETS = [
   { id:'classic',  label:'Classic',          primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'rust',     label:'Brass & Rust',     primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#9C4530', secondaryLight:'#C3563C' },
@@ -154,11 +146,18 @@ const UI_COLOR_PRESETS = [
   { id:'slate',    label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
   { id:'charcoal', label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' }
 ];
-function uiColorPreset(id){ return UI_COLOR_PRESETS.find(p=>p.id===id) || UI_COLOR_PRESETS[0]; }
+// 'custom' isn't in UI_COLOR_PRESETS (it's user data, not a fixed
+// preset) — state.theme.customUi carries its own label/primary/
+// primaryLight/secondary/secondaryLight the same shape as a real preset
+// entry, written by confirmDualColorCustom() in 09-settings.js.
+function uiColorPreset(id){
+  if(id==='custom' && state.theme.customUi) return state.theme.customUi;
+  return UI_COLOR_PRESETS.find(p=>p.id===id) || UI_COLOR_PRESETS[0];
+}
 
 // Desk & Ledger presets (Settings → Appearance) — a quick-start pair for
-// state.theme.bg/paper, the same two fields the individual Background/
-// Ledger wheels edit directly (see themeSwatchHtml() in 09-settings.js).
+// state.theme.bg/paper, the same two fields the picker's own "Custom"
+// tile edits directly (see dualColorCustomHtml() in 09-settings.js).
 // Picking one is just "set both fields to these two values" — there's no
 // separate "which preset is active" field to store or migrate, and no
 // reason there should be: once picked, bg/paper are exactly as free to
@@ -280,25 +279,16 @@ function applyThemeObject(t){
 
 function applyTheme(){ applyThemeObject(state.theme); }
 
-// EXPERIMENTAL, see defaultDevSettings() above — toggles body classes
-// the body.devtag-seam/body.devtag-outline CSS reads, rather than a
-// per-element inline style, since .pagetag is used from several
-// different render functions and a body-level class lets all of them
-// pick it up without each one having to know these settings exist.
+// EXPERIMENTAL, see defaultDevSettings() above — toggles a body class the
+// body.devtag-seam CSS reads, rather than a per-element inline style,
+// since .pagetag is used from several different render functions and a
+// body-level class lets all of them pick it up without each one having
+// to know this setting exists.
 function applyDevSettings(){
   const d = state.devSettings || defaultDevSettings();
   document.body.classList.toggle('devtag-seam', !!d.tagSeam);
-  document.body.classList.toggle('devtag-outline', !!d.tagOutline);
   document.body.dataset.pendingTagStyle = d.pendingTagStyle || 'default';
-  document.body.dataset.pendingTagColor = d.pendingTagColor || 'theme';
   document.body.classList.toggle('devlist-dates', !!d.showListDates);
-  document.body.classList.toggle('devtreebubble', !!d.dayTreeCatBubble);
-  // calendarCellStyle is read directly by calendarBodyHtml() in
-  // 18-calendar.js instead of going through a body class/CSS selector —
-  // unlike a boolean toggle, its variants need genuinely different markup
-  // per cell (icon glyphs vs. plain color chips), not just a CSS-level
-  // show/hide of markup that's always rendered the same way.
-  document.body.classList.toggle('devtoday-ornate', !!d.calendarTodayOrnate);
   // Read by the --leather-* custom property overrides in <style> (see
   // :root and the body[data-leather-inset="…"] blocks) — 'classic' needs
   // no matching selector since its values are the plain :root defaults.
@@ -387,21 +377,6 @@ async function setDevPendingTagStyle(val){
   pushUndo(`Changed dev pending-tag style to "${val}"`);
   state.devSettings.pendingTagStyle = val;
   applyDevSettings();
-  render();
-  queueSave();
-}
-
-async function setDevPendingTagColor(val){
-  pushUndo(`Changed dev pending-tag color to "${val}"`);
-  state.devSettings.pendingTagColor = val;
-  applyDevSettings();
-  render();
-  queueSave();
-}
-
-async function setDevCalendarCellStyle(val){
-  pushUndo(`Changed dev calendar cell style to "${val}"`);
-  state.devSettings.calendarCellStyle = val;
   render();
   queueSave();
 }
@@ -602,40 +577,27 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
       Page tag: seam shadow (tip reads as receding behind the label)
     </label>
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.tagOutline?'checked':''} onchange="toggleDevSetting('tagOutline', this.checked)">
-      Page tag: full outline
-    </label>
     <!-- "Compact tag" is the general name for .pagetag.compact — the
          small variant used for Checklist's "Pending", Daily's "Calendar",
          and Calendar's "Daily"/"Today" tags, as opposed to a full-size
          "Page Tag" (.pagetag without .compact), which is always a "back"
          out of an actual drilldown (Settings' "Done", a task detail's
-         "Daily", etc.). Internal field names (pendingTagStyle/
-         pendingTagColor, setDevPendingTagStyle()/setDevPendingTagColor())
-         still say "pending" since that was the original, single use case
-         these settings were built for — left as-is rather than renamed
-         throughout, since only the user-facing label needed to stop
-         implying "just for Checklist's Pending tag." -->
+         "Daily", etc.). Internal field name (pendingTagStyle,
+         setDevPendingTagStyle()) still says "pending" since that was the
+         original, single use case this setting was built for — left
+         as-is rather than renamed throughout, since only the user-facing
+         label needed to stop implying "just for Checklist's Pending
+         tag." The old per-style color override (pendingTagColor) is gone
+         — a compact tag just always follows the real Secondary color now;
+         custom UI colors live in the UI Colors picker below instead (see
+         its own "Custom" tile). -->
     <div class="${fieldClass}">
       <span class="${captionClass}">Compact tag style</span>
       <select class="${selectClass}" onchange="setDevPendingTagStyle(this.value)">
         <option value="default" ${dev.pendingTagStyle==='default'?'selected':''}>Default (small page tag)</option>
-        <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Redder, jets out further</option>
+        <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Jets out further</option>
         <option value="sidebar" ${dev.pendingTagStyle==='sidebar'?'selected':''}>Vertical sidebar strip</option>
         <option value="booktab" ${dev.pendingTagStyle==='booktab'?'selected':''}>Left edge, overlapping up into the tab row</option>
-        <option value="cornerpeek" ${dev.pendingTagStyle==='cornerpeek'?'selected':''}>Left edge, square (no tip)</option>
-      </select>
-    </div>
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Compact tag color override</span>
-      <select class="${selectClass}" onchange="setDevPendingTagColor(this.value)">
-        <option value="theme" ${dev.pendingTagColor==='theme'?'selected':''}>Default (use Secondary color)</option>
-        <option value="brass" ${dev.pendingTagColor==='brass'?'selected':''}>Force Primary</option>
-        <option value="rust" ${dev.pendingTagColor==='rust'?'selected':''}>Force rust</option>
-        <option value="forest" ${dev.pendingTagColor==='forest'?'selected':''}>Force forest green</option>
-        <option value="slate" ${dev.pendingTagColor==='slate'?'selected':''}>Force slate blue</option>
-        <option value="charcoal" ${dev.pendingTagColor==='charcoal'?'selected':''}>Force charcoal</option>
       </select>
     </div>
 
@@ -643,28 +605,6 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     <label class="${rowClass}">
       <input type="checkbox" ${dev.showListDates?'checked':''} onchange="toggleDevSetting('showListDates', this.checked)">
       Show a faded created-date next to each checklist's title
-    </label>
-
-    ${devSectionHeadHtml('Daily & Calendar')}
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.dayTreeCatBubble?'checked':''} onchange="toggleDevSetting('dayTreeCatBubble', this.checked)">
-      "Add to day" tree: pill-shaped category bubbles (like the tab bar)
-    </label>
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.calendarTabTypeEnabled?'checked':''} onchange="toggleDevSetting('calendarTabTypeEnabled', this.checked)">
-      Offer "Calendar" as an addable tab type (the normal way to reach it is the "Calendar" tag on Daily's own day list)
-    </label>
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Calendar cell info</span>
-      <select class="${selectClass}" onchange="setDevCalendarCellStyle(this.value)">
-        <option value="ratio" ${dev.calendarCellStyle==='ratio'?'selected':''}>Default (just the done/total ratio)</option>
-        <option value="dots-top" ${dev.calendarCellStyle==='dots-top'?'selected':''}>+ category color dots, above the date</option>
-        <option value="icons-below" ${dev.calendarCellStyle==='icons-below'?'selected':''}>+ category icons, listed below</option>
-      </select>
-    </div>
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.calendarTodayOrnate?'checked':''} onchange="toggleDevSetting('calendarTodayOrnate', this.checked)">
-      Calendar: ornate (double-line) border on today's cell
     </label>
 
     ${devSectionHeadHtml('Cover & Page Sizing')}
@@ -685,20 +625,24 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
          leftheavy, deliberately keeping a left-side floor across every
          preset (see the --stackpage-* comment in <style>) so .pagetag —
          which juts left out of the page's own edge — always has room to
-         do that no matter how far a preset reclaims elsewhere. -->
+         do that no matter how far a preset reclaims elsewhere. Left-heavy
+         is the default for now (see defaultDevSettings() in
+         02-storage-state.js) — its own left margin was widened further
+         since the default page tag was reading as too close to
+         #appCard's outer edge to comfortably read. -->
     <div class="${fieldClass}">
       <span class="${captionClass}">Stacked-page size (Settings, day/task detail, etc.)</span>
       <select class="${selectClass}" onchange="setDevStackedPageInset(this.value)">
-        <option value="classic" ${dev.stackedPageInsetPreset==='classic'?'selected':''}>Default</option>
+        <option value="leftheavy" ${dev.stackedPageInsetPreset==='leftheavy'?'selected':''}>Left-heavy — wide left margin, thin top (default)</option>
+        <option value="classic" ${dev.stackedPageInsetPreset==='classic'?'selected':''}>Classic</option>
         <option value="roomier" ${dev.stackedPageInsetPreset==='roomier'?'selected':''}>Roomier — thinner frame all around</option>
-        <option value="leftheavy" ${dev.stackedPageInsetPreset==='leftheavy'?'selected':''}>Left-heavy — wide left margin, thin top</option>
         <option value="slim" ${dev.stackedPageInsetPreset==='slim'?'selected':''}>Slim — nearly flush with #appCard</option>
       </select>
     </div>
 
     ${devSectionHeadHtml('Task Fields')}
     <div class="${fieldClass}">
-      <span class="${captionClass}">Timeframe & Priority picker</span>
+      <span class="${captionClass}" title="Still debating a progress-bar picker — the fun high-value animation is worth keeping around for, but the interaction itself needs real rework before it's usable. Starred as a reminder to come back to it, not to delete it.">★ Timeframe & Priority picker</span>
       <select class="${selectClass}" onchange="setDevFieldPickerStyle(this.value)">
         <option value="default" ${dev.fieldPickerStyle==='default'?'selected':''}>Default (dropdown)</option>
         <option value="buttons" ${dev.fieldPickerStyle==='buttons'?'selected':''}>Row of buttons</option>

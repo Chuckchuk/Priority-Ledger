@@ -106,10 +106,6 @@ function renderSettings(){
   `;
 
   const appearanceSection = `
-    <div class="themerow">
-      ${themeSwatchHtml('bg', 'Background')}
-      ${themeSwatchHtml('paper', 'Ledger')}
-    </div>
     ${deskPaperSection}
     ${uiColorSection}
     <div class="settingsdivider"></div>
@@ -142,14 +138,7 @@ function renderSettings(){
   // fields.
   const devSection = devSettingsFieldsHtml('catlocchk devsettingsrow', 'devpanelfield', 'devpanelcaption', 'devpanelselect');
 
-  // "Calendar" only shows as an addable type when the matching dev
-  // setting is on (see defaultDevSettings() in 02-storage-state.js) — the
-  // normal way to reach a calendar view is the "Calendar" tag on Daily's
-  // own day list (openDailyCalendar(), see 18-calendar.js), not a tab of
-  // its own.
-  const calendarTabTypeOption = state.devSettings.calendarTabTypeEnabled ? '<option value="calendar">Calendar</option>' : '';
-  const newCatTypeTooltip = "Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off."
-    + (state.devSettings.calendarTabTypeEnabled ? " Calendar tabs show a month grid of your Daily pages, with at-a-glance counts of what's due and done each day." : '');
+  const newCatTypeTooltip = "Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off.";
 
   const tabsSection = `
     ${rows}
@@ -159,7 +148,6 @@ function renderSettings(){
       <select class="catselect" id="newCatTypeSelect" title="${newCatTypeTooltip}">
         <option value="standard">Standard</option>
         <option value="checklist">Checklist</option>
-        ${calendarTabTypeOption}
       </select>
     </div>
   `;
@@ -350,7 +338,7 @@ function closeAllSettingsPopovers(){
   customColorOpen = false;
   uiColorPickerOpen = false;
   deskPaperPickerOpen = false;
-  themeColorWheelKey = null;
+  dualColorCustomOpen = false;
   locationEditorOpenId = null;
   pendingDeleteLocationId = null;
   catWheelCancelDrag();
@@ -678,70 +666,108 @@ async function addLocationFromBubble(val){
   render();
 }
 
-async function updateThemeColor(key, val){
-  // Case-insensitive: the wheel always emits uppercase hex (hsvToHex()),
-  // but a color saved from the old native <input type=color> (always
-  // lowercase) or typed by hand could be either — without this, clicking
-  // a Desk & Ledger preset that already matches the current color by eye
-  // could still register as a "change" and push a no-op undo entry.
-  if(state.theme[key].toLowerCase() === val.toLowerCase()) return;
-  pushUndo(key === 'bg' ? 'Changed background color' : 'Changed ledger color');
-  state.theme[key] = val;
+// ---------- "Custom" tile shared by Desk & Ledger and UI Colors ----------
+// Both preset pickers below need a way to set two colors at once (bg+
+// paper, or primary+secondary) — rather than two separate wheel popovers
+// bolted on next to the preset grid (the old design: a "Background"
+// swatch and a "Ledger" swatch sitting outside the Desk & Ledger picker
+// entirely), the grid itself gets one more tile, "Custom", which swaps
+// the whole popover body for this two-tab wheel editor. Tabs switch which
+// field the *shared* colorWheelInnerHtml()/customColorDraft is currently
+// showing — dualColorDraft holds HSV for both fields at once so the one
+// not currently shown doesn't lose its in-progress edit on switch.
+function dualColorCustomHtml(kind){
+  const isDesk = kind === 'desk';
+  const fields = isDesk ? [['bg','Background'],['paper','Ledger']] : [['primary','Primary'],['secondary','Secondary']];
+  const tabsHtml = `<div class="dualcolortabs">${fields.map(([f,label])=>
+    `<button class="dualcolortab ${dualColorField===f?'active':''}" onclick="setDualColorField('${f}')">${label}</button>`
+  ).join('')}</div>`;
+  return `
+    <div class="catpicker">
+      <button class="catpickerclose" onclick="${isDesk?'toggleDeskPaperPicker':'toggleUiColorPicker'}()" title="Close">×</button>
+      ${tabsHtml}
+      ${colorWheelInnerHtml('closeDualColorCustom()', '‹ Presets', 'confirmDualColorCustom()')}
+    </div>`;
+}
+
+// Seeds dualColorDraft from whatever's live right now — the actual bg/
+// paper for Desk & Ledger (already free-form fields, no separate "custom"
+// storage needed), or the existing customUi pair if there is one for UI
+// Colors, falling back to Brass & Rust as a reasonable starting point
+// otherwise (state.theme.customUi is null until a custom pair is
+// actually confirmed once).
+function openDualColorCustom(){
+  if(deskPaperPickerOpen){
+    dualColorDraft = { bg: hexToHsv(state.theme.bg), paper: hexToHsv(state.theme.paper) };
+    dualColorField = 'bg';
+  } else if(uiColorPickerOpen){
+    const seed = state.theme.customUi || uiColorPreset('rust');
+    dualColorDraft = { primary: hexToHsv(seed.primary), secondary: hexToHsv(seed.secondary) };
+    dualColorField = 'primary';
+  } else {
+    return;
+  }
+  customColorDraft = dualColorDraft[dualColorField];
+  dualColorCustomOpen = true;
+  render();
+}
+
+// Drops back to the preset grid without closing the popover itself, same
+// "back" idiom as closeCustomColor() for a category's own wheel.
+function closeDualColorCustom(){
+  dualColorCustomOpen = false;
+  catWheelCancelDrag();
+  render();
+}
+
+// Switching tabs saves whatever the wheel is currently showing into
+// dualColorDraft before moving the wheel over to the other field's own
+// draft — a plain render() (not updateCatWheelUI()) is fine here since
+// this only ever runs from a click, never mid-drag.
+function setDualColorField(field){
+  dualColorDraft[dualColorField] = customColorDraft;
+  dualColorField = field;
+  customColorDraft = dualColorDraft[field];
+  render();
+}
+
+// The one moment a custom Desk & Ledger or UI Colors pair actually
+// applies. Reads the hex field for whichever tab is currently showing
+// (same "typed hex is authoritative" rule confirmCustomColor() follows)
+// and the other tab's color from its own stored draft.
+async function confirmDualColorCustom(){
+  const input = document.getElementById('catCustomHexInput');
+  const activeHex = normalizeHexInput(input ? input.value : '')
+    || hsvToHex(dualColorDraft[dualColorField].h, dualColorDraft[dualColorField].s, dualColorDraft[dualColorField].v);
+  dualColorDraft[dualColorField] = hexToHsv(activeHex);
+  if(deskPaperPickerOpen){
+    const bg = hsvToHex(dualColorDraft.bg.h, dualColorDraft.bg.s, dualColorDraft.bg.v);
+    const paper = hsvToHex(dualColorDraft.paper.h, dualColorDraft.paper.s, dualColorDraft.paper.v);
+    if(bg.toLowerCase() !== state.theme.bg.toLowerCase() || paper.toLowerCase() !== state.theme.paper.toLowerCase()){
+      pushUndo('Changed desk & ledger colors to "Custom"');
+      state.theme.bg = bg;
+      state.theme.paper = paper;
+    }
+  } else if(uiColorPickerOpen){
+    const primary = hsvToHex(dualColorDraft.primary.h, dualColorDraft.primary.s, dualColorDraft.primary.v);
+    const secondary = hsvToHex(dualColorDraft.secondary.h, dualColorDraft.secondary.s, dualColorDraft.secondary.v);
+    pushUndo('Changed UI colors to "Custom"');
+    state.theme.customUi = { label:'Custom', primary, primaryLight: shadeHex(primary, 0.35), secondary, secondaryLight: shadeHex(secondary, 0.35) };
+    state.theme.uiPreset = 'custom';
+  }
+  dualColorCustomOpen = false;
+  catWheelCancelDrag();
   applyTheme();
   render();
   queueSave();
 }
 
-// The Background/Ledger swatches (Settings → Appearance) — same wheel as
-// a category's custom color, just a separate popover instance (its own
-// themeColorWheelKey state) since it isn't nested inside a category row.
-function themeSwatchHtml(key, label){
-  return `
-    <span class="themeswatchwrap">
-      <button class="themeswatchbtn" onclick="toggleThemeColorWheel('${key}')" title="Change ${label.toLowerCase()} color" style="background:${state.theme[key]}"></button>
-      ${themeColorWheelKey === key ? themeColorWheelHtml(key) : ''}
-      <span class="themeswatchlabel">${label}</span>
-    </span>`;
-}
-
-function themeColorWheelHtml(key){
-  return `
-    <div class="catpicker">
-      <button class="catpickerclose" onclick="toggleThemeColorWheel('${key}')" title="Close">×</button>
-      ${colorWheelInnerHtml(null, '', `confirmThemeColorWheel('${key}')`)}
-    </div>`;
-}
-
-function toggleThemeColorWheel(key){
-  const wasOpen = themeColorWheelKey === key;
-  closeAllSettingsPopovers();
-  if(!wasOpen){
-    customColorDraft = hexToHsv(state.theme[key]);
-    themeColorWheelKey = key;
-  }
-  render();
-}
-
-// Unlike confirmCustomColor() (which drops back to the swatch/icon row),
-// there's no intermediate view here to return to — Done just closes the
-// wheel entirely, same as the "×" would.
-async function confirmThemeColorWheel(key){
-  const input = document.getElementById('catCustomHexInput');
-  const hex = normalizeHexInput(input ? input.value : '');
-  if(!hex) return;
-  themeColorWheelKey = null;
-  catWheelCancelDrag();
-  await updateThemeColor(key, hex);
-  render();
-}
-
-// Desk & Ledger: presets only, same reasoning and popover pattern as UI
-// Colors below — a quick-start pair, not a replacement for the
-// individual Background/Ledger wheels, which stay just as free-form
-// afterward (setDeskPaperPreset() just writes both state.theme.bg/paper
-// directly, the same fields those wheels edit — no separate "which
-// preset is this" field to keep in sync).
+// Desk & Ledger: a quick-start pair, same reasoning as UI Colors below —
+// setDeskPaperPreset() just writes both state.theme.bg/paper directly, so
+// picking one is exactly as free to keep customizing afterward as the
+// "Custom" tile's own wheel is.
 function deskPaperPickerHtml(){
+  if(dualColorCustomOpen) return dualColorCustomHtml('desk');
   const options = DESK_PAPER_PRESETS.map(p=>`
     <button class="uipresetbtn ${deskPaperPresetActive(p)?'active':''}" onclick="setDeskPaperPreset('${p.id}')">
       <span class="uipresetswatches">
@@ -751,11 +777,19 @@ function deskPaperPickerHtml(){
       <span class="uipresetlabel">${escapeHtml(p.label)}</span>
     </button>`
   ).join('');
+  const customTile = `
+    <button class="uipresetbtn customtile ${activeDeskPaperPresetLabel()==='Custom'?'active':''}" onclick="openDualColorCustom()">
+      <span class="uipresetswatches">
+        <span class="uipresetswatch" style="background:${state.theme.bg}"></span>
+        <span class="uipresetswatch" style="background:${state.theme.paper}"></span>
+      </span>
+      <span class="uipresetlabel">Custom</span>
+    </button>`;
   return `
     <div class="catpicker uicolorpicker">
       <button class="catpickerclose" onclick="toggleDeskPaperPicker()" title="Close">×</button>
       <div class="catpickerlabel">Desk & Ledger</div>
-      <div class="uipresetgrid">${options}</div>
+      <div class="uipresetgrid">${options}${customTile}</div>
     </div>`;
 }
 
@@ -808,13 +842,14 @@ async function toggleThemeTexture(key){
   queueSave();
 }
 
-// UI Colors: presets only (no custom picker here, unlike a category's
-// color/icon) — see UI_COLOR_PRESETS in 01-categories-theme.js for what
-// Primary/Secondary each preset actually touches. Same small in-place
-// popover pattern as categoryPickerHtml() (reuses its .catpicker/
-// .catpickerclose/.catpickerlabel chrome), just with a grid of preset
-// swatch-pairs instead of a color row + icon row.
+// UI Colors: fixed presets, plus a "Custom" tile (see dualColorCustomHtml()
+// above) for a freely picked Primary/Secondary pair — see UI_COLOR_PRESETS
+// in 01-categories-theme.js for what Primary/Secondary each fixed preset
+// touches. Same small in-place popover pattern as categoryPickerHtml()
+// (reuses its .catpicker/.catpickerclose/.catpickerlabel chrome), just
+// with a grid of preset swatch-pairs instead of a color row + icon row.
 function uiColorPickerHtml(){
+  if(dualColorCustomOpen) return dualColorCustomHtml('ui');
   const options = UI_COLOR_PRESETS.map(p=>`
     <button class="uipresetbtn ${state.theme.uiPreset===p.id?'active':''}" onclick="setUiColorPreset('${p.id}')">
       <span class="uipresetswatches">
@@ -824,11 +859,20 @@ function uiColorPickerHtml(){
       <span class="uipresetlabel">${escapeHtml(p.label)}</span>
     </button>`
   ).join('');
+  const customPreview = state.theme.customUi || uiColorPreset('rust');
+  const customTile = `
+    <button class="uipresetbtn customtile ${state.theme.uiPreset==='custom'?'active':''}" onclick="openDualColorCustom()">
+      <span class="uipresetswatches">
+        <span class="uipresetswatch" style="background:${customPreview.primary}"></span>
+        <span class="uipresetswatch" style="background:${customPreview.secondary}"></span>
+      </span>
+      <span class="uipresetlabel">Custom</span>
+    </button>`;
   return `
     <div class="catpicker uicolorpicker">
       <button class="catpickerclose" onclick="toggleUiColorPicker()" title="Close">×</button>
       <div class="catpickerlabel">UI Colors</div>
-      <div class="uipresetgrid">${options}</div>
+      <div class="uipresetgrid">${options}${customTile}</div>
     </div>`;
 }
 

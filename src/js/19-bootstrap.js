@@ -1,7 +1,7 @@
 // Esc: close whatever's most local first — a Settings popover (a
-// category's color/icon picker incl. its own custom-wheel sub-view, UI
-// Colors, Desk & Ledger, or a theme swatch's wheel — see
-// closeAllSettingsPopovers() in 09-settings.js) beats the Settings panel
+// category's color/icon picker incl. its own custom-wheel sub-view, or
+// UI Colors/Desk & Ledger incl. either one's own "Custom" tile sub-view —
+// see closeAllSettingsPopovers() in 09-settings.js) beats the Settings panel
 // itself beats a task's expanded detail beats an open day (closeDay(),
 // which returns to the calendar instead of the plain day list when the
 // day was reached that way — see dayReturnToCalendar in
@@ -19,7 +19,7 @@ document.addEventListener('keydown', (e) => {
   const appShell = document.getElementById('appShell');
   if(!appShell || appShell.style.display === 'none') return;
 
-  const popoverOpen = openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || themeColorWheelKey || locationEditorOpenId;
+  const popoverOpen = openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId;
 
   if(e.key === 'Escape' || e.key === 'Enter'){
     if(popoverOpen){ closeAllSettingsPopovers(); render(); return; }
@@ -123,7 +123,7 @@ function swipeTextWidth(text, font){
 // swipe competing with them.
 function classifySwipeZone(target){
   if(!target || !target.closest) return null;
-  if(openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || themeColorWheelKey || locationEditorOpenId) return null;
+  if(openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId) return null;
   const dev = state.devSettings || {};
   const daynav = document.querySelector('.daynavrow');
   if(daynav && (dev.fullPageSwipeNav || daynav.contains(target))){
