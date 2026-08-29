@@ -340,13 +340,11 @@ function applyDevSettings(){
   // its covering neighbor away (computeOverlapPush() in 06-tabs-render.js)
   // instead, so it never needs to reorder at all.
   document.body.dataset.overlapHoverMode = d.overlapHoverMode || 'default';
-  // Read by the .sidetabspeek .tab[data-appearance/data-shape] rules in
+  // Read by the .sidetabspeek/[data-tabbar-desktop="sidetabs"] rules in
   // <style>, and by resolveSidetabShape() in 06-tabs-render.js for the
-  // 'random'/'iconstyle' cases. sidetabsNoBg is a plain body class (a true
-  // on/off, same reasoning as fab-on above) rather than a data attribute.
+  // 'random'/'iconstyle' cases.
   document.body.dataset.sidetabsAppearance = d.sidetabsAppearance || 'color';
   document.body.dataset.sidetabsShape = d.sidetabsShape || 'pagetab';
-  document.body.classList.toggle('sidetabs-nobg', !!d.sidetabsNoBg);
   document.body.dataset.settingsrowMobile = d.settingsRowMobileStyle || 'default';
   // Not gated by mobileui-active (see the comment on fieldPickerStyle in
   // defaultDevSettings()) — read directly by fieldPickerHtml() in
@@ -696,13 +694,14 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <span class="${captionClass}">Side tabs: appearance</span>
       <select class="${selectClass}" onchange="setDevSidetabsAppearance(this.value)">
         <option value="color" ${dev.sidetabsAppearance==='color'?'selected':''}>Colored label (default)</option>
-        <option value="classic" ${dev.sidetabsAppearance==='classic'?'selected':''}>Classic (translucent, with icon)</option>
-        <option value="classicband" ${dev.sidetabsAppearance==='classicband'?'selected':''}>Classic + color band (no icon)</option>
+        <option value="translucentpill" ${dev.sidetabsAppearance==='translucentpill'?'selected':''}>Translucent pill, with icon</option>
         <option value="edge" ${dev.sidetabsAppearance==='edge'?'selected':''}>Left edge color only, no icon</option>
+        <option value="classic" ${dev.sidetabsAppearance==='classic'?'selected':''}>Classic (original full-width column)</option>
+        <option value="classicband" ${dev.sidetabsAppearance==='classicband'?'selected':''}>Classic + color band (no icon)</option>
       </select>
     </div>
     <div class="${fieldClass}">
-      <span class="${captionClass}">Side tabs: shape</span>
+      <span class="${captionClass}">Side tabs: shape (Colored/Translucent Pill/Edge only)</span>
       <select class="${selectClass}" onchange="setDevSidetabsShape(this.value)">
         <option value="pagetab" ${dev.sidetabsShape==='pagetab'?'selected':''}>Page-tab point (default)</option>
         <option value="invertedv" ${dev.sidetabsShape==='invertedv'?'selected':''}>Inverted V</option>
@@ -713,10 +712,6 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="iconstyle" ${dev.sidetabsShape==='iconstyle'?'selected':''}>Depending on icon style</option>
       </select>
     </div>
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.sidetabsNoBg?'checked':''} onchange="toggleDevSetting('sidetabsNoBg', this.checked)">
-      Side tabs: remove tab background
-    </label>
     ` : ''}
   `;
 

@@ -224,25 +224,34 @@ function renderTabs(){
 
 // ---------- tabBarDesktopStyle "sidetabs": peeking index-tab column ----------
 // Called at the end of renderTabs() (mirrors layoutOverlapTabs() just
-// above) — a no-op for every other tabBarDesktopStyle and on the Mobile UI
-// Lab viewport, where this style never applies. Unlike layoutOverlapTabs(),
-// this doesn't need any dynamic width-solving: a vertical column has
-// plenty of room for a handful of category tabs, so a fixed CSS height +
-// negative margin-top overlap (see .sidetabspeek .tab in <style>) is
-// enough — no per-render measurement here at all. That means the clones
-// below don't need anything read off the real .tab elements beyond what
-// cloneNode(true) already copies (classes, inline --tabhex/--tabtext,
-// content) — the real #tabs column stays in the DOM only because
-// renderTabs() always populates it regardless of style; CSS hides it
-// outright (display:none, see body:not(.mobileui-active)[data-tabbar-
-// desktop="sidetabs"] .tabswrap) rather than the visibility:hidden trick
-// layoutOverlapTabs() needs for its own single active-tab clone, since
-// nothing here ever needs to measure the real column.
+// above) — a no-op for every other tabBarDesktopStyle, on the Mobile UI Lab
+// viewport (neither applies), and for the 'classic'/'classicband'
+// appearances, which are the ORIGINAL sidetabs layout (a plain column of
+// full-width tabs in normal flex flow beside .leathercover — see the
+// body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-
+// sidetabs-appearance="classic"] rules in <style>) and never use this
+// peeking mechanism at all.
+// The clones below DO need one real measurement per tab now (unlike an
+// earlier fixed-width pass): a category name has to actually be readable
+// once poking out from behind the page, so each tab's own visible "poke"
+// width is sized to its own label instead of one guessed constant for
+// every tab. Only the TUCK (how far past #appCard's edge it reaches, see
+// SIDETAB_TUCK/SIDETAB_TUCK_ACTIVE) stays fixed — see the width/marginLeft
+// math below.
+const SIDETAB_TUCK = 12;         // px past #appCard's edge every resting tab tucks
+const SIDETAB_TUCK_ACTIVE = 18;  // the active tab gets to tuck a bit deeper — its
+                                  // own mask-image fade (.tab.active in <style>) is
+                                  // what makes that safe to do without it reading
+                                  // as covering page content
+const SIDETAB_MIN_POKE = 58;     // floor so a short label ("ALL") doesn't shrink
+                                  // the tab down to an unreadably small nub
 function layoutSidetabsPeek(){
   const peek = document.getElementById('sidetabsPeek');
   if(!peek) return;
   const dev = state.devSettings || {};
-  if(mobileUiActive() || dev.tabBarDesktopStyle !== 'sidetabs'){
+  const appearance = dev.sidetabsAppearance || 'color';
+  const isClassicLayout = appearance === 'classic' || appearance === 'classicband';
+  if(mobileUiActive() || dev.tabBarDesktopStyle !== 'sidetabs' || isClassicLayout){
     peek.innerHTML = '';
     return;
   }
@@ -259,7 +268,21 @@ function layoutSidetabsPeek(){
     // per tab" cases.
     clone.dataset.shape = resolveSidetabShape(t.dataset.key, shapeSetting);
     clone.style.pointerEvents = 'auto';
+    // Measure this clone's own natural (unwrapped) content width before
+    // pinning it to a fixed px width below — max-content plus nowrap on
+    // the label (a two-line "House Upkeep" is exactly the case this is
+    // for) makes getBoundingClientRect() report how wide it actually
+    // wants to be, independent of whatever the shared .sidetabspeek .tab
+    // rule's own width:84px fallback says.
+    clone.style.width = 'max-content';
+    const label = clone.querySelector('.tablabel');
+    if(label) label.style.whiteSpace = 'nowrap';
     peek.appendChild(clone);
+    const natural = clone.getBoundingClientRect().width;
+    const poke = Math.max(SIDETAB_MIN_POKE, natural);
+    const tuck = clone.classList.contains('active') ? SIDETAB_TUCK_ACTIVE : SIDETAB_TUCK;
+    clone.style.width = (poke + tuck) + 'px';
+    clone.style.marginLeft = -poke + 'px';
   });
 }
 

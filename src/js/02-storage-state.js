@@ -471,50 +471,55 @@ function defaultDevSettings(){
   // or by importance) sits a little higher at rest, just enough that its
   // own label peeks above whichever tab is currently covering it, rather
   // than a covered tab being unreadable until you interact with it.
-  // sidetabsAppearance / sidetabsShape / sidetabsNoBg are three further
-  // EXPERIMENTAL sub-options of tabBarDesktopStyle's "sidetabs" look
-  // specifically — only ever offered in the UI while that style is the
-  // current pick (see devSettingsFieldsHtml() in 01-categories-theme.js),
-  // same pattern as overlapSubtags/overlapHoverMode above. 'sidetabs' no
-  // longer means "a plain vertical column beside the card" — it now means
-  // colored index-tab-style labels that live BEHIND #appCard and OVER
-  // .leathercover, each mostly tucked under the page with just enough
-  // poking out past its left edge to read and click (see
-  // layoutSidetabsPeek() in 06-tabs-render.js and the .sidetabspeek rules
-  // in <style> for the mechanics — same clone-into-a-real-#appCard-sibling
-  // trick tabBarDesktopStyle "overlap" uses for its own #tabConnector,
-  // since a plain z-index on the real .tab elements can never outrank
-  // #appCard from outside .leathercover's own stacking order).
-  // sidetabsAppearance: 'color' fills each tab with its own category color
-  // (--tabhex) plus its icon+label, same coloring overlap tabs use.
-  // 'textured' is the same fill with a grain overlay added (the same
-  // feTurbulence idea #appCard's own "Grain" texture and leather's own
-  // noise use, just a third independent application of it — see the
-  // .sidetabspeek .tab[data-appearance="textured"]::before rule).  'edge'
-  // drops the fill entirely (plain --card-bg, matching the page it's
-  // tucked behind) and drops the icon too, leaving only a colored stripe
-  // down the tab's own left edge — the "just the color, not the icon" ask.
-  // sidetabsShape picks the silhouette of the edge that actually pokes out
-  // past the page — see the .sidetabspeek .tab[data-shape="…"] rules.
-  // 'random' resolves to one of pagetab/invertedv/arrows/sawtooth (never
-  // jagged — deliberately excluded, see resolveSidetabShape() in
-  // 06-tabs-render.js) via the same stable hashStr()-off-the-tab's-own-key
-  // idiom the overlap look's --tab-jitter uses, so it doesn't reshuffle on
-  // every render. 'iconstyle' resolves the same way but keyed off each
-  // category's own chosen icon glyph (CATEGORY_ICON_GLYPHS, set in
-  // Settings) instead of a hash — flag categories read as literal little
-  // flags (pagetab), sharp icons (star/diamond) get the arrow shape, round/
-  // plain ones (house/ring/square/check/dot) get invertedv/sawtooth — see
-  // resolveSidetabShape() for the exact mapping. sidetabsNoBg strips
-  // whichever background the appearance mode would otherwise paint,
-  // leaving just the icon/label (or edge stripe) floating over bare
-  // leather/page — independent of appearance and shape, since "remove the
-  // background" is a legible ask under any combination of the two.
+  // sidetabsAppearance / sidetabsShape are two further EXPERIMENTAL sub-
+  // options of tabBarDesktopStyle's "sidetabs" look specifically — only
+  // ever offered in the UI while that style is the current pick (see
+  // devSettingsFieldsHtml() in 01-categories-theme.js), same pattern as
+  // overlapSubtags/overlapHoverMode above.
+  // sidetabsAppearance splits into two families. 'classic'/'classicband'
+  // are the ORIGINAL sidetabs look, unchanged: a plain fixed-width column
+  // of full-width tabs sitting beside .leathercover (real #tabs content,
+  // in normal flex flow — see the body:not(.mobileui-active)[data-tabbar-
+  // desktop="sidetabs"][data-sidetabs-appearance="classic"] rules in
+  // <style>), translucent when resting and --card-bg when active, from
+  // the same base .tab/.tab.active rules every other tab style already
+  // uses — no shape, no color band, no peeking. 'classicband' is the same
+  // layout with the icon glyph swapped for a colored left-edge stripe.
+  // 'color'/'translucentpill'/'edge' are the newer look: colored index-
+  // tab-style labels that live BEHIND #appCard and OVER .leathercover,
+  // each mostly tucked under the page with just enough poking out past
+  // its left edge to read and click (see layoutSidetabsPeek() in
+  // 06-tabs-render.js and the .sidetabspeek rules in <style> for the
+  // mechanics — same clone-into-a-real-#appCard-sibling trick
+  // tabBarDesktopStyle "overlap" uses for its own #tabConnector, since a
+  // plain z-index on the real .tab elements can never outrank #appCard
+  // from outside .leathercover's own stacking order). 'color' fills each
+  // tab with its own category color (--tabhex); 'translucentpill' is the
+  // same peeking mechanics with a plain translucent fill and rounded
+  // pill-shaped end instead (this used to be called 'classic' before
+  // 'classic' got reclaimed for the original layout above — no migration
+  // for anyone with the old value saved, this is dev-only tooling under
+  // active iteration); 'edge' drops the fill to --card-bg and the icon
+  // too, leaving only the color band.
+  // sidetabsShape (only meaningful for the peeking family — the classic
+  // family ignores it entirely) picks the silhouette of the edge that
+  // actually pokes out past the page — see the .sidetabspeek
+  // .tab[data-shape="…"] rules. 'random' resolves to one of pagetab/
+  // invertedv/arrows/sawtooth (never jagged — deliberately excluded, see
+  // resolveSidetabShape() in 06-tabs-render.js) via the same stable
+  // hashStr()-off-the-tab's-own-key idiom the overlap look's --tab-jitter
+  // uses, so it doesn't reshuffle on every render. 'iconstyle' resolves
+  // the same way but keyed off each category's own chosen icon glyph
+  // (CATEGORY_ICON_GLYPHS, set in Settings) instead of a hash — flag
+  // categories read as literal little flags (pagetab), sharp icons (star/
+  // diamond) get the arrow shape, round/plain ones (house/ring/square/
+  // check/dot) get invertedv/sawtooth — see resolveSidetabShape() for the
+  // exact mapping.
   // The custom right-click menu (toggle complete/urgent/today, edit, copy
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', sidetabsNoBg:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -628,14 +633,12 @@ function normalizeState(){
   if(typeof state.devSettings.overlapRankStagger !== 'boolean') state.devSettings.overlapRankStagger = false;
   if(typeof state.devSettings.sidetabsAppearance !== 'string') state.devSettings.sidetabsAppearance = 'color';
   // 'textured' was removed (a plain noise-filter overlay, not a real
-  // material texture — didn't hold up) in favor of 'classic'/'classicband'.
-  // Only ever reachable by an account that had it selected before the
-  // removal, so falling it back to the plain colored look is the same
-  // "point at something that still renders" idea as the calendar-type
-  // migration above.
+  // material texture — didn't hold up). Only ever reachable by an account
+  // that had it selected before the removal, so falling it back to the
+  // plain colored look is the same "point at something that still
+  // renders" idea as the calendar-type migration above.
   if(state.devSettings.sidetabsAppearance === 'textured') state.devSettings.sidetabsAppearance = 'color';
   if(typeof state.devSettings.sidetabsShape !== 'string') state.devSettings.sidetabsShape = 'pagetab';
-  if(typeof state.devSettings.sidetabsNoBg !== 'boolean') state.devSettings.sidetabsNoBg = false;
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
   if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'detail';

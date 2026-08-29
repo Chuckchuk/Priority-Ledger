@@ -2163,25 +2163,70 @@
   body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap.fade-left::before{ opacity:1; }
   body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap.fade-right::after{ opacity:1; }
 
-  /* sidetabs: EXPERIMENTAL, reworked from an earlier plain "fixed-width
-     column beside the card" look into peeking book-index tabs — each one
-     mostly tucked BEHIND #appCard and OVER .leathercover, poking out just
-     enough past the page's own left edge to read and click. #appMain stays
-     a flex row (harmless with only .leathercover left in it once #tabswrap
-     is taken out of flow below) so .leathercover simply fills the width
-     #tabswrap used to reserve. See layoutSidetabsPeek() in 06-tabs-
-     render.js for how #sidetabsPeek (a real child of .leathercover, see
-     shell-body.html) gets populated, and the .sidetabspeek rules below for
-     the geometry. */
+  /* sidetabs: EXPERIMENTAL, and now two genuinely different families under
+     one dev setting (see defaultDevSettings() in 02-storage-state.js for
+     the full rationale). 'classic'/'classicband' are the ORIGINAL layout,
+     unchanged from before any of this reworking started: a plain column
+     of full-width tabs in normal flex flow beside .leathercover. 'color'/
+     'translucentpill'/'edge' are the newer peeking book-index-tab look —
+     each mostly tucked BEHIND #appCard and OVER .leathercover, poking out
+     just enough past the page's own left edge to read and click. #appMain
+     stays a flex row either way (harmless with only .leathercover left in
+     it once #tabswrap is taken out of flow for the peeking family below)
+     so .leathercover simply fills whatever width #tabswrap isn't using.
+     See layoutSidetabsPeek() in 06-tabs-render.js for how #sidetabsPeek (a
+     real child of .leathercover, see shell-body.html) gets populated for
+     the peeking family, and the .sidetabspeek rules below for the
+     geometry. */
   body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .appmain{
     display:flex; align-items:stretch; gap:0;
   }
   /* display:none, not just hidden — layoutSidetabsPeek() only ever needs
      cloneNode(true) off these (for their classes/inline --tabhex etc./
-     content), never a live measurement, so there's no need to keep this
-     column occupying space or even rendering. */
-  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .tabswrap{ display:none; }
+     content) for the peeking family, never a live measurement of the real
+     column, so there's no need to keep it occupying space or even
+     rendering. Excluded for 'classic'/'classicband' below, which use this
+     real column directly instead of cloning it anywhere. */
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"]:not([data-sidetabs-appearance="classic"]):not([data-sidetabs-appearance="classicband"]) .tabswrap{
+    display:none;
+  }
   body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .leathercover{ flex:1; min-width:0; }
+  /* 'classic'/'classicband': the original sidetabs layout, restored
+     verbatim — a fixed-width column, every tab full-width and flush with
+     its neighbors, no overlap, no shape, no peeking mechanism at all. Its
+     resting/active colors come from the same base .tab/.tab.active rules
+     every other tab style already uses (translucent dark resting, --card-
+     bg active) rather than any override here, which is exactly what
+     originally shipped — nothing to duplicate. */
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="classic"] .tabswrap,
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="classicband"] .tabswrap{
+    width:168px; flex-shrink:0;
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="classic"] .tabs,
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="classicband"] .tabs{
+    flex-direction:column; flex-wrap:nowrap; height:100%; gap:4px;
+    padding:10px; border-radius:10px 0 0 10px; border-right:none; border-bottom:1px solid rgba(241,234,217,0.16);
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="classic"] .tab,
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="classicband"] .tab{
+    border-radius:7px 0 0 7px; justify-content:flex-start; width:100%; padding:11px 16px;
+  }
+  /* classicband: same column, icon glyph swapped for a colored left-edge
+     stripe — the one thing it keeps from the peeking family's own 'edge'
+     idea. A plain border-left would do here (no clip-path/shape to keep
+     clear of, unlike the peeking family's own band on ::before), but
+     ::before matches how every other "color band" in this feature is
+     built, so there's one mental model for "the band" rather than two. */
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="classicband"] .tab .dot{
+    display:none;
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="classicband"] .tab{
+    position:relative;
+  }
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-sidetabs-appearance="classicband"] .tab::before{
+    content:''; position:absolute; left:0; top:0; bottom:0; width:6px;
+    background: var(--tabhex, var(--primary));
+  }
   /* #sidetabspeek's own left:0 lands exactly on #appCard's rendered left
      edge ONLY while leather is off (see the .leathercover.leather-on
      override right below for why it needs one) — an absolutely positioned
@@ -2222,19 +2267,16 @@
   /* Fixed height + a negative margin-top overlap (not a dynamic solver
      the way layoutOverlapTabs()'s horizontal row needs — see the comment
      on layoutSidetabsPeek()) is enough room for any realistic category
-     count down a column this tall. margin-left is the fixed "poke past
-     the page" amount: with the container anchored flush at #appCard's
-     edge (see .sidetabspeek above), every tab starts 72px to the LEFT of
-     that edge — plenty of room for a label to actually read — and runs
-     84px wide, so only 12px of it ever reaches past #appCard's edge: well
-     inside its own 22px padding (see .card{padding} above) and short of
-     where any real content (the quick-add row, task list, etc.) starts,
-     with a few px of breathing room to spare rather than butting right up
-     against it. position:relative only so hover/.active below can use
-     z-index (it has no effect on a static element) — it doesn't otherwise
-     change this box's place in the column's normal flow. No mask-image
-     fade here (a first pass put one on every tab — see .tab.active below
-     for why that was wrong on two counts). */
+     count down a column this tall. width/margin-left below are only the
+     PRE-JS fallback (same idiom as the overlap look's own static margin-
+     left default) — layoutSidetabsPeek() sets both inline per tab now, so
+     a label that needs more room to read (see SIDETAB_MIN_POKE there) can
+     actually get it instead of every tab sharing one guessed constant.
+     position:relative only so hover/.active below can use z-index (it has
+     no effect on a static element) — it doesn't otherwise change this
+     box's place in the column's normal flow. No mask-image fade here (a
+     first pass put one on every tab — see .tab.active below for why that
+     was wrong on two counts). */
   .sidetabspeek .tab{
     width:84px; height:44px; margin-left:-72px; margin-top:-10px;
     padding:0 10px 0 18px; border-radius:0; justify-content:flex-start;
@@ -2260,30 +2302,29 @@
   }
   /* The active tab sits out a bit further even at rest, so it's always
      legible without needing a hover — and above every resting neighbor it
-     might overlap in the column. It's also the one tab allowed to tuck a
-     little deeper than the fixed 12px every resting tab keeps to (the
-     project owner's own "they can also go a little further in," said
-     right after asking the fade be scoped to just this tab) — width:96px
-     (12px more than the 84px base, all of it added on the tucked/right
-     side since margin-left is unchanged) nets an 18px tuck once the -6px
-     translateX above is applied, still short of #appCard's 22px padding.
-     The mask-image fade is ONLY here, not on the base .tab rule — a first
-     pass put a wide 20%-of-width fade on EVERY tab, which (a) doesn't
-     make sense for a resting tab that isn't tucked deep enough to need
-     one, and (b) actively broke every outward-pointing shape below:
-     mask-image's own coordinate space is the element's plain border-box,
-     0 to its own width, so a clip-path point sitting at a negative
-     x-offset (pagetab/arrows/sawtooth/jagged all protrude past x:0 — see
-     sidetabsShape below) fell entirely outside that space and got masked
-     to nothing, which is why every shape but invertedv (the one shape
-     whose point stays inside the box, since it cuts *inward*) looked
-     "stopped working." Scoped to only the active tab's own tucked/right
-     edge instead (90%-100% of its width — well past both the label, which
-     ends inside its own 10px right padding, and the pointed shapes, whose
-     protruding tips sit on the opposite, LEFT side entirely) — "fade at
-     the very tip, never the text," per the project owner's own ask. */
+     might overlap in the column. Its own deeper tuck (SIDETAB_TUCK_ACTIVE
+     vs SIDETAB_TUCK, both in layoutSidetabsPeek()) is what the mask-image
+     fade below exists to cover for. No width here any more — that's
+     layoutSidetabsPeek()'s own inline style now (see its comment for why),
+     so this only sets the properties that are genuinely fixed regardless
+     of a tab's own label width. The mask-image fade is ONLY here, not on
+     the base .tab rule — a first pass put a wide 20%-of-width fade on
+     EVERY tab, which (a) doesn't make sense for a resting tab that isn't
+     tucked deep enough to need one, and (b) actively broke every outward-
+     pointing shape below: mask-image's own coordinate space is the
+     element's plain border-box, 0 to its own width, so a clip-path point
+     sitting at a negative x-offset (pagetab/arrows/sawtooth/jagged all
+     protrude past x:0 — see sidetabsShape below) fell entirely outside
+     that space and got masked to nothing, which is why every shape but
+     invertedv (the one shape whose point stays inside the box, since it
+     cuts *inward*) looked "stopped working." Scoped to only the active
+     tab's own tucked/right edge instead (90%-100% of its width — well
+     past both the label, which ends inside its own 10px right padding,
+     and the pointed shapes, whose protruding tips sit on the opposite,
+     LEFT side entirely) — "fade at the very tip, never the text," per the
+     project owner's own ask. */
   .sidetabspeek .tab.active{
-    width:96px; transform: translateX(-6px); z-index:4; font-weight:500;
+    transform: translateX(-6px); z-index:4; font-weight:500;
     background: var(--sidetab-fill, var(--tabhex, var(--primary)));
     -webkit-mask-image: linear-gradient(to right, black 0%, black 90%, transparent 100%);
     mask-image: linear-gradient(to right, black 0%, black 90%, transparent 100%);
@@ -2298,56 +2339,47 @@
      override beyond the --tabhex/--tabtext already set inline by
      renderTabs() (copied onto every clone by cloneNode(true)) — --sidetab-
      fill's own fallback chain already lands there. */
-  body[data-sidetabs-appearance="classic"] .sidetabspeek .tab,
-  body[data-sidetabs-appearance="classicband"] .sidetabspeek .tab{
+  /* 'translucentpill': a plain half-round left end (border-radius using
+     half the tab's own 44px height, a true pill/stadium curve) instead of
+     any clip-path, no color band, no fade — this is what 'classic' meant
+     before that name got reclaimed for the real original layout above.
+     Keeps its icon (unlike 'edge'). */
+  body[data-sidetabs-appearance="translucentpill"] .sidetabspeek .tab{
     --sidetab-fill: rgba(0,0,0,0.18); color: rgba(241,234,217,0.65);
-  }
-  /* 'classic' specifically (not 'classicband') is meant to recreate the
-     original pre-rework sidetabs look exactly — "rounded pill bubbles,
-     without the color band" — so it opts back OUT of sidetabsShape and
-     the color band entirely, regardless of which shape is picked in the
-     dropdown: a plain half-round left end (border-radius using half the
-     tab's own 44px height, a true pill/stadium curve) instead of any
-     clip-path, no ::before band, and no fade. The extra body[attr] in
-     this selector (specificity (0,3,1)) is what lets a single rule beat
-     every .tab[data-shape="…"] rule below (0,3,0) regardless of source
-     order, without needing !important or a copy per shape; it only
-     resets the specific properties named here, so .tab.active's own
-     transform/width/z-index (a different property set entirely) still
-     apply normally on top. */
-  body[data-sidetabs-appearance="classic"] .sidetabspeek .tab{
     clip-path:none; border-radius:22px 0 0 22px;
-    background: var(--sidetab-fill);
     mask-image:none; -webkit-mask-image:none;
   }
-  body[data-sidetabs-appearance="classic"] .sidetabspeek .tab::before{ content:none; }
-  /* 'edge' / 'classicband': drop the icon glyph (.dot — see
-     categoryDotHtml() in 01-categories-theme.js) in favor of the color
-     band on ::before below doing the identifying instead — the "left edge
-     of the tab with a color instead of the icon" ask, offered against
-     both a page-blending fill ('edge') and the plain classic fill
-     ('classicband'). 'edge' additionally swaps to the page's own color so
-     it reads as part of the page it's tucked behind rather than its own
-     separate chip. */
+  body[data-sidetabs-appearance="translucentpill"] .sidetabspeek .tab::before{ content:none; }
+  /* 'edge': drop the fill to the plain page color (so the tab reads as
+     part of the page it's tucked behind) and drop the icon glyph (.dot —
+     see categoryDotHtml() in 01-categories-theme.js) in favor of the
+     color band on ::before below doing the identifying instead — the
+     "left edge of the tab with a color instead of the icon" ask. */
   body[data-sidetabs-appearance="edge"] .sidetabspeek .tab{
     --sidetab-fill: var(--card-bg); color: var(--ink);
   }
-  body[data-sidetabs-appearance="edge"] .sidetabspeek .dot,
-  body[data-sidetabs-appearance="classicband"] .sidetabspeek .dot{
-    display:none;
-  }
-  /* The color band itself — every appearance mode gets one now (including
-     'color', the project owner's own ask: "give the Colored Label version
-     a color band at the edge as well"), not just 'edge'/'classicband'.
+  body[data-sidetabs-appearance="edge"] .sidetabspeek .dot{ display:none; }
+  /* 'color': the icon glyph is still in the markup (categoryDotHtml()),
+     just invisible — its own color is the category's hex, same as the
+     tab's background, so it was rendering exactly on top of itself while
+     still eating its own padding/gap, reading as "text pushed over for no
+     reason." Hidden outright, with padding-left pulled in to match (was
+     sized for the icon + gap; the color band on ::before below is the
+     only thing that needs room there now). */
+  body[data-sidetabs-appearance="color"] .sidetabspeek .dot{ display:none; }
+  body[data-sidetabs-appearance="color"] .sidetabspeek .tab{ padding-left:10px; }
+  /* The color band itself — every peeking appearance gets one now
+     (including 'color', the project owner's own ask: "give the Colored
+     Label version a color band at the edge as well"), not just 'edge'.
      'color' mode uses --tabedge (the same pre-shaded darker tone the
      overlap look's own border-top already reads — see renderTabs() in
      06-tabs-render.js) since the band needs to read as a distinct trim
      against a fill that's already the tab's own color; every other mode
      uses the bold true --tabhex, since their base fill is neutral and the
      band is the only thing actually carrying the category's color. Its
-     own left/top/bottom/width (not a border-left) is what lets the
-     shape rules below give it its own clip-path independent of the
-     stripe's straight inner edge. */
+     own left/top/bottom/width (not a border-left) is what lets the shape
+     rules below give it its own clip-path independent of the stripe's
+     straight inner edge. */
   .sidetabspeek .tab::before{
     content:''; position:absolute; left:0; top:0; bottom:0; width:10px;
     background: var(--tabhex, var(--primary)); pointer-events:none;
@@ -2355,15 +2387,6 @@
   body[data-sidetabs-appearance="color"] .sidetabspeek .tab::before{
     background: var(--tabedge, var(--primary-light));
   }
-  /* sidetabsNoBg — independent of appearance/shape, see defaultDevSettings()
-     — strips whichever fill the appearance mode above chose, leaving
-     icon/label plus the color band floating directly over bare
-     leather/page. !important since it needs to beat --sidetab-fill
-     regardless of which mode set it. The band on ::before is deliberately
-     NOT hidden here — with the fill gone it becomes the one remaining
-     thing identifying the tab's category at a glance, which is more
-     useful than a fully blank chip. */
-  body.sidetabs-nobg .sidetabspeek .tab{ background:transparent !important; box-shadow:none; }
   /* ---- sidetabsShape — cuts the tab's own left (poking-out) edge; top/
      right/bottom stay straight since those are shared with the column and
      with #appCard, not part of what's actually visible poking out. Every
@@ -2371,43 +2394,44 @@
      'jagged' is intentionally never assigned by resolveSidetabShape() for
      'random'/'iconstyle' (06-tabs-render.js) — it's the one shape meant to
      only ever show up when explicitly picked.
-     For the three pointed shapes, ::before (the color band) below gets the
-     exact same polygon as the tab itself — "have the color bands follow
-     the shape," per the project owner's own ask. That works with no extra
-     per-shape math: clip-path's px coordinates are absolute regardless of
-     the element's own width, and its %-based y coordinates resolve
-     against each element's own height, which the band already matches
-     (top:0;bottom:0 above) — so the same polygon traces the same point on
-     a narrower box for free. sawtooth/jagged deliberately do NOT do this
-     (the project owner's own callout: a stripe trying to trace a zigzag
-     "would look weird") — the band stays the default straight rectangle,
-     and the tab's own background gets a second gradient layer below
-     instead, so the zigzag teeth themselves read as the band color rather
-     than the band having to chase their contour. ---- */
-  .sidetabspeek .tab[data-shape="pagetab"],
-  .sidetabspeek .tab[data-shape="pagetab"]::before{
+     For the three pointed shapes, ::before (the color band) traces the
+     SAME point direction as the tab but at roughly 60-65% of its reach —
+     "have the color bands follow the shape," per the project owner's own
+     ask — rather than the exact same polygon a first pass used. Sharing
+     the identical polygon meant the band (painted second, on top of the
+     tab's own background — see the ::before rule above) fully covered the
+     tab's own color everywhere the point protrudes, since a polygon that
+     reaches the same tip has no gap for the layer underneath to show
+     through — reported as "the shapes are the band's color, not the tab's
+     color." Scaling the band's own point back means the OUTERMOST part of
+     the tip (past where the band's shorter polygon ends) shows the tab's
+     own plain fill — --tabhex itself in 'color' mode, so the very tip
+     reads as pure category color per the project owner's ask — while the
+     band still visibly traces the same angle in from the base, in the
+     same direction, rather than being a flat rectangle. sawtooth/jagged
+     deliberately do NOT do this (the project owner's own callout: a
+     stripe trying to trace a zigzag "would look weird") — their own band
+     stays the default straight rectangle, and the tab's own background
+     gets a second gradient layer instead, so the zigzag teeth themselves
+     read as the band color rather than the band having to chase their
+     contour. ---- */
+  .sidetabspeek .tab[data-shape="pagetab"]{
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 62%, -22px 50%, 0 38%);
   }
-  /* invertedv is the one shape whose point cuts INWARD (a positive x
-     offset, toward the tab's own tucked side) rather than protruding out
-     past x:0 like the other three — sharing the exact same point value
-     with ::before doesn't work here the way it does for pagetab/arrows/
-     sawtooth/jagged below: the band is only 10px wide, and the tab's own
-     14px point sits well past that width, so on the band that "notch"
-     line overshoots its own right edge entirely instead of reading as a
-     clean inward wedge (reported as "the color band doesn't follow the
-     shape of the inverted V"). Giving the band its own smaller point
-     (6px, safely inside its 10px width) keeps the two proportional
-     instead of literally identical. */
+  .sidetabspeek .tab[data-shape="pagetab"]::before{
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 62%, -14px 50%, 0 38%);
+  }
   .sidetabspeek .tab[data-shape="invertedv"]{
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
   }
   .sidetabspeek .tab[data-shape="invertedv"]::before{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 6px 50%);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 9px 50%);
   }
-  .sidetabspeek .tab[data-shape="arrows"],
-  .sidetabspeek .tab[data-shape="arrows"]::before{
+  .sidetabspeek .tab[data-shape="arrows"]{
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -20px 50%);
+  }
+  .sidetabspeek .tab[data-shape="arrows"]::before{
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -13px 50%);
   }
   .sidetabspeek .tab[data-shape="sawtooth"],
   .sidetabspeek .tab[data-shape="jagged"]{
@@ -3319,13 +3343,11 @@ function applyDevSettings(){
   // its covering neighbor away (computeOverlapPush() in 06-tabs-render.js)
   // instead, so it never needs to reorder at all.
   document.body.dataset.overlapHoverMode = d.overlapHoverMode || 'default';
-  // Read by the .sidetabspeek .tab[data-appearance/data-shape] rules in
+  // Read by the .sidetabspeek/[data-tabbar-desktop="sidetabs"] rules in
   // <style>, and by resolveSidetabShape() in 06-tabs-render.js for the
-  // 'random'/'iconstyle' cases. sidetabsNoBg is a plain body class (a true
-  // on/off, same reasoning as fab-on above) rather than a data attribute.
+  // 'random'/'iconstyle' cases.
   document.body.dataset.sidetabsAppearance = d.sidetabsAppearance || 'color';
   document.body.dataset.sidetabsShape = d.sidetabsShape || 'pagetab';
-  document.body.classList.toggle('sidetabs-nobg', !!d.sidetabsNoBg);
   document.body.dataset.settingsrowMobile = d.settingsRowMobileStyle || 'default';
   // Not gated by mobileui-active (see the comment on fieldPickerStyle in
   // defaultDevSettings()) — read directly by fieldPickerHtml() in
@@ -3675,13 +3697,14 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <span class="${captionClass}">Side tabs: appearance</span>
       <select class="${selectClass}" onchange="setDevSidetabsAppearance(this.value)">
         <option value="color" ${dev.sidetabsAppearance==='color'?'selected':''}>Colored label (default)</option>
-        <option value="classic" ${dev.sidetabsAppearance==='classic'?'selected':''}>Classic (translucent, with icon)</option>
-        <option value="classicband" ${dev.sidetabsAppearance==='classicband'?'selected':''}>Classic + color band (no icon)</option>
+        <option value="translucentpill" ${dev.sidetabsAppearance==='translucentpill'?'selected':''}>Translucent pill, with icon</option>
         <option value="edge" ${dev.sidetabsAppearance==='edge'?'selected':''}>Left edge color only, no icon</option>
+        <option value="classic" ${dev.sidetabsAppearance==='classic'?'selected':''}>Classic (original full-width column)</option>
+        <option value="classicband" ${dev.sidetabsAppearance==='classicband'?'selected':''}>Classic + color band (no icon)</option>
       </select>
     </div>
     <div class="${fieldClass}">
-      <span class="${captionClass}">Side tabs: shape</span>
+      <span class="${captionClass}">Side tabs: shape (Colored/Translucent Pill/Edge only)</span>
       <select class="${selectClass}" onchange="setDevSidetabsShape(this.value)">
         <option value="pagetab" ${dev.sidetabsShape==='pagetab'?'selected':''}>Page-tab point (default)</option>
         <option value="invertedv" ${dev.sidetabsShape==='invertedv'?'selected':''}>Inverted V</option>
@@ -3692,10 +3715,6 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="iconstyle" ${dev.sidetabsShape==='iconstyle'?'selected':''}>Depending on icon style</option>
       </select>
     </div>
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.sidetabsNoBg?'checked':''} onchange="toggleDevSetting('sidetabsNoBg', this.checked)">
-      Side tabs: remove tab background
-    </label>
     ` : ''}
   `;
 
@@ -4272,50 +4291,55 @@ function defaultDevSettings(){
   // or by importance) sits a little higher at rest, just enough that its
   // own label peeks above whichever tab is currently covering it, rather
   // than a covered tab being unreadable until you interact with it.
-  // sidetabsAppearance / sidetabsShape / sidetabsNoBg are three further
-  // EXPERIMENTAL sub-options of tabBarDesktopStyle's "sidetabs" look
-  // specifically — only ever offered in the UI while that style is the
-  // current pick (see devSettingsFieldsHtml() in 01-categories-theme.js),
-  // same pattern as overlapSubtags/overlapHoverMode above. 'sidetabs' no
-  // longer means "a plain vertical column beside the card" — it now means
-  // colored index-tab-style labels that live BEHIND #appCard and OVER
-  // .leathercover, each mostly tucked under the page with just enough
-  // poking out past its left edge to read and click (see
-  // layoutSidetabsPeek() in 06-tabs-render.js and the .sidetabspeek rules
-  // in <style> for the mechanics — same clone-into-a-real-#appCard-sibling
-  // trick tabBarDesktopStyle "overlap" uses for its own #tabConnector,
-  // since a plain z-index on the real .tab elements can never outrank
-  // #appCard from outside .leathercover's own stacking order).
-  // sidetabsAppearance: 'color' fills each tab with its own category color
-  // (--tabhex) plus its icon+label, same coloring overlap tabs use.
-  // 'textured' is the same fill with a grain overlay added (the same
-  // feTurbulence idea #appCard's own "Grain" texture and leather's own
-  // noise use, just a third independent application of it — see the
-  // .sidetabspeek .tab[data-appearance="textured"]::before rule).  'edge'
-  // drops the fill entirely (plain --card-bg, matching the page it's
-  // tucked behind) and drops the icon too, leaving only a colored stripe
-  // down the tab's own left edge — the "just the color, not the icon" ask.
-  // sidetabsShape picks the silhouette of the edge that actually pokes out
-  // past the page — see the .sidetabspeek .tab[data-shape="…"] rules.
-  // 'random' resolves to one of pagetab/invertedv/arrows/sawtooth (never
-  // jagged — deliberately excluded, see resolveSidetabShape() in
-  // 06-tabs-render.js) via the same stable hashStr()-off-the-tab's-own-key
-  // idiom the overlap look's --tab-jitter uses, so it doesn't reshuffle on
-  // every render. 'iconstyle' resolves the same way but keyed off each
-  // category's own chosen icon glyph (CATEGORY_ICON_GLYPHS, set in
-  // Settings) instead of a hash — flag categories read as literal little
-  // flags (pagetab), sharp icons (star/diamond) get the arrow shape, round/
-  // plain ones (house/ring/square/check/dot) get invertedv/sawtooth — see
-  // resolveSidetabShape() for the exact mapping. sidetabsNoBg strips
-  // whichever background the appearance mode would otherwise paint,
-  // leaving just the icon/label (or edge stripe) floating over bare
-  // leather/page — independent of appearance and shape, since "remove the
-  // background" is a legible ask under any combination of the two.
+  // sidetabsAppearance / sidetabsShape are two further EXPERIMENTAL sub-
+  // options of tabBarDesktopStyle's "sidetabs" look specifically — only
+  // ever offered in the UI while that style is the current pick (see
+  // devSettingsFieldsHtml() in 01-categories-theme.js), same pattern as
+  // overlapSubtags/overlapHoverMode above.
+  // sidetabsAppearance splits into two families. 'classic'/'classicband'
+  // are the ORIGINAL sidetabs look, unchanged: a plain fixed-width column
+  // of full-width tabs sitting beside .leathercover (real #tabs content,
+  // in normal flex flow — see the body:not(.mobileui-active)[data-tabbar-
+  // desktop="sidetabs"][data-sidetabs-appearance="classic"] rules in
+  // <style>), translucent when resting and --card-bg when active, from
+  // the same base .tab/.tab.active rules every other tab style already
+  // uses — no shape, no color band, no peeking. 'classicband' is the same
+  // layout with the icon glyph swapped for a colored left-edge stripe.
+  // 'color'/'translucentpill'/'edge' are the newer look: colored index-
+  // tab-style labels that live BEHIND #appCard and OVER .leathercover,
+  // each mostly tucked under the page with just enough poking out past
+  // its left edge to read and click (see layoutSidetabsPeek() in
+  // 06-tabs-render.js and the .sidetabspeek rules in <style> for the
+  // mechanics — same clone-into-a-real-#appCard-sibling trick
+  // tabBarDesktopStyle "overlap" uses for its own #tabConnector, since a
+  // plain z-index on the real .tab elements can never outrank #appCard
+  // from outside .leathercover's own stacking order). 'color' fills each
+  // tab with its own category color (--tabhex); 'translucentpill' is the
+  // same peeking mechanics with a plain translucent fill and rounded
+  // pill-shaped end instead (this used to be called 'classic' before
+  // 'classic' got reclaimed for the original layout above — no migration
+  // for anyone with the old value saved, this is dev-only tooling under
+  // active iteration); 'edge' drops the fill to --card-bg and the icon
+  // too, leaving only the color band.
+  // sidetabsShape (only meaningful for the peeking family — the classic
+  // family ignores it entirely) picks the silhouette of the edge that
+  // actually pokes out past the page — see the .sidetabspeek
+  // .tab[data-shape="…"] rules. 'random' resolves to one of pagetab/
+  // invertedv/arrows/sawtooth (never jagged — deliberately excluded, see
+  // resolveSidetabShape() in 06-tabs-render.js) via the same stable
+  // hashStr()-off-the-tab's-own-key idiom the overlap look's --tab-jitter
+  // uses, so it doesn't reshuffle on every render. 'iconstyle' resolves
+  // the same way but keyed off each category's own chosen icon glyph
+  // (CATEGORY_ICON_GLYPHS, set in Settings) instead of a hash — flag
+  // categories read as literal little flags (pagetab), sharp icons (star/
+  // diamond) get the arrow shape, round/plain ones (house/ring/square/
+  // check/dot) get invertedv/sawtooth — see resolveSidetabShape() for the
+  // exact mapping.
   // The custom right-click menu (toggle complete/urgent/today, edit, copy
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', sidetabsNoBg:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -4429,14 +4453,12 @@ function normalizeState(){
   if(typeof state.devSettings.overlapRankStagger !== 'boolean') state.devSettings.overlapRankStagger = false;
   if(typeof state.devSettings.sidetabsAppearance !== 'string') state.devSettings.sidetabsAppearance = 'color';
   // 'textured' was removed (a plain noise-filter overlay, not a real
-  // material texture — didn't hold up) in favor of 'classic'/'classicband'.
-  // Only ever reachable by an account that had it selected before the
-  // removal, so falling it back to the plain colored look is the same
-  // "point at something that still renders" idea as the calendar-type
-  // migration above.
+  // material texture — didn't hold up). Only ever reachable by an account
+  // that had it selected before the removal, so falling it back to the
+  // plain colored look is the same "point at something that still
+  // renders" idea as the calendar-type migration above.
   if(state.devSettings.sidetabsAppearance === 'textured') state.devSettings.sidetabsAppearance = 'color';
   if(typeof state.devSettings.sidetabsShape !== 'string') state.devSettings.sidetabsShape = 'pagetab';
-  if(typeof state.devSettings.sidetabsNoBg !== 'boolean') state.devSettings.sidetabsNoBg = false;
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
   if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'detail';
@@ -5106,25 +5128,34 @@ function renderTabs(){
 
 // ---------- tabBarDesktopStyle "sidetabs": peeking index-tab column ----------
 // Called at the end of renderTabs() (mirrors layoutOverlapTabs() just
-// above) — a no-op for every other tabBarDesktopStyle and on the Mobile UI
-// Lab viewport, where this style never applies. Unlike layoutOverlapTabs(),
-// this doesn't need any dynamic width-solving: a vertical column has
-// plenty of room for a handful of category tabs, so a fixed CSS height +
-// negative margin-top overlap (see .sidetabspeek .tab in <style>) is
-// enough — no per-render measurement here at all. That means the clones
-// below don't need anything read off the real .tab elements beyond what
-// cloneNode(true) already copies (classes, inline --tabhex/--tabtext,
-// content) — the real #tabs column stays in the DOM only because
-// renderTabs() always populates it regardless of style; CSS hides it
-// outright (display:none, see body:not(.mobileui-active)[data-tabbar-
-// desktop="sidetabs"] .tabswrap) rather than the visibility:hidden trick
-// layoutOverlapTabs() needs for its own single active-tab clone, since
-// nothing here ever needs to measure the real column.
+// above) — a no-op for every other tabBarDesktopStyle, on the Mobile UI Lab
+// viewport (neither applies), and for the 'classic'/'classicband'
+// appearances, which are the ORIGINAL sidetabs layout (a plain column of
+// full-width tabs in normal flex flow beside .leathercover — see the
+// body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"][data-
+// sidetabs-appearance="classic"] rules in <style>) and never use this
+// peeking mechanism at all.
+// The clones below DO need one real measurement per tab now (unlike an
+// earlier fixed-width pass): a category name has to actually be readable
+// once poking out from behind the page, so each tab's own visible "poke"
+// width is sized to its own label instead of one guessed constant for
+// every tab. Only the TUCK (how far past #appCard's edge it reaches, see
+// SIDETAB_TUCK/SIDETAB_TUCK_ACTIVE) stays fixed — see the width/marginLeft
+// math below.
+const SIDETAB_TUCK = 12;         // px past #appCard's edge every resting tab tucks
+const SIDETAB_TUCK_ACTIVE = 18;  // the active tab gets to tuck a bit deeper — its
+                                  // own mask-image fade (.tab.active in <style>) is
+                                  // what makes that safe to do without it reading
+                                  // as covering page content
+const SIDETAB_MIN_POKE = 58;     // floor so a short label ("ALL") doesn't shrink
+                                  // the tab down to an unreadably small nub
 function layoutSidetabsPeek(){
   const peek = document.getElementById('sidetabsPeek');
   if(!peek) return;
   const dev = state.devSettings || {};
-  if(mobileUiActive() || dev.tabBarDesktopStyle !== 'sidetabs'){
+  const appearance = dev.sidetabsAppearance || 'color';
+  const isClassicLayout = appearance === 'classic' || appearance === 'classicband';
+  if(mobileUiActive() || dev.tabBarDesktopStyle !== 'sidetabs' || isClassicLayout){
     peek.innerHTML = '';
     return;
   }
@@ -5141,7 +5172,21 @@ function layoutSidetabsPeek(){
     // per tab" cases.
     clone.dataset.shape = resolveSidetabShape(t.dataset.key, shapeSetting);
     clone.style.pointerEvents = 'auto';
+    // Measure this clone's own natural (unwrapped) content width before
+    // pinning it to a fixed px width below — max-content plus nowrap on
+    // the label (a two-line "House Upkeep" is exactly the case this is
+    // for) makes getBoundingClientRect() report how wide it actually
+    // wants to be, independent of whatever the shared .sidetabspeek .tab
+    // rule's own width:84px fallback says.
+    clone.style.width = 'max-content';
+    const label = clone.querySelector('.tablabel');
+    if(label) label.style.whiteSpace = 'nowrap';
     peek.appendChild(clone);
+    const natural = clone.getBoundingClientRect().width;
+    const poke = Math.max(SIDETAB_MIN_POKE, natural);
+    const tuck = clone.classList.contains('active') ? SIDETAB_TUCK_ACTIVE : SIDETAB_TUCK;
+    clone.style.width = (poke + tuck) + 'px';
+    clone.style.marginLeft = -poke + 'px';
   });
 }
 
