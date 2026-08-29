@@ -2277,12 +2277,23 @@
      box's place in the column's normal flow. No mask-image fade here (a
      first pass put one on every tab — see .tab.active below for why that
      was wrong on two counts). */
+  /* background is a two-stop gradient, not a plain fill — var(--tabband)
+     near the left edge (0 to 10px, the 'flat' shape's own band depth —
+     see the sidetabsShape rules below for how each other shape moves
+     that split point to match its own protruding/notched depth) and
+     var(--sidetab-fill) for the rest. This is the ONE thing that decides
+     "does the color band follow the shape": since both the split point
+     AND the clip-path silhouette are properties of this SAME element,
+     they can never disagree with each other the way two separately
+     clipped elements (an earlier pass used a ::before for the band) can
+     — there's only one shape here, just two colors within it. */
   .sidetabspeek .tab{
     width:84px; height:44px; margin-left:-72px; margin-top:-10px;
     padding:0 10px 0 18px; border-radius:0; justify-content:flex-start;
     box-shadow: -2px 3px 6px rgba(0,0,0,0.35);
     position:relative; pointer-events:auto;
-    background: var(--sidetab-fill, var(--tabhex, var(--primary)));
+    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 10px, var(--sidetab-fill, var(--tabhex, var(--primary))) 10px 100%);
+    clip-path:none;
     transition: transform .15s ease, box-shadow .15s ease;
   }
   .sidetabspeek .tab:first-child{ margin-top:0; }
@@ -2354,36 +2365,51 @@
      write a mask gradient, not a black one. */
   .sidetabspeek .tab.active{
     transform: translateX(-6px); z-index:4; font-weight:500;
-    background: var(--sidetab-fill, var(--tabhex, var(--primary)));
     -webkit-mask-image: linear-gradient(to right, white 0%, white 90%, transparent 100%);
     mask-image: linear-gradient(to right, white 0%, white 90%, transparent 100%);
   }
+  /* No background declared here on purpose (an earlier pass had a plain
+     one) — the shape rules below already give every tab, active or not,
+     the right background via the [data-shape="…"] selectors, which match
+     regardless of .active. Redeclaring it here would either duplicate
+     that or (worse) fight it depending on source order. */
   /* ---- sidetabsAppearance (see defaultDevSettings() in 02-storage-
-     state.js) ---- each mode only sets --sidetab-fill/color (read by the
-     background/color declarations above) rather than background directly,
-     so .tab and .tab.active never need their own per-mode copy, and the
-     sawtooth/jagged shape override further down can layer its own
-     gradient on top of whichever fill is currently active without needing
-     a copy per appearance mode either. 'color' (default) needs no
-     override beyond the --tabhex/--tabtext already set inline by
-     renderTabs() (copied onto every clone by cloneNode(true)) — --sidetab-
-     fill's own fallback chain already lands there. */
+     state.js) ---- each mode sets --sidetab-fill/--tabband/color (read by
+     the shape rules' own background gradients below) rather than
+     background directly, so no appearance needs its own per-shape copy.
+     'color' (default) needs no override beyond the --tabhex/--tabtext
+     already set inline by renderTabs() (copied onto every clone by
+     cloneNode(true)) for --sidetab-fill, but DOES need --tabband (the
+     accent used near the shape's point/edge) pointed at --tabedge — the
+     same pre-shaded darker tone the overlap look's own border-top already
+     reads — since --tabband's own fallback (--tabhex) would otherwise be
+     identical to --sidetab-fill and the band wouldn't read as distinct
+     against a fill that's already the tab's own color. */
+  body[data-sidetabs-appearance="color"] .sidetabspeek .tab{
+    --tabband: var(--tabedge, var(--primary-light));
+  }
   /* 'translucentpill': a plain half-round left end (border-radius using
      half the tab's own 44px height, a true pill/stadium curve) instead of
      any clip-path, no color band, no fade — this is what 'classic' meant
      before that name got reclaimed for the real original layout above.
-     Keeps its icon (unlike 'edge'). */
+     Keeps its icon (unlike 'edge'). Plain background (not the shared
+     gradient) is deliberate — "without the color band" was the explicit
+     ask for this look specifically. */
   body[data-sidetabs-appearance="translucentpill"] .sidetabspeek .tab{
     --sidetab-fill: rgba(0,0,0,0.18); color: rgba(241,234,217,0.65);
-    clip-path:none; border-radius:22px 0 0 22px;
+    clip-path:none; border-radius:22px 0 0 22px; background: var(--sidetab-fill);
     mask-image:none; -webkit-mask-image:none;
   }
+  /* Blocks pagetab's own ::before diamond (see the sidetabsShape rules
+     below) from showing up here too — "no color band" applies regardless
+     of which shape happens to be selected in the dropdown. */
   body[data-sidetabs-appearance="translucentpill"] .sidetabspeek .tab::before{ content:none; }
   /* 'edge': drop the fill to the plain page color (so the tab reads as
      part of the page it's tucked behind) and drop the icon glyph (.dot —
      see categoryDotHtml() in 01-categories-theme.js) in favor of the
-     color band on ::before below doing the identifying instead — the
-     "left edge of the tab with a color instead of the icon" ask. */
+     color band (the shape rules' own gradient split) doing the
+     identifying instead — the "left edge of the tab with a color instead
+     of the icon" ask. */
   body[data-sidetabs-appearance="edge"] .sidetabspeek .tab{
     --sidetab-fill: var(--card-bg); color: var(--ink);
   }
@@ -2393,93 +2419,70 @@
      tab's background, so it was rendering exactly on top of itself while
      still eating its own padding/gap, reading as "text pushed over for no
      reason." Hidden outright, with padding-left pulled in to match (was
-     sized for the icon + gap; the color band on ::before below is the
-     only thing that needs room there now). */
+     sized for the icon + gap; the color band is the only thing that
+     needs room there now). */
   body[data-sidetabs-appearance="color"] .sidetabspeek .dot{ display:none; }
   body[data-sidetabs-appearance="color"] .sidetabspeek .tab{ padding-left:10px; }
-  /* The color band itself — every peeking appearance gets one now
-     (including 'color', the project owner's own ask: "give the Colored
-     Label version a color band at the edge as well"), not just 'edge'.
-     'color' mode uses --tabedge (the same pre-shaded darker tone the
-     overlap look's own border-top already reads — see renderTabs() in
-     06-tabs-render.js) since the band needs to read as a distinct trim
-     against a fill that's already the tab's own color; every other mode
-     uses the bold true --tabhex, since their base fill is neutral and the
-     band is the only thing actually carrying the category's color. Its
-     own left/top/bottom/width (not a border-left) is what lets the shape
-     rules below give it its own clip-path independent of the stripe's
-     straight inner edge. */
-  .sidetabspeek .tab::before{
-    content:''; position:absolute; left:0; top:0; bottom:0; width:10px;
-    background: var(--tabhex, var(--primary)); pointer-events:none;
-  }
-  body[data-sidetabs-appearance="color"] .sidetabspeek .tab::before{
-    background: var(--tabedge, var(--primary-light));
-  }
-  /* ---- sidetabsShape — cuts the tab's own left (poking-out) edge; top/
-     right/bottom stay straight since those are shared with the column and
-     with #appCard, not part of what's actually visible poking out.
+  /* ---- sidetabsShape — cuts the tab's own left (poking-out) edge and
+     positions the color band with it; top/right/bottom stay straight
+     since those are shared with the column and with #appCard, not part
+     of what's actually visible poking out.
      'jagged' is intentionally never assigned by resolveSidetabShape() for
-     'random'/'iconstyle' (06-tabs-render.js) — it's the one shape meant to
-     only ever show up when explicitly picked.
+     'random'/'iconstyle' (06-tabs-render.js) — same for 'flat', a
+     deliberately plain opt-in rather than something to land on by chance.
      Every polygon's x-coordinates are non-negative and no bigger than the
      tab's own width — this Browser environment doesn't paint a clip-path
      vertex placed outside the element's own 0..width box (confirmed with
      an isolated test div — a mainstream desktop browser handles this
      fine, but here the point just silently doesn't render and the edge
-     stays flat), so every shape below is shifted right by its own
-     SIDETAB_SHAPE_EXTRA (06-tabs-render.js), which also pads the tab that
-     same amount so its on-screen position doesn't change — see that
-     constant's own comment for the full explanation. invertedv needed no
-     shift (its point already cuts inward, i.e. positive x) — it was the
-     one shape that ever actually rendered before this fix.
-     The color band on ::before now shares the IDENTICAL polygon string as
-     its tab, but its own box is sized to exactly SIDETAB_SHAPE_EXTRA wide
-     (see each rule's width below) — since "100%" in that shared string
-     then resolves against the BAND's own (narrower) width instead of the
-     tab's, the polygon's rectangular corners collapse onto the same point
-     as the shifted origin, leaving just the wedge itself with no leftover
-     straight edge — the band ends up sized and shaped to exactly the
-     protruding part, "the color band follows the shape" without needing
-     a second, hand-tuned polygon per shape. invertedv is the one
-     exception: its notch cuts only 14px in, so its band is 20px (a
-     several-px buffer past the notch's own depth) rather than exactly
-     14 — sizing it to exactly 14 would put the notch's point flush on the
-     band's own right edge instead of visibly inside it. ---- */
-  .sidetabspeek .tab[data-shape="pagetab"]{
-    clip-path: polygon(22px 0, 100% 0, 100% 100%, 22px 100%, 22px 62%, 0px 50%, 22px 38%);
-  }
-  .sidetabspeek .tab[data-shape="pagetab"]::before{
-    width:22px;
-    clip-path: polygon(22px 0, 100% 0, 100% 100%, 22px 100%, 22px 62%, 0px 50%, 22px 38%);
-  }
+     stays flat), so every outward-pointing shape below is shifted right
+     by its own SIDETAB_SHAPE_EXTRA (06-tabs-render.js), which also pads
+     the tab that same amount so its on-screen position doesn't change —
+     see that constant's own comment for the full explanation. invertedv
+     needed no shift (its point already cuts inward, i.e. positive x) —
+     it was the one shape that ever actually rendered before that fix.
+     The color band is each shape's own background gradient (see .tab's
+     base rule above) with its split point moved to match that shape's own
+     depth — "the color band follows the shape" by construction, since the
+     split and the clip-path silhouette are the same element's properties,
+     not two separately clipped layers trying to agree. flat needs no
+     override at all: the base rule's own 10px split already is its band.
+     pagetab is the one exception to the gradient approach entirely — see
+     its own comment below. */
   .sidetabspeek .tab[data-shape="invertedv"]{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
-  }
-  .sidetabspeek .tab[data-shape="invertedv"]::before{
-    width:20px;
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 16px 50%);
+    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 16px, var(--sidetab-fill, var(--tabhex, var(--primary))) 16px 100%);
   }
   .sidetabspeek .tab[data-shape="arrows"]{
     clip-path: polygon(20px 0, 100% 0, 100% 100%, 20px 100%, 0px 50%);
-  }
-  .sidetabspeek .tab[data-shape="arrows"]::before{
-    width:20px;
-    clip-path: polygon(20px 0, 100% 0, 100% 100%, 20px 100%, 0px 50%);
+    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 20px, var(--sidetab-fill, var(--tabhex, var(--primary))) 20px 100%);
   }
   .sidetabspeek .tab[data-shape="sawtooth"]{
     clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0px 87.5%, 7px 75%, 0px 62.5%, 7px 50%, 0px 37.5%, 7px 25%, 0px 12.5%, 7px 0);
-  }
-  .sidetabspeek .tab[data-shape="sawtooth"]::before{
-    width:7px;
-    clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0px 87.5%, 7px 75%, 0px 62.5%, 7px 50%, 0px 37.5%, 7px 25%, 0px 12.5%, 7px 0);
+    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 7px, var(--sidetab-fill, var(--tabhex, var(--primary))) 7px 100%);
   }
   .sidetabspeek .tab[data-shape="jagged"]{
     clip-path: polygon(13px 0, 100% 0, 100% 100%, 13px 100%, 10px 91%, 2px 82%, 11px 74%, 4px 63%, 9px 55%, 0px 46%, 10px 38%, 5px 27%, 11px 18%, 3px 9%, 13px 0);
+    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 13px, var(--sidetab-fill, var(--tabhex, var(--primary))) 13px 100%);
   }
-  .sidetabspeek .tab[data-shape="jagged"]::before{
-    width:13px;
-    clip-path: polygon(13px 0, 100% 0, 100% 100%, 13px 100%, 10px 91%, 2px 82%, 11px 74%, 4px 63%, 9px 55%, 0px 46%, 10px 38%, 5px 27%, 11px 18%, 3px 9%, 13px 0);
+  /* pagetab: a real rotated square on ::before instead of a clip-path dart
+     — an earlier clip-path attempt at this (twice) read as "ridiculous"/
+     "so weird," and a thin dart is a poor match for what "like the Page
+     Tabs" actually meant anyway (see .pagetag/.pagetagtip in <style>,
+     which is itself a rotated square behind a rounded label, not a
+     clip-path shape at all). The tab itself stays a plain flat rectangle
+     (background: --sidetab-fill, no gradient split) and the diamond alone
+     carries the accent color, sized/positioned to echo .pagetagtip's own
+     16px/45deg — a transform-based shape has none of the "point outside
+     the box" problem clip-path has here, so this sidesteps that
+     limitation entirely rather than working around it. */
+  .sidetabspeek .tab[data-shape="pagetab"]{
+    clip-path:none; background: var(--sidetab-fill, var(--tabhex, var(--primary)));
+  }
+  .sidetabspeek .tab[data-shape="pagetab"]::before{
+    content:''; position:absolute; left:-7px; top:50%; width:16px; height:16px;
+    transform: translateY(-50%) rotate(45deg); border-radius:3px;
+    background: var(--tabband, var(--tabhex, var(--primary))); pointer-events:none;
   }
 
   /* indextabs: pure restyle of the existing horizontal row — no wrap/
@@ -3736,6 +3739,7 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="arrows" ${dev.sidetabsShape==='arrows'?'selected':''}>Arrows out</option>
         <option value="jagged" ${dev.sidetabsShape==='jagged'?'selected':''}>Jagged edge</option>
         <option value="sawtooth" ${dev.sidetabsShape==='sawtooth'?'selected':''}>Clean sawtooth</option>
+        <option value="flat" ${dev.sidetabsShape==='flat'?'selected':''}>Flat (no point)</option>
         <option value="random" ${dev.sidetabsShape==='random'?'selected':''}>Random (stable per tab)</option>
         <option value="iconstyle" ${dev.sidetabsShape==='iconstyle'?'selected':''}>Depending on icon style</option>
       </select>
@@ -5193,7 +5197,7 @@ const SIDETAB_HEIGHT_2LINE = 60; // vs. the base 44px — see .sidetabspeek .tab
 // the tab's own on-screen position (and thus how far it visually pokes
 // out) stays exactly the same — see the .sidetabspeek .tab[data-shape="…"]
 // rules in <style> for the actual shifted polygons.
-const SIDETAB_SHAPE_EXTRA = { pagetab:22, arrows:20, invertedv:0, sawtooth:7, jagged:13 };
+const SIDETAB_SHAPE_EXTRA = { pagetab:14, arrows:20, invertedv:0, sawtooth:7, jagged:13, flat:0 };
 function layoutSidetabsPeek(){
   const peek = document.getElementById('sidetabsPeek');
   if(!peek) return;

@@ -708,6 +708,7 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="arrows" ${dev.sidetabsShape==='arrows'?'selected':''}>Arrows out</option>
         <option value="jagged" ${dev.sidetabsShape==='jagged'?'selected':''}>Jagged edge</option>
         <option value="sawtooth" ${dev.sidetabsShape==='sawtooth'?'selected':''}>Clean sawtooth</option>
+        <option value="flat" ${dev.sidetabsShape==='flat'?'selected':''}>Flat (no point)</option>
         <option value="random" ${dev.sidetabsShape==='random'?'selected':''}>Random (stable per tab)</option>
         <option value="iconstyle" ${dev.sidetabsShape==='iconstyle'?'selected':''}>Depending on icon style</option>
       </select>

@@ -264,7 +264,7 @@ const SIDETAB_HEIGHT_2LINE = 60; // vs. the base 44px — see .sidetabspeek .tab
 // the tab's own on-screen position (and thus how far it visually pokes
 // out) stays exactly the same — see the .sidetabspeek .tab[data-shape="…"]
 // rules in <style> for the actual shifted polygons.
-const SIDETAB_SHAPE_EXTRA = { pagetab:22, arrows:20, invertedv:0, sawtooth:7, jagged:13 };
+const SIDETAB_SHAPE_EXTRA = { pagetab:14, arrows:20, invertedv:0, sawtooth:7, jagged:13, flat:0 };
 function layoutSidetabsPeek(){
   const peek = document.getElementById('sidetabsPeek');
   if(!peek) return;
