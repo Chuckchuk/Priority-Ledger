@@ -318,7 +318,16 @@ function applyDevSettings(){
   // additionally gated behind body.mobileui-active (refreshed below and on
   // resize, see 19-bootstrap.js) so none has any effect until an actual
   // phone-ish viewport — or mobileUiPreviewOnDesktop — makes it relevant.
-  document.body.dataset.quickaddMode = d.quickAddMobileStyle || 'default';
+  document.body.dataset.quickaddMode = d.quickAddMobileStyle || 'bottomsheet';
+  // quickAddTriggerPosition: 'bottom' (default) is the fixed, always-
+  // reachable bar built for the "sticky" ask; 'top' instead restores the
+  // trigger to its original spot in the normal flow, right under the tab
+  // bar, but held there via position:sticky (see the [data-quickadd-
+  // trigger-pos] rules in <style>) rather than the plain static
+  // positioning it had before any of this — so it's still "sticky" in
+  // the sense asked for, just anchored at the top of the screen instead
+  // of the bottom, for whichever placement reads better in daily use.
+  document.body.dataset.quickaddTriggerPos = d.quickAddTriggerPosition || 'bottom';
   document.body.dataset.taskrowMobile = d.taskRowMobileStyle || 'default';
   document.body.dataset.taskdetailMobile = d.taskDetailMobileStyle || 'default';
   document.body.classList.toggle('fab-on', !!d.floatingAddButton);
@@ -403,6 +412,14 @@ async function setDevStackedPageInset(val){
 async function setDevQuickAddMobileStyle(val){
   pushUndo(`Changed dev quick-add mobile style to "${val}"`);
   state.devSettings.quickAddMobileStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevQuickAddTriggerPosition(val){
+  pushUndo(`Changed dev quick-add trigger position to "${val}"`);
+  state.devSettings.quickAddTriggerPosition = val;
   applyDevSettings();
   render();
   queueSave();
@@ -723,6 +740,13 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     </label>
 
     ${devSectionHeadHtml('Quick-Add Bar')}
+    <div class="${fieldClass}">
+      <span class="${captionClass}">"+ Add Task" button position</span>
+      <select class="${selectClass}" onchange="setDevQuickAddTriggerPosition(this.value)">
+        <option value="bottom" ${(dev.quickAddTriggerPosition||'bottom')==='bottom'?'selected':''}>Bottom of the screen (sticky)</option>
+        <option value="top" ${dev.quickAddTriggerPosition==='top'?'selected':''}>Top of the page, under the tabs (sticky)</option>
+      </select>
+    </div>
     <div class="${fieldClass}">
       <span class="${captionClass}">"+ Add Task" button opens…</span>
       <select class="${selectClass}" onchange="setDevQuickAddMobileStyle(this.value)">

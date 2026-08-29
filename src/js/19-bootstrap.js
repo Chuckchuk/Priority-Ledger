@@ -566,56 +566,79 @@ document.addEventListener('touchcancel', swipeEnd);
 // bails ("hand off to native scroll") the moment a touch locks onto the
 // vertical axis, so there's no shared state to coordinate with here.
 const PULL_REFRESH_TRIGGER_PX = 96;
-const PULL_REFRESH_VISUAL_MAX_PX = 64; // keep in sync with .pullrefresh's translateY(-64px) resting position in <style>
-let pullRefreshGesture = null; // { startY, dy, armed }
+const PULL_REFRESH_DRAG_MAX_PX = 80; // how far #appShell itself visually drags down, damped
+// { baseY, dy, armed } while a touch is potentially pulling, or null once
+// it's clearly not (touchend/touchcancel, or an ineligible touchstart).
+// baseY is deliberately NOT fixed at the touch's original start position —
+// see touchmove below for why: it has to reset every time the page
+// actually returns to scrollY 0, not just once at the very start of the
+// gesture, or a touch that scrolls up first and then back down to the
+// top would never be able to arm a refresh (reported as "scroll up then
+// down doesn't refresh").
+let pullRefreshGesture = null;
 
 function pullRefreshEligible(target){
-  // Only from the very top of the page (this is an overscroll gesture,
-  // not a mid-list one), only once actually signed in (nothing stale to
-  // refresh on the login screen), and never starting inside a text field
-  // — a drag meant to reposition a cursor or select text shouldn't also
-  // arm a page reload.
-  if(window.scrollY > 0) return false;
+  // Once actually signed in (nothing stale to refresh on the login
+  // screen), and never starting inside a text field — a drag meant to
+  // reposition a cursor or select text shouldn't also arm a page reload.
+  // Deliberately NOT gated on scrollY here (unlike an earlier version) —
+  // see touchmove below.
   const appShell = document.getElementById('appShell');
   if(!appShell || appShell.style.display === 'none') return false;
   if(target.closest && target.closest('input, textarea, select')) return false;
   return true;
 }
 
-function pullRefreshShow(dy, armed){
-  const el = document.getElementById('pullRefresh');
-  const visual = Math.min(PULL_REFRESH_VISUAL_MAX_PX, dy * 0.5);
-  el.classList.add('dragging');
-  el.classList.toggle('armed', armed);
-  el.style.opacity = String(Math.min(1, visual / PULL_REFRESH_VISUAL_MAX_PX));
-  el.style.transform = `translateY(${visual - PULL_REFRESH_VISUAL_MAX_PX}px)`;
+function pullRefreshApply(dy, armed){
+  const drag = Math.min(PULL_REFRESH_DRAG_MAX_PX, dy * 0.45);
+  const appShell = document.getElementById('appShell');
+  const indicator = document.getElementById('pullRefresh');
+  appShell.classList.add('pulldragging');
+  appShell.style.transform = `translateY(${drag}px)`;
+  indicator.classList.add('dragging');
+  indicator.classList.toggle('armed', armed);
+  indicator.style.opacity = String(Math.min(1, drag / PULL_REFRESH_DRAG_MAX_PX));
 }
 function pullRefreshReset(){
-  const el = document.getElementById('pullRefresh');
-  el.classList.remove('dragging', 'armed', 'refreshing');
-  el.style.opacity = '';
-  el.style.transform = '';
+  const appShell = document.getElementById('appShell');
+  const indicator = document.getElementById('pullRefresh');
+  appShell.classList.remove('pulldragging');
+  appShell.style.transform = '';
+  indicator.classList.remove('dragging', 'armed', 'refreshing');
+  indicator.style.opacity = '';
 }
 
 document.addEventListener('touchstart', (e) => {
   if(e.touches.length !== 1 || !pullRefreshEligible(e.touches[0].target)){ pullRefreshGesture = null; return; }
-  pullRefreshGesture = { startY: e.touches[0].clientY, dy: 0, armed: false };
+  // baseY starts set only if already at the top; otherwise left null
+  // until touchmove below finds scrollY actually at 0.
+  pullRefreshGesture = { baseY: window.scrollY === 0 ? e.touches[0].clientY : null, dy: 0, armed: false };
 }, { passive: true });
 
 // Not passive — once a pull is actually underway (dy>0 at the very top of
-// the page, see pullRefreshEligible()) this is the one gesture in the app
-// deliberately overriding the browser's own overscroll/bounce, the same
-// way the swipe system above overrides horizontal scroll once locked to
-// the x-axis.
+// the page) this is the one gesture in the app deliberately overriding
+// the browser's own overscroll/bounce, the same way the swipe system
+// above overrides horizontal scroll once locked to the x-axis. The
+// gesture object is kept alive even while scrollY>0 (just not actively
+// pulling) rather than being torn down, specifically so scrolling away
+// from the top and back again within the same touch can still re-arm a
+// pull once the finger is back at scrollY 0 — torn down only on an
+// actual touchend/touchcancel.
 document.addEventListener('touchmove', (e) => {
   if(!pullRefreshGesture) return;
-  if(window.scrollY > 0){ pullRefreshGesture = null; pullRefreshReset(); return; }
-  const dy = e.touches[0].clientY - pullRefreshGesture.startY;
+  const y = e.touches[0].clientY;
+  if(window.scrollY > 0){
+    pullRefreshGesture.baseY = null; // re-baseline next time we're back at the top
+    pullRefreshReset();
+    return;
+  }
+  if(pullRefreshGesture.baseY === null) pullRefreshGesture.baseY = y;
+  const dy = y - pullRefreshGesture.baseY;
   if(dy <= 0){ pullRefreshGesture.dy = 0; pullRefreshReset(); return; }
   e.preventDefault();
   pullRefreshGesture.dy = dy;
   pullRefreshGesture.armed = dy >= PULL_REFRESH_TRIGGER_PX;
-  pullRefreshShow(dy, pullRefreshGesture.armed);
+  pullRefreshApply(dy, pullRefreshGesture.armed);
 }, { passive: false });
 
 function pullRefreshEnd(){
@@ -623,11 +646,13 @@ function pullRefreshEnd(){
   const armed = pullRefreshGesture.armed;
   pullRefreshGesture = null;
   if(!armed){ pullRefreshReset(); return; }
-  const el = document.getElementById('pullRefresh');
-  el.classList.remove('dragging');
-  el.classList.add('refreshing');
-  el.style.opacity = '1';
-  el.style.transform = 'translateY(0px)';
+  const appShell = document.getElementById('appShell');
+  const indicator = document.getElementById('pullRefresh');
+  appShell.classList.remove('pulldragging'); // let the last bit settle via #appShell's own transition
+  appShell.style.transform = `translateY(${PULL_REFRESH_DRAG_MAX_PX}px)`;
+  indicator.classList.remove('dragging');
+  indicator.classList.add('refreshing');
+  indicator.style.opacity = '1';
   setTimeout(() => location.reload(), 260);
 }
 document.addEventListener('touchend', pullRefreshEnd);

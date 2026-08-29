@@ -1937,35 +1937,46 @@
 
   /* ---- quickAddMobileStyle: the sticky trigger + sheet ----
      The trigger itself is no longer part of the category view's normal
-     flow (that was the whole "Default (always-visible inline row)"
+     static flow (that was the whole "Default (always-visible inline row)"
      variant, now deleted — see the comment on quickAddMobileStyle in
-     defaultDevSettings(), 02-storage-state.js) — it's a fixed bar pinned
-     to the bottom of the screen, unconditionally, on every mobile
-     account, so it's always reachable without scrolling back up to the
-     top of a long list. QUICKADD_TRIGGER_BOTTOM/HEIGHT below (mirrored
-     here as plain px since CSS can't share JS consts) are what
-     #categoryView's own extra bottom padding and 'inline' mode's sheet
-     position are both computed from — keep all three in sync if this
-     ever gets resized. */
+     defaultDevSettings(), 02-storage-state.js) — cosmetic properties
+     (color/shape/font) are shared by both quickAddTriggerPosition
+     variants below; position/anchor is NOT, split out per-variant since
+     "fixed to the bottom" and "sticky under the tabs" need genuinely
+     different CSS mechanisms, not just different offsets. */
   .quickaddtrigger{
     display:none; align-items:center; justify-content:center; gap:8px;
-    position:fixed; left:12px; right:12px; bottom:16px; z-index:50; max-width:480px; margin:0 auto;
-    height:50px; padding:0 14px; border:none; border-radius:10px; cursor:pointer;
+    border:none; border-radius:10px; cursor:pointer;
     background: radial-gradient(circle at 30% 20%, var(--primary-light), var(--primary) 75%);
     color:#fff; font-family:'IBM Plex Mono', monospace; font-size:0.78rem;
     text-transform:uppercase; letter-spacing:0.06em;
     box-shadow: 0 6px 18px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.4);
   }
   body.mobileui-active .quickaddtrigger{ display:flex; }
-  /* The category view's own content needs extra bottom clearance now
-     that something is permanently docked over its bottom edge — without
-     this, the last task in a full list (or the undo/redo row and Refresh
-     link further down the page, past #appCard) would end up sitting
-     underneath the trigger once scrolled all the way down. Scoped to
-     #categoryView specifically (not a blanket body rule) so it evaporates
-     for free on Daily/Checklist/Settings, where the trigger never shows
-     in the first place — those tabs don't need the extra room. */
-  body.mobileui-active #categoryView{ padding-bottom: 76px; }
+  /* 'bottom': position:fixed, unconditionally reachable without scrolling
+     back up to the top of a long list — the variant built for the
+     original "sticky" ask. 76px of extra #categoryView bottom padding
+     (bottom(16) + height(50) + a 10px gap) keeps the last task (or the
+     undo/redo row and Refresh link further down the page) from ending up
+     underneath it once scrolled all the way down; scoped to this one
+     variant since 'top' never covers anything below to begin with. */
+  body.mobileui-active[data-quickadd-trigger-pos="bottom"] .quickaddtrigger{
+    position:fixed; left:12px; right:12px; bottom:16px; z-index:50; max-width:480px; margin:0 auto;
+    height:50px; padding:0 14px;
+  }
+  body.mobileui-active[data-quickadd-trigger-pos="bottom"] #categoryView{ padding-bottom: 76px; }
+  /* 'top': restored to its original spot in the normal flow, right under
+     the tab bar — position:sticky (not fixed) is what keeps it there
+     without scrolling away, while still costing nothing extra in layout
+     terms (it reserves its own space same as any other in-flow element,
+     so no #categoryView padding compensation is needed the way 'bottom'
+     needs). top:0 anchors it to the very top of the viewport once
+     scrolled that far, same edge the tab bar itself docks to if
+     stickyTabBar is also on. */
+  body.mobileui-active[data-quickadd-trigger-pos="top"] .quickaddtrigger{
+    position:sticky; top:0; z-index:45; width:100%;
+    padding:14px; margin-bottom:16px;
+  }
   /* Grabber + close row — only meaningful once #quickAddBar itself has
      left its resting spot to float as a sheet/panel (topsheet/bottomsheet/
      inline all now do, just to different spots — see below). */
@@ -2013,26 +2024,41 @@
   body.mobileui-active.quickadd-open[data-quickadd-mode="bottomsheet"] #quickAddBar{
     transform:translateY(0); opacity:1;
   }
-  /* inline: still no dimming overlay — the bar now grows open in the gap
-     directly above the (still-visible, still-fixed) trigger instead of
-     pushing content below it down, since the trigger no longer has a
-     fixed "below it" spot in the normal flow to push on. bottom:76px is
-     the trigger's own bottom(16) + height(50) + a 10px gap — same math
-     as #categoryView's padding-bottom above, just anchoring this sheet
-     instead of clearing content beneath it. Growing via max-height with
-     only `bottom` set (no `top`) is what makes it expand UPWARD from that
-     anchor rather than downward off the bottom of the screen. Re-tapping
-     the trigger is still how this closes — it was never covered, so
-     nothing extra was needed for that to keep working. */
-  body.mobileui-active[data-quickadd-mode="inline"] #quickAddBar{
+  /* inline: no dimming overlay either way — the bar grows open right next
+     to the (still-visible) trigger rather than behind a scrim. Which
+     direction depends on where the trigger itself is docked:
+       - 'bottom': the trigger is position:fixed with nothing below it to
+         push on, so the bar instead grows UP out of the gap just above
+         it. bottom:76px is the trigger's own bottom(16) + height(50) + a
+         10px gap — same math as its #categoryView padding-bottom above,
+         just anchoring this sheet instead of clearing content beneath
+         it. Growing via max-height with only `bottom` set (no `top`) is
+         what makes it expand upward instead of off the bottom of the
+         screen.
+       - 'top': the trigger is back in the normal flow (position:sticky),
+         so this can just be a normal-flow sibling again too, growing
+         DOWN and pushing the task list below it, the way it always did
+         pre-sticky-trigger.
+     Re-tapping the trigger is how this closes either way — it's never
+     covered by its own sheet in either variant, so no extra close
+     affordance was needed for that to keep working. */
+  body.mobileui-active[data-quickadd-trigger-pos="bottom"][data-quickadd-mode="inline"] #quickAddBar{
     position:fixed; left:12px; right:12px; bottom:76px; z-index:45; max-width:480px; margin:0 auto;
     flex-direction:column; align-items:stretch; gap:12px;
     background: var(--card-bg); border-radius:14px; box-shadow:0 12px 32px rgba(0,0,0,0.35);
     max-height:0; overflow:hidden; opacity:0; padding:0 16px;
     transition: max-height .25s ease, opacity .2s ease, padding .25s ease;
   }
-  body.mobileui-active.quickadd-open[data-quickadd-mode="inline"] #quickAddBar{
+  body.mobileui-active.quickadd-open[data-quickadd-trigger-pos="bottom"][data-quickadd-mode="inline"] #quickAddBar{
     max-height:360px; opacity:1; padding:18px 16px 20px;
+  }
+  body.mobileui-active[data-quickadd-trigger-pos="top"][data-quickadd-mode="inline"] #quickAddBar{
+    flex-direction:column; align-items:stretch; gap:12px;
+    max-height:0; overflow:hidden; opacity:0; margin-bottom:0; padding:0;
+    transition: max-height .25s ease, opacity .2s ease, margin-bottom .25s ease;
+  }
+  body.mobileui-active.quickadd-open[data-quickadd-trigger-pos="top"][data-quickadd-mode="inline"] #quickAddBar{
+    max-height:360px; opacity:1; margin-bottom:16px;
   }
   body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar input[type=text],
   body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar select,
@@ -2997,24 +3023,36 @@
   .ctxmenu-danger{ color: var(--estate); }
   .ctxmenu-danger:hover{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
 
-  /* Pull-to-refresh indicator (see 19-bootstrap.js) — resting position is
-     translateY(-64px), fully tucked above the visible top edge; JS
-     reveals it 1:1 with how far the gesture has pulled by animating
-     toward translateY(0px), so PULL_REFRESH_VISUAL_MAX_PX there must
-     stay 64 to match. `.dragging` kills the transition so it tracks the
-     finger with zero lag; removed on release so the snap-back (or the
-     final settle into `.refreshing`) eases normally instead of jumping. */
+  /* Pull-to-refresh (see 19-bootstrap.js) — #appShell itself drags down
+     with the gesture (a plain translateY, damped/capped at
+     PULL_REFRESH_DRAG_MAX_PX there) so the whole screen visibly follows
+     the finger, the way a native pull-to-refresh reads, rather than only
+     a small floating badge reacting on top of otherwise-static content.
+     `.pulldragging` kills the transition so it tracks the finger with
+     zero lag; removed on release so the snap-back (or the final settle
+     into the committed reload, in pullRefreshEnd()) eases normally
+     instead of jumping. */
+  #appShell{ transition: transform 200ms ease; }
+  #appShell.pulldragging{ transition:none; }
+
+  /* The indicator itself sits in the gap #appShell dragging down opens up
+     above the masthead — deliberately understated (a bare glyph, no
+     background chip/shadow) rather than a bold floating badge, per the
+     project owner's own "a little less obvious" framing. `.armed`'s
+     color/rotate shift is the one remaining "let go now" cue. `.dragging`
+     kills the transition so it tracks the finger with zero lag, same
+     reasoning as #appShell.pulldragging above. */
   .pullrefresh{
-    position:fixed; top: calc(8px + env(safe-area-inset-top)); left:50%;
-    width:36px; height:36px; margin-left:-18px; z-index:300;
-    display:flex; align-items:center; justify-content:center;
-    border-radius:50%; background:var(--card-bg); color:var(--primary);
-    box-shadow:0 2px 10px rgba(0,0,0,0.3);
-    transform: translateY(-64px); opacity:0; pointer-events:none;
-    transition: transform 200ms ease, opacity 200ms ease;
+    position:fixed; top: calc(14px + env(safe-area-inset-top)); left:50%;
+    z-index:40; color: var(--ink-soft); font-size:1.1rem; line-height:1;
+    opacity:0; pointer-events:none;
+    transform: translateX(-50%) rotate(0deg);
+    transition: opacity 200ms ease, transform 200ms ease, color 200ms ease;
   }
   .pullrefresh.dragging{ transition:none; }
-  .pullrefresharrow{ font-size:16px; line-height:1; transition: transform 150ms ease; }
-  .pullrefresh.armed .pullrefresharrow{ transform:rotate(180deg); }
-  .pullrefresh.refreshing .pullrefresharrow{ animation: pullrefresh-spin 0.6s linear infinite; }
-  @keyframes pullrefresh-spin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+  .pullrefresh.armed{ color: var(--primary); transform: translateX(-50%) rotate(180deg); }
+  .pullrefresh.refreshing{ animation: pullrefresh-spin 0.6s linear infinite; }
+  @keyframes pullrefresh-spin{
+    from{ transform:translateX(-50%) rotate(0deg); }
+    to{ transform:translateX(-50%) rotate(360deg); }
+  }

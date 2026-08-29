@@ -368,16 +368,29 @@ function defaultDevSettings(){
   // .quickaddtrigger in <style>), never the old always-visible inline
   // row: that 'default' variant is gone entirely (see the removed option
   // in devSettingsFieldsHtml(), 01-categories-theme.js, and its migration
-  // in normalizeState() below) now that the trigger itself is
-  // position:fixed at the bottom of the screen — sticky, per the project
-  // owner's own ask, rather than scrolling away at the top of the list
-  // the way the inline row always did. This setting now only controls
-  // what tapping that trigger actually opens: 'topsheet'/'bottomsheet'
-  // open the real bar as a full-width overlay sheet sliding in from that
-  // edge, with a dimming scrim behind it; 'inline' instead grows the bar
-  // open directly above the trigger itself (no scrim, tab bar never
-  // covered) — see the "quickAddMobileStyle: the sticky trigger + sheet"
-  // block in <style> for how all three share that one fixed anchor point.
+  // in normalizeState() below), replaced by the sticky trigger itself
+  // (position depends on quickAddTriggerPosition just below) — per the
+  // project owner's own ask, rather than scrolling away at the top of
+  // the list the way the inline row always did. This setting now only
+  // controls what tapping that trigger actually opens: 'topsheet'/
+  // 'bottomsheet' open the real bar as a full-width overlay sheet sliding
+  // in from that edge, with a dimming scrim behind it; 'inline' instead
+  // grows the bar open right next to the trigger with no scrim — which
+  // direction it grows (up, if the trigger is docked at the bottom; down,
+  // if it's docked at the top) follows quickAddTriggerPosition too, see
+  // the [data-quickadd-trigger-pos][data-quickadd-mode="inline"] rules in
+  // <style>.
+  // quickAddTriggerPosition: where that trigger docks — 'bottom' (the
+  // default) pins it position:fixed to the bottom of the screen, which is
+  // what "sticky" originally meant here; 'top' instead restores it to its
+  // pre-sticky spot in the normal flow, right under the tab bar, but held
+  // there via position:sticky rather than plain static positioning, so it
+  // no longer scrolls away with the list either — both are genuinely
+  // sticky, just anchored at opposite ends of the screen. Added as a
+  // choice (not a straight replacement) once it turned out "at the
+  // bottom" wasn't what the project owner actually had in mind by
+  // "sticky" — the original ask was for the top-docked trigger to stop
+  // scrolling away, not to relocate it.
   // taskRowMobileStyle: 'default' leaves a task row's title fighting its
   // priority/timeframe/due badges for space on one line; 'stacked' moves
   // the badges onto their own line below the title (see .titlewrap in
@@ -527,7 +540,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -635,6 +648,7 @@ function normalizeState(){
   // saved before this change migrates to the new floor behavior's own
   // default, same as a genuinely missing/malformed value would.
   if(typeof state.devSettings.quickAddMobileStyle !== 'string' || state.devSettings.quickAddMobileStyle === 'default') state.devSettings.quickAddMobileStyle = 'bottomsheet';
+  if(typeof state.devSettings.quickAddTriggerPosition !== 'string') state.devSettings.quickAddTriggerPosition = 'bottom';
   if(typeof state.devSettings.taskRowMobileStyle !== 'string') state.devSettings.taskRowMobileStyle = 'default';
   if(typeof state.devSettings.taskDetailMobileStyle !== 'string') state.devSettings.taskDetailMobileStyle = 'default';
   if(typeof state.devSettings.floatingAddButton !== 'boolean') state.devSettings.floatingAddButton = false;

@@ -2,10 +2,13 @@
 </head>
 <body>
 <!-- Pull-to-refresh indicator — see the Pull-to-refresh section in
-     19-bootstrap.js. Always in the DOM (harmless at rest, fully tucked
-     above the visible top edge) rather than created/destroyed per
-     gesture, same idiom as #ctxMenu below. -->
-<div class="pullrefresh" id="pullRefresh" aria-hidden="true"><span class="pullrefresharrow">↓</span></div>
+     19-bootstrap.js. Always in the DOM (harmless at rest, opacity:0)
+     rather than created/destroyed per gesture, same idiom as #ctxMenu
+     below. A single bare glyph, deliberately no wrapping span — its own
+     transform carries both the fixed centering AND the armed-state
+     rotate together (see .pullrefresh in <style>), so there's no need to
+     split those across a parent/child pair. -->
+<div class="pullrefresh" id="pullRefresh" aria-hidden="true">↓</div>
 <div class="shell" id="authShell" style="display:none;">
   <div class="masthead">
     <h1>The Ledger</h1>
