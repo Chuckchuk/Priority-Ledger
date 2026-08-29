@@ -1967,22 +1967,40 @@
     font-size:16px;
   }
 
-  /* ---- quickAddMobileStyle: the "+ Add Task" trigger + sheet ---- */
+  /* ---- quickAddMobileStyle: the sticky trigger + sheet ----
+     The trigger itself is no longer part of the category view's normal
+     flow (that was the whole "Default (always-visible inline row)"
+     variant, now deleted — see the comment on quickAddMobileStyle in
+     defaultDevSettings(), 02-storage-state.js) — it's a fixed bar pinned
+     to the bottom of the screen, unconditionally, on every mobile
+     account, so it's always reachable without scrolling back up to the
+     top of a long list. QUICKADD_TRIGGER_BOTTOM/HEIGHT below (mirrored
+     here as plain px since CSS can't share JS consts) are what
+     #categoryView's own extra bottom padding and 'inline' mode's sheet
+     position are both computed from — keep all three in sync if this
+     ever gets resized. */
   .quickaddtrigger{
-    display:none; width:100%; align-items:center; justify-content:center; gap:8px;
-    padding:14px; margin-bottom:16px; border:none; border-radius:10px; cursor:pointer;
+    display:none; align-items:center; justify-content:center; gap:8px;
+    position:fixed; left:12px; right:12px; bottom:16px; z-index:50; max-width:480px; margin:0 auto;
+    height:50px; padding:0 14px; border:none; border-radius:10px; cursor:pointer;
     background: radial-gradient(circle at 30% 20%, var(--primary-light), var(--primary) 75%);
     color:#fff; font-family:'IBM Plex Mono', monospace; font-size:0.78rem;
     text-transform:uppercase; letter-spacing:0.06em;
-    box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.4);
   }
-  body.mobileui-active[data-quickadd-mode="topsheet"] .quickaddtrigger,
-  body.mobileui-active[data-quickadd-mode="bottomsheet"] .quickaddtrigger,
-  body.mobileui-active[data-quickadd-mode="inline"] .quickaddtrigger{ display:flex; }
+  body.mobileui-active .quickaddtrigger{ display:flex; }
+  /* The category view's own content needs extra bottom clearance now
+     that something is permanently docked over its bottom edge — without
+     this, the last task in a full list (or the undo/redo row and Refresh
+     link further down the page, past #appCard) would end up sitting
+     underneath the trigger once scrolled all the way down. Scoped to
+     #categoryView specifically (not a blanket body rule) so it evaporates
+     for free on Daily/Checklist/Settings, where the trigger never shows
+     in the first place — those tabs don't need the extra room. */
+  body.mobileui-active #categoryView{ padding-bottom: 76px; }
   /* Grabber + close row — only meaningful once #quickAddBar itself has
-     left the document's normal flow to float as a sheet (topsheet/
-     bottomsheet); "inline" just expands in place right below its own
-     trigger, so re-tapping that same trigger is already how it closes. */
+     left its resting spot to float as a sheet/panel (topsheet/bottomsheet/
+     inline all now do, just to different spots — see below). */
   .quickaddsheethead{ display:none; }
   body.mobileui-active[data-quickadd-mode="topsheet"] .quickaddsheethead,
   body.mobileui-active[data-quickadd-mode="bottomsheet"] .quickaddsheethead{
@@ -2002,7 +2020,10 @@
      and floats "just above everything" — tabs included — per the
      project owner's own framing of the ask. Column layout + full-width
      fields (below) replace the cramped inline flex-wrap row for exactly
-     as long as the sheet is open. */
+     as long as the sheet is open. z-index:60 (above the scrim's 55, and
+     above the trigger's own 50) is what keeps the trigger from ever
+     poking out from underneath either — it doesn't need its own
+     open/closed visibility toggle as a result. */
   body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar,
   body.mobileui-active[data-quickadd-mode="bottomsheet"] #quickAddBar{
     position:fixed; left:12px; right:12px; z-index:60; max-width:480px; margin:0 auto;
@@ -2024,16 +2045,26 @@
   body.mobileui-active.quickadd-open[data-quickadd-mode="bottomsheet"] #quickAddBar{
     transform:translateY(0); opacity:1;
   }
-  /* inline: no overlay at all — the bar stays a normal-flow sibling of
-     the tab bar/task list and expands open right under its own trigger,
-     pushing everything below it down rather than covering anything. */
+  /* inline: still no dimming overlay — the bar now grows open in the gap
+     directly above the (still-visible, still-fixed) trigger instead of
+     pushing content below it down, since the trigger no longer has a
+     fixed "below it" spot in the normal flow to push on. bottom:76px is
+     the trigger's own bottom(16) + height(50) + a 10px gap — same math
+     as #categoryView's padding-bottom above, just anchoring this sheet
+     instead of clearing content beneath it. Growing via max-height with
+     only `bottom` set (no `top`) is what makes it expand UPWARD from that
+     anchor rather than downward off the bottom of the screen. Re-tapping
+     the trigger is still how this closes — it was never covered, so
+     nothing extra was needed for that to keep working. */
   body.mobileui-active[data-quickadd-mode="inline"] #quickAddBar{
+    position:fixed; left:12px; right:12px; bottom:76px; z-index:45; max-width:480px; margin:0 auto;
     flex-direction:column; align-items:stretch; gap:12px;
-    max-height:0; overflow:hidden; opacity:0; margin-bottom:0; padding:0;
-    transition: max-height .25s ease, opacity .2s ease, margin-bottom .25s ease;
+    background: var(--card-bg); border-radius:14px; box-shadow:0 12px 32px rgba(0,0,0,0.35);
+    max-height:0; overflow:hidden; opacity:0; padding:0 16px;
+    transition: max-height .25s ease, opacity .2s ease, padding .25s ease;
   }
   body.mobileui-active.quickadd-open[data-quickadd-mode="inline"] #quickAddBar{
-    max-height:320px; opacity:1; margin-bottom:16px;
+    max-height:360px; opacity:1; padding:18px 16px 20px;
   }
   body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar input[type=text],
   body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar select,
@@ -3124,10 +3155,12 @@
            the real .tab.active element itself never successfully could. -->
       <div class="tabconnector" id="tabConnector"></div>
       <div id="categoryView">
-        <!-- Mobile UI Lab (quickAddMobileStyle) — inert unless mobileui-active
-             AND a non-default style is chosen (see the body[data-quickadd-mode]
-             CSS); the trigger stays hidden and #quickAddBar keeps its original
-             always-visible inline layout otherwise. -->
+        <!-- Mobile UI Lab (quickAddMobileStyle) — the trigger is a fixed,
+             sticky bottom button whenever mobileui-active (see .quickaddtrigger
+             in <style>); the setting only picks what tapping it opens
+             (topsheet/bottomsheet/inline, via body[data-quickadd-mode]).
+             Inert (display:none) on desktop, same as the rest of this file's
+             Mobile UI Lab markup. -->
         <button class="quickaddtrigger" id="quickAddTrigger" onclick="toggleQuickAddSheet()">+ Add Task</button>
         <div class="quickaddscrim" id="quickAddScrim" onclick="toggleQuickAddSheet(false)"></div>
         <div class="quickadd" id="quickAddBar">
@@ -3956,9 +3989,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
 
     ${devSectionHeadHtml('Quick-Add Bar')}
     <div class="${fieldClass}">
-      <span class="${captionClass}">Quick-add bar</span>
+      <span class="${captionClass}">"+ Add Task" button opens…</span>
       <select class="${selectClass}" onchange="setDevQuickAddMobileStyle(this.value)">
-        <option value="default" ${dev.quickAddMobileStyle==='default'?'selected':''}>Default (always-visible inline row)</option>
         <option value="topsheet" ${dev.quickAddMobileStyle==='topsheet'?'selected':''}>"+ Add Task" button opens a top sheet</option>
         <option value="bottomsheet" ${dev.quickAddMobileStyle==='bottomsheet'?'selected':''}>"+ Add Task" button opens a bottom sheet</option>
         <option value="inline" ${dev.quickAddMobileStyle==='inline'?'selected':''}>"+ Add Task" button expands it in place</option>
@@ -4413,13 +4445,21 @@ function defaultDevSettings(){
   // per-feature "also on desktop" checkbox, since the ask was to preview
   // the whole lab on desktop, not any one piece of it in isolation.
   // quickAddMobileStyle: how the main category quick-add bar (the
-  // 6-control row that wraps into three lines on a phone) is reached —
-  // 'default' leaves it exactly as it's always been (always-visible
-  // inline row); 'topsheet'/'bottomsheet' replace it with a single
-  // "+ Add Task" trigger that opens the real bar as a full-width overlay
-  // sheet sliding in from that edge; 'inline' keeps the trigger in the
-  // document's normal flow and expands the bar open right beneath it
-  // (no overlay, tab bar never covered).
+  // 6-control row that wraps into three lines on a phone) is reached on
+  // mobile — always via a single "+ Add Task" trigger now (see
+  // .quickaddtrigger in <style>), never the old always-visible inline
+  // row: that 'default' variant is gone entirely (see the removed option
+  // in devSettingsFieldsHtml(), 01-categories-theme.js, and its migration
+  // in normalizeState() below) now that the trigger itself is
+  // position:fixed at the bottom of the screen — sticky, per the project
+  // owner's own ask, rather than scrolling away at the top of the list
+  // the way the inline row always did. This setting now only controls
+  // what tapping that trigger actually opens: 'topsheet'/'bottomsheet'
+  // open the real bar as a full-width overlay sheet sliding in from that
+  // edge, with a dimming scrim behind it; 'inline' instead grows the bar
+  // open directly above the trigger itself (no scrim, tab bar never
+  // covered) — see the "quickAddMobileStyle: the sticky trigger + sheet"
+  // block in <style> for how all three share that one fixed anchor point.
   // taskRowMobileStyle: 'default' leaves a task row's title fighting its
   // priority/timeframe/due badges for space on one line; 'stacked' moves
   // the badges onto their own line below the title (see .titlewrap in
@@ -4569,7 +4609,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -4672,7 +4712,11 @@ function normalizeState(){
   if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'leftheavy';
   if(typeof state.devSettings.fullPageSwipeNav !== 'boolean') state.devSettings.fullPageSwipeNav = false;
   if(typeof state.devSettings.mobileUiPreviewOnDesktop !== 'boolean') state.devSettings.mobileUiPreviewOnDesktop = false;
-  if(typeof state.devSettings.quickAddMobileStyle !== 'string') state.devSettings.quickAddMobileStyle = 'default';
+  // 'default' (the old always-visible inline row) is no longer a valid
+  // value — see the quickAddMobileStyle comment above — so an account
+  // saved before this change migrates to the new floor behavior's own
+  // default, same as a genuinely missing/malformed value would.
+  if(typeof state.devSettings.quickAddMobileStyle !== 'string' || state.devSettings.quickAddMobileStyle === 'default') state.devSettings.quickAddMobileStyle = 'bottomsheet';
   if(typeof state.devSettings.taskRowMobileStyle !== 'string') state.devSettings.taskRowMobileStyle = 'default';
   if(typeof state.devSettings.taskDetailMobileStyle !== 'string') state.devSettings.taskDetailMobileStyle = 'default';
   if(typeof state.devSettings.floatingAddButton !== 'boolean') state.devSettings.floatingAddButton = false;

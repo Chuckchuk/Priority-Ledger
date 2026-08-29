@@ -363,13 +363,21 @@ function defaultDevSettings(){
   // per-feature "also on desktop" checkbox, since the ask was to preview
   // the whole lab on desktop, not any one piece of it in isolation.
   // quickAddMobileStyle: how the main category quick-add bar (the
-  // 6-control row that wraps into three lines on a phone) is reached —
-  // 'default' leaves it exactly as it's always been (always-visible
-  // inline row); 'topsheet'/'bottomsheet' replace it with a single
-  // "+ Add Task" trigger that opens the real bar as a full-width overlay
-  // sheet sliding in from that edge; 'inline' keeps the trigger in the
-  // document's normal flow and expands the bar open right beneath it
-  // (no overlay, tab bar never covered).
+  // 6-control row that wraps into three lines on a phone) is reached on
+  // mobile — always via a single "+ Add Task" trigger now (see
+  // .quickaddtrigger in <style>), never the old always-visible inline
+  // row: that 'default' variant is gone entirely (see the removed option
+  // in devSettingsFieldsHtml(), 01-categories-theme.js, and its migration
+  // in normalizeState() below) now that the trigger itself is
+  // position:fixed at the bottom of the screen — sticky, per the project
+  // owner's own ask, rather than scrolling away at the top of the list
+  // the way the inline row always did. This setting now only controls
+  // what tapping that trigger actually opens: 'topsheet'/'bottomsheet'
+  // open the real bar as a full-width overlay sheet sliding in from that
+  // edge, with a dimming scrim behind it; 'inline' instead grows the bar
+  // open directly above the trigger itself (no scrim, tab bar never
+  // covered) — see the "quickAddMobileStyle: the sticky trigger + sheet"
+  // block in <style> for how all three share that one fixed anchor point.
   // taskRowMobileStyle: 'default' leaves a task row's title fighting its
   // priority/timeframe/due badges for space on one line; 'stacked' moves
   // the badges onto their own line below the title (see .titlewrap in
@@ -519,7 +527,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -622,7 +630,11 @@ function normalizeState(){
   if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'leftheavy';
   if(typeof state.devSettings.fullPageSwipeNav !== 'boolean') state.devSettings.fullPageSwipeNav = false;
   if(typeof state.devSettings.mobileUiPreviewOnDesktop !== 'boolean') state.devSettings.mobileUiPreviewOnDesktop = false;
-  if(typeof state.devSettings.quickAddMobileStyle !== 'string') state.devSettings.quickAddMobileStyle = 'default';
+  // 'default' (the old always-visible inline row) is no longer a valid
+  // value — see the quickAddMobileStyle comment above — so an account
+  // saved before this change migrates to the new floor behavior's own
+  // default, same as a genuinely missing/malformed value would.
+  if(typeof state.devSettings.quickAddMobileStyle !== 'string' || state.devSettings.quickAddMobileStyle === 'default') state.devSettings.quickAddMobileStyle = 'bottomsheet';
   if(typeof state.devSettings.taskRowMobileStyle !== 'string') state.devSettings.taskRowMobileStyle = 'default';
   if(typeof state.devSettings.taskDetailMobileStyle !== 'string') state.devSettings.taskDetailMobileStyle = 'default';
   if(typeof state.devSettings.floatingAddButton !== 'boolean') state.devSettings.floatingAddButton = false;

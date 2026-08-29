@@ -1935,22 +1935,40 @@
     font-size:16px;
   }
 
-  /* ---- quickAddMobileStyle: the "+ Add Task" trigger + sheet ---- */
+  /* ---- quickAddMobileStyle: the sticky trigger + sheet ----
+     The trigger itself is no longer part of the category view's normal
+     flow (that was the whole "Default (always-visible inline row)"
+     variant, now deleted — see the comment on quickAddMobileStyle in
+     defaultDevSettings(), 02-storage-state.js) — it's a fixed bar pinned
+     to the bottom of the screen, unconditionally, on every mobile
+     account, so it's always reachable without scrolling back up to the
+     top of a long list. QUICKADD_TRIGGER_BOTTOM/HEIGHT below (mirrored
+     here as plain px since CSS can't share JS consts) are what
+     #categoryView's own extra bottom padding and 'inline' mode's sheet
+     position are both computed from — keep all three in sync if this
+     ever gets resized. */
   .quickaddtrigger{
-    display:none; width:100%; align-items:center; justify-content:center; gap:8px;
-    padding:14px; margin-bottom:16px; border:none; border-radius:10px; cursor:pointer;
+    display:none; align-items:center; justify-content:center; gap:8px;
+    position:fixed; left:12px; right:12px; bottom:16px; z-index:50; max-width:480px; margin:0 auto;
+    height:50px; padding:0 14px; border:none; border-radius:10px; cursor:pointer;
     background: radial-gradient(circle at 30% 20%, var(--primary-light), var(--primary) 75%);
     color:#fff; font-family:'IBM Plex Mono', monospace; font-size:0.78rem;
     text-transform:uppercase; letter-spacing:0.06em;
-    box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.4);
   }
-  body.mobileui-active[data-quickadd-mode="topsheet"] .quickaddtrigger,
-  body.mobileui-active[data-quickadd-mode="bottomsheet"] .quickaddtrigger,
-  body.mobileui-active[data-quickadd-mode="inline"] .quickaddtrigger{ display:flex; }
+  body.mobileui-active .quickaddtrigger{ display:flex; }
+  /* The category view's own content needs extra bottom clearance now
+     that something is permanently docked over its bottom edge — without
+     this, the last task in a full list (or the undo/redo row and Refresh
+     link further down the page, past #appCard) would end up sitting
+     underneath the trigger once scrolled all the way down. Scoped to
+     #categoryView specifically (not a blanket body rule) so it evaporates
+     for free on Daily/Checklist/Settings, where the trigger never shows
+     in the first place — those tabs don't need the extra room. */
+  body.mobileui-active #categoryView{ padding-bottom: 76px; }
   /* Grabber + close row — only meaningful once #quickAddBar itself has
-     left the document's normal flow to float as a sheet (topsheet/
-     bottomsheet); "inline" just expands in place right below its own
-     trigger, so re-tapping that same trigger is already how it closes. */
+     left its resting spot to float as a sheet/panel (topsheet/bottomsheet/
+     inline all now do, just to different spots — see below). */
   .quickaddsheethead{ display:none; }
   body.mobileui-active[data-quickadd-mode="topsheet"] .quickaddsheethead,
   body.mobileui-active[data-quickadd-mode="bottomsheet"] .quickaddsheethead{
@@ -1970,7 +1988,10 @@
      and floats "just above everything" — tabs included — per the
      project owner's own framing of the ask. Column layout + full-width
      fields (below) replace the cramped inline flex-wrap row for exactly
-     as long as the sheet is open. */
+     as long as the sheet is open. z-index:60 (above the scrim's 55, and
+     above the trigger's own 50) is what keeps the trigger from ever
+     poking out from underneath either — it doesn't need its own
+     open/closed visibility toggle as a result. */
   body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar,
   body.mobileui-active[data-quickadd-mode="bottomsheet"] #quickAddBar{
     position:fixed; left:12px; right:12px; z-index:60; max-width:480px; margin:0 auto;
@@ -1992,16 +2013,26 @@
   body.mobileui-active.quickadd-open[data-quickadd-mode="bottomsheet"] #quickAddBar{
     transform:translateY(0); opacity:1;
   }
-  /* inline: no overlay at all — the bar stays a normal-flow sibling of
-     the tab bar/task list and expands open right under its own trigger,
-     pushing everything below it down rather than covering anything. */
+  /* inline: still no dimming overlay — the bar now grows open in the gap
+     directly above the (still-visible, still-fixed) trigger instead of
+     pushing content below it down, since the trigger no longer has a
+     fixed "below it" spot in the normal flow to push on. bottom:76px is
+     the trigger's own bottom(16) + height(50) + a 10px gap — same math
+     as #categoryView's padding-bottom above, just anchoring this sheet
+     instead of clearing content beneath it. Growing via max-height with
+     only `bottom` set (no `top`) is what makes it expand UPWARD from that
+     anchor rather than downward off the bottom of the screen. Re-tapping
+     the trigger is still how this closes — it was never covered, so
+     nothing extra was needed for that to keep working. */
   body.mobileui-active[data-quickadd-mode="inline"] #quickAddBar{
+    position:fixed; left:12px; right:12px; bottom:76px; z-index:45; max-width:480px; margin:0 auto;
     flex-direction:column; align-items:stretch; gap:12px;
-    max-height:0; overflow:hidden; opacity:0; margin-bottom:0; padding:0;
-    transition: max-height .25s ease, opacity .2s ease, margin-bottom .25s ease;
+    background: var(--card-bg); border-radius:14px; box-shadow:0 12px 32px rgba(0,0,0,0.35);
+    max-height:0; overflow:hidden; opacity:0; padding:0 16px;
+    transition: max-height .25s ease, opacity .2s ease, padding .25s ease;
   }
   body.mobileui-active.quickadd-open[data-quickadd-mode="inline"] #quickAddBar{
-    max-height:320px; opacity:1; margin-bottom:16px;
+    max-height:360px; opacity:1; padding:18px 16px 20px;
   }
   body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar input[type=text],
   body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar select,

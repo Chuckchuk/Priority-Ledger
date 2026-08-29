@@ -724,9 +724,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
 
     ${devSectionHeadHtml('Quick-Add Bar')}
     <div class="${fieldClass}">
-      <span class="${captionClass}">Quick-add bar</span>
+      <span class="${captionClass}">"+ Add Task" button opens…</span>
       <select class="${selectClass}" onchange="setDevQuickAddMobileStyle(this.value)">
-        <option value="default" ${dev.quickAddMobileStyle==='default'?'selected':''}>Default (always-visible inline row)</option>
         <option value="topsheet" ${dev.quickAddMobileStyle==='topsheet'?'selected':''}>"+ Add Task" button opens a top sheet</option>
         <option value="bottomsheet" ${dev.quickAddMobileStyle==='bottomsheet'?'selected':''}>"+ Add Task" button opens a bottom sheet</option>
         <option value="inline" ${dev.quickAddMobileStyle==='inline'?'selected':''}>"+ Add Task" button expands it in place</option>

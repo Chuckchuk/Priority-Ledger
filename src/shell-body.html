@@ -103,10 +103,12 @@
            the real .tab.active element itself never successfully could. -->
       <div class="tabconnector" id="tabConnector"></div>
       <div id="categoryView">
-        <!-- Mobile UI Lab (quickAddMobileStyle) — inert unless mobileui-active
-             AND a non-default style is chosen (see the body[data-quickadd-mode]
-             CSS); the trigger stays hidden and #quickAddBar keeps its original
-             always-visible inline layout otherwise. -->
+        <!-- Mobile UI Lab (quickAddMobileStyle) — the trigger is a fixed,
+             sticky bottom button whenever mobileui-active (see .quickaddtrigger
+             in <style>); the setting only picks what tapping it opens
+             (topsheet/bottomsheet/inline, via body[data-quickadd-mode]).
+             Inert (display:none) on desktop, same as the rest of this file's
+             Mobile UI Lab markup. -->
         <button class="quickaddtrigger" id="quickAddTrigger" onclick="toggleQuickAddSheet()">+ Add Task</button>
         <div class="quickaddscrim" id="quickAddScrim" onclick="toggleQuickAddSheet(false)"></div>
         <div class="quickadd" id="quickAddBar">
