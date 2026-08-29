@@ -955,9 +955,22 @@
   .daylistlabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin: 4px 0 6px; }
   .dayitem{
     width:100%; display:flex; justify-content:space-between; align-items:center; text-align:left;
-    border:none; background:none; border-bottom:1px dashed var(--line); padding:11px 4px; cursor:pointer;
+    border:none; border-bottom:1px dashed var(--line); background:none; padding:11px 4px 11px 8px; cursor:pointer;
     font-family:'IBM Plex Sans',sans-serif; font-size:0.92rem; color:var(--ink);
+    border-left:3px solid transparent; transition:background 120ms ease;
   }
+  /* Beyond the existing .todaytag pill — a tinted row + a Primary-colored
+     left edge + bolded date text, so today's own row still jumps out at a
+     glance while scanning a long "This Month" list, not just when you
+     happen to read as far as its little badge. Left border eats into the
+     row's own left padding (8px vs the others' 4px, offset by the
+     border's 3px) rather than sitting flush against the row edge, so text
+     doesn't visibly shift over by exactly the border's width. */
+  .dayitem.today{
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    border-left-color: var(--primary);
+  }
+  .dayitem.today .daydate{ font-weight:700; color:var(--primary); }
   .todaytag{
     font-family:'IBM Plex Mono', monospace; font-size:0.58rem; text-transform:uppercase; background:var(--primary);
     color:white; padding:2px 6px; border-radius:4px; margin-left:8px; letter-spacing:0.04em;

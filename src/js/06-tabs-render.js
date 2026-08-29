@@ -213,7 +213,12 @@ function renderTabs(){
     // the onclick entirely instead of trying to chase that noise down —
     // there's nothing else it needs a click for either, per the same
     // reasoning :hover was already turned off for it.
-    const clickAttr = (overlapStyle && activeTab===key) ? '' : ` onclick="switchTab('${key}')"`;
+    // The "Daily" tab jumps straight to today (goToDailyToday(), see
+    // 11-daily-core.js) instead of the plain switchTab() every other tab
+    // uses — per the project owner's ask, tapping it should always mean
+    // "go to today," not "go to wherever Daily was last left."
+    const tabAction = key === 'daily' ? 'goToDailyToday()' : `switchTab('${key}')`;
+    const clickAttr = (overlapStyle && activeTab===key) ? '' : ` onclick="${tabAction}"`;
     return `<button class="tab ${activeTab===key?'active':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}>${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
   renderTabRowLines();

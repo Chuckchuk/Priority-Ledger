@@ -987,9 +987,22 @@
   .daylistlabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin: 4px 0 6px; }
   .dayitem{
     width:100%; display:flex; justify-content:space-between; align-items:center; text-align:left;
-    border:none; background:none; border-bottom:1px dashed var(--line); padding:11px 4px; cursor:pointer;
+    border:none; border-bottom:1px dashed var(--line); background:none; padding:11px 4px 11px 8px; cursor:pointer;
     font-family:'IBM Plex Sans',sans-serif; font-size:0.92rem; color:var(--ink);
+    border-left:3px solid transparent; transition:background 120ms ease;
   }
+  /* Beyond the existing .todaytag pill — a tinted row + a Primary-colored
+     left edge + bolded date text, so today's own row still jumps out at a
+     glance while scanning a long "This Month" list, not just when you
+     happen to read as far as its little badge. Left border eats into the
+     row's own left padding (8px vs the others' 4px, offset by the
+     border's 3px) rather than sitting flush against the row edge, so text
+     doesn't visibly shift over by exactly the border's width. */
+  .dayitem.today{
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    border-left-color: var(--primary);
+  }
+  .dayitem.today .daydate{ font-weight:700; color:var(--primary); }
   .todaytag{
     font-family:'IBM Plex Mono', monospace; font-size:0.58rem; text-transform:uppercase; background:var(--primary);
     color:white; padding:2px 6px; border-radius:4px; margin-left:8px; letter-spacing:0.04em;
@@ -5474,7 +5487,12 @@ function renderTabs(){
     // the onclick entirely instead of trying to chase that noise down —
     // there's nothing else it needs a click for either, per the same
     // reasoning :hover was already turned off for it.
-    const clickAttr = (overlapStyle && activeTab===key) ? '' : ` onclick="switchTab('${key}')"`;
+    // The "Daily" tab jumps straight to today (goToDailyToday(), see
+    // 11-daily-core.js) instead of the plain switchTab() every other tab
+    // uses — per the project owner's ask, tapping it should always mean
+    // "go to today," not "go to wherever Daily was last left."
+    const tabAction = key === 'daily' ? 'goToDailyToday()' : `switchTab('${key}')`;
+    const clickAttr = (overlapStyle && activeTab===key) ? '' : ` onclick="${tabAction}"`;
     return `<button class="tab ${activeTab===key?'active':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}>${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
   renderTabRowLines();
@@ -8382,6 +8400,28 @@ async function addDay(){
   render();
 }
 
+// The "Daily" tab's own onclick in the tab bar (see renderTabs() in
+// 06-tabs-render.js), instead of the plain switchTab('daily') every other
+// tab uses — tapping it now always jumps straight to today's own
+// day-detail page, rather than landing wherever Daily happened to be left
+// (the day list, some other day, the calendar view). switchTab() still
+// runs first for everything else it does (closing Settings/the Claude
+// view/overlays, resetting per-tab UI state); dailyCalendarOpen is
+// cleared explicitly since openDay() alone wouldn't override it —
+// renderDaily() checks that before selectedDay. Mirrors
+// openCalendarDay()'s "only pushUndo if this actually creates a new day"
+// rule, not addDay()'s unconditional one, since unlike addDay() (which
+// only ever targets a day that doesn't exist yet) today may already be
+// logged.
+async function goToDailyToday(){
+  switchTab('daily');
+  dailyCalendarOpen = false;
+  const today = todayStr();
+  if(!state.days.includes(today)) pushUndo('Added a day');
+  await ensureDay(today);
+  openDay(today);
+}
+
 // Replaces the old "Pick a date…" toggle + native <input type=date> +
 // separate "Add this day" button with a single always-visible text field,
 // parsed the same way a step's own due date is (see parseNaturalDate() in
@@ -8623,7 +8663,7 @@ function dayItemHtml(dateStr){
   const ratio = total ? `<span class="badge subcount">${done}/${total}</span>` : `<span class="badge due">Empty</span>`;
   const isToday = dateStr === todayStr();
   return `
-    <button class="dayitem" onclick="openDay('${dateStr}')">
+    <button class="dayitem ${isToday ? 'today' : ''}" onclick="openDay('${dateStr}')">
       <span class="daydate">${dayLabel(dateStr)}${isToday ? '<span class="todaytag">Today</span>' : ''}</span>
       ${ratio}
     </button>`;

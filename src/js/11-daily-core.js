@@ -129,6 +129,28 @@ async function addDay(){
   render();
 }
 
+// The "Daily" tab's own onclick in the tab bar (see renderTabs() in
+// 06-tabs-render.js), instead of the plain switchTab('daily') every other
+// tab uses — tapping it now always jumps straight to today's own
+// day-detail page, rather than landing wherever Daily happened to be left
+// (the day list, some other day, the calendar view). switchTab() still
+// runs first for everything else it does (closing Settings/the Claude
+// view/overlays, resetting per-tab UI state); dailyCalendarOpen is
+// cleared explicitly since openDay() alone wouldn't override it —
+// renderDaily() checks that before selectedDay. Mirrors
+// openCalendarDay()'s "only pushUndo if this actually creates a new day"
+// rule, not addDay()'s unconditional one, since unlike addDay() (which
+// only ever targets a day that doesn't exist yet) today may already be
+// logged.
+async function goToDailyToday(){
+  switchTab('daily');
+  dailyCalendarOpen = false;
+  const today = todayStr();
+  if(!state.days.includes(today)) pushUndo('Added a day');
+  await ensureDay(today);
+  openDay(today);
+}
+
 // Replaces the old "Pick a date…" toggle + native <input type=date> +
 // separate "Add this day" button with a single always-visible text field,
 // parsed the same way a step's own due date is (see parseNaturalDate() in
@@ -370,7 +392,7 @@ function dayItemHtml(dateStr){
   const ratio = total ? `<span class="badge subcount">${done}/${total}</span>` : `<span class="badge due">Empty</span>`;
   const isToday = dateStr === todayStr();
   return `
-    <button class="dayitem" onclick="openDay('${dateStr}')">
+    <button class="dayitem ${isToday ? 'today' : ''}" onclick="openDay('${dateStr}')">
       <span class="daydate">${dayLabel(dateStr)}${isToday ? '<span class="todaytag">Today</span>' : ''}</span>
       ${ratio}
     </button>`;
