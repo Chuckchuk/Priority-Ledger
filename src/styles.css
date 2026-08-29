@@ -1360,12 +1360,46 @@
   .authform input{
     border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim);
     font-family:'IBM Plex Sans', sans-serif; font-size:0.92rem; padding:10px 12px; color:var(--ink); outline:none;
+    transition: border-color 150ms ease;
   }
-  .autherror{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; color: var(--estate); min-height:14px; margin-top:8px; }
+  /* Shown briefly alongside .autherror.err (see authShake() in
+     17-auth-ui.js) so the field that actually failed is visually tied to
+     the message below it, not just a same-colored line of text floating
+     underneath the whole form. Cleared on the next input/submit attempt,
+     not on a timer — it should stay until the person actually does
+     something about it. */
+  .authform input.autherr-field{ border-color: var(--estate); }
+  /* .err (a real failure — invalid credentials, network/timeout, server
+     error) is what pairs with the shake below; .info (an expected,
+     non-error outcome — "check your email to confirm", the password-reset
+     "if that email has an account…" notice) reuses the same slot but in
+     the ink color and never shakes, so a normal next-step notice doesn't
+     read as something having gone wrong. Both default to transparent text
+     via an empty .autherror rule below so an empty message truly shows
+     nothing (no stray colored dot) rather than an untinted default. */
+  .autherror{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; min-height:14px; margin-top:8px; line-height:1.4; }
+  .autherror.err{ color: var(--estate); }
+  .autherror.info{ color: var(--ink-soft); }
+  /* Runs once per failed submit (authShake() removes+re-adds the class so
+     it can retrigger on consecutive failures, since a class already
+     present doesn't restart a CSS animation). Small, fast, and settles
+     back to rest — enough to read as "no", not a cartoonish wobble. */
+  .authform.authshake{ animation: authshake 380ms ease-in-out; }
+  @keyframes authshake{
+    10%,90%{ transform:translateX(-1px); }
+    20%,80%{ transform:translateX(2px); }
+    30%,50%,70%{ transform:translateX(-5px); }
+    40%,60%{ transform:translateX(5px); }
+  }
   .authsubmit{
     width:100%; font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;
     padding:12px 14px; border-radius:8px; border:none; background: var(--primary); color:white; cursor:pointer; margin-top:4px;
   }
+  /* Submit disables itself for the duration of its own request (see
+     withAuthBusy() in 17-auth-ui.js) so a slow network round-trip reads as
+     "working" instead of looking like the button did nothing — the exact
+     complaint this whole error system was built to fix. */
+  .authsubmit:disabled{ opacity:0.6; cursor:not-allowed; }
   .signoutbtn{
     background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase;
     color: rgba(241,234,217,0.55); cursor:pointer; letter-spacing:0.05em;

@@ -1392,12 +1392,46 @@
   .authform input{
     border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim);
     font-family:'IBM Plex Sans', sans-serif; font-size:0.92rem; padding:10px 12px; color:var(--ink); outline:none;
+    transition: border-color 150ms ease;
   }
-  .autherror{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; color: var(--estate); min-height:14px; margin-top:8px; }
+  /* Shown briefly alongside .autherror.err (see authShake() in
+     17-auth-ui.js) so the field that actually failed is visually tied to
+     the message below it, not just a same-colored line of text floating
+     underneath the whole form. Cleared on the next input/submit attempt,
+     not on a timer — it should stay until the person actually does
+     something about it. */
+  .authform input.autherr-field{ border-color: var(--estate); }
+  /* .err (a real failure — invalid credentials, network/timeout, server
+     error) is what pairs with the shake below; .info (an expected,
+     non-error outcome — "check your email to confirm", the password-reset
+     "if that email has an account…" notice) reuses the same slot but in
+     the ink color and never shakes, so a normal next-step notice doesn't
+     read as something having gone wrong. Both default to transparent text
+     via an empty .autherror rule below so an empty message truly shows
+     nothing (no stray colored dot) rather than an untinted default. */
+  .autherror{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; min-height:14px; margin-top:8px; line-height:1.4; }
+  .autherror.err{ color: var(--estate); }
+  .autherror.info{ color: var(--ink-soft); }
+  /* Runs once per failed submit (authShake() removes+re-adds the class so
+     it can retrigger on consecutive failures, since a class already
+     present doesn't restart a CSS animation). Small, fast, and settles
+     back to rest — enough to read as "no", not a cartoonish wobble. */
+  .authform.authshake{ animation: authshake 380ms ease-in-out; }
+  @keyframes authshake{
+    10%,90%{ transform:translateX(-1px); }
+    20%,80%{ transform:translateX(2px); }
+    30%,50%,70%{ transform:translateX(-5px); }
+    40%,60%{ transform:translateX(5px); }
+  }
   .authsubmit{
     width:100%; font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;
     padding:12px 14px; border-radius:8px; border:none; background: var(--primary); color:white; cursor:pointer; margin-top:4px;
   }
+  /* Submit disables itself for the duration of its own request (see
+     withAuthBusy() in 17-auth-ui.js) so a slow network round-trip reads as
+     "working" instead of looking like the button did nothing — the exact
+     complaint this whole error system was built to fix. */
+  .authsubmit:disabled{ opacity:0.6; cursor:not-allowed; }
   .signoutbtn{
     background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase;
     color: rgba(241,234,217,0.55); cursor:pointer; letter-spacing:0.05em;
@@ -9358,12 +9392,110 @@ async function toggleLocation(){
   queueSave();
 }
 
+// ---- Auth error/feedback system ----
+// Centralizes "show this error to the person" for all three auth forms
+// (sign-in/sign-up, forgot-password, set-new-password) so the mapping
+// from a raw Supabase/network failure to plain language lives in one
+// place instead of being copied at each call site.
+
+const AUTH_FETCH_TIMEOUT_MS = 15000;
+
+// Wraps fetch with a hard timeout. A stalled connection otherwise never
+// resolves or rejects at all — no error, no success, just silence, which
+// is exactly what "I hit sign in and nothing happened" looks like from
+// the outside. Past AUTH_FETCH_TIMEOUT_MS this aborts, and the caller's
+// catch block sees a plain AbortError, same shape as any other network
+// failure.
+async function authFetch(url, opts){
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AUTH_FETCH_TIMEOUT_MS);
+  try{
+    return await fetch(url, { ...opts, signal: controller.signal });
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+// Maps a Supabase GoTrue error body to a specific, plain-language
+// message. Matched by substring against GoTrue's own message text rather
+// than an error_code field, since error_code isn't present on every
+// GoTrue version/endpoint but the wording has been stable. Falls back to
+// GoTrue's own raw text (still better than a generic "something went
+// wrong") when nothing here matches.
+function humanizeAuthError(data, status){
+  const raw = (data && (data.error_description || data.msg || data.error || data.message)) || '';
+  const m = raw.toLowerCase();
+  if(m.includes('invalid login credentials')) return "That email or password isn't right.";
+  if(m.includes('email not confirmed')) return "You haven't confirmed this email yet — check your inbox for the confirmation link.";
+  if(m.includes('already registered') || m.includes('already exists')) return 'An account with that email already exists — try signing in instead.';
+  if(m.includes('rate limit')) return 'Too many attempts — wait a few minutes and try again.';
+  if(m.includes('invalid email') || m.includes('unable to validate email')) return "That doesn't look like a valid email address.";
+  if(m.includes('password')) return raw; // Supabase's own wording (e.g. minimum length) is already specific and actionable
+  if(status === 429) return 'Too many attempts — wait a few minutes and try again.';
+  if(status >= 500) return "Something's wrong on the server right now — try again in a moment.";
+  return raw || 'Something went wrong. Please try again.';
+}
+
+// Same idea for a fetch that never got a response at all.
+function humanizeAuthNetworkError(e){
+  if(e && e.name === 'AbortError') return "That's taking too long — check your connection and try again.";
+  return "Can't reach the server — check your internet connection and try again.";
+}
+
+// Puts a message on screen for one of the three auth forms. A real error
+// (not an informational next-step like "check your email") shakes the
+// form and outlines whichever fields the message is about — see the CSS
+// comment on .authform input.autherr-field for why the outline is a
+// separate class from the shake. Omit fieldIds for a form-level failure
+// (network/timeout/server) that isn't any one field's fault.
+function authFeedback(errElId, formEl, message, { isError = true, fieldIds = [] } = {}){
+  const errEl = document.getElementById(errElId);
+  errEl.textContent = message;
+  errEl.classList.remove('err', 'info');
+  errEl.classList.add(isError ? 'err' : 'info');
+  formEl.querySelectorAll('input.autherr-field').forEach(el => el.classList.remove('autherr-field'));
+  if(isError){
+    fieldIds.forEach(id => document.getElementById(id).classList.add('autherr-field'));
+    // Remove, force a reflow, then re-add — a class that's already
+    // present doesn't restart a CSS animation, so without this a second
+    // failure in a row wouldn't shake again.
+    formEl.classList.remove('authshake');
+    void formEl.offsetWidth;
+    formEl.classList.add('authshake');
+  }
+}
+
+function clearAuthFeedback(errElId, formEl){
+  const errEl = document.getElementById(errElId);
+  errEl.textContent = '';
+  errEl.classList.remove('err', 'info');
+  formEl.querySelectorAll('input.autherr-field').forEach(el => el.classList.remove('autherr-field'));
+}
+
+// Disables the submit button and swaps its label for the duration of an
+// in-flight auth request, restoring both afterward regardless of outcome
+// — the visible "something is happening" state that keeps a slow request
+// from reading as the button having done nothing.
+async function withAuthBusy(btnId, busyLabel, fn){
+  const btn = document.getElementById(btnId);
+  if(btn.disabled) return; // already mid-request — ignore a double Enter/click
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = busyLabel;
+  try{
+    await fn();
+  }finally{
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
 function toggleAuthMode(){
   authMode = authMode === 'signin' ? 'signup' : 'signin';
   document.getElementById('authSubmitBtn').textContent = authMode === 'signin' ? 'Sign In' : 'Create Account';
   document.getElementById('authModeToggle').textContent =
     authMode === 'signin' ? 'Need an account? Create one' : 'Already have an account? Sign in';
-  document.getElementById('authError').textContent = '';
+  clearAuthFeedback('authError', document.querySelector('#authShell .authform'));
   // Only makes sense while signing in — a brand-new account has no
   // password to forget yet.
   document.getElementById('forgotPasswordRow').style.display = authMode === 'signin' ? '' : 'none';
@@ -9375,7 +9507,7 @@ function toggleAuthMode(){
 // it easy to fire off a reset without realizing which address it'd go to.
 function showForgotPassword(){
   document.getElementById('forgotEmail').value = document.getElementById('authEmail').value.trim();
-  document.getElementById('forgotError').textContent = '';
+  clearAuthFeedback('forgotError', document.querySelector('#forgotShell .authform'));
   document.getElementById('authShell').style.display = 'none';
   document.getElementById('forgotShell').style.display = '';
   updateForgotSubmitState();
@@ -9422,25 +9554,24 @@ function updateForgotSubmitState(){
 async function requestPasswordReset(){
   if(forgotCooldownRemainingMs() > 0) return; // the disabled button already guards this; a queued Enter keypress is the one other way in
   const email = document.getElementById('forgotEmail').value.trim();
-  const errEl = document.getElementById('forgotError');
-  errEl.textContent = '';
-  if(!email){ errEl.textContent = 'Enter an email above.'; return; }
+  const formEl = document.querySelector('#forgotShell .authform');
+  if(!email){ authFeedback('forgotError', formEl, 'Enter an email above.', { fieldIds: ['forgotEmail'] }); return; }
   localStorage.setItem('ledger-last-reset-request', String(Date.now()));
   updateForgotSubmitState();
   try{
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(AUTH_REDIRECT_URL)}`, {
+    const res = await authFetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(AUTH_REDIRECT_URL)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
       body: JSON.stringify({ email })
     });
     if(!res.ok){
       const data = await res.json().catch(() => ({}));
-      errEl.textContent = data.error_description || data.msg || 'Something went wrong.';
+      authFeedback('forgotError', formEl, humanizeAuthError(data, res.status), { fieldIds: ['forgotEmail'] });
       return;
     }
-    errEl.textContent = 'If that email has an account, a reset link is on its way.';
+    authFeedback('forgotError', formEl, 'If that email has an account, a reset link is on its way.', { isError: false });
   }catch(e){
-    errEl.textContent = 'Network error — try again.';
+    authFeedback('forgotError', formEl, humanizeAuthNetworkError(e), {});
   }
 }
 
@@ -9452,70 +9583,80 @@ async function requestPasswordReset(){
 async function submitPasswordReset(){
   const pw = document.getElementById('resetPassword').value;
   const pw2 = document.getElementById('resetPasswordConfirm').value;
-  const errEl = document.getElementById('resetError');
-  errEl.textContent = '';
-  if(!pw || pw.length < 6){ errEl.textContent = 'Password must be at least 6 characters.'; return; }
-  if(pw !== pw2){ errEl.textContent = "Passwords don't match."; return; }
-  try{
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${recoverySession.access_token}`
-      },
-      body: JSON.stringify({ password: pw })
-    });
-    const data = await res.json();
-    if(!res.ok){ errEl.textContent = data.error_description || data.msg || 'Something went wrong.'; return; }
-    history.replaceState(null, '', location.pathname + location.search);
-    saveSession({
-      access_token: recoverySession.access_token,
-      refresh_token: recoverySession.refresh_token,
-      expires_at: Date.now() + recoverySession.expires_in * 1000,
-      user_id: data.id,
-      email: data.email
-    });
-    recoverySession = null;
-    document.getElementById('resetShell').style.display = 'none';
-    await enterApp();
-  }catch(e){
-    errEl.textContent = 'Network error — try again.';
-  }
+  const formEl = document.querySelector('#resetShell .authform');
+  if(!pw || pw.length < 6){ authFeedback('resetError', formEl, 'Password must be at least 6 characters.', { fieldIds: ['resetPassword'] }); return; }
+  if(pw !== pw2){ authFeedback('resetError', formEl, "Passwords don't match.", { fieldIds: ['resetPassword', 'resetPasswordConfirm'] }); return; }
+  await withAuthBusy('resetSubmitBtn', 'Saving…', async () => {
+    try{
+      const res = await authFetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${recoverySession.access_token}`
+        },
+        body: JSON.stringify({ password: pw })
+      });
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok){ authFeedback('resetError', formEl, humanizeAuthError(data, res.status), { fieldIds: ['resetPassword'] }); return; }
+      history.replaceState(null, '', location.pathname + location.search);
+      saveSession({
+        access_token: recoverySession.access_token,
+        refresh_token: recoverySession.refresh_token,
+        expires_at: Date.now() + recoverySession.expires_in * 1000,
+        user_id: data.id,
+        email: data.email
+      });
+      recoverySession = null;
+      document.getElementById('resetShell').style.display = 'none';
+      await enterApp();
+    }catch(e){
+      authFeedback('resetError', formEl, humanizeAuthNetworkError(e), {});
+    }
+  });
 }
 
 async function submitAuth(){
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
-  const errEl = document.getElementById('authError');
-  errEl.textContent = '';
-  if(!email || !password){ errEl.textContent = 'Enter an email and password.'; return; }
+  const formEl = document.querySelector('#authShell .authform');
+  if(!email || !password){
+    authFeedback('authError', formEl, 'Enter both an email and a password.', {
+      fieldIds: [!email && 'authEmail', !password && 'authPassword'].filter(Boolean)
+    });
+    return;
+  }
   const endpoint = authMode === 'signin'
     ? `${SUPABASE_URL}/auth/v1/token?grant_type=password`
     : `${SUPABASE_URL}/auth/v1/signup?redirect_to=${encodeURIComponent(AUTH_REDIRECT_URL)}`;
-  try{
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-    if(!res.ok){ errEl.textContent = data.error_description || data.msg || 'Something went wrong.'; return; }
-    if(!data.access_token){
-      errEl.textContent = 'Check your email to confirm your account, then sign in.';
-      return;
+  await withAuthBusy('authSubmitBtn', authMode === 'signin' ? 'Signing in…' : 'Creating account…', async () => {
+    try{
+      const res = await authFetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json().catch(() => ({}));
+      if(!res.ok){
+        authFeedback('authError', formEl, humanizeAuthError(data, res.status), { fieldIds: ['authEmail', 'authPassword'] });
+        return;
+      }
+      if(!data.access_token){
+        authFeedback('authError', formEl, 'Check your email to confirm your account, then sign in.', { isError: false });
+        return;
+      }
+      saveSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at: Date.now() + data.expires_in * 1000,
+        user_id: data.user.id,
+        email: data.user.email
+      });
+      await enterApp();
+    }catch(e){
+      authFeedback('authError', formEl, humanizeAuthNetworkError(e), {});
     }
-    saveSession({
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: Date.now() + data.expires_in * 1000,
-      user_id: data.user.id,
-      email: data.user.email
-    });
-    await enterApp();
-  }catch(e){
-    errEl.textContent = 'Network error — try again.';
-  }
+  });
 }
 
 function signOut(){
