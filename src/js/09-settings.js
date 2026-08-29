@@ -89,6 +89,7 @@ function renderSettings(){
         ${uiColorPickerOpen ? uiColorPickerHtml() : ''}
       </span>
       <span class="uicolorlabel">UI Colors — ${escapeHtml(activeUiPreset.label)}</span>
+      ${state.theme.uiPreset==='custom' ? `<button class="uicolorquicklink" onclick="openDualColorCustomDirect('ui')" title="Edit your custom colors">✎</button>` : ''}
     </div>
   `;
 
@@ -102,6 +103,7 @@ function renderSettings(){
         ${deskPaperPickerOpen ? deskPaperPickerHtml() : ''}
       </span>
       <span class="uicolorlabel">Desk & Ledger — ${escapeHtml(activeDeskPaperPresetLabel())}</span>
+      ${activeDeskPaperPresetLabel()==='Custom' ? `<button class="uicolorquicklink" onclick="openDualColorCustomDirect('desk')" title="Edit your custom colors">✎</button>` : ''}
     </div>
   `;
 
@@ -362,6 +364,18 @@ function closeAllSettingsPopovers(){
 // pushUndo/render/queueSave path like any other mutation.
 const CAT_WHEEL_SIZE = 140, CAT_WHEEL_BAND = 16, CAT_WHEEL_HOLE = CAT_WHEEL_SIZE - CAT_WHEEL_BAND*2;
 const CAT_WHEEL_CENTER = CAT_WHEEL_SIZE/2, CAT_WHEEL_RADIUS = CAT_WHEEL_CENTER - CAT_WHEEL_BAND/2;
+// CAT_WHEEL_HOLE (108) is the circular hole's own diameter — a square
+// sized to fill it edge-to-edge has corners that poke *outside* that
+// circle (a square's diagonal is longer than its side), so the SV
+// square used to get its corners silently clip-path'd away, along with
+// any knob dragged out into one (it just vanished under the ring at
+// high-saturation/extreme-value corners). CAT_WHEEL_SQ_PAD is the gap
+// .catwheelsquarewrap now keeps on every side (see its CSS) so the
+// actual square — CAT_WHEEL_SQUARE — is small enough that its corners
+// stay inside the circle instead: side = hole/√2 ≈ 76.4px fits exactly,
+// 16px of padding each side lands just inside that (76px), a small
+// safety margin rather than cutting it exactly to the theoretical edge.
+const CAT_WHEEL_SQ_PAD = 16, CAT_WHEEL_SQUARE = CAT_WHEEL_HOLE - CAT_WHEEL_SQ_PAD*2;
 
 // `backOnclick`/`backLabel` are optional (pass null/'' to omit the back
 // link entirely) — the category picker uses it to drop back to the
@@ -373,13 +387,13 @@ function colorWheelInnerHtml(backOnclick, backLabel, doneOnclick){
   const rad = (h - 90) * Math.PI/180;
   const hueX = CAT_WHEEL_CENTER + CAT_WHEEL_RADIUS*Math.cos(rad);
   const hueY = CAT_WHEEL_CENTER + CAT_WHEEL_RADIUS*Math.sin(rad);
-  const svX = s * CAT_WHEEL_HOLE, svY = (1-v) * CAT_WHEEL_HOLE;
+  const svX = s * CAT_WHEEL_SQUARE, svY = (1-v) * CAT_WHEEL_SQUARE;
   const backHtml = backOnclick ? `<button class="catwheelback" onclick="${backOnclick}">${backLabel}</button>` : '';
   return `
     ${backHtml}
     <div class="catwheelring" id="catWheelRing" onpointerdown="catWheelPointerDown(event,'hue')">
       <div class="catwheelknob" id="catWheelHueKnob" style="left:${hueX}px; top:${hueY}px;"></div>
-      <div class="catwheelsquarewrap">
+      <div class="catwheelsquarewrap" onpointerdown="event.stopPropagation()">
         <div class="catwheelsquare" id="catWheelSquare" style="background-color:hsl(${h},100%,50%);" onpointerdown="catWheelPointerDown(event,'sv')">
           <div class="catwheelsvknob" id="catWheelSvKnob" style="left:${svX}px; top:${svY}px;"></div>
         </div>
@@ -480,8 +494,8 @@ function updateCatWheelUI(){
   if(square) square.style.backgroundColor = `hsl(${h},100%,50%)`;
   const svKnob = document.getElementById('catWheelSvKnob');
   if(svKnob){
-    svKnob.style.left = (s*CAT_WHEEL_HOLE) + 'px';
-    svKnob.style.top = ((1-v)*CAT_WHEEL_HOLE) + 'px';
+    svKnob.style.left = (s*CAT_WHEEL_SQUARE) + 'px';
+    svKnob.style.top = ((1-v)*CAT_WHEEL_SQUARE) + 'px';
   }
   const preview = document.getElementById('catCustomPreview');
   if(preview) preview.style.background = hex;
@@ -682,12 +696,32 @@ function dualColorCustomHtml(kind){
   const tabsHtml = `<div class="dualcolortabs">${fields.map(([f,label])=>
     `<button class="dualcolortab ${dualColorField===f?'active':''}" onclick="setDualColorField('${f}')">${label}</button>`
   ).join('')}</div>`;
+  // Only UI Colors' Secondary tab gets this — "make it match" only makes
+  // sense for a matched accent pair. Desk & Ledger's Background/Ledger
+  // are a background-vs-surface pair, not accents, so "copy" wouldn't be
+  // a thing anyone reaches for there.
+  const copyPrimaryHtml = (!isDesk && dualColorField==='secondary')
+    ? `<button class="dualcolorcopy" onclick="copyPrimaryToSecondary()">= Copy Primary</button>` : '';
   return `
     <div class="catpicker">
       <button class="catpickerclose" onclick="${isDesk?'toggleDeskPaperPicker':'toggleUiColorPicker'}()" title="Close">×</button>
       ${tabsHtml}
+      ${copyPrimaryHtml}
       ${colorWheelInnerHtml('closeDualColorCustom()', '‹ Presets', 'confirmDualColorCustom()')}
     </div>`;
+}
+
+// Copies Primary's current draft straight into Secondary's — for anyone
+// who wants both to match rather than picking two separate hues. Only
+// ever called while dualColorField is already 'secondary' (see the
+// button above), so writing into .secondary and repointing
+// customColorDraft at it is safe without checking kind again. Cloned
+// (not the same object reference) so a later drag on either tab can't
+// silently move the other one along with it.
+function copyPrimaryToSecondary(){
+  dualColorDraft.secondary = { ...dualColorDraft.primary };
+  customColorDraft = dualColorDraft.secondary;
+  updateCatWheelUI();
 }
 
 // Seeds dualColorDraft from whatever's live right now — the actual bg/
@@ -710,6 +744,20 @@ function openDualColorCustom(){
   customColorDraft = dualColorDraft[dualColorField];
   dualColorCustomOpen = true;
   render();
+}
+
+// Shortcut for when Custom is already the active selection and you want
+// to tweak it again — skips the preset grid entirely and jumps straight
+// into the two-tab wheel, rather than making you reopen the grid just to
+// click the one tile you're already on. Only offered (see its
+// uicolorquicklink button in renderSettings()) when Custom is actually
+// selected — with a named preset active there's no "back to my custom
+// colors" to shortcut yet.
+function openDualColorCustomDirect(kind){
+  closeAllSettingsPopovers();
+  if(kind === 'desk') deskPaperPickerOpen = true;
+  else uiColorPickerOpen = true;
+  openDualColorCustom();
 }
 
 // Drops back to the preset grid without closing the popover itself, same

@@ -131,17 +131,22 @@ function defaultTheme(){
 //   (fixed --estate red) — those are a hardcoded "danger" signal, not a
 //   themeable accent, and recoloring them to whatever someone picks as
 //   Secondary could stop reading as urgent at all.
-// 'classic' reproduces the app's original literal brass/brass for both
-// colors (byte-for-byte the old --brass/--brass-light hexes) — no longer
-// the default (see defaultTheme() above, now 'rust'/Brass & Rust) but
-// kept as its own preset for anyone who wants the original look back.
-// Every other preset is built from colors already used elsewhere in the
-// app (the pre-dynamic category accents / the old pendingTagColor dev
-// experiment's own choices, since removed) rather than introducing new
-// one-off hues.
+// 'rust' (Brass & Rust) is the default (see defaultTheme() above) and
+// leads the array for that reason — the grid renders presets in this
+// order, so the default reads as the obvious first choice rather than
+// something you'd have to notice is pre-selected further down the list.
+// 'classic' (id kept as-is; only its label changed) reproduces the app's
+// original literal brass/brass for both colors (byte-for-byte the old
+// --brass/--brass-light hexes) — labeled "Full Brass" now (a single solid
+// warm tone throughout, vs. "Brass & Rust"'s two-tone split) rather than
+// "Classic", since it stopped being the actual default and that label
+// was reading as a claim it no longer made. Every other preset is built
+// from colors already used elsewhere in the app (the pre-dynamic
+// category accents / the old pendingTagColor dev experiment's own
+// choices, since removed) rather than introducing new one-off hues.
 const UI_COLOR_PRESETS = [
-  { id:'classic',  label:'Classic',          primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'rust',     label:'Brass & Rust',     primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#9C4530', secondaryLight:'#C3563C' },
+  { id:'classic',  label:'Full Brass',       primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'forest',   label:'Forest & Brass',   primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'slate',    label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
   { id:'charcoal', label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' }

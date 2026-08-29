@@ -1517,20 +1517,29 @@
     position:absolute; width:14px; height:14px; margin:-7px; border-radius:50%;
     background:white; border:2px solid var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.4); pointer-events:none;
   }
-  /* clip-path, not border-radius+overflow:hidden — this box is a square
+  /* clip-path, not border-radius+overflow:hidden — this box is a circle
      (108x108) sitting on top of .catwheelring's own conic-gradient disc,
-     and border-radius only clips PAINTING, not hit-testing: the square's
-     invisible corners would keep intercepting pointerdown for whatever's
-     visually the ring's diagonal band underneath, making that part of
-     the ring un-draggable. clip-path restricts hit-testing to the actual
-     circle too, so a click on a visually-ring pixel always reaches the
-     ring. It also avoids the double-antialiased-circle seam
+     and border-radius only clips PAINTING, not hit-testing: an un-clipped
+     square's invisible corners would keep intercepting pointerdown for
+     whatever's visually the ring's diagonal band underneath, making that
+     part of the ring un-draggable. clip-path restricts hit-testing to the
+     actual circle too, so a click on a visually-ring pixel always reaches
+     the ring. It also avoids the double-antialiased-circle seam
      border-radius+overflow left between this shape's edge and the
      ring's own — clip-path's rasterized edge blends into whatever's
-     beneath instead of needing an opaque background to hide a gap. */
+     beneath instead of needing an opaque background to hide a gap.
+     Its own opaque background (not just the inner square's) is what
+     actually punches the "hole" now — see CAT_WHEEL_SQ_PAD in
+     09-settings.js: the interactive SV square inside is deliberately
+     smaller than this circle (padding on every side) so its own corners
+     can't fall outside the circle and get clipped away along with
+     whatever knob was dragged into one — that used to make the knob
+     silently vanish "under" the ring at high-saturation corners. The
+     onpointerdown here just stops that gap from bubbling into the ring's
+     own 'hue' handler (nothing else lives in it, it's plain padding). */
   .catwheelsquarewrap{
     position:absolute; top:16px; left:16px; width:108px; height:108px;
-    clip-path: circle(50%);
+    clip-path: circle(50%); background: var(--card-bg); padding: 16px;
   }
   .catwheelsquare{
     position:relative; width:100%; height:100%; touch-action:none;
@@ -1575,6 +1584,18 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
     letter-spacing:0.03em; color: var(--ink-soft);
   }
+  /* A shortcut straight into the "Custom" tile's own two-tab wheel,
+     skipping the preset grid — only rendered next to the trigger label
+     when Custom is already the active selection (see uiColorSection/
+     deskPaperSection in renderSettings()), for the case of coming back
+     to tweak a custom pair again and again without re-clicking through
+     the grid each time. */
+  .uicolorquicklink{
+    width:20px; height:20px; border-radius:50%; padding:0; flex-shrink:0;
+    background:none; border:1px dashed var(--line); color: var(--ink-soft);
+    font-size:0.62rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .uicolorquicklink:hover{ border-color: var(--primary); color: var(--primary); }
   .uicolorpicker{ width:210px; }
   .uipresetgrid{ display:flex; flex-direction:column; gap:6px; }
   .uipresetbtn{
@@ -1598,12 +1619,29 @@
      custom pair here always means setting two colors, not one. */
   .uipresetbtn.customtile{ border-style:dashed; }
   .uipresetbtn.customtile .uipresetswatches{ border:1px dashed var(--line); }
-  .dualcolortabs{ display:flex; gap:6px; margin-bottom:10px; }
+  /* margin-top clears .catpickerclose ("×", position:absolute top:4px
+     against .catpicker's own box) — .catpicker's own padding (12px) isn't
+     enough on its own since the "×" sits a little into that padding, and
+     these tabs (unlike .catpickerlabel elsewhere) span the row's full
+     width right out to that corner, so without this they'd render right
+     underneath it instead of clear of it. */
+  .dualcolortabs{ display:flex; gap:6px; margin:18px 0 10px; }
   .dualcolortab{
     flex:1; font-family:'IBM Plex Mono', monospace; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em;
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px 4px; cursor:pointer; color:var(--ink-soft);
   }
   .dualcolortab.active{ background: var(--primary); border-color: var(--primary); color:white; }
+  /* "= Copy Primary" (UI Colors' Secondary tab only, see
+     dualColorCustomHtml() in 09-settings.js) — a plain dashed-outline
+     text button, same visual weight as .catwheelback rather than a
+     filled action button, since it's a convenience shortcut sitting
+     right above the wheel it affects, not a primary action of its own. */
+  .dualcolorcopy{
+    display:block; width:100%; margin:0 0 10px; background:none; border:1px dashed var(--line); border-radius:5px;
+    padding:6px; font-family:'IBM Plex Mono', monospace; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em;
+    color: var(--ink-soft); cursor:pointer;
+  }
+  .dualcolorcopy:hover{ border-color: var(--primary); color: var(--primary); }
   /* Each Settings area (Manage Tabs, Locations, ...) as its own card —
      see settingsSectionHtml() in 09-settings.js. Replaces the old flat
      .settingslabel-per-area layout, where every section just ran

@@ -1549,20 +1549,29 @@
     position:absolute; width:14px; height:14px; margin:-7px; border-radius:50%;
     background:white; border:2px solid var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.4); pointer-events:none;
   }
-  /* clip-path, not border-radius+overflow:hidden — this box is a square
+  /* clip-path, not border-radius+overflow:hidden — this box is a circle
      (108x108) sitting on top of .catwheelring's own conic-gradient disc,
-     and border-radius only clips PAINTING, not hit-testing: the square's
-     invisible corners would keep intercepting pointerdown for whatever's
-     visually the ring's diagonal band underneath, making that part of
-     the ring un-draggable. clip-path restricts hit-testing to the actual
-     circle too, so a click on a visually-ring pixel always reaches the
-     ring. It also avoids the double-antialiased-circle seam
+     and border-radius only clips PAINTING, not hit-testing: an un-clipped
+     square's invisible corners would keep intercepting pointerdown for
+     whatever's visually the ring's diagonal band underneath, making that
+     part of the ring un-draggable. clip-path restricts hit-testing to the
+     actual circle too, so a click on a visually-ring pixel always reaches
+     the ring. It also avoids the double-antialiased-circle seam
      border-radius+overflow left between this shape's edge and the
      ring's own — clip-path's rasterized edge blends into whatever's
-     beneath instead of needing an opaque background to hide a gap. */
+     beneath instead of needing an opaque background to hide a gap.
+     Its own opaque background (not just the inner square's) is what
+     actually punches the "hole" now — see CAT_WHEEL_SQ_PAD in
+     09-settings.js: the interactive SV square inside is deliberately
+     smaller than this circle (padding on every side) so its own corners
+     can't fall outside the circle and get clipped away along with
+     whatever knob was dragged into one — that used to make the knob
+     silently vanish "under" the ring at high-saturation corners. The
+     onpointerdown here just stops that gap from bubbling into the ring's
+     own 'hue' handler (nothing else lives in it, it's plain padding). */
   .catwheelsquarewrap{
     position:absolute; top:16px; left:16px; width:108px; height:108px;
-    clip-path: circle(50%);
+    clip-path: circle(50%); background: var(--card-bg); padding: 16px;
   }
   .catwheelsquare{
     position:relative; width:100%; height:100%; touch-action:none;
@@ -1607,6 +1616,18 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
     letter-spacing:0.03em; color: var(--ink-soft);
   }
+  /* A shortcut straight into the "Custom" tile's own two-tab wheel,
+     skipping the preset grid — only rendered next to the trigger label
+     when Custom is already the active selection (see uiColorSection/
+     deskPaperSection in renderSettings()), for the case of coming back
+     to tweak a custom pair again and again without re-clicking through
+     the grid each time. */
+  .uicolorquicklink{
+    width:20px; height:20px; border-radius:50%; padding:0; flex-shrink:0;
+    background:none; border:1px dashed var(--line); color: var(--ink-soft);
+    font-size:0.62rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .uicolorquicklink:hover{ border-color: var(--primary); color: var(--primary); }
   .uicolorpicker{ width:210px; }
   .uipresetgrid{ display:flex; flex-direction:column; gap:6px; }
   .uipresetbtn{
@@ -1630,12 +1651,29 @@
      custom pair here always means setting two colors, not one. */
   .uipresetbtn.customtile{ border-style:dashed; }
   .uipresetbtn.customtile .uipresetswatches{ border:1px dashed var(--line); }
-  .dualcolortabs{ display:flex; gap:6px; margin-bottom:10px; }
+  /* margin-top clears .catpickerclose ("×", position:absolute top:4px
+     against .catpicker's own box) — .catpicker's own padding (12px) isn't
+     enough on its own since the "×" sits a little into that padding, and
+     these tabs (unlike .catpickerlabel elsewhere) span the row's full
+     width right out to that corner, so without this they'd render right
+     underneath it instead of clear of it. */
+  .dualcolortabs{ display:flex; gap:6px; margin:18px 0 10px; }
   .dualcolortab{
     flex:1; font-family:'IBM Plex Mono', monospace; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em;
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px 4px; cursor:pointer; color:var(--ink-soft);
   }
   .dualcolortab.active{ background: var(--primary); border-color: var(--primary); color:white; }
+  /* "= Copy Primary" (UI Colors' Secondary tab only, see
+     dualColorCustomHtml() in 09-settings.js) — a plain dashed-outline
+     text button, same visual weight as .catwheelback rather than a
+     filled action button, since it's a convenience shortcut sitting
+     right above the wheel it affects, not a primary action of its own. */
+  .dualcolorcopy{
+    display:block; width:100%; margin:0 0 10px; background:none; border:1px dashed var(--line); border-radius:5px;
+    padding:6px; font-family:'IBM Plex Mono', monospace; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em;
+    color: var(--ink-soft); cursor:pointer;
+  }
+  .dualcolorcopy:hover{ border-color: var(--primary); color: var(--primary); }
   /* Each Settings area (Manage Tabs, Locations, ...) as its own card —
      see settingsSectionHtml() in 09-settings.js. Replaces the old flat
      .settingslabel-per-area layout, where every section just ran
@@ -3019,17 +3057,22 @@ function defaultTheme(){
 //   (fixed --estate red) — those are a hardcoded "danger" signal, not a
 //   themeable accent, and recoloring them to whatever someone picks as
 //   Secondary could stop reading as urgent at all.
-// 'classic' reproduces the app's original literal brass/brass for both
-// colors (byte-for-byte the old --brass/--brass-light hexes) — no longer
-// the default (see defaultTheme() above, now 'rust'/Brass & Rust) but
-// kept as its own preset for anyone who wants the original look back.
-// Every other preset is built from colors already used elsewhere in the
-// app (the pre-dynamic category accents / the old pendingTagColor dev
-// experiment's own choices, since removed) rather than introducing new
-// one-off hues.
+// 'rust' (Brass & Rust) is the default (see defaultTheme() above) and
+// leads the array for that reason — the grid renders presets in this
+// order, so the default reads as the obvious first choice rather than
+// something you'd have to notice is pre-selected further down the list.
+// 'classic' (id kept as-is; only its label changed) reproduces the app's
+// original literal brass/brass for both colors (byte-for-byte the old
+// --brass/--brass-light hexes) — labeled "Full Brass" now (a single solid
+// warm tone throughout, vs. "Brass & Rust"'s two-tone split) rather than
+// "Classic", since it stopped being the actual default and that label
+// was reading as a claim it no longer made. Every other preset is built
+// from colors already used elsewhere in the app (the pre-dynamic
+// category accents / the old pendingTagColor dev experiment's own
+// choices, since removed) rather than introducing new one-off hues.
 const UI_COLOR_PRESETS = [
-  { id:'classic',  label:'Classic',          primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'rust',     label:'Brass & Rust',     primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#9C4530', secondaryLight:'#C3563C' },
+  { id:'classic',  label:'Full Brass',       primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'forest',   label:'Forest & Brass',   primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'slate',    label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
   { id:'charcoal', label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' }
@@ -6697,6 +6740,7 @@ function renderSettings(){
         ${uiColorPickerOpen ? uiColorPickerHtml() : ''}
       </span>
       <span class="uicolorlabel">UI Colors — ${escapeHtml(activeUiPreset.label)}</span>
+      ${state.theme.uiPreset==='custom' ? `<button class="uicolorquicklink" onclick="openDualColorCustomDirect('ui')" title="Edit your custom colors">✎</button>` : ''}
     </div>
   `;
 
@@ -6710,6 +6754,7 @@ function renderSettings(){
         ${deskPaperPickerOpen ? deskPaperPickerHtml() : ''}
       </span>
       <span class="uicolorlabel">Desk & Ledger — ${escapeHtml(activeDeskPaperPresetLabel())}</span>
+      ${activeDeskPaperPresetLabel()==='Custom' ? `<button class="uicolorquicklink" onclick="openDualColorCustomDirect('desk')" title="Edit your custom colors">✎</button>` : ''}
     </div>
   `;
 
@@ -6970,6 +7015,18 @@ function closeAllSettingsPopovers(){
 // pushUndo/render/queueSave path like any other mutation.
 const CAT_WHEEL_SIZE = 140, CAT_WHEEL_BAND = 16, CAT_WHEEL_HOLE = CAT_WHEEL_SIZE - CAT_WHEEL_BAND*2;
 const CAT_WHEEL_CENTER = CAT_WHEEL_SIZE/2, CAT_WHEEL_RADIUS = CAT_WHEEL_CENTER - CAT_WHEEL_BAND/2;
+// CAT_WHEEL_HOLE (108) is the circular hole's own diameter — a square
+// sized to fill it edge-to-edge has corners that poke *outside* that
+// circle (a square's diagonal is longer than its side), so the SV
+// square used to get its corners silently clip-path'd away, along with
+// any knob dragged out into one (it just vanished under the ring at
+// high-saturation/extreme-value corners). CAT_WHEEL_SQ_PAD is the gap
+// .catwheelsquarewrap now keeps on every side (see its CSS) so the
+// actual square — CAT_WHEEL_SQUARE — is small enough that its corners
+// stay inside the circle instead: side = hole/√2 ≈ 76.4px fits exactly,
+// 16px of padding each side lands just inside that (76px), a small
+// safety margin rather than cutting it exactly to the theoretical edge.
+const CAT_WHEEL_SQ_PAD = 16, CAT_WHEEL_SQUARE = CAT_WHEEL_HOLE - CAT_WHEEL_SQ_PAD*2;
 
 // `backOnclick`/`backLabel` are optional (pass null/'' to omit the back
 // link entirely) — the category picker uses it to drop back to the
@@ -6981,13 +7038,13 @@ function colorWheelInnerHtml(backOnclick, backLabel, doneOnclick){
   const rad = (h - 90) * Math.PI/180;
   const hueX = CAT_WHEEL_CENTER + CAT_WHEEL_RADIUS*Math.cos(rad);
   const hueY = CAT_WHEEL_CENTER + CAT_WHEEL_RADIUS*Math.sin(rad);
-  const svX = s * CAT_WHEEL_HOLE, svY = (1-v) * CAT_WHEEL_HOLE;
+  const svX = s * CAT_WHEEL_SQUARE, svY = (1-v) * CAT_WHEEL_SQUARE;
   const backHtml = backOnclick ? `<button class="catwheelback" onclick="${backOnclick}">${backLabel}</button>` : '';
   return `
     ${backHtml}
     <div class="catwheelring" id="catWheelRing" onpointerdown="catWheelPointerDown(event,'hue')">
       <div class="catwheelknob" id="catWheelHueKnob" style="left:${hueX}px; top:${hueY}px;"></div>
-      <div class="catwheelsquarewrap">
+      <div class="catwheelsquarewrap" onpointerdown="event.stopPropagation()">
         <div class="catwheelsquare" id="catWheelSquare" style="background-color:hsl(${h},100%,50%);" onpointerdown="catWheelPointerDown(event,'sv')">
           <div class="catwheelsvknob" id="catWheelSvKnob" style="left:${svX}px; top:${svY}px;"></div>
         </div>
@@ -7088,8 +7145,8 @@ function updateCatWheelUI(){
   if(square) square.style.backgroundColor = `hsl(${h},100%,50%)`;
   const svKnob = document.getElementById('catWheelSvKnob');
   if(svKnob){
-    svKnob.style.left = (s*CAT_WHEEL_HOLE) + 'px';
-    svKnob.style.top = ((1-v)*CAT_WHEEL_HOLE) + 'px';
+    svKnob.style.left = (s*CAT_WHEEL_SQUARE) + 'px';
+    svKnob.style.top = ((1-v)*CAT_WHEEL_SQUARE) + 'px';
   }
   const preview = document.getElementById('catCustomPreview');
   if(preview) preview.style.background = hex;
@@ -7290,12 +7347,32 @@ function dualColorCustomHtml(kind){
   const tabsHtml = `<div class="dualcolortabs">${fields.map(([f,label])=>
     `<button class="dualcolortab ${dualColorField===f?'active':''}" onclick="setDualColorField('${f}')">${label}</button>`
   ).join('')}</div>`;
+  // Only UI Colors' Secondary tab gets this — "make it match" only makes
+  // sense for a matched accent pair. Desk & Ledger's Background/Ledger
+  // are a background-vs-surface pair, not accents, so "copy" wouldn't be
+  // a thing anyone reaches for there.
+  const copyPrimaryHtml = (!isDesk && dualColorField==='secondary')
+    ? `<button class="dualcolorcopy" onclick="copyPrimaryToSecondary()">= Copy Primary</button>` : '';
   return `
     <div class="catpicker">
       <button class="catpickerclose" onclick="${isDesk?'toggleDeskPaperPicker':'toggleUiColorPicker'}()" title="Close">×</button>
       ${tabsHtml}
+      ${copyPrimaryHtml}
       ${colorWheelInnerHtml('closeDualColorCustom()', '‹ Presets', 'confirmDualColorCustom()')}
     </div>`;
+}
+
+// Copies Primary's current draft straight into Secondary's — for anyone
+// who wants both to match rather than picking two separate hues. Only
+// ever called while dualColorField is already 'secondary' (see the
+// button above), so writing into .secondary and repointing
+// customColorDraft at it is safe without checking kind again. Cloned
+// (not the same object reference) so a later drag on either tab can't
+// silently move the other one along with it.
+function copyPrimaryToSecondary(){
+  dualColorDraft.secondary = { ...dualColorDraft.primary };
+  customColorDraft = dualColorDraft.secondary;
+  updateCatWheelUI();
 }
 
 // Seeds dualColorDraft from whatever's live right now — the actual bg/
@@ -7318,6 +7395,20 @@ function openDualColorCustom(){
   customColorDraft = dualColorDraft[dualColorField];
   dualColorCustomOpen = true;
   render();
+}
+
+// Shortcut for when Custom is already the active selection and you want
+// to tweak it again — skips the preset grid entirely and jumps straight
+// into the two-tab wheel, rather than making you reopen the grid just to
+// click the one tile you're already on. Only offered (see its
+// uicolorquicklink button in renderSettings()) when Custom is actually
+// selected — with a named preset active there's no "back to my custom
+// colors" to shortcut yet.
+function openDualColorCustomDirect(kind){
+  closeAllSettingsPopovers();
+  if(kind === 'desk') deskPaperPickerOpen = true;
+  else uiColorPickerOpen = true;
+  openDualColorCustom();
 }
 
 // Drops back to the preset grid without closing the popover itself, same
@@ -9514,15 +9605,22 @@ async function openCalendarDay(dateStr){
 // which returns to the calendar instead of the plain day list when the
 // day was reached that way — see dayReturnToCalendar in
 // 02-storage-state.js) beats the calendar view itself, and only falls
-// back to jumping to the All tab if none of those was open. Enter does the same one
-// thing Esc does for a popover specifically (closes it) — checked before
-// the inField guard below, since the wheel's own hex field is itself a
-// text input and needs Enter to reach here too; its own onkeydown
-// already commits the color first (no stopPropagation), so by the time
-// this runs the popover is just along for the ride, closing on top of
-// that. Cmd/Ctrl+Z / Shift+Z (or Ctrl+Y) drive undo/redo, but only when
-// focus isn't in a text field — typing needs its own native undo, not
-// this app's content-level one.
+// back to jumping to the All tab if none of those was open. Whenever a
+// color wheel specifically is the thing that's open (customColorOpen for
+// a category's own wheel, dualColorCustomOpen for UI Colors/Desk &
+// Ledger's "Custom" tile), Enter and Escape stop being the same action:
+// Enter commits — literally calls the same confirm*() function the
+// wheel's own "Done" button does — and Escape cancels back to the
+// preset/swatch row, same as its own "‹" back link, rather than either
+// one just closing the whole popover outright. Checked before the
+// inField guard below, since the wheel's own hex field is itself a text
+// input and needs both keys to reach here too; its own onkeydown already
+// calls the same confirm function for Enter (no stopPropagation), so by
+// the time this runs for that path the color's already committed and
+// confirm*()'s own no-op-if-nothing-changed guard keeps a second call
+// from doing anything. Cmd/Ctrl+Z / Shift+Z (or Ctrl+Y) drive undo/redo,
+// but only when focus isn't in a text field — typing needs its own
+// native undo, not this app's content-level one.
 document.addEventListener('keydown', (e) => {
   const appShell = document.getElementById('appShell');
   if(!appShell || appShell.style.display === 'none') return;
@@ -9530,6 +9628,16 @@ document.addEventListener('keydown', (e) => {
   const popoverOpen = openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId;
 
   if(e.key === 'Escape' || e.key === 'Enter'){
+    if(customColorOpen && openCategoryPickerId){
+      if(e.key === 'Enter') confirmCustomColor(openCategoryPickerId);
+      else closeCustomColor();
+      return;
+    }
+    if(dualColorCustomOpen){
+      if(e.key === 'Enter') confirmDualColorCustom();
+      else closeDualColorCustom();
+      return;
+    }
     if(popoverOpen){ closeAllSettingsPopovers(); render(); return; }
     if(e.key !== 'Escape') return; // Enter has nothing else to do app-wide
     // Mobile UI Lab overlays (see 01-categories-theme.js/16-task-crud.js) —

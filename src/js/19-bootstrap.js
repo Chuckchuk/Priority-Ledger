@@ -6,15 +6,22 @@
 // which returns to the calendar instead of the plain day list when the
 // day was reached that way — see dayReturnToCalendar in
 // 02-storage-state.js) beats the calendar view itself, and only falls
-// back to jumping to the All tab if none of those was open. Enter does the same one
-// thing Esc does for a popover specifically (closes it) — checked before
-// the inField guard below, since the wheel's own hex field is itself a
-// text input and needs Enter to reach here too; its own onkeydown
-// already commits the color first (no stopPropagation), so by the time
-// this runs the popover is just along for the ride, closing on top of
-// that. Cmd/Ctrl+Z / Shift+Z (or Ctrl+Y) drive undo/redo, but only when
-// focus isn't in a text field — typing needs its own native undo, not
-// this app's content-level one.
+// back to jumping to the All tab if none of those was open. Whenever a
+// color wheel specifically is the thing that's open (customColorOpen for
+// a category's own wheel, dualColorCustomOpen for UI Colors/Desk &
+// Ledger's "Custom" tile), Enter and Escape stop being the same action:
+// Enter commits — literally calls the same confirm*() function the
+// wheel's own "Done" button does — and Escape cancels back to the
+// preset/swatch row, same as its own "‹" back link, rather than either
+// one just closing the whole popover outright. Checked before the
+// inField guard below, since the wheel's own hex field is itself a text
+// input and needs both keys to reach here too; its own onkeydown already
+// calls the same confirm function for Enter (no stopPropagation), so by
+// the time this runs for that path the color's already committed and
+// confirm*()'s own no-op-if-nothing-changed guard keeps a second call
+// from doing anything. Cmd/Ctrl+Z / Shift+Z (or Ctrl+Y) drive undo/redo,
+// but only when focus isn't in a text field — typing needs its own
+// native undo, not this app's content-level one.
 document.addEventListener('keydown', (e) => {
   const appShell = document.getElementById('appShell');
   if(!appShell || appShell.style.display === 'none') return;
@@ -22,6 +29,16 @@ document.addEventListener('keydown', (e) => {
   const popoverOpen = openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId;
 
   if(e.key === 'Escape' || e.key === 'Enter'){
+    if(customColorOpen && openCategoryPickerId){
+      if(e.key === 'Enter') confirmCustomColor(openCategoryPickerId);
+      else closeCustomColor();
+      return;
+    }
+    if(dualColorCustomOpen){
+      if(e.key === 'Enter') confirmDualColorCustom();
+      else closeDualColorCustom();
+      return;
+    }
     if(popoverOpen){ closeAllSettingsPopovers(); render(); return; }
     if(e.key !== 'Escape') return; // Enter has nothing else to do app-wide
     // Mobile UI Lab overlays (see 01-categories-theme.js/16-task-crud.js) —
