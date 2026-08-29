@@ -2450,18 +2450,37 @@
      override at all: the base rule's own 10px split already is its band.
      pagetab is the one exception to the gradient approach entirely — see
      its own comment below. */
-  /* invertedv used to be a single notch cutting IN from the edge (positive
-     x, the one shape that didn't need SIDETAB_SHAPE_EXTRA padding) — at
-     any real depth that meant carving into the label's own text, which is
-     what "removing a chunk of the tab" turned into in practice. Redrawn
-     as two OUTWARD points instead (an "M" profile: point, a short flat
-     run back at the base, point again) — "create new points, not remove
-     a chunk" — with a flat run between/around them rather than one
-     continuous notch, so there's a real straight edge for the gradient
-     band's split to read against, same as every other shape here. */
+  /* invertedv: a single V notch cut into the edge — "a bookmark with an
+     inverted V chunk out of it," per the project owner's own description
+     — with a gilded border tracing the cut, like a ribbon's own edge
+     trim. Two layers, not the shared gradient every other shape uses,
+     since a flat left-to-right split can't trace a diagonal edge:
+     - .tab itself (the "gold" layer) is clipped to a SHALLOW notch (6px)
+       and filled with --tabband. This is deliberately the shallower of
+       the two — since clip-path on a parent bounds what its own ::before
+       can ever show (a child can never poke out past its parent's own
+       clip), whichever layer is shallower here is the one that actually
+       decides how deep the notch reads on screen. 6px stays well clear of
+       the label text at any appearance's padding-left (10px at its
+       tightest, 'color' mode) — the original version of this shape used
+       one deep notch for both role and read, which is exactly what ate
+       into the text ("removing text from the label").
+     - ::before (the "fill" layer) sits on top, covers the full tab, and
+       is clipped to a DEEPER notch (9px) filled with --sidetab-fill. Since
+       9 > 6, its own missing wedge is bigger than what .tab's shallower
+       clip would show as gold — so ::before's fill covers all of .tab's
+       gold EXCEPT a ~3px sliver between the 6px and 9px cuts, where
+       .tab's own background is all that's left to show through. That
+       sliver is the gilded border — a real gap between two clipped
+       layers, not a stroke, but it reads as one. */
   .sidetabspeek .tab[data-shape="invertedv"]{
-    clip-path: polygon(16px 0, 100% 0, 100% 100%, 16px 100%, 16px 85%, 0px 70%, 16px 55%, 16px 45%, 0px 30%, 16px 15%);
-    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 16px, var(--sidetab-fill, var(--tabhex, var(--primary))) 16px 100%);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 6px 50%);
+    background: var(--tabband, var(--tabhex, var(--primary)));
+  }
+  .sidetabspeek .tab[data-shape="invertedv"]::before{
+    content:''; position:absolute; inset:0;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 9px 50%);
+    background: var(--sidetab-fill, var(--tabhex, var(--primary))); pointer-events:none;
   }
   .sidetabspeek .tab[data-shape="arrows"]{
     clip-path: polygon(20px 0, 100% 0, 100% 100%, 20px 100%, 0px 50%);
