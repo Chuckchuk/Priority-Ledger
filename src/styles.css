@@ -2405,7 +2405,8 @@
   /* Blocks pagetab's own ::before diamond (see the sidetabsShape rules
      below) from showing up here too — "no color band" applies regardless
      of which shape happens to be selected in the dropdown. */
-  body[data-sidetabs-appearance="translucentpill"] .sidetabspeek .tab::before{ content:none; }
+  body[data-sidetabs-appearance="translucentpill"] .sidetabspeek .tab::before,
+  body[data-sidetabs-appearance="translucentpill"] .sidetabspeek .tab::after{ content:none; }
   /* 'edge': drop the fill to the plain page color (so the tab reads as
      part of the page it's tucked behind) and drop the icon glyph (.dot —
      see categoryDotHtml() in 01-categories-theme.js) in favor of the
@@ -2440,9 +2441,7 @@
      stays flat), so every outward-pointing shape below is shifted right
      by its own SIDETAB_SHAPE_EXTRA (06-tabs-render.js), which also pads
      the tab that same amount so its on-screen position doesn't change —
-     see that constant's own comment for the full explanation. invertedv
-     needed no shift (its point already cuts inward, i.e. positive x) —
-     it was the one shape that ever actually rendered before that fix.
+     see that constant's own comment for the full explanation.
      The color band is each shape's own background gradient (see .tab's
      base rule above) with its split point moved to match that shape's own
      depth — "the color band follows the shape" by construction, since the
@@ -2451,8 +2450,17 @@
      override at all: the base rule's own 10px split already is its band.
      pagetab is the one exception to the gradient approach entirely — see
      its own comment below. */
+  /* invertedv used to be a single notch cutting IN from the edge (positive
+     x, the one shape that didn't need SIDETAB_SHAPE_EXTRA padding) — at
+     any real depth that meant carving into the label's own text, which is
+     what "removing a chunk of the tab" turned into in practice. Redrawn
+     as two OUTWARD points instead (an "M" profile: point, a short flat
+     run back at the base, point again) — "create new points, not remove
+     a chunk" — with a flat run between/around them rather than one
+     continuous notch, so there's a real straight edge for the gradient
+     band's split to read against, same as every other shape here. */
   .sidetabspeek .tab[data-shape="invertedv"]{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 16px 50%);
+    clip-path: polygon(16px 0, 100% 0, 100% 100%, 16px 100%, 16px 85%, 0px 70%, 16px 55%, 16px 45%, 0px 30%, 16px 15%);
     background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 16px, var(--sidetab-fill, var(--tabhex, var(--primary))) 16px 100%);
   }
   .sidetabspeek .tab[data-shape="arrows"]{
@@ -2484,6 +2492,16 @@
   .sidetabspeek .tab[data-shape="pagetab"]::before{
     content:''; position:absolute; left:-7px; top:50%; width:16px; height:16px;
     transform: translateY(-50%) rotate(45deg); border-radius:3px;
+    background: var(--tabband, var(--tabhex, var(--primary))); pointer-events:none;
+  }
+  /* "a neat straight shape with a diamond bump in the middle" — a plain
+     vertical line the same color as the diamond, running the tab's full
+     height, centered on the diamond itself (left:-7px + half its 16px
+     width = 1px, matching this strip's own center: left:0 + half its 2px
+     width). ::after rather than a second ::before, since ::before is
+     already the diamond. */
+  .sidetabspeek .tab[data-shape="pagetab"]::after{
+    content:''; position:absolute; left:0px; top:0; bottom:0; width:2px;
     background: var(--tabband, var(--tabhex, var(--primary))); pointer-events:none;
   }
 

@@ -255,16 +255,20 @@ const SIDETAB_HEIGHT_2LINE = 60; // vs. the base 44px — see .sidetabspeek .tab
 // element's own 0..width box (this Browser environment's own limitation,
 // confirmed by testing a plain isolated div — a mainstream desktop browser
 // renders these fine, but this one silently drops the point and leaves the
-// edge flat) don't paint. Every shape here used to place its point at a
-// NEGATIVE x offset (protruding left past the tab's own edge) and simply
-// never rendered — invertedv was the one exception, since its point cuts
-// inward (positive x, already inside the box) rather than protruding.
-// Padding the box by the same amount the point protrudes and shifting the
-// whole polygon over by that amount keeps every vertex non-negative while
-// the tab's own on-screen position (and thus how far it visually pokes
-// out) stays exactly the same — see the .sidetabspeek .tab[data-shape="…"]
-// rules in <style> for the actual shifted polygons.
-const SIDETAB_SHAPE_EXTRA = { pagetab:14, arrows:20, invertedv:0, sawtooth:7, jagged:13, flat:0 };
+// edge flat) don't paint. Every shape here places its point(s) at a
+// NEGATIVE x offset (protruding left past the tab's own edge), which never
+// rendered until padded/shifted in-bounds like this. invertedv used to be
+// the one exception (a single notch cutting inward, positive x, already
+// inside the box) — redrawn as two outward points instead (see that
+// shape's own rule in <style>: "create new points, not remove a chunk of
+// the tab" was the actual ask, since the notch was deep enough to eat into
+// the label text at 0 extra padding), so it needs the same treatment now.
+// Padding the box by the same amount the point(s) protrude and shifting
+// the whole polygon over by that amount keeps every vertex non-negative
+// while the tab's own on-screen position (and thus how far it visually
+// pokes out) stays exactly the same — see the .sidetabspeek
+// .tab[data-shape="…"] rules in <style> for the actual shifted polygons.
+const SIDETAB_SHAPE_EXTRA = { pagetab:14, arrows:20, invertedv:16, sawtooth:7, jagged:13, flat:0 };
 function layoutSidetabsPeek(){
   const peek = document.getElementById('sidetabsPeek');
   if(!peek) return;
