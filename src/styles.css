@@ -2929,3 +2929,25 @@
   .ctxmenu-sep{ height:1px; background:var(--line); margin:4px 2px; }
   .ctxmenu-danger{ color: var(--estate); }
   .ctxmenu-danger:hover{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
+
+  /* Pull-to-refresh indicator (see 19-bootstrap.js) — resting position is
+     translateY(-64px), fully tucked above the visible top edge; JS
+     reveals it 1:1 with how far the gesture has pulled by animating
+     toward translateY(0px), so PULL_REFRESH_VISUAL_MAX_PX there must
+     stay 64 to match. `.dragging` kills the transition so it tracks the
+     finger with zero lag; removed on release so the snap-back (or the
+     final settle into `.refreshing`) eases normally instead of jumping. */
+  .pullrefresh{
+    position:fixed; top: calc(8px + env(safe-area-inset-top)); left:50%;
+    width:36px; height:36px; margin-left:-18px; z-index:300;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:50%; background:var(--card-bg); color:var(--primary);
+    box-shadow:0 2px 10px rgba(0,0,0,0.3);
+    transform: translateY(-64px); opacity:0; pointer-events:none;
+    transition: transform 200ms ease, opacity 200ms ease;
+  }
+  .pullrefresh.dragging{ transition:none; }
+  .pullrefresharrow{ font-size:16px; line-height:1; transition: transform 150ms ease; }
+  .pullrefresh.armed .pullrefresharrow{ transform:rotate(180deg); }
+  .pullrefresh.refreshing .pullrefresharrow{ animation: pullrefresh-spin 0.6s linear infinite; }
+  @keyframes pullrefresh-spin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
