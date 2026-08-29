@@ -1722,9 +1722,27 @@
      look for both a section break and an individual field's label was
      exactly why this list read as one undifferentiated wall before. */
   .devsectionhead{
-    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; font-weight:700;
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; font-weight:600;
+    letter-spacing:0.05em; text-transform:uppercase; color: var(--ink-soft);
+    margin: 14px 0 8px;
+  }
+  /* One level up from .devsectionhead — General/Desktop/Mobile (see
+     devGroupHtml() in 01-categories-theme.js), each collapsible on its
+     own. Bolder and Primary-colored specifically so it outranks the
+     (now more muted) .devsectionhead subsections nested inside it —
+     before this existed, a subsection break and the three device
+     groupings would have read as the exact same weight. */
+  .devgroup{ margin: 18px 0 10px; padding-top:12px; border-top:1px solid var(--line); }
+  .devgrouphead{
+    width:100%; display:flex; align-items:center; justify-content:space-between;
+    background:none; border:none; cursor:pointer; padding:0; margin-bottom:4px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; font-weight:700;
     letter-spacing:0.06em; text-transform:uppercase; color: var(--primary);
-    margin: 18px 0 10px; padding-top:12px; border-top:1px solid var(--line);
+  }
+  .devgroupchevron{ font-size:0.6rem; color: var(--ink-soft); flex-shrink:0; margin-left:8px; }
+  .devgroupnote{
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.66rem; font-style:italic;
+    color: var(--ink-soft); margin: -4px 0 12px; line-height:1.4;
   }
   .devpanelrow{
     display:flex; align-items:flex-start; gap:6px; cursor:pointer;

@@ -1754,9 +1754,27 @@
      look for both a section break and an individual field's label was
      exactly why this list read as one undifferentiated wall before. */
   .devsectionhead{
-    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; font-weight:700;
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; font-weight:600;
+    letter-spacing:0.05em; text-transform:uppercase; color: var(--ink-soft);
+    margin: 14px 0 8px;
+  }
+  /* One level up from .devsectionhead — General/Desktop/Mobile (see
+     devGroupHtml() in 01-categories-theme.js), each collapsible on its
+     own. Bolder and Primary-colored specifically so it outranks the
+     (now more muted) .devsectionhead subsections nested inside it —
+     before this existed, a subsection break and the three device
+     groupings would have read as the exact same weight. */
+  .devgroup{ margin: 18px 0 10px; padding-top:12px; border-top:1px solid var(--line); }
+  .devgrouphead{
+    width:100%; display:flex; align-items:center; justify-content:space-between;
+    background:none; border:none; cursor:pointer; padding:0; margin-bottom:4px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; font-weight:700;
     letter-spacing:0.06em; text-transform:uppercase; color: var(--primary);
-    margin: 18px 0 10px; padding-top:12px; border-top:1px solid var(--line);
+  }
+  .devgroupchevron{ font-size:0.6rem; color: var(--ink-soft); flex-shrink:0; margin-left:8px; }
+  .devgroupnote{
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.66rem; font-style:italic;
+    color: var(--ink-soft); margin: -4px 0 12px; line-height:1.4;
   }
   .devpanelrow{
     display:flex; align-items:flex-start; gap:6px; cursor:pointer;
@@ -3215,6 +3233,50 @@ function devSectionHeadHtml(label){
   return `<div class="devsectionhead">${escapeHtml(label)}</div>`;
 }
 
+// The outer General/Desktop/Mobile grouping (see devSettingsFieldsHtml()
+// below) — collapsible via the same settingsCollapsedSections Set every
+// other Settings section already uses (toggleSettingsSection() doesn't
+// care whether a key belongs to a top-level section or one of these
+// nested groups, it's just a string key either way).
+function devGroupHtml(key, title, bodyHtml){
+  const collapsed = settingsCollapsedSections.has(key);
+  return `
+    <div class="devgroup">
+      <button class="devgrouphead" onclick="toggleSettingsSection('${key}')">
+        <span>${title}</span>
+        <span class="devgroupchevron">${collapsed ? '▸' : '▾'}</span>
+      </button>
+      ${collapsed ? '' : `<div class="devgroupbody">${bodyHtml}</div>`}
+    </div>`;
+}
+
+// Every dev setting sorted into exactly one of three groups (see
+// devGroupHtml() above) by where it actually takes effect, since before
+// this they were grouped purely by FEATURE AREA (Page Tags, Daily &
+// Calendar, ...) — which said nothing about whether a given field was a
+// universal choice, a phone/touch-only variant gated behind
+// mobileUiActive(), or a desktop-only one, and those were interleaved
+// within the same feature-area subsections. The feature-area subsections
+// (devSectionHeadHtml()) still exist *within* each group; only the outer
+// sort is new.
+//   GENERAL — takes effect regardless of device/viewport.
+//   DESKTOP — only visible/active when mobileUiActive() is false.
+//   MOBILE  — the "Mobile UI Lab": only visible/active when
+//     mobileUiActive() is true (phone-width or coarse-pointer, or
+//     mobileUiPreviewOnDesktop forcing it) — see mobileUiActive() above.
+// One field moved groups in the process, worth calling out:
+// stickyTabBar lived under "Mobile UI Lab" before, but its own CSS
+// (body.dev-stickytabs, not scoped inside .mobileui-active) was never
+// actually gated to mobile — it works, and reads just as useful, at any
+// width. It's in General now, not because it was moved for this pass,
+// but because that's where its real behavior always put it; the old
+// grouping had just been wrong about it.
+// tabBarMobileStyle (Mobile) and tabBarDesktopStyle (Desktop) are the
+// one pair genuinely worth keeping mentally linked despite being split
+// across groups — they're two independent, per-viewport answers to the
+// *same* underlying question ("what should the tab bar look like"), and
+// each links to the other via a small .devgroupnote below its own select
+// so that's discoverable without having to remember it.
 function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, includeSidePanelToggle){
   const dev = state.devSettings || defaultDevSettings();
   const sidePanelToggleHtml = includeSidePanelToggle === false ? '' : `
@@ -3222,8 +3284,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <input type="checkbox" ${dev.sidePanelEnabled?'checked':''} onchange="toggleDevSetting('sidePanelEnabled', this.checked)">
       Show the floating dev panel (left edge, desktop only)
     </label>`;
-  return `
-    ${sidePanelToggleHtml}
+
+  const generalBody = `
     ${devSectionHeadHtml('Page Tags')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
@@ -3278,10 +3340,6 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       "Add to day" tree: pill-shaped category bubbles (like the tab bar)
     </label>
     <label class="${rowClass}">
-      <input type="checkbox" ${dev.fullPageSwipeNav?'checked':''} onchange="toggleDevSetting('fullPageSwipeNav', this.checked)">
-      Swipe day/month nav: whole page (not just the arrows row) — competes with swipe-right-to-go-back on those two pages; day/month nav wins when this is on
-    </label>
-    <label class="${rowClass}">
       <input type="checkbox" ${dev.calendarTabTypeEnabled?'checked':''} onchange="toggleDevSetting('calendarTabTypeEnabled', this.checked)">
       Offer "Calendar" as an addable tab type (the normal way to reach it is the "Calendar" tag on Daily's own day list)
     </label>
@@ -3298,7 +3356,7 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       Calendar: ornate (double-line) border on today's cell
     </label>
 
-    ${devSectionHeadHtml('Page Frame & Cover Sizing')}
+    ${devSectionHeadHtml('Cover & Page Sizing')}
     <div class="${fieldClass}">
       <span class="${captionClass}">Leather cover size</span>
       <select class="${selectClass}" onchange="setDevLeatherInset(this.value)">
@@ -3327,55 +3385,27 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       </select>
     </div>
 
-    ${devSectionHeadHtml('Mobile UI Lab')}
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.mobileUiPreviewOnDesktop?'checked':''} onchange="toggleDevSetting('mobileUiPreviewOnDesktop', this.checked)">
-      Preview the Mobile UI Lab options below on desktop too (they're phone/touch-only by default)
-    </label>
+    ${devSectionHeadHtml('Task Fields')}
     <div class="${fieldClass}">
-      <span class="${captionClass}">Quick-add bar (mobile)</span>
-      <select class="${selectClass}" onchange="setDevQuickAddMobileStyle(this.value)">
-        <option value="default" ${dev.quickAddMobileStyle==='default'?'selected':''}>Default (always-visible inline row)</option>
-        <option value="topsheet" ${dev.quickAddMobileStyle==='topsheet'?'selected':''}>"+ Add Task" button opens a top sheet</option>
-        <option value="bottomsheet" ${dev.quickAddMobileStyle==='bottomsheet'?'selected':''}>"+ Add Task" button opens a bottom sheet</option>
-        <option value="inline" ${dev.quickAddMobileStyle==='inline'?'selected':''}>"+ Add Task" button expands it in place</option>
+      <span class="${captionClass}">Timeframe & Priority picker</span>
+      <select class="${selectClass}" onchange="setDevFieldPickerStyle(this.value)">
+        <option value="default" ${dev.fieldPickerStyle==='default'?'selected':''}>Default (dropdown)</option>
+        <option value="buttons" ${dev.fieldPickerStyle==='buttons'?'selected':''}>Row of buttons</option>
+        <option value="progress" ${dev.fieldPickerStyle==='progress'?'selected':''}>Stylized progress bar</option>
       </select>
     </div>
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Task row layout (mobile)</span>
-      <select class="${selectClass}" onchange="setDevTaskRowMobileStyle(this.value)">
-        <option value="default" ${dev.taskRowMobileStyle==='default'?'selected':''}>Default (badges squeeze the title)</option>
-        <option value="stacked" ${dev.taskRowMobileStyle==='stacked'?'selected':''}>Stacked — badges drop below the title</option>
-        <option value="minimal" ${dev.taskRowMobileStyle==='minimal'?'selected':''}>Minimal — hide drag handle & category dot</option>
-      </select>
-    </div>
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Task detail fields (mobile)</span>
-      <select class="${selectClass}" onchange="setDevTaskDetailMobileStyle(this.value)">
-        <option value="default" ${dev.taskDetailMobileStyle==='default'?'selected':''}>Default (one cramped wrapping row)</option>
-        <option value="stacked" ${dev.taskDetailMobileStyle==='stacked'?'selected':''}>Stacked — one full-width field per row</option>
-        <option value="grouped" ${dev.taskDetailMobileStyle==='grouped'?'selected':''}>Grouped — 2-column fields + an even action row</option>
-      </select>
-    </div>
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.floatingAddButton?'checked':''} onchange="toggleDevSetting('floatingAddButton', this.checked)">
-      Floating (+) button to add a task from any tab (mobile)
-    </label>
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Tab bar (mobile)</span>
-      <select class="${selectClass}" onchange="setDevTabBarMobileStyle(this.value)">
-        <option value="default" ${dev.tabBarMobileStyle==='default'?'selected':''}>Default (wraps to a 2nd row)</option>
-        <option value="scroll" ${dev.tabBarMobileStyle==='scroll'?'selected':''}>Scrolls sideways, one row</option>
-      </select>
-    </div>
+
+    ${devSectionHeadHtml('Tab Bar')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.stickyTabBar?'checked':''} onchange="toggleDevSetting('stickyTabBar', this.checked)">
       Sticky tab bar — pins the tabs (and the Daily tab within them) to the top of the screen while scrolling
     </label>
+  `;
 
-    ${devSectionHeadHtml('Tab Bar — Desktop')}
+  const desktopBody = `
+    ${devSectionHeadHtml('Tab Bar')}
     <div class="${fieldClass}">
-      <span class="${captionClass}">Tab bar (desktop)</span>
+      <span class="${captionClass}">Tab bar style</span>
       <select class="${selectClass}" onchange="setDevTabBarDesktopStyle(this.value)">
         <option value="overlap" ${dev.tabBarDesktopStyle==='overlap'?'selected':''}>Overlapping color tabs (default)</option>
         <option value="default" ${dev.tabBarDesktopStyle==='default'?'selected':''}>Classic (horizontal pill row)</option>
@@ -3383,6 +3413,7 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="indextabs" ${dev.tabBarDesktopStyle==='indextabs'?'selected':''}>Staggered, color-edged index tabs</option>
       </select>
     </div>
+    <div class="devgroupnote">See also Tab Bar under Mobile — this is the same underlying choice, answered separately per viewport.</div>
     ${dev.tabBarDesktopStyle==='overlap' ? `
     <label class="${rowClass}">
       <input type="checkbox" ${dev.overlapSubtags?'checked':''} onchange="toggleDevSetting('overlapSubtags', this.checked)">
@@ -3400,37 +3431,88 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       Overlap tabs: stagger by stacking rank (a covered tab sits a little higher at rest so its own label still peeks over the one covering it)
     </label>
     ` : ''}
+  `;
 
-    ${devSectionHeadHtml('Settings Panel')}
+  const mobileBody = `
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.mobileUiPreviewOnDesktop?'checked':''} onchange="toggleDevSetting('mobileUiPreviewOnDesktop', this.checked)">
+      Preview everything below on desktop too (it's phone/touch-only by default)
+    </label>
+
+    ${devSectionHeadHtml('Quick-Add Bar')}
     <div class="${fieldClass}">
-      <span class="${captionClass}">Settings category rows (mobile)</span>
-      <select class="${selectClass}" onchange="setDevSettingsRowMobileStyle(this.value)">
-        <option value="default" ${dev.settingsRowMobileStyle==='default'?'selected':''}>Default (everything one flat row)</option>
-        <option value="grouped" ${dev.settingsRowMobileStyle==='grouped'?'selected':''}>Grouped — Delete moves to its own quiet row</option>
+      <span class="${captionClass}">Quick-add bar</span>
+      <select class="${selectClass}" onchange="setDevQuickAddMobileStyle(this.value)">
+        <option value="default" ${dev.quickAddMobileStyle==='default'?'selected':''}>Default (always-visible inline row)</option>
+        <option value="topsheet" ${dev.quickAddMobileStyle==='topsheet'?'selected':''}>"+ Add Task" button opens a top sheet</option>
+        <option value="bottomsheet" ${dev.quickAddMobileStyle==='bottomsheet'?'selected':''}>"+ Add Task" button opens a bottom sheet</option>
+        <option value="inline" ${dev.quickAddMobileStyle==='inline'?'selected':''}>"+ Add Task" button expands it in place</option>
       </select>
     </div>
 
-    ${devSectionHeadHtml('Task Fields & Interaction')}
+    ${devSectionHeadHtml('Task Rows & Detail')}
     <div class="${fieldClass}">
-      <span class="${captionClass}">Timeframe & Priority picker</span>
-      <select class="${selectClass}" onchange="setDevFieldPickerStyle(this.value)">
-        <option value="default" ${dev.fieldPickerStyle==='default'?'selected':''}>Default (dropdown)</option>
-        <option value="buttons" ${dev.fieldPickerStyle==='buttons'?'selected':''}>Row of buttons</option>
-        <option value="progress" ${dev.fieldPickerStyle==='progress'?'selected':''}>Stylized progress bar</option>
+      <span class="${captionClass}">Task row layout</span>
+      <select class="${selectClass}" onchange="setDevTaskRowMobileStyle(this.value)">
+        <option value="default" ${dev.taskRowMobileStyle==='default'?'selected':''}>Default (badges squeeze the title)</option>
+        <option value="stacked" ${dev.taskRowMobileStyle==='stacked'?'selected':''}>Stacked — badges drop below the title</option>
+        <option value="minimal" ${dev.taskRowMobileStyle==='minimal'?'selected':''}>Minimal — hide drag handle & category dot</option>
       </select>
     </div>
     <div class="${fieldClass}">
-      <span class="${captionClass}">Task tap/long-press (mobile)</span>
+      <span class="${captionClass}">Task detail fields</span>
+      <select class="${selectClass}" onchange="setDevTaskDetailMobileStyle(this.value)">
+        <option value="default" ${dev.taskDetailMobileStyle==='default'?'selected':''}>Default (one cramped wrapping row)</option>
+        <option value="stacked" ${dev.taskDetailMobileStyle==='stacked'?'selected':''}>Stacked — one full-width field per row</option>
+        <option value="grouped" ${dev.taskDetailMobileStyle==='grouped'?'selected':''}>Grouped — 2-column fields + an even action row</option>
+      </select>
+    </div>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Task tap/long-press</span>
       <select class="${selectClass}" onchange="setDevTaskLongPressMode(this.value)">
         <option value="default" ${dev.taskLongPressMode==='default'?'selected':''}>Default (tap opens everything)</option>
         <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap shows Steps, long-press opens a bottom sheet</option>
         <option value="detail" ${dev.taskLongPressMode==='detail'?'selected':''}>Detail — tap shows Steps, long-press opens the full task page (like Daily)</option>
       </select>
     </div>
+
+    ${devSectionHeadHtml('Quick Capture')}
     <label class="${rowClass}">
-      <input type="checkbox" ${dev.customContextMenu?'checked':''} onchange="toggleDevSetting('customContextMenu', this.checked)">
-      Custom right-click menu on a task (desktop) — replaces the browser's own menu with app actions; still native inside text fields
+      <input type="checkbox" ${dev.floatingAddButton?'checked':''} onchange="toggleDevSetting('floatingAddButton', this.checked)">
+      Floating (+) button to add a task from any tab
     </label>
+
+    ${devSectionHeadHtml('Tab Bar')}
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Tab bar style</span>
+      <select class="${selectClass}" onchange="setDevTabBarMobileStyle(this.value)">
+        <option value="default" ${dev.tabBarMobileStyle==='default'?'selected':''}>Default (wraps to a 2nd row)</option>
+        <option value="scroll" ${dev.tabBarMobileStyle==='scroll'?'selected':''}>Scrolls sideways, one row</option>
+      </select>
+    </div>
+    <div class="devgroupnote">See also Tab Bar under Desktop — this is the same underlying choice, answered separately per viewport.</div>
+
+    ${devSectionHeadHtml('Settings Panel')}
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Settings category rows</span>
+      <select class="${selectClass}" onchange="setDevSettingsRowMobileStyle(this.value)">
+        <option value="default" ${dev.settingsRowMobileStyle==='default'?'selected':''}>Default (everything one flat row)</option>
+        <option value="grouped" ${dev.settingsRowMobileStyle==='grouped'?'selected':''}>Grouped — Delete moves to its own quiet row</option>
+      </select>
+    </div>
+
+    ${devSectionHeadHtml('Navigation')}
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.fullPageSwipeNav?'checked':''} onchange="toggleDevSetting('fullPageSwipeNav', this.checked)">
+      Swipe day/month nav: whole page (not just the arrows row) — competes with swipe-right-to-go-back on those two pages; day/month nav wins when this is on
+    </label>
+  `;
+
+  return `
+    ${sidePanelToggleHtml}
+    ${devGroupHtml('dev-general', 'General', generalBody)}
+    ${devGroupHtml('dev-desktop', 'Desktop', desktopBody)}
+    ${devGroupHtml('dev-mobile', 'Mobile', mobileBody)}
   `;
 }
 
@@ -3591,17 +3673,24 @@ let customColorDraft = { h:0, s:0, v:0 };
 // popovers — see closeAllSettingsPopovers() in 09-settings.js.
 let locationEditorOpenId = null;
 // Settings section keys currently collapsed (Manage Tabs/Locations/Task
-// Fields/Appearance/Claude Access/Dev Settings) — 'dev' starts collapsed
-// to match its old default (a plain <details> with no `open` attribute),
-// everything else starts expanded. A Set here (not a native <details>
-// per section) is what actually fixes a real bug the old <details>-based
-// Dev Settings had: renderSettings() rebuilds #settingsView's whole
-// innerHTML on every single render (any checkbox flip included), and a
-// fresh <details> element has no memory of being open — so the section
-// silently collapsed itself back shut after every change made inside it.
-// Tracking "which sections are collapsed" here, outside the DOM, is what
-// survives that rebuild.
-let settingsCollapsedSections = new Set(['dev']);
+// Fields/Appearance/Claude Access/Dev Settings, plus the three device
+// groups nested inside Dev Settings — 'dev-general'/'dev-desktop'/
+// 'dev-mobile', see devGroupHtml() in 01-categories-theme.js) — 'dev'
+// starts collapsed to match its old default (a plain <details> with no
+// `open` attribute), everything else starts expanded, EXCEPT the Desktop
+// and Mobile dev groups: with General/Desktop/Mobile all expanded by
+// default the list is exactly as long as before grouping, defeating the
+// point, and General is the one most worth seeing without an extra
+// click (it's not tied to a device, so it's relevant regardless of what
+// you're testing on). A Set here (not a native <details> per section) is
+// what actually fixes a real bug the old <details>-based Dev Settings
+// had: renderSettings() rebuilds #settingsView's whole innerHTML on
+// every single render (any checkbox flip included), and a fresh
+// <details> has no memory of being open — so the section silently
+// collapsed itself back shut after every change made inside it. Tracking
+// "which sections are collapsed" here, outside the DOM, is what survives
+// that rebuild.
+let settingsCollapsedSections = new Set(['dev', 'dev-desktop', 'dev-mobile']);
 // Set only while a pointer drag on the hue ring or the SV square is in
 // progress — {type:'hue'|'sv', rect}. See catWheelCancelDrag() for why
 // this (and the document-level listeners it implies) must be torn down
@@ -3918,19 +4007,11 @@ function defaultDevSettings(){
   // or by importance) sits a little higher at rest, just enough that its
   // own label peeks above whichever tab is currently covering it, rather
   // than a covered tab being unreadable until you interact with it.
-  // customContextMenu (desktop-only — see mobileUiActive() gating in
-  // handleTaskContextMenu(), 08-render-core.js): replaces the browser's
-  // own right-click menu on a task row with a small app-specific one
-  // (toggle complete/urgent/today, edit, copy title, delete) instead of
-  // the generic Back/Reload/Inspect/"Look Up" chrome no web app actually
-  // wants. Off by default since silently swallowing right-click
-  // everywhere is a meaningfully different (and less reversible-feeling)
-  // change than the rest of this file's purely visual toggles. Right-
-  // clicking inside an actual text field (input/textarea) always keeps
-  // the native menu regardless of this setting — Copy/Paste/spellcheck
-  // there is exactly the "some of it is still useful" case the project
-  // owner asked to keep.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default', customContextMenu:false, stickyTabBar:false };
+  // The custom right-click menu (toggle complete/urgent/today, edit, copy
+  // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
+  // to be a dev setting here (customContextMenu); graduated to the real,
+  // always-on desktop behavior, so there's no field for it anymore.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default', stickyTabBar:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -4038,7 +4119,6 @@ function normalizeState(){
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
   if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'default';
-  if(typeof state.devSettings.customContextMenu !== 'boolean') state.devSettings.customContextMenu = false;
   if(typeof state.devSettings.stickyTabBar !== 'boolean') state.devSettings.stickyTabBar = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
@@ -5735,10 +5815,10 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
     ? ` ontouchstart="taskPressStart(event,'${t.id}')" ontouchmove="taskPressMove(event)" ontouchend="taskPressEnd()" ontouchcancel="taskPressEnd()" onmousedown="taskPressStart(event,'${t.id}')" onmouseup="taskPressEnd()" onmouseleave="taskPressEnd()"`
     : '';
   const expandInner = usePressGesture ? taskSubtasksHtml(t) : taskExpandFieldsHtml(t, canRemoveHere);
-  // customContextMenu (desktop-only, see handleTaskContextMenu() below) —
-  // scoped to !inDaily for the same reason usePressGesture is: a Daily
-  // row already has its own click behavior and canRemoveHere rules that
-  // don't map cleanly onto this.
+  // The right-click menu (desktop-only, see handleTaskContextMenu()
+  // below) — scoped to !inDaily for the same reason usePressGesture is: a
+  // Daily row already has its own click behavior and canRemoveHere rules
+  // that don't map cleanly onto this.
   const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
@@ -5809,17 +5889,17 @@ function taskRowTap(e, taskId){
   toggleExpand(e, taskId);
 }
 
-// ---------- customContextMenu: a task's own right-click menu ----------
+// ---------- a task's own right-click menu ----------
 // Returned directly from a row's oncontextmenu attribute (see taskRowHtml()
 // above) — `return false` there is the inline-handler equivalent of
 // e.preventDefault(), which is what actually keeps the browser's native
 // menu from also showing. Desktop-only: on an actual touch device
 // there's no right-click to intercept in the first place, and
 // mobileUiActive() already covers "acting like a phone" for
-// mobileUiPreviewOnDesktop too, so the same gate this whole file's other
-// desktop-only features use applies here without a separate check.
+// mobileUiPreviewOnDesktop too. Was a dev setting (customContextMenu);
+// graduated to the real, always-on behavior.
 function handleTaskContextMenu(e, taskId){
-  if(!state.devSettings || !state.devSettings.customContextMenu || mobileUiActive()) return true;
+  if(mobileUiActive()) return true;
   openTaskContextMenu(taskId, e.clientX, e.clientY);
   return false;
 }

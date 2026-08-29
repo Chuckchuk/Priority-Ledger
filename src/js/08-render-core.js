@@ -209,10 +209,10 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
     ? ` ontouchstart="taskPressStart(event,'${t.id}')" ontouchmove="taskPressMove(event)" ontouchend="taskPressEnd()" ontouchcancel="taskPressEnd()" onmousedown="taskPressStart(event,'${t.id}')" onmouseup="taskPressEnd()" onmouseleave="taskPressEnd()"`
     : '';
   const expandInner = usePressGesture ? taskSubtasksHtml(t) : taskExpandFieldsHtml(t, canRemoveHere);
-  // customContextMenu (desktop-only, see handleTaskContextMenu() below) —
-  // scoped to !inDaily for the same reason usePressGesture is: a Daily
-  // row already has its own click behavior and canRemoveHere rules that
-  // don't map cleanly onto this.
+  // The right-click menu (desktop-only, see handleTaskContextMenu()
+  // below) — scoped to !inDaily for the same reason usePressGesture is: a
+  // Daily row already has its own click behavior and canRemoveHere rules
+  // that don't map cleanly onto this.
   const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
@@ -283,17 +283,17 @@ function taskRowTap(e, taskId){
   toggleExpand(e, taskId);
 }
 
-// ---------- customContextMenu: a task's own right-click menu ----------
+// ---------- a task's own right-click menu ----------
 // Returned directly from a row's oncontextmenu attribute (see taskRowHtml()
 // above) — `return false` there is the inline-handler equivalent of
 // e.preventDefault(), which is what actually keeps the browser's native
 // menu from also showing. Desktop-only: on an actual touch device
 // there's no right-click to intercept in the first place, and
 // mobileUiActive() already covers "acting like a phone" for
-// mobileUiPreviewOnDesktop too, so the same gate this whole file's other
-// desktop-only features use applies here without a separate check.
+// mobileUiPreviewOnDesktop too. Was a dev setting (customContextMenu);
+// graduated to the real, always-on behavior.
 function handleTaskContextMenu(e, taskId){
-  if(!state.devSettings || !state.devSettings.customContextMenu || mobileUiActive()) return true;
+  if(mobileUiActive()) return true;
   openTaskContextMenu(taskId, e.clientX, e.clientY);
   return false;
 }

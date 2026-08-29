@@ -138,17 +138,24 @@ let customColorDraft = { h:0, s:0, v:0 };
 // popovers — see closeAllSettingsPopovers() in 09-settings.js.
 let locationEditorOpenId = null;
 // Settings section keys currently collapsed (Manage Tabs/Locations/Task
-// Fields/Appearance/Claude Access/Dev Settings) — 'dev' starts collapsed
-// to match its old default (a plain <details> with no `open` attribute),
-// everything else starts expanded. A Set here (not a native <details>
-// per section) is what actually fixes a real bug the old <details>-based
-// Dev Settings had: renderSettings() rebuilds #settingsView's whole
-// innerHTML on every single render (any checkbox flip included), and a
-// fresh <details> element has no memory of being open — so the section
-// silently collapsed itself back shut after every change made inside it.
-// Tracking "which sections are collapsed" here, outside the DOM, is what
-// survives that rebuild.
-let settingsCollapsedSections = new Set(['dev']);
+// Fields/Appearance/Claude Access/Dev Settings, plus the three device
+// groups nested inside Dev Settings — 'dev-general'/'dev-desktop'/
+// 'dev-mobile', see devGroupHtml() in 01-categories-theme.js) — 'dev'
+// starts collapsed to match its old default (a plain <details> with no
+// `open` attribute), everything else starts expanded, EXCEPT the Desktop
+// and Mobile dev groups: with General/Desktop/Mobile all expanded by
+// default the list is exactly as long as before grouping, defeating the
+// point, and General is the one most worth seeing without an extra
+// click (it's not tied to a device, so it's relevant regardless of what
+// you're testing on). A Set here (not a native <details> per section) is
+// what actually fixes a real bug the old <details>-based Dev Settings
+// had: renderSettings() rebuilds #settingsView's whole innerHTML on
+// every single render (any checkbox flip included), and a fresh
+// <details> has no memory of being open — so the section silently
+// collapsed itself back shut after every change made inside it. Tracking
+// "which sections are collapsed" here, outside the DOM, is what survives
+// that rebuild.
+let settingsCollapsedSections = new Set(['dev', 'dev-desktop', 'dev-mobile']);
 // Set only while a pointer drag on the hue ring or the SV square is in
 // progress — {type:'hue'|'sv', rect}. See catWheelCancelDrag() for why
 // this (and the document-level listeners it implies) must be torn down
@@ -465,19 +472,11 @@ function defaultDevSettings(){
   // or by importance) sits a little higher at rest, just enough that its
   // own label peeks above whichever tab is currently covering it, rather
   // than a covered tab being unreadable until you interact with it.
-  // customContextMenu (desktop-only — see mobileUiActive() gating in
-  // handleTaskContextMenu(), 08-render-core.js): replaces the browser's
-  // own right-click menu on a task row with a small app-specific one
-  // (toggle complete/urgent/today, edit, copy title, delete) instead of
-  // the generic Back/Reload/Inspect/"Look Up" chrome no web app actually
-  // wants. Off by default since silently swallowing right-click
-  // everywhere is a meaningfully different (and less reversible-feeling)
-  // change than the rest of this file's purely visual toggles. Right-
-  // clicking inside an actual text field (input/textarea) always keeps
-  // the native menu regardless of this setting — Copy/Paste/spellcheck
-  // there is exactly the "some of it is still useful" case the project
-  // owner asked to keep.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default', customContextMenu:false, stickyTabBar:false };
+  // The custom right-click menu (toggle complete/urgent/today, edit, copy
+  // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
+  // to be a dev setting here (customContextMenu); graduated to the real,
+  // always-on desktop behavior, so there's no field for it anymore.
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default', stickyTabBar:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -585,7 +584,6 @@ function normalizeState(){
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
   if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'default';
-  if(typeof state.devSettings.customContextMenu !== 'boolean') state.devSettings.customContextMenu = false;
   if(typeof state.devSettings.stickyTabBar !== 'boolean') state.devSettings.stickyTabBar = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
