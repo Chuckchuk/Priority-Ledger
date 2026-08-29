@@ -345,6 +345,13 @@ function applyDevSettings(){
   // its covering neighbor away (computeOverlapPush() in 06-tabs-render.js)
   // instead, so it never needs to reorder at all.
   document.body.dataset.overlapHoverMode = d.overlapHoverMode || 'default';
+  // Read by the .sidetabspeek .tab[data-appearance/data-shape] rules in
+  // <style>, and by resolveSidetabShape() in 06-tabs-render.js for the
+  // 'random'/'iconstyle' cases. sidetabsNoBg is a plain body class (a true
+  // on/off, same reasoning as fab-on above) rather than a data attribute.
+  document.body.dataset.sidetabsAppearance = d.sidetabsAppearance || 'color';
+  document.body.dataset.sidetabsShape = d.sidetabsShape || 'pagetab';
+  document.body.classList.toggle('sidetabs-nobg', !!d.sidetabsNoBg);
   document.body.dataset.settingsrowMobile = d.settingsRowMobileStyle || 'default';
   // Not gated by mobileui-active (see the comment on fieldPickerStyle in
   // defaultDevSettings()) — read directly by fieldPickerHtml() in
@@ -458,6 +465,22 @@ async function setDevTabBarDesktopStyle(val){
 async function setDevOverlapHoverMode(val){
   pushUndo(`Changed dev overlap tab hover mode to "${val}"`);
   state.devSettings.overlapHoverMode = val;
+  render();
+  queueSave();
+}
+
+async function setDevSidetabsAppearance(val){
+  pushUndo(`Changed dev side-tab appearance to "${val}"`);
+  state.devSettings.sidetabsAppearance = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevSidetabsShape(val){
+  pushUndo(`Changed dev side-tab shape to "${val}"`);
+  state.devSettings.sidetabsShape = val;
+  applyDevSettings();
   render();
   queueSave();
 }
@@ -717,6 +740,32 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     <label class="${rowClass}">
       <input type="checkbox" ${dev.overlapRankStagger?'checked':''} onchange="toggleDevSetting('overlapRankStagger', this.checked)">
       Overlap tabs: stagger by stacking rank (a covered tab sits a little higher at rest so its own label still peeks over the one covering it)
+    </label>
+    ` : ''}
+    ${dev.tabBarDesktopStyle==='sidetabs' ? `
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Side tabs: appearance</span>
+      <select class="${selectClass}" onchange="setDevSidetabsAppearance(this.value)">
+        <option value="color" ${dev.sidetabsAppearance==='color'?'selected':''}>Colored label (default)</option>
+        <option value="textured" ${dev.sidetabsAppearance==='textured'?'selected':''}>Colored + textured</option>
+        <option value="edge" ${dev.sidetabsAppearance==='edge'?'selected':''}>Left edge color only, no icon</option>
+      </select>
+    </div>
+    <div class="${fieldClass}">
+      <span class="${captionClass}">Side tabs: shape</span>
+      <select class="${selectClass}" onchange="setDevSidetabsShape(this.value)">
+        <option value="pagetab" ${dev.sidetabsShape==='pagetab'?'selected':''}>Page-tab point (default)</option>
+        <option value="invertedv" ${dev.sidetabsShape==='invertedv'?'selected':''}>Inverted V</option>
+        <option value="arrows" ${dev.sidetabsShape==='arrows'?'selected':''}>Arrows out</option>
+        <option value="jagged" ${dev.sidetabsShape==='jagged'?'selected':''}>Jagged edge</option>
+        <option value="sawtooth" ${dev.sidetabsShape==='sawtooth'?'selected':''}>Clean sawtooth</option>
+        <option value="random" ${dev.sidetabsShape==='random'?'selected':''}>Random (stable per tab)</option>
+        <option value="iconstyle" ${dev.sidetabsShape==='iconstyle'?'selected':''}>Depending on icon style</option>
+      </select>
+    </div>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.sidetabsNoBg?'checked':''} onchange="toggleDevSetting('sidetabsNoBg', this.checked)">
+      Side tabs: remove tab background
     </label>
     ` : ''}
   `;

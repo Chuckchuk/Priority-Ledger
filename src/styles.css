@@ -2129,24 +2129,159 @@
   body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap.fade-left::before{ opacity:1; }
   body.mobileui-active[data-tabbar-mobile="scroll"] .tabswrap.fade-right::after{ opacity:1; }
 
-  /* sidetabs: #appMain becomes a row so #tabswrap (now a fixed-width
-     column) sits to the left of .leathercover instead of above it. Every
-     label stays fully visible all the time — the whole point of this
-     option versus a hover/tap-to-reveal collapse. */
+  /* sidetabs: EXPERIMENTAL, reworked from an earlier plain "fixed-width
+     column beside the card" look into peeking book-index tabs — each one
+     mostly tucked BEHIND #appCard and OVER .leathercover, poking out just
+     enough past the page's own left edge to read and click. #appMain stays
+     a flex row (harmless with only .leathercover left in it once #tabswrap
+     is taken out of flow below) so .leathercover simply fills the width
+     #tabswrap used to reserve. See layoutSidetabsPeek() in 06-tabs-
+     render.js for how #sidetabsPeek (a real child of .leathercover, see
+     shell-body.html) gets populated, and the .sidetabspeek rules below for
+     the geometry. */
   body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .appmain{
     display:flex; align-items:stretch; gap:0;
   }
-  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .tabswrap{
-    width:168px; flex-shrink:0;
-  }
-  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .tabs{
-    flex-direction:column; flex-wrap:nowrap; height:100%; gap:4px;
-    padding:10px; border-radius:10px 0 0 10px; border-right:none; border-bottom:1px solid rgba(241,234,217,0.16);
-  }
-  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .tab{
-    border-radius:7px 0 0 7px; justify-content:flex-start; width:100%; padding:11px 16px;
-  }
+  /* display:none, not just hidden — layoutSidetabsPeek() only ever needs
+     cloneNode(true) off these (for their classes/inline --tabhex etc./
+     content), never a live measurement, so there's no need to keep this
+     column occupying space or even rendering. */
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .tabswrap{ display:none; }
   body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .leathercover{ flex:1; min-width:0; }
+  /* #sidetabspeek's own left:0 lands exactly on #appCard's rendered left
+     edge — an absolutely positioned child is placed relative to the
+     PADDING edge of its nearest positioned ancestor (.leathercover, see
+     .leathercover{position:relative} above), and #appCard's own left edge
+     sits at that exact same point (it's the next thing in normal flow
+     after .leathercover's own padding, whatever that padding currently
+     is). That's what makes "poking out past the page regardless of the
+     leather preset" free: every .sidetabspeek .tab below pokes out a FIXED
+     amount from this one shared anchor, so it always reads as poking past
+     the page itself — never past .leathercover's own outer edge instead —
+     whether leather is on or off, and at any --leather-pad-left value (see
+     :root and the body[data-leather-inset] overrides). No explicit
+     z-index here (deliberately): #appCard's own z-index:1 (see .card
+     above) already unconditionally outranks any *unpositioned-or-z-index-
+     auto* box regardless of DOM order, so leaving this at the auto default
+     is what guarantees it always paints below #appCard — an explicit
+     value here would just be one more number to keep in sync with .card's
+     for no benefit. Being a real element placed after .leathercover's own
+     ::before (the leather grain texture, generated as that element's
+     conceptual first child) is what keeps it painting above that texture,
+     same idea as .bookmark just above it in shell-body.html. */
+  .sidetabspeek{
+    position:absolute; left:0; top:28px; display:flex; flex-direction:column;
+    pointer-events:none;
+  }
+  /* Fixed height + a negative margin-top overlap (not a dynamic solver
+     the way layoutOverlapTabs()'s horizontal row needs — see the comment
+     on layoutSidetabsPeek()) is enough room for any realistic category
+     count down a column this tall. margin-left is the fixed "poke past
+     the page" amount: with the container itself anchored flush at
+     #appCard's edge (see .sidetabspeek above), every tab here starts 26px
+     to the LEFT of that edge and runs 92px wide, so ~66px of it is always
+     tucked under the page regardless of how much (or how little) leather
+     shows between them. position:relative only so hover/.active below can
+     use z-index (it has no effect on a static element) — it doesn't
+     otherwise change this box's place in the column's normal flow. */
+  .sidetabspeek .tab{
+    width:92px; height:44px; margin-left:-26px; margin-top:-10px;
+    padding:0 10px 0 16px; border-radius:0; justify-content:flex-start;
+    box-shadow: -2px 3px 6px rgba(0,0,0,0.35);
+    position:relative; pointer-events:auto;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .sidetabspeek .tab:first-child{ margin-top:0; }
+  /* Hovering brings a tab out a little further rather than reordering the
+     stack (there's nothing to reorder — position:relative in a normal-
+     flow column, not the overlap look's z-index-stacked pile) — the
+     project owner's own ask ("hover should bring the tag out to the left
+     a little"). z-index:5 only matters where this tab's translated
+     position now overlaps a still-resting neighbor above/below it in the
+     column. Compounding :hover onto .active too (same fix as the overlap
+     look's own .tab.active:hover — see that rule's comment) keeps
+     hovering the tab you're already on from snapping it back to a lesser
+     "just hovering" look. */
+  .sidetabspeek .tab:hover, .sidetabspeek .tab.active:hover{
+    transform: translateX(-10px); box-shadow: -4px 5px 10px rgba(0,0,0,0.4);
+    z-index:5;
+  }
+  /* The active tab sits out a bit further even at rest, so it's always
+     legible without needing a hover — and above every resting neighbor it
+     might overlap in the column. */
+  .sidetabspeek .tab.active{
+    transform: translateX(-6px); z-index:4;
+    background: var(--tabhex, var(--primary)); color: var(--tabtext, white); font-weight:500;
+  }
+  /* ---- sidetabsAppearance (see defaultDevSettings() in 02-storage-
+     state.js) ---- 'color' (default) needs no override beyond the base
+     --tabhex/--tabtext already set inline by renderTabs() (copied onto
+     every clone by cloneNode(true)). */
+  body[data-sidetabs-appearance="color"] .sidetabspeek .tab,
+  body[data-sidetabs-appearance="textured"] .sidetabspeek .tab{
+    background: var(--tabhex, var(--primary)); color: var(--tabtext, white);
+  }
+  /* 'textured': same fill, plus a grain overlay on ::after (::before is
+     'edge' mode's own color stripe below — the two appearance modes never
+     apply at once, so reusing one pseudo-element slot per purpose instead
+     of needing two of each is safe). Same feTurbulence idea #appCard's own
+     "Grain" texture and the leather cover's own noise use — a third,
+     independent application of the same trick, not a shared asset, since
+     each needs its own frequency/opacity tuned to its own element size. */
+  body[data-sidetabs-appearance="textured"] .sidetabspeek .tab::after{
+    content:''; position:absolute; inset:0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+    opacity:0.35; mix-blend-mode:overlay; pointer-events:none;
+  }
+  /* 'edge': drop the fill (back to the plain card color, so the tab reads
+     as part of the page it's tucked behind) and drop the icon glyph
+     (.dot — see categoryDotHtml() in 01-categories-theme.js), leaving just
+     the label plus a colored stripe down the tab's own left edge on
+     ::before — the "left edge of the tab with a color instead of the
+     icon" ask. The stripe is its own element (not a border-left) so a
+     clip-path shape (see sidetabsShape below) can cut the tab's outer
+     silhouette without also notching the stripe's own straight inner
+     edge. */
+  body[data-sidetabs-appearance="edge"] .sidetabspeek .tab{
+    background: var(--card-bg); color: var(--ink);
+  }
+  body[data-sidetabs-appearance="edge"] .sidetabspeek .tab.active{
+    background: var(--card-bg); color: var(--ink);
+  }
+  body[data-sidetabs-appearance="edge"] .sidetabspeek .dot{ display:none; }
+  body[data-sidetabs-appearance="edge"] .sidetabspeek .tab::before{
+    content:''; position:absolute; left:0; top:0; bottom:0; width:6px;
+    background: var(--tabhex, var(--primary));
+  }
+  /* sidetabsNoBg — independent of appearance/shape, see defaultDevSettings()
+     — strips whichever background the appearance mode above painted,
+     leaving icon/label (or 'edge' mode's stripe) floating directly over
+     bare leather/page. !important since it needs to beat the appearance-
+     mode backgrounds above regardless of which one is active. */
+  body.sidetabs-nobg .sidetabspeek .tab{ background:transparent !important; box-shadow:none; }
+  body.sidetabs-nobg .sidetabspeek .tab::after{ display:none; }
+  /* ---- sidetabsShape — cuts the tab's own left (poking-out) edge; top/
+     right/bottom stay straight since those are shared with the column and
+     with #appCard, not part of what's actually visible poking out. Every
+     polygon below only differs in that left edge for exactly that reason.
+     'jagged' is intentionally never assigned by resolveSidetabShape() for
+     'random'/'iconstyle' (06-tabs-render.js) — it's the one shape meant to
+     only ever show up when explicitly picked. ---- */
+  .sidetabspeek .tab[data-shape="pagetab"]{
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 62%, -13px 50%, 0 38%);
+  }
+  .sidetabspeek .tab[data-shape="invertedv"]{
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 10px 50%);
+  }
+  .sidetabspeek .tab[data-shape="arrows"]{
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -14px 50%);
+  }
+  .sidetabspeek .tab[data-shape="sawtooth"]{
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -7px 87.5%, 0 75%, -7px 62.5%, 0 50%, -7px 37.5%, 0 25%, -7px 12.5%, 0 0);
+  }
+  .sidetabspeek .tab[data-shape="jagged"]{
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -3px 91%, -11px 82%, -2px 74%, -9px 63%, -4px 55%, -13px 46%, -3px 38%, -8px 27%, -2px 18%, -10px 9%, 0 0);
+  }
 
   /* indextabs: pure restyle of the existing horizontal row — no wrap/
      click behavior changes. Each tab's own category color (--tabhex, set

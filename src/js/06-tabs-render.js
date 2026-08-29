@@ -225,6 +225,81 @@ function renderTabs(){
   renderTabRowLines();
   updateTabScrollFade();
   layoutOverlapTabs();
+  layoutSidetabsPeek();
+}
+
+// ---------- tabBarDesktopStyle "sidetabs": peeking index-tab column ----------
+// Called at the end of renderTabs() (mirrors layoutOverlapTabs() just
+// above) — a no-op for every other tabBarDesktopStyle and on the Mobile UI
+// Lab viewport, where this style never applies. Unlike layoutOverlapTabs(),
+// this doesn't need any dynamic width-solving: a vertical column has
+// plenty of room for a handful of category tabs, so a fixed CSS height +
+// negative margin-top overlap (see .sidetabspeek .tab in <style>) is
+// enough — no per-render measurement here at all. That means the clones
+// below don't need anything read off the real .tab elements beyond what
+// cloneNode(true) already copies (classes, inline --tabhex/--tabtext,
+// content) — the real #tabs column stays in the DOM only because
+// renderTabs() always populates it regardless of style; CSS hides it
+// outright (display:none, see body:not(.mobileui-active)[data-tabbar-
+// desktop="sidetabs"] .tabswrap) rather than the visibility:hidden trick
+// layoutOverlapTabs() needs for its own single active-tab clone, since
+// nothing here ever needs to measure the real column.
+function layoutSidetabsPeek(){
+  const peek = document.getElementById('sidetabsPeek');
+  if(!peek) return;
+  const dev = state.devSettings || {};
+  if(mobileUiActive() || dev.tabBarDesktopStyle !== 'sidetabs'){
+    peek.innerHTML = '';
+    return;
+  }
+  const wrap = document.getElementById('tabs');
+  if(!wrap) return;
+  const shapeSetting = dev.sidetabsShape || 'pagetab';
+  peek.innerHTML = '';
+  Array.from(wrap.querySelectorAll('.tab')).forEach(t=>{
+    const clone = t.cloneNode(true);
+    // Set directly on every clone (not just for 'random'/'iconstyle')
+    // rather than leaving <style> to key shape off the dev-setting value
+    // on body — keeps the CSS down to one selector shape (.tab[data-
+    // shape="…"]) instead of two parallel ones for "fixed" vs "resolved
+    // per tab" cases.
+    clone.dataset.shape = resolveSidetabShape(t.dataset.key, shapeSetting);
+    clone.style.pointerEvents = 'auto';
+    peek.appendChild(clone);
+  });
+}
+
+// Shapes eligible for 'random'/'iconstyle' — jagged is deliberately
+// excluded from both (per the project owner's own callout: it's the one
+// "crazy" shape, not meant to show up unpredictably or get assigned to a
+// category that never asked for it).
+const SIDETAB_SHAPES_PICKABLE = ['pagetab', 'invertedv', 'arrows', 'sawtooth'];
+// 'iconstyle' maps each category's own chosen icon glyph (CATEGORY_ICON_
+// GLYPHS, 01-categories-theme.js — Settings lets a category pick one) to a
+// shape that echoes it: a literal flag reads as a little pennant (pagetab,
+// the same silhouette .pagetag uses elsewhere); sharp icons (star/diamond)
+// get the sharp outward arrow; rounder/plainer ones split between the
+// softer invertedv and the more geometric sawtooth. This is an editorial
+// pairing, not a derived one — there's no principled way to compute it, so
+// treat this table as the place to retune it if a specific pairing reads
+// wrong once you see it.
+const SIDETAB_ICON_SHAPE_MAP = {
+  flag:'pagetab', dot:'pagetab',
+  star:'arrows', diamond:'arrows',
+  house:'invertedv', ring:'invertedv',
+  square:'sawtooth', check:'sawtooth'
+};
+function resolveSidetabShape(key, setting){
+  if(setting !== 'random' && setting !== 'iconstyle') return setting;
+  if(setting === 'iconstyle'){
+    const cat = (key!=='all' && key!=='daily') ? CATEGORIES[key] : null;
+    const icon = cat ? (cat.icon || 'dot') : 'dot';
+    return SIDETAB_ICON_SHAPE_MAP[icon] || 'pagetab';
+  }
+  // 'random', stable per tab — same hashStr()-off-the-tab's-own-key idiom
+  // as tabJitterPx()/tabAngleDeg() above, so it doesn't reshuffle on every
+  // unrelated render.
+  return SIDETAB_SHAPES_PICKABLE[hashStr('sidetabshape:'+key) % SIDETAB_SHAPES_PICKABLE.length];
 }
 
 // The stable per-tab jitter overlapStyle's resting transform reads (see

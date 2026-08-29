@@ -69,6 +69,16 @@
     </div>
     <div class="leathercover" id="leatherCover">
       <div class="bookmark"></div>
+      <!-- tabBarDesktopStyle "sidetabs"'s own peeking index-tab column
+           (see layoutSidetabsPeek() in 06-tabs-render.js and the
+           .sidetabspeek rules in <style>) — a real #appCard sibling, same
+           reasoning as #tabConnector below and .bookmark above: it needs
+           to paint above .leathercover's own background/texture but below
+           #appCard, and only a genuine DOM child positioned here (not a
+           z-index trick on the real .tab elements, which live outside
+           .leathercover entirely) can do that reliably. Empty/inert
+           unless that style is actually selected. -->
+      <div class="sidetabspeek" id="sidetabsPeek"></div>
       <div class="card" id="appCard">
       <!-- tabBarDesktopStyle "overlap"'s active-tab connector (see
            layoutOverlapTabs() in 06-tabs-render.js and the .tabconnector

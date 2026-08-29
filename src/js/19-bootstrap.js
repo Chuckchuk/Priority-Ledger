@@ -542,7 +542,7 @@ document.addEventListener('touchcancel', swipeEnd);
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { renderTabRowLines(); refreshMobileUiActive(); updateTabScrollFade(); layoutOverlapTabs(); }, 120);
+  resizeTimer = setTimeout(() => { renderTabRowLines(); refreshMobileUiActive(); updateTabScrollFade(); layoutOverlapTabs(); layoutSidetabsPeek(); }, 120);
 });
 
 // #tabs itself is a static element (renderTabs() only ever replaces its
