@@ -116,6 +116,12 @@ function toggleAuthMode(){
   document.getElementById('authSubmitBtn').textContent = authMode === 'signin' ? 'Sign In' : 'Create Account';
   document.getElementById('authModeToggle').textContent =
     authMode === 'signin' ? 'Need an account? Create one' : 'Already have an account? Sign in';
+  // Same field either way (see authForm in shell-body.html) — the
+  // autocomplete hint is what tells Safari/iCloud Keychain whether to
+  // offer an existing saved password (signing in) or treat whatever gets
+  // typed as a new credential worth saving (signing up), rather than
+  // trying to match it against an old one.
+  document.getElementById('authPassword').setAttribute('autocomplete', authMode === 'signin' ? 'current-password' : 'new-password');
   clearAuthFeedback('authError', document.querySelector('#authShell .authform'));
   // Only makes sense while signing in — a brand-new account has no
   // password to forget yet.

@@ -163,7 +163,14 @@ function renderChecklistDetail(taskId){
             <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
           </div>`).join('')}
         ${subDropEndHtml(t.id, subs)}
-        <input type="text" class="subadd" placeholder="+ add an item, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); }">
+        <!-- onblur commit + clear-before-call on Enter — same fix, same
+             reasoning, as taskSubtasksHtml()'s own .subadd in
+             08-render-core.js (both add to a task's subtasks via the same
+             addSubtask(), a checklist "item" being just that under the
+             hood). Keep the two in sync if this ever changes. -->
+        <input type="text" class="subadd" placeholder="+ add an item, enter to save"
+          onkeydown="if(event.key==='Enter'){ const v=this.value; this.value=''; addSubtask('${t.id}', v); }"
+          onblur="addSubtask('${t.id}', this.value)">
       </div>
       <div class="footer-row"><button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button></div>
     </div>

@@ -12,12 +12,21 @@
     <div class="tagline">sign in to your ledger</div>
   </div>
   <div class="card">
-    <div class="authform">
-      <input type="email" id="authEmail" placeholder="Email">
-      <input type="password" id="authPassword" placeholder="Password" onkeydown="if(event.key==='Enter') submitAuth()">
-    </div>
+    <!-- A real <form> (not a <div>) with autocomplete/name on each field
+         is what actually gets iOS/Safari's "Save Password?" prompt to
+         appear at all — a plain div with onclick-driven fetch() calls
+         never counted as a form submission in the first place, which is
+         why credentials never offered to save on the standalone "Add to
+         Home Screen" install. onsubmit does the actual work (so Enter in
+         either field submits too, no per-field onkeydown needed anymore)
+         and preventDefault()s the native navigation a real form submit
+         would otherwise cause. -->
+    <form class="authform" id="authForm" onsubmit="event.preventDefault(); submitAuth(); return false;">
+      <input type="email" id="authEmail" name="email" autocomplete="email" placeholder="Email">
+      <input type="password" id="authPassword" name="password" autocomplete="current-password" placeholder="Password">
+      <button type="submit" class="authsubmit" id="authSubmitBtn">Sign In</button>
+    </form>
     <div class="autherror" id="authError"></div>
-    <button class="authsubmit" id="authSubmitBtn" onclick="submitAuth()">Sign In</button>
     <div class="footer-row" id="forgotPasswordRow"><button onclick="showForgotPassword()">Forgot password?</button></div>
     <div class="footer-row"><button onclick="toggleAuthMode()" id="authModeToggle">Need an account? Create one</button></div>
     <div class="footer-row"><button onclick="continueLocally()">Continue without an account (this device only)</button></div>
@@ -29,11 +38,11 @@
     <div class="tagline">reset your password</div>
   </div>
   <div class="card">
-    <div class="authform">
-      <input type="email" id="forgotEmail" placeholder="Email" onkeydown="if(event.key==='Enter') requestPasswordReset()">
-    </div>
+    <form class="authform" id="forgotForm" onsubmit="event.preventDefault(); requestPasswordReset(); return false;">
+      <input type="email" id="forgotEmail" name="email" autocomplete="email" placeholder="Email">
+      <button type="submit" class="authsubmit" id="forgotSubmitBtn">Send reset link</button>
+    </form>
     <div class="autherror" id="forgotError"></div>
-    <button class="authsubmit" id="forgotSubmitBtn" onclick="requestPasswordReset()">Send reset link</button>
     <div class="footer-row"><button onclick="hideForgotPassword()">Back to sign in</button></div>
   </div>
 </div>
@@ -43,12 +52,12 @@
     <div class="tagline">set a new password</div>
   </div>
   <div class="card">
-    <div class="authform">
-      <input type="password" id="resetPassword" placeholder="New password">
-      <input type="password" id="resetPasswordConfirm" placeholder="Confirm new password" onkeydown="if(event.key==='Enter') submitPasswordReset()">
-    </div>
+    <form class="authform" id="resetForm" onsubmit="event.preventDefault(); submitPasswordReset(); return false;">
+      <input type="password" id="resetPassword" name="new-password" autocomplete="new-password" placeholder="New password">
+      <input type="password" id="resetPasswordConfirm" name="new-password-confirm" autocomplete="new-password" placeholder="Confirm new password">
+      <button type="submit" class="authsubmit" id="resetSubmitBtn">Set new password</button>
+    </form>
     <div class="autherror" id="resetError"></div>
-    <button class="authsubmit" id="resetSubmitBtn" onclick="submitPasswordReset()">Set new password</button>
   </div>
 </div>
 <div class="shell" id="appShell" style="display:none;">

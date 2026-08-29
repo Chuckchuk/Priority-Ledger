@@ -1911,6 +1911,30 @@
      attributes or body.fab-on, so a variant picked in Settings has zero
      effect on desktop unless "Preview on desktop" is also checked. */
 
+  /* iOS Safari (and most mobile WebKit) auto-zooms the whole page the
+     moment a focused text input/textarea/select computes to under 16px —
+     several of this app's own fields (.subadd's "+ add a step" input
+     most noticeably, since that's the one people type into repeatedly)
+     are smaller than that for their normal compact desktop look, which
+     is exactly what was causing the jarring zoom-in on every new subtask.
+     Not scoped to any specific field — ANY focusable text field under
+     16px triggers the same zoom, so this is a blanket floor for the
+     whole mobile UI rather than a per-field patch that'd just leave the
+     next undersized field to rediscover the same bug. Specificity here
+     (element selector prefixed with body.mobileui-active) is deliberately
+     just high enough to beat each field's own smaller class-level
+     font-size, not to fight it in general — nothing needs to look bigger
+     than 16px, so anything already at or above that (.checklisttitle,
+     .fabaddsheet's inputs) is untouched. */
+  body.mobileui-active input[type="text"],
+  body.mobileui-active input[type="email"],
+  body.mobileui-active input[type="password"],
+  body.mobileui-active input[type="date"],
+  body.mobileui-active textarea,
+  body.mobileui-active select{
+    font-size:16px;
+  }
+
   /* ---- quickAddMobileStyle: the "+ Add Task" trigger + sheet ---- */
   .quickaddtrigger{
     display:none; width:100%; align-items:center; justify-content:center; gap:8px;
@@ -1998,6 +2022,18 @@
     background: radial-gradient(circle at 35% 30%, var(--primary-light), var(--primary) 70%);
     color:#fff; font-size:1.7rem; line-height:1;
     box-shadow: 0 6px 18px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.4);
+    /* This is already meant to be pinned to the viewport regardless of
+       scroll — "the always-reachable (+)" above isn't aspirational, it's
+       the whole point of position:fixed here. iOS Safari/WKWebView has a
+       long-standing quirk where a plain position:fixed element can lag or
+       visibly detach during momentum-scroll on a long page instead of
+       tracking the viewport smoothly, unless it's promoted to its own
+       GPU-composited layer — translateZ(0) is the standard nudge for
+       that; backface-visibility is the usual accompanying hint some iOS
+       versions want too. Layout-wise this changes nothing (0px
+       translation) — purely a rendering-path hint. */
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
   body.mobileui-active.fab-on .fabaddbtn{ display:flex; align-items:center; justify-content:center; }
   .fabaddscrim{ display:none; }

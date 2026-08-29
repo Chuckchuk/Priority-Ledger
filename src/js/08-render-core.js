@@ -130,7 +130,22 @@ function taskSubtasksHtml(t){
           </div>`;
         }).join('')}
         ${subDropEndHtml(t.id, subs)}
-        <input type="text" class="subadd" placeholder="+ add a step, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); }">
+        <!-- onblur also commits (addSubtask() no-ops on an empty string,
+             so tabbing/tapping away from an untouched field is still a
+             no-op) — iOS's own keyboard toolbar "Done" button only blurs
+             a field, it never fires a keydown Enter the way a hardware
+             keyboard does, so without this, dismissing the keyboard that
+             way silently threw away whatever was typed. The keydown
+             handler clears this.value BEFORE calling addSubtask() (not
+             after) specifically because addSubtask() calls render()
+             synchronously, which replaces this very input out from under
+             itself and blurs it as a side effect — clearing first is what
+             makes that implicit blur's own addSubtask() call see an empty
+             string and no-op, instead of re-submitting the same step
+             twice. -->
+        <input type="text" class="subadd" placeholder="+ add a step, enter to save"
+          onkeydown="if(event.key==='Enter'){ const v=this.value; this.value=''; addSubtask('${t.id}', v); }"
+          onblur="addSubtask('${t.id}', this.value)">
       </div>`;
 }
 

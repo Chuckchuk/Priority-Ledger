@@ -1943,6 +1943,30 @@
      attributes or body.fab-on, so a variant picked in Settings has zero
      effect on desktop unless "Preview on desktop" is also checked. */
 
+  /* iOS Safari (and most mobile WebKit) auto-zooms the whole page the
+     moment a focused text input/textarea/select computes to under 16px —
+     several of this app's own fields (.subadd's "+ add a step" input
+     most noticeably, since that's the one people type into repeatedly)
+     are smaller than that for their normal compact desktop look, which
+     is exactly what was causing the jarring zoom-in on every new subtask.
+     Not scoped to any specific field — ANY focusable text field under
+     16px triggers the same zoom, so this is a blanket floor for the
+     whole mobile UI rather than a per-field patch that'd just leave the
+     next undersized field to rediscover the same bug. Specificity here
+     (element selector prefixed with body.mobileui-active) is deliberately
+     just high enough to beat each field's own smaller class-level
+     font-size, not to fight it in general — nothing needs to look bigger
+     than 16px, so anything already at or above that (.checklisttitle,
+     .fabaddsheet's inputs) is untouched. */
+  body.mobileui-active input[type="text"],
+  body.mobileui-active input[type="email"],
+  body.mobileui-active input[type="password"],
+  body.mobileui-active input[type="date"],
+  body.mobileui-active textarea,
+  body.mobileui-active select{
+    font-size:16px;
+  }
+
   /* ---- quickAddMobileStyle: the "+ Add Task" trigger + sheet ---- */
   .quickaddtrigger{
     display:none; width:100%; align-items:center; justify-content:center; gap:8px;
@@ -2030,6 +2054,18 @@
     background: radial-gradient(circle at 35% 30%, var(--primary-light), var(--primary) 70%);
     color:#fff; font-size:1.7rem; line-height:1;
     box-shadow: 0 6px 18px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.4);
+    /* This is already meant to be pinned to the viewport regardless of
+       scroll — "the always-reachable (+)" above isn't aspirational, it's
+       the whole point of position:fixed here. iOS Safari/WKWebView has a
+       long-standing quirk where a plain position:fixed element can lag or
+       visibly detach during momentum-scroll on a long page instead of
+       tracking the viewport smoothly, unless it's promoted to its own
+       GPU-composited layer — translateZ(0) is the standard nudge for
+       that; backface-visibility is the usual accompanying hint some iOS
+       versions want too. Layout-wise this changes nothing (0px
+       translation) — purely a rendering-path hint. */
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
   body.mobileui-active.fab-on .fabaddbtn{ display:flex; align-items:center; justify-content:center; }
   .fabaddscrim{ display:none; }
@@ -2997,12 +3033,21 @@
     <div class="tagline">sign in to your ledger</div>
   </div>
   <div class="card">
-    <div class="authform">
-      <input type="email" id="authEmail" placeholder="Email">
-      <input type="password" id="authPassword" placeholder="Password" onkeydown="if(event.key==='Enter') submitAuth()">
-    </div>
+    <!-- A real <form> (not a <div>) with autocomplete/name on each field
+         is what actually gets iOS/Safari's "Save Password?" prompt to
+         appear at all — a plain div with onclick-driven fetch() calls
+         never counted as a form submission in the first place, which is
+         why credentials never offered to save on the standalone "Add to
+         Home Screen" install. onsubmit does the actual work (so Enter in
+         either field submits too, no per-field onkeydown needed anymore)
+         and preventDefault()s the native navigation a real form submit
+         would otherwise cause. -->
+    <form class="authform" id="authForm" onsubmit="event.preventDefault(); submitAuth(); return false;">
+      <input type="email" id="authEmail" name="email" autocomplete="email" placeholder="Email">
+      <input type="password" id="authPassword" name="password" autocomplete="current-password" placeholder="Password">
+      <button type="submit" class="authsubmit" id="authSubmitBtn">Sign In</button>
+    </form>
     <div class="autherror" id="authError"></div>
-    <button class="authsubmit" id="authSubmitBtn" onclick="submitAuth()">Sign In</button>
     <div class="footer-row" id="forgotPasswordRow"><button onclick="showForgotPassword()">Forgot password?</button></div>
     <div class="footer-row"><button onclick="toggleAuthMode()" id="authModeToggle">Need an account? Create one</button></div>
     <div class="footer-row"><button onclick="continueLocally()">Continue without an account (this device only)</button></div>
@@ -3014,11 +3059,11 @@
     <div class="tagline">reset your password</div>
   </div>
   <div class="card">
-    <div class="authform">
-      <input type="email" id="forgotEmail" placeholder="Email" onkeydown="if(event.key==='Enter') requestPasswordReset()">
-    </div>
+    <form class="authform" id="forgotForm" onsubmit="event.preventDefault(); requestPasswordReset(); return false;">
+      <input type="email" id="forgotEmail" name="email" autocomplete="email" placeholder="Email">
+      <button type="submit" class="authsubmit" id="forgotSubmitBtn">Send reset link</button>
+    </form>
     <div class="autherror" id="forgotError"></div>
-    <button class="authsubmit" id="forgotSubmitBtn" onclick="requestPasswordReset()">Send reset link</button>
     <div class="footer-row"><button onclick="hideForgotPassword()">Back to sign in</button></div>
   </div>
 </div>
@@ -3028,12 +3073,12 @@
     <div class="tagline">set a new password</div>
   </div>
   <div class="card">
-    <div class="authform">
-      <input type="password" id="resetPassword" placeholder="New password">
-      <input type="password" id="resetPasswordConfirm" placeholder="Confirm new password" onkeydown="if(event.key==='Enter') submitPasswordReset()">
-    </div>
+    <form class="authform" id="resetForm" onsubmit="event.preventDefault(); submitPasswordReset(); return false;">
+      <input type="password" id="resetPassword" name="new-password" autocomplete="new-password" placeholder="New password">
+      <input type="password" id="resetPasswordConfirm" name="new-password-confirm" autocomplete="new-password" placeholder="Confirm new password">
+      <button type="submit" class="authsubmit" id="resetSubmitBtn">Set new password</button>
+    </form>
     <div class="autherror" id="resetError"></div>
-    <button class="authsubmit" id="resetSubmitBtn" onclick="submitPasswordReset()">Set new password</button>
   </div>
 </div>
 <div class="shell" id="appShell" style="display:none;">
@@ -6404,7 +6449,22 @@ function taskSubtasksHtml(t){
           </div>`;
         }).join('')}
         ${subDropEndHtml(t.id, subs)}
-        <input type="text" class="subadd" placeholder="+ add a step, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); }">
+        <!-- onblur also commits (addSubtask() no-ops on an empty string,
+             so tabbing/tapping away from an untouched field is still a
+             no-op) — iOS's own keyboard toolbar "Done" button only blurs
+             a field, it never fires a keydown Enter the way a hardware
+             keyboard does, so without this, dismissing the keyboard that
+             way silently threw away whatever was typed. The keydown
+             handler clears this.value BEFORE calling addSubtask() (not
+             after) specifically because addSubtask() calls render()
+             synchronously, which replaces this very input out from under
+             itself and blurs it as a side effect — clearing first is what
+             makes that implicit blur's own addSubtask() call see an empty
+             string and no-op, instead of re-submitting the same step
+             twice. -->
+        <input type="text" class="subadd" placeholder="+ add a step, enter to save"
+          onkeydown="if(event.key==='Enter'){ const v=this.value; this.value=''; addSubtask('${t.id}', v); }"
+          onblur="addSubtask('${t.id}', this.value)">
       </div>`;
 }
 
@@ -8918,7 +8978,14 @@ function renderChecklistDetail(taskId){
             <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
           </div>`).join('')}
         ${subDropEndHtml(t.id, subs)}
-        <input type="text" class="subadd" placeholder="+ add an item, enter to save" onkeydown="if(event.key==='Enter'){ addSubtask('${t.id}', this.value); }">
+        <!-- onblur commit + clear-before-call on Enter — same fix, same
+             reasoning, as taskSubtasksHtml()'s own .subadd in
+             08-render-core.js (both add to a task's subtasks via the same
+             addSubtask(), a checklist "item" being just that under the
+             hood). Keep the two in sync if this ever changes. -->
+        <input type="text" class="subadd" placeholder="+ add an item, enter to save"
+          onkeydown="if(event.key==='Enter'){ const v=this.value; this.value=''; addSubtask('${t.id}', v); }"
+          onblur="addSubtask('${t.id}', this.value)">
       </div>
       <div class="footer-row"><button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button></div>
     </div>
@@ -9624,6 +9691,12 @@ function toggleAuthMode(){
   document.getElementById('authSubmitBtn').textContent = authMode === 'signin' ? 'Sign In' : 'Create Account';
   document.getElementById('authModeToggle').textContent =
     authMode === 'signin' ? 'Need an account? Create one' : 'Already have an account? Sign in';
+  // Same field either way (see authForm in shell-body.html) — the
+  // autocomplete hint is what tells Safari/iCloud Keychain whether to
+  // offer an existing saved password (signing in) or treat whatever gets
+  // typed as a new credential worth saving (signing up), rather than
+  // trying to match it against an old one.
+  document.getElementById('authPassword').setAttribute('autocomplete', authMode === 'signin' ? 'current-password' : 'new-password');
   clearAuthFeedback('authError', document.querySelector('#authShell .authform'));
   // Only makes sense while signing in — a brand-new account has no
   // password to forget yet.
