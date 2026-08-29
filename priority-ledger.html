@@ -2320,24 +2320,13 @@
      AND the clip-path silhouette are properties of this SAME element,
      they can never disagree with each other the way two separately
      clipped elements (an earlier pass used a ::before for the band) can
-     — there's only one shape here, just two colors within it.
-     --tabband is always var(--primary) — the app's own brass/gold accent
-     (see :root) — not a per-category shade. A first pass used --tabedge
-     (the category's own hex, just darkened) in 'color' mode specifically,
-     which read as barely-there against an already-dark category color and
-     was reported back as "IT'S BACK TO BEING STRAIGHT" — not a rendering
-     bug, just too little contrast to register as a border at all rather
-     than a slightly duller patch of the same hue. "A nice GILDED border"
-     was the actual ask from the start — gilded meaning gold-colored,
-     literally, regardless of the tab's own category color, the way a
-     book or bookmark's own gilt edging doesn't try to match its cover. */
+     — there's only one shape here, just two colors within it. */
   .sidetabspeek .tab{
     width:84px; height:44px; margin-left:-72px; margin-top:-10px;
     padding:0 10px 0 18px; border-radius:0; justify-content:flex-start;
     box-shadow: -2px 3px 6px rgba(0,0,0,0.35);
     position:relative; pointer-events:auto;
-    --tabband: var(--primary);
-    background: linear-gradient(to right, var(--tabband) 0 10px, var(--sidetab-fill, var(--tabhex, var(--primary))) 10px 100%);
+    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 10px, var(--sidetab-fill, var(--tabhex, var(--primary))) 10px 100%);
     clip-path:none;
     transition: transform .15s ease, box-shadow .15s ease;
   }
@@ -2419,14 +2408,20 @@
      regardless of .active. Redeclaring it here would either duplicate
      that or (worse) fight it depending on source order. */
   /* ---- sidetabsAppearance (see defaultDevSettings() in 02-storage-
-     state.js) ---- each mode sets --sidetab-fill/color (read by the shape
-     rules' own background gradients below) rather than background
-     directly, so no appearance needs its own per-shape copy. --tabband
-     (the gilded border/band color) is always var(--primary) regardless of
-     appearance — see the base .tab rule above — so no mode needs its own
-     override for it either. 'color' (default) needs no override at all
-     beyond the --tabhex/--tabtext already set inline by renderTabs()
-     (copied onto every clone by cloneNode(true)) for --sidetab-fill. */
+     state.js) ---- each mode sets --sidetab-fill/--tabband/color (read by
+     the shape rules' own background gradients below) rather than
+     background directly, so no appearance needs its own per-shape copy.
+     'color' (default) needs no override beyond the --tabhex/--tabtext
+     already set inline by renderTabs() (copied onto every clone by
+     cloneNode(true)) for --sidetab-fill, but DOES need --tabband (the
+     accent used near the shape's point/edge) pointed at --tabedge — the
+     same pre-shaded darker tone the overlap look's own border-top already
+     reads — since --tabband's own fallback (--tabhex) would otherwise be
+     identical to --sidetab-fill and the band wouldn't read as distinct
+     against a fill that's already the tab's own color. */
+  body[data-sidetabs-appearance="color"] .sidetabspeek .tab{
+    --tabband: var(--tabedge, var(--primary-light));
+  }
   /* 'translucentpill': a plain half-round left end (border-radius using
      half the tab's own 44px height, a true pill/stadium curve) instead of
      any clip-path, no color band, no fade — this is what 'classic' meant
@@ -2525,7 +2520,7 @@
        the text, rather than trying to fight it with z-index. */
   .sidetabspeek .tab[data-shape="invertedv"]{
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 10px 50%);
-    background: var(--tabband, var(--primary));
+    background: var(--tabband, var(--tabhex, var(--primary)));
   }
   .sidetabspeek .tab[data-shape="invertedv"]::before{
     content:''; position:absolute; left:0; top:0; bottom:0; width:16px;
@@ -2534,15 +2529,15 @@
   }
   .sidetabspeek .tab[data-shape="arrows"]{
     clip-path: polygon(20px 0, 100% 0, 100% 100%, 20px 100%, 0px 50%);
-    background: linear-gradient(to right, var(--tabband, var(--primary)) 0 20px, var(--sidetab-fill, var(--tabhex, var(--primary))) 20px 100%);
+    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 20px, var(--sidetab-fill, var(--tabhex, var(--primary))) 20px 100%);
   }
   .sidetabspeek .tab[data-shape="sawtooth"]{
     clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0px 87.5%, 7px 75%, 0px 62.5%, 7px 50%, 0px 37.5%, 7px 25%, 0px 12.5%, 7px 0);
-    background: linear-gradient(to right, var(--tabband, var(--primary)) 0 7px, var(--sidetab-fill, var(--tabhex, var(--primary))) 7px 100%);
+    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 7px, var(--sidetab-fill, var(--tabhex, var(--primary))) 7px 100%);
   }
   .sidetabspeek .tab[data-shape="jagged"]{
     clip-path: polygon(13px 0, 100% 0, 100% 100%, 13px 100%, 10px 91%, 2px 82%, 11px 74%, 4px 63%, 9px 55%, 0px 46%, 10px 38%, 5px 27%, 11px 18%, 3px 9%, 13px 0);
-    background: linear-gradient(to right, var(--tabband, var(--primary)) 0 13px, var(--sidetab-fill, var(--tabhex, var(--primary))) 13px 100%);
+    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 13px, var(--sidetab-fill, var(--tabhex, var(--primary))) 13px 100%);
   }
   /* pagetab: a real rotated square on ::before instead of a clip-path dart
      — an earlier clip-path attempt at this (twice) read as "ridiculous"/
@@ -2561,7 +2556,7 @@
   .sidetabspeek .tab[data-shape="pagetab"]::before{
     content:''; position:absolute; left:-7px; top:50%; width:16px; height:16px;
     transform: translateY(-50%) rotate(45deg); border-radius:3px;
-    background: var(--tabband, var(--primary)); pointer-events:none;
+    background: var(--tabband, var(--tabhex, var(--primary))); pointer-events:none;
   }
   /* "a neat straight shape with a diamond bump in the middle" — a plain
      vertical line the same color as the diamond, running the tab's full
@@ -2571,7 +2566,7 @@
      already the diamond. */
   .sidetabspeek .tab[data-shape="pagetab"]::after{
     content:''; position:absolute; left:0px; top:0; bottom:0; width:2px;
-    background: var(--tabband, var(--primary)); pointer-events:none;
+    background: var(--tabband, var(--tabhex, var(--primary))); pointer-events:none;
   }
 
   /* indextabs: pure restyle of the existing horizontal row — no wrap/
