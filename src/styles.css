@@ -2518,26 +2518,27 @@
      FURTHER OUT is the one that has to be the parent (a shallower child
      can never poke past a shallower parent to reach the true tip).
      - .tab ("band") is the DEEPER/further-out point — corners pulled out
-       to 16px (4px past the shape's own 20px baseline) and the tip at the
+       to 14px (6px past the shape's own 20px baseline) and the tip at the
        full 0px (unchanged from before, so the arrow pokes out exactly as
        far as it always did). This is the true visible silhouette.
      - ::before ("fill") sits on top, corners at the plain 20px baseline
        (flush, same as every other shape's un-shaped corner) and its own
-       tip at 4px — 4px short of .tab's own tip everywhere.
+       tip at 6px — 6px short of .tab's own tip everywhere.
      Both layers use the same 3-point-per-half shape (corner, tip, corner)
-     with a CONSTANT 4px difference at both the corner point AND the tip
-     point — that's actually sufficient on its own for two straight
-     segments to be genuinely parallel (identical direction vector), no
-     extra flat-run breakpoints needed the way invertedv's notch used —
-     so the border reads as one uniform 4px stroke from corner to corner,
-     full width immediately, no taper in from either end. */
+     with a CONSTANT 6px difference at both the corner point AND the tip
+     point (bumped up from an initial 4px, "a little thicker") — that's
+     sufficient on its own for two straight segments to be genuinely
+     parallel (identical direction vector), no extra flat-run breakpoints
+     needed the way invertedv's notch used — so the border reads as one
+     uniform stroke from corner to corner, full width immediately, no
+     taper in from either end. */
   .sidetabspeek .tab[data-shape="arrows"]{
-    clip-path: polygon(16px 0, 100% 0, 100% 100%, 16px 100%, 0px 50%);
+    clip-path: polygon(14px 0, 100% 0, 100% 100%, 14px 100%, 0px 50%);
     background: var(--tabband, var(--tabhex, var(--primary)));
   }
   .sidetabspeek .tab[data-shape="arrows"]::before{
     content:''; position:absolute; inset:0;
-    clip-path: polygon(20px 0, 100% 0, 100% 100%, 20px 100%, 4px 50%);
+    clip-path: polygon(20px 0, 100% 0, 100% 100%, 20px 100%, 6px 50%);
     background: var(--sidetab-fill, var(--tabhex, var(--primary))); pointer-events:none;
   }
   .sidetabspeek .tab[data-shape="arrows"] > *{
