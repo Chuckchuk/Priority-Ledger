@@ -250,6 +250,21 @@ const SIDETAB_MAX_POKE = 112;    // ceiling on how wide a single-line label can 
                                   // instead (see .two-line in <style>), and past
                                   // that it ellipsizes rather than growing forever
 const SIDETAB_HEIGHT_2LINE = 60; // vs. the base 44px — see .sidetabspeek .tab.two-line
+// How many px of EXTRA left padding each shape needs — see the comment in
+// layoutSidetabsPeek() below on why: clip-path polygon points outside an
+// element's own 0..width box (this Browser environment's own limitation,
+// confirmed by testing a plain isolated div — a mainstream desktop browser
+// renders these fine, but this one silently drops the point and leaves the
+// edge flat) don't paint. Every shape here used to place its point at a
+// NEGATIVE x offset (protruding left past the tab's own edge) and simply
+// never rendered — invertedv was the one exception, since its point cuts
+// inward (positive x, already inside the box) rather than protruding.
+// Padding the box by the same amount the point protrudes and shifting the
+// whole polygon over by that amount keeps every vertex non-negative while
+// the tab's own on-screen position (and thus how far it visually pokes
+// out) stays exactly the same — see the .sidetabspeek .tab[data-shape="…"]
+// rules in <style> for the actual shifted polygons.
+const SIDETAB_SHAPE_EXTRA = { pagetab:22, arrows:20, invertedv:0, sawtooth:7, jagged:13 };
 function layoutSidetabsPeek(){
   const peek = document.getElementById('sidetabsPeek');
   if(!peek) return;
@@ -271,7 +286,8 @@ function layoutSidetabsPeek(){
     // on body — keeps the CSS down to one selector shape (.tab[data-
     // shape="…"]) instead of two parallel ones for "fixed" vs "resolved
     // per tab" cases.
-    clone.dataset.shape = resolveSidetabShape(t.dataset.key, shapeSetting);
+    const shape = resolveSidetabShape(t.dataset.key, shapeSetting);
+    clone.dataset.shape = shape;
     clone.style.pointerEvents = 'auto';
     // Measure this clone's own natural (unwrapped) content width before
     // pinning it to a fixed px width below — max-content plus nowrap on
@@ -282,6 +298,15 @@ function layoutSidetabsPeek(){
     const label = clone.querySelector('.tablabel');
     if(label) label.style.whiteSpace = 'nowrap';
     peek.appendChild(clone);
+    // Must happen after appending (needs a real computed style to add to)
+    // and before measuring below, so the extra room is baked into the
+    // natural-width measurement instead of tacked on after — see
+    // SIDETAB_SHAPE_EXTRA above.
+    const extra = SIDETAB_SHAPE_EXTRA[shape] || 0;
+    if(extra){
+      const basePad = parseFloat(getComputedStyle(clone).paddingLeft) || 0;
+      clone.style.paddingLeft = (basePad + extra) + 'px';
+    }
     const natural = clone.getBoundingClientRect().width;
     // Past SIDETAB_MAX_POKE, stop growing the tab for a long label and
     // wrap it onto a second line instead (.two-line — see <style> for the

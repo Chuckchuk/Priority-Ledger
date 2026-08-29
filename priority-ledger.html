@@ -2340,11 +2340,23 @@
      and the pointed shapes, whose protruding tips sit on the opposite,
      LEFT side entirely) — "fade at the very tip, never the text," per the
      project owner's own ask. */
+  /* white, not black, for the "fully visible" stops below — mask-image
+     (both the standard property and -webkit-mask-image) evaluates by
+     LUMINANCE by default in Chromium/WebKit, not alpha: a "black" stop
+     has zero luminance regardless of its own alpha, so black-to-
+     transparent (both share the same 0,0,0 RGB, differing only in alpha,
+     which luminance mode ignores) evaluated to "hidden" across the ENTIRE
+     gradient, not just the transparent end — the whole active tab was
+     reading as washed-out/near-invisible against the dark desk behind it
+     ("weird transparent gray"), not just faded at its tip. White has full
+     luminance, so white-to-transparent works correctly under both
+     luminance and alpha interpretations — the standard, correct way to
+     write a mask gradient, not a black one. */
   .sidetabspeek .tab.active{
     transform: translateX(-6px); z-index:4; font-weight:500;
     background: var(--sidetab-fill, var(--tabhex, var(--primary)));
-    -webkit-mask-image: linear-gradient(to right, black 0%, black 90%, transparent 100%);
-    mask-image: linear-gradient(to right, black 0%, black 90%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, white 0%, white 90%, transparent 100%);
+    mask-image: linear-gradient(to right, white 0%, white 90%, transparent 100%);
   }
   /* ---- sidetabsAppearance (see defaultDevSettings() in 02-storage-
      state.js) ---- each mode only sets --sidetab-fill/color (read by the
@@ -2406,72 +2418,68 @@
   }
   /* ---- sidetabsShape — cuts the tab's own left (poking-out) edge; top/
      right/bottom stay straight since those are shared with the column and
-     with #appCard, not part of what's actually visible poking out. Every
-     polygon below only differs in that left edge for exactly that reason.
+     with #appCard, not part of what's actually visible poking out.
      'jagged' is intentionally never assigned by resolveSidetabShape() for
      'random'/'iconstyle' (06-tabs-render.js) — it's the one shape meant to
      only ever show up when explicitly picked.
-     For the three pointed shapes, ::before (the color band) traces the
-     SAME point direction as the tab but at roughly 60-65% of its reach —
-     "have the color bands follow the shape," per the project owner's own
-     ask — rather than the exact same polygon a first pass used. Sharing
-     the identical polygon meant the band (painted second, on top of the
-     tab's own background — see the ::before rule above) fully covered the
-     tab's own color everywhere the point protrudes, since a polygon that
-     reaches the same tip has no gap for the layer underneath to show
-     through — reported as "the shapes are the band's color, not the tab's
-     color." Scaling the band's own point back means the OUTERMOST part of
-     the tip (past where the band's shorter polygon ends) shows the tab's
-     own plain fill — --tabhex itself in 'color' mode, so the very tip
-     reads as pure category color per the project owner's ask — while the
-     band still visibly traces the same angle in from the base, in the
-     same direction, rather than being a flat rectangle. sawtooth/jagged
-     deliberately do NOT do this (the project owner's own callout: a
-     stripe trying to trace a zigzag "would look weird") — their own band
-     stays the default straight rectangle, and the tab's own background
-     gets a second gradient layer instead, so the zigzag teeth themselves
-     read as the band color rather than the band having to chase their
-     contour. ---- */
+     Every polygon's x-coordinates are non-negative and no bigger than the
+     tab's own width — this Browser environment doesn't paint a clip-path
+     vertex placed outside the element's own 0..width box (confirmed with
+     an isolated test div — a mainstream desktop browser handles this
+     fine, but here the point just silently doesn't render and the edge
+     stays flat), so every shape below is shifted right by its own
+     SIDETAB_SHAPE_EXTRA (06-tabs-render.js), which also pads the tab that
+     same amount so its on-screen position doesn't change — see that
+     constant's own comment for the full explanation. invertedv needed no
+     shift (its point already cuts inward, i.e. positive x) — it was the
+     one shape that ever actually rendered before this fix.
+     The color band on ::before now shares the IDENTICAL polygon string as
+     its tab, but its own box is sized to exactly SIDETAB_SHAPE_EXTRA wide
+     (see each rule's width below) — since "100%" in that shared string
+     then resolves against the BAND's own (narrower) width instead of the
+     tab's, the polygon's rectangular corners collapse onto the same point
+     as the shifted origin, leaving just the wedge itself with no leftover
+     straight edge — the band ends up sized and shaped to exactly the
+     protruding part, "the color band follows the shape" without needing
+     a second, hand-tuned polygon per shape. invertedv is the one
+     exception: its notch cuts only 14px in, so its band is 20px (a
+     several-px buffer past the notch's own depth) rather than exactly
+     14 — sizing it to exactly 14 would put the notch's point flush on the
+     band's own right edge instead of visibly inside it. ---- */
   .sidetabspeek .tab[data-shape="pagetab"]{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 62%, -22px 50%, 0 38%);
+    clip-path: polygon(22px 0, 100% 0, 100% 100%, 22px 100%, 22px 62%, 0px 50%, 22px 38%);
   }
   .sidetabspeek .tab[data-shape="pagetab"]::before{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 62%, -14px 50%, 0 38%);
+    width:22px;
+    clip-path: polygon(22px 0, 100% 0, 100% 100%, 22px 100%, 22px 62%, 0px 50%, 22px 38%);
   }
   .sidetabspeek .tab[data-shape="invertedv"]{
     clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
   }
   .sidetabspeek .tab[data-shape="invertedv"]::before{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 9px 50%);
+    width:20px;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
   }
   .sidetabspeek .tab[data-shape="arrows"]{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -20px 50%);
+    clip-path: polygon(20px 0, 100% 0, 100% 100%, 20px 100%, 0px 50%);
   }
   .sidetabspeek .tab[data-shape="arrows"]::before{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -13px 50%);
+    width:20px;
+    clip-path: polygon(20px 0, 100% 0, 100% 100%, 20px 100%, 0px 50%);
   }
-  .sidetabspeek .tab[data-shape="sawtooth"],
+  .sidetabspeek .tab[data-shape="sawtooth"]{
+    clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0px 87.5%, 7px 75%, 0px 62.5%, 7px 50%, 0px 37.5%, 7px 25%, 0px 12.5%, 7px 0);
+  }
+  .sidetabspeek .tab[data-shape="sawtooth"]::before{
+    width:7px;
+    clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0px 87.5%, 7px 75%, 0px 62.5%, 7px 50%, 0px 37.5%, 7px 25%, 0px 12.5%, 7px 0);
+  }
   .sidetabspeek .tab[data-shape="jagged"]{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -7px 87.5%, 0 75%, -7px 62.5%, 0 50%, -7px 37.5%, 0 25%, -7px 12.5%, 0 0);
+    clip-path: polygon(13px 0, 100% 0, 100% 100%, 13px 100%, 10px 91%, 2px 82%, 11px 74%, 4px 63%, 9px 55%, 0px 46%, 10px 38%, 5px 27%, 11px 18%, 3px 9%, 13px 0);
   }
-  .sidetabspeek .tab[data-shape="jagged"]{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, -3px 91%, -11px 82%, -2px 74%, -9px 63%, -4px 55%, -13px 46%, -3px 38%, -8px 27%, -2px 18%, -10px 9%, 0 0);
-  }
-  /* sawtooth/jagged: the tab's own background gets a second layer on top
-     of --sidetab-fill — transparent for the first 10px (letting the true
-     --tabhex base layer show through exactly where the teeth are cut, so
-     they read as the band color) then --sidetab-fill for the rest, same
-     "outer zone is band-colored, inner zone is the appearance mode's own
-     fill" split the project owner asked for as the alternative to a
-     shape-following band. Repeated for .active so a sawtooth/jagged tab
-     doesn't lose this split the one render it's also selected (that
-     combination ties both rules at equal specificity, so without its own
-     copy here source order alone would decide which one wins). */
-  .sidetabspeek .tab[data-shape="sawtooth"],
-  .sidetabspeek .tab[data-shape="jagged"],
-  .sidetabspeek .tab.active[data-shape="sawtooth"],
-  .sidetabspeek .tab.active[data-shape="jagged"]{
-    background: linear-gradient(to right, transparent 0 10px, var(--sidetab-fill, var(--tabhex)) 10px 100%), var(--tabhex, var(--primary));
+  .sidetabspeek .tab[data-shape="jagged"]::before{
+    width:13px;
+    clip-path: polygon(13px 0, 100% 0, 100% 100%, 13px 100%, 10px 91%, 2px 82%, 11px 74%, 4px 63%, 9px 55%, 0px 46%, 10px 38%, 5px 27%, 11px 18%, 3px 9%, 13px 0);
   }
 
   /* indextabs: pure restyle of the existing horizontal row — no wrap/
@@ -5171,6 +5179,21 @@ const SIDETAB_MAX_POKE = 112;    // ceiling on how wide a single-line label can 
                                   // instead (see .two-line in <style>), and past
                                   // that it ellipsizes rather than growing forever
 const SIDETAB_HEIGHT_2LINE = 60; // vs. the base 44px — see .sidetabspeek .tab.two-line
+// How many px of EXTRA left padding each shape needs — see the comment in
+// layoutSidetabsPeek() below on why: clip-path polygon points outside an
+// element's own 0..width box (this Browser environment's own limitation,
+// confirmed by testing a plain isolated div — a mainstream desktop browser
+// renders these fine, but this one silently drops the point and leaves the
+// edge flat) don't paint. Every shape here used to place its point at a
+// NEGATIVE x offset (protruding left past the tab's own edge) and simply
+// never rendered — invertedv was the one exception, since its point cuts
+// inward (positive x, already inside the box) rather than protruding.
+// Padding the box by the same amount the point protrudes and shifting the
+// whole polygon over by that amount keeps every vertex non-negative while
+// the tab's own on-screen position (and thus how far it visually pokes
+// out) stays exactly the same — see the .sidetabspeek .tab[data-shape="…"]
+// rules in <style> for the actual shifted polygons.
+const SIDETAB_SHAPE_EXTRA = { pagetab:22, arrows:20, invertedv:0, sawtooth:7, jagged:13 };
 function layoutSidetabsPeek(){
   const peek = document.getElementById('sidetabsPeek');
   if(!peek) return;
@@ -5192,7 +5215,8 @@ function layoutSidetabsPeek(){
     // on body — keeps the CSS down to one selector shape (.tab[data-
     // shape="…"]) instead of two parallel ones for "fixed" vs "resolved
     // per tab" cases.
-    clone.dataset.shape = resolveSidetabShape(t.dataset.key, shapeSetting);
+    const shape = resolveSidetabShape(t.dataset.key, shapeSetting);
+    clone.dataset.shape = shape;
     clone.style.pointerEvents = 'auto';
     // Measure this clone's own natural (unwrapped) content width before
     // pinning it to a fixed px width below — max-content plus nowrap on
@@ -5203,6 +5227,15 @@ function layoutSidetabsPeek(){
     const label = clone.querySelector('.tablabel');
     if(label) label.style.whiteSpace = 'nowrap';
     peek.appendChild(clone);
+    // Must happen after appending (needs a real computed style to add to)
+    // and before measuring below, so the extra room is baked into the
+    // natural-width measurement instead of tacked on after — see
+    // SIDETAB_SHAPE_EXTRA above.
+    const extra = SIDETAB_SHAPE_EXTRA[shape] || 0;
+    if(extra){
+      const basePad = parseFloat(getComputedStyle(clone).paddingLeft) || 0;
+      clone.style.paddingLeft = (basePad + extra) + 'px';
+    }
     const natural = clone.getBoundingClientRect().width;
     // Past SIDETAB_MAX_POKE, stop growing the tab for a long label and
     // wrap it onto a second line instead (.two-line — see <style> for the
