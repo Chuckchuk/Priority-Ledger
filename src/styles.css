@@ -524,7 +524,12 @@
   li.task.dragover{ border-top: 2px solid var(--primary); }
   .dropend{ height:16px; list-style:none; }
   .dropend.dragover{ border-top: 2px solid var(--primary); }
-  .row{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
+  .row{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; transition: background-color 120ms ease, transform 120ms ease; }
+  /* Feedback while a 'split'/'detail' taskLongPressMode hold is armed
+     (added in taskPressStart(), removed in taskPressMove()/taskPressEnd(),
+     08-render-core.js) — without this the 500ms hold gives no visual cue
+     at all until either it fires or the finger lifts. */
+  .row.pressing{ background: var(--card-bg-dim); border-radius:6px; transform: scale(0.98); }
   /* Drag reordering is scoped to this small handle rather than the whole
      row — the row already has its own click-to-expand and a checkbox
      right next to where a handle would sit, so making the entire row a

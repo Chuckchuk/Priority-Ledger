@@ -758,9 +758,9 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     <div class="${fieldClass}">
       <span class="${captionClass}">Task tap/long-press</span>
       <select class="${selectClass}" onchange="setDevTaskLongPressMode(this.value)">
-        <option value="default" ${dev.taskLongPressMode==='default'?'selected':''}>Default (tap opens everything)</option>
+        <option value="detail" ${dev.taskLongPressMode==='detail'?'selected':''}>Detail (default) — tap opens the full task page, long-press shows a quick-actions menu</option>
         <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap shows Steps, long-press opens a bottom sheet</option>
-        <option value="detail" ${dev.taskLongPressMode==='detail'?'selected':''}>Detail — tap shows Steps, long-press opens the full task page (like Daily)</option>
+        <option value="default" ${dev.taskLongPressMode==='default'?'selected':''}>Classic — tap opens everything inline</option>
       </select>
     </div>
 

@@ -107,6 +107,7 @@ let taskPressTimer = null;
 let taskLongPressFired = false;
 let taskPressStartX = 0;
 let taskPressStartY = 0;
+let taskPressRow = null;
 // id of the category whose color/icon popover (see categoryPickerHtml() in
 // 01-categories-theme.js) is currently open, or null — only one open at a
 // time, same "single id, not a Set" pattern as pendingDeleteCategoryId.
@@ -443,18 +444,23 @@ function defaultDevSettings(){
   // taskLongPressMode: 'default' leaves a task row's single tap/click
   // toggling the *entire* .expand block (every field at once, see
   // taskExpandFieldsHtml() in 08-render-core.js). 'split' and 'detail' —
-  // both gated by mobileUiActive(), touch-first — share the same short
-  // tap: it toggles a trimmed .expand showing just Steps
-  // (taskSubtasksHtml()), since that's the thing worth glancing at most
-  // often. They differ only in what a genuine long-press (taskPressStart()
-  // et al.) opens for the rest — category, due date, urgent/today flags,
-  // timeframe/priority, notes: 'split' opens it as its own bottom sheet
-  // (openTaskSettingsSheet()), out of the way until you actually reach for
-  // it; 'detail' instead opens the same full-page task detail Daily's own
-  // taskDetailId uses (openMobileTaskDetail(), renderTaskDetailPage() in
-  // 08-render-core.js) — added after the bottom sheet read as
-  // thematically inconsistent with the rest of the app's page-based
-  // navigation.
+  // both gated by mobileUiActive(), touch-first — arm the same long-press
+  // timer (taskPressStart() et al. in 08-render-core.js) but differ in
+  // what a plain tap and a genuine long-press each do:
+  //   'split':  tap toggles a trimmed .expand showing just Steps
+  //             (taskSubtasksHtml()); long-press opens the rest —
+  //             category, due date, urgent/today, timeframe/priority,
+  //             notes — as its own bottom sheet (openTaskSettingsSheet()).
+  //   'detail': tap jumps straight to the same full-page task detail
+  //             Daily's own taskDetailId uses (openMobileTaskDetail(),
+  //             renderTaskDetailPage()); long-press instead opens a quick-
+  //             actions menu (mark complete/urgent/today, delete — same
+  //             component as the desktop right-click menu, see
+  //             taskContextMenuHtml()/openTaskContextMenuForRow()) anchored
+  //             to the row. This is the platform-standard split (tap to
+  //             go there, long-press to act on it without leaving) and is
+  //             the default — see defaultDevSettings()'s taskLongPressMode
+  //             value below.
   // overlapSubtags / overlapHoverMode are two further EXPERIMENTAL
   // sub-options of tabBarDesktopStyle's "overlap" look specifically —
   // only ever offered in the UI while that style is the current pick
@@ -476,7 +482,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'default', stickyTabBar:false };
+  return { tagSeam:false, tagOutline:false, pendingTagStyle:'default', pendingTagColor:'theme', showListDates:false, dayTreeCatBubble:false, sidePanelEnabled:false, calendarTabTypeEnabled:false, calendarCellStyle:'ratio', calendarTodayOrnate:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'classic', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'default', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -583,7 +589,7 @@ function normalizeState(){
   if(typeof state.devSettings.overlapRankStagger !== 'boolean') state.devSettings.overlapRankStagger = false;
   if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
-  if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'default';
+  if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'detail';
   if(typeof state.devSettings.stickyTabBar !== 'boolean') state.devSettings.stickyTabBar = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
