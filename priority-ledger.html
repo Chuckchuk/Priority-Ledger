@@ -2504,27 +2504,40 @@
        color band is just a vertical other color" and, in 'edge' mode
        specifically, as the fill/band colors reading inverted, both
        exactly what you'd expect from the fill layer covering almost none
-       of the tab), clipped to a DEEPER notch (14px) filled with
-       --sidetab-fill. Since 14 > 10, ::before's own missing wedge is
-       bigger than .tab's, so ::before's fill covers all of .tab's band
-       color EXCEPT a ~4px sliver between the two cuts, where .tab's own
-       background is all that's left to show — that sliver is the border,
-       tracing the notch's actual diagonal edges because both layers are
-       clipped to the same V, not a separately-shaped element trying to
-       match it.
-     - The real fix for the text-visibility bug this replaces: the
-       button's own direct children (icon/label/count) get position:
-       relative + z-index:1 below, so they win the paint-order fight
-       against ::before on their own merits (both become "positioned,"
-       and z-index:1 beats ::before's implicit auto/0) instead of relying
-       on ::before being too narrow to ever reach them. */
+       of the tab), clipped to a deeper notch filled with --sidetab-fill.
+       .tab's own background only shows through where ::before's own clip
+       leaves it uncovered — that gap is the border.
+       Each polygon's depth is CONSTANT from y:0%-12% and y:88%-100% (3px
+       for .tab, 7px for ::before — a straight run, not a taper down to a
+       sharp 0,0 corner) and ramps only between 12%/50%/88%, where each
+       layer's depth differs from the other by a CONSTANT 4px (3/10/3 for
+       .tab, 7/14/7 for ::before). A constant depth difference over the
+       SAME y-span is what makes two line segments parallel — so from 12%
+       to 88% (most of the notch's actual length) the two edges run
+       genuinely parallel, a uniform 4px apart, rather than the single
+       depth value (10px vs 14px) a first pass used for BOTH edges' entire
+       span, sharing actual (0,0)/(0,100%) corner points: that version's
+       "border" was a wedge that pinched to nothing at the corners and
+       only reached its full 4px right at the tip — reported back as "far
+       too short" and "not the same angle," both just different symptoms
+       of the same wedge-not-a-parallel-stroke shape. A second pass then
+       tapered the two SHORT corner runs (0%-12%/88%-100%) down to 0 same
+       as the original, to avoid clip-path points at y<0%/y>100% (outside
+       the box, which is its own rendering problem here) — "you don't
+       need to taper it off at the end, you can just have it go straight"
+       was the fix: keep those runs at a flat 3px/7px instead of ramping
+       to 0, i.e. the tab's own top-left/bottom-left corners sit at x:3px/
+       x:7px rather than the sharp x:0 every other shape's corner uses.
+       Any hairline gap that leaves at the very top/bottom (this tab's
+       true corner vs. its neighbor's) reads as nothing in practice — the
+       column's own tabs overlap by design (negative margin-top). */
   .sidetabspeek .tab[data-shape="invertedv"]{
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 10px 50%);
+    clip-path: polygon(3px 0, 100% 0, 100% 100%, 3px 100%, 3px 88%, 10px 50%, 3px 12%);
     background: var(--tabband, var(--tabhex, var(--primary)));
   }
   .sidetabspeek .tab[data-shape="invertedv"]::before{
     content:''; position:absolute; inset:0;
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
+    clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 7px 88%, 14px 50%, 7px 12%);
     background: var(--sidetab-fill, var(--tabhex, var(--primary))); pointer-events:none;
   }
   .sidetabspeek .tab[data-shape="invertedv"] > *{
