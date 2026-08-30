@@ -199,6 +199,20 @@
     <div id="taskSettingsBody"></div>
   </div>
 
+  <!-- Shake-to-undo/redo (see 04-undo.js) — reuses the same bottom-sheet
+       mechanics as the FAB/long-press sheets above (.fabaddsheet/
+       .fabaddscrim), gated by its own body class since neither fab-open
+       nor tasksettings-open apply here. Always in the DOM, harmless at
+       rest, same idiom as those. -->
+  <div class="fabaddscrim" id="shakeUndoScrim" onclick="closeShakeUndoMenu()"></div>
+  <div class="fabaddsheet shakeundosheet" id="shakeUndoSheet">
+    <div class="quickaddsheethead">
+      <span class="quickaddsheetgrabber"></span>
+      <button class="quickaddsheetclose" onclick="closeShakeUndoMenu()" title="Close">×</button>
+    </div>
+    <div id="shakeUndoBody"></div>
+  </div>
+
   <!-- customContextMenu (desktop-only, see handleTaskContextMenu() in
        08-render-core.js) — position:fixed and placed at click coordinates
        by openTaskContextMenu(), so a fixed spot in the DOM is all this

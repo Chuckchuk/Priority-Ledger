@@ -2335,6 +2335,28 @@
     border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim); padding:8px; resize:vertical; color:var(--ink);
   }
 
+  /* ---- Shake-to-undo/redo (see 04-undo.js) ----
+     Reuses .fabaddsheet/.fabaddscrim's own hidden-by-default base rules
+     above (same bottom-sheet mechanics as the FAB/long-press sheets) —
+     only the *shown* state is gated by its own body class. Deliberately
+     NOT scoped to body.mobileui-active: shaking a physical phone is a
+     real device capability, independent of the Mobile UI Lab's viewport
+     emulation, so this works (or doesn't, for lack of an accelerometer)
+     the same regardless of that toggle. */
+  body.shakeundo-open #shakeUndoScrim{ display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:65; }
+  body.shakeundo-open #shakeUndoSheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
+  .shakeundo-title{
+    text-align:center; font-family:'Fraunces', serif; font-size:1.05rem; color:var(--ink); margin:2px 0;
+  }
+  .shakeundo-actions{ display:flex; flex-direction:column; gap:10px; }
+  .shakeundo-actions button{
+    width:100%; padding:14px 12px; border-radius:12px; border:1px solid var(--line);
+    background: var(--card-bg-dim); font-family:'IBM Plex Sans', sans-serif; font-size:0.95rem;
+    color:var(--ink); cursor:pointer; text-align:center;
+  }
+  .shakeundo-actions button:not(:disabled):hover{ border-color: var(--primary); }
+  .shakeundo-actions button:disabled{ opacity:0.4; cursor:default; }
+
   /* ---- taskRowMobileStyle: reflowing a task row's title vs. its badges ---- */
   /* stacked: .titlewrap (wrapping .title+.meta, see the base rule above)
      switches from a side-by-side row to a column — the title takes the

@@ -41,6 +41,10 @@ document.addEventListener('keydown', (e) => {
     }
     if(popoverOpen){ closeAllSettingsPopovers(); render(); return; }
     if(e.key !== 'Escape') return; // Enter has nothing else to do app-wide
+    // Shake-to-undo's own menu (04-undo.js) floats above literally
+    // everything, same reasoning as the Mobile UI Lab overlays checked
+    // right below — it can pop up over any screen in the app.
+    if(shakeUndoOpen){ closeShakeUndoMenu(); return; }
     // Mobile UI Lab overlays (see 01-categories-theme.js/16-task-crud.js) —
     // both float above literally everything else including Settings, so
     // they're checked before any of it.
@@ -698,6 +702,17 @@ function pullRefreshEnd(){
 }
 document.addEventListener('touchend', pullRefreshEnd);
 document.addEventListener('touchcancel', () => { pullRefreshGesture = null; pullRefreshReset(); });
+
+// ---------- Shake-to-undo/redo: kick off the permission request ----------
+// See requestShakePermission()'s own comment in 04-undo.js for why this
+// has to wait for a real tap: iOS's motion-permission prompt only fires
+// from inside a user gesture, so the very first tap anywhere in the app —
+// whatever it's actually for — is reused to also ask for motion access,
+// once, so shake detection is live moments after the app opens without a
+// dedicated "enable shake" tap of its own. { once: true } means this
+// listener discards itself after that first tap; requestShakePermission()
+// itself is also a no-op on any later call once a definite answer exists.
+document.addEventListener('pointerdown', requestShakePermission, { once: true });
 
 // Resizing the window can change how tabs wrap into rows even with no
 // state change (nothing else calls render() in that case), which would

@@ -2367,6 +2367,28 @@
     border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim); padding:8px; resize:vertical; color:var(--ink);
   }
 
+  /* ---- Shake-to-undo/redo (see 04-undo.js) ----
+     Reuses .fabaddsheet/.fabaddscrim's own hidden-by-default base rules
+     above (same bottom-sheet mechanics as the FAB/long-press sheets) —
+     only the *shown* state is gated by its own body class. Deliberately
+     NOT scoped to body.mobileui-active: shaking a physical phone is a
+     real device capability, independent of the Mobile UI Lab's viewport
+     emulation, so this works (or doesn't, for lack of an accelerometer)
+     the same regardless of that toggle. */
+  body.shakeundo-open #shakeUndoScrim{ display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:65; }
+  body.shakeundo-open #shakeUndoSheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
+  .shakeundo-title{
+    text-align:center; font-family:'Fraunces', serif; font-size:1.05rem; color:var(--ink); margin:2px 0;
+  }
+  .shakeundo-actions{ display:flex; flex-direction:column; gap:10px; }
+  .shakeundo-actions button{
+    width:100%; padding:14px 12px; border-radius:12px; border:1px solid var(--line);
+    background: var(--card-bg-dim); font-family:'IBM Plex Sans', sans-serif; font-size:0.95rem;
+    color:var(--ink); cursor:pointer; text-align:center;
+  }
+  .shakeundo-actions button:not(:disabled):hover{ border-color: var(--primary); }
+  .shakeundo-actions button:disabled{ opacity:0.4; cursor:default; }
+
   /* ---- taskRowMobileStyle: reflowing a task row's title vs. its badges ---- */
   /* stacked: .titlewrap (wrapping .title+.meta, see the base rule above)
      switches from a side-by-side row to a column — the title takes the
@@ -3490,6 +3512,20 @@
       <button class="quickaddsheetclose" onclick="closeTaskSettingsSheet()" title="Close">×</button>
     </div>
     <div id="taskSettingsBody"></div>
+  </div>
+
+  <!-- Shake-to-undo/redo (see 04-undo.js) — reuses the same bottom-sheet
+       mechanics as the FAB/long-press sheets above (.fabaddsheet/
+       .fabaddscrim), gated by its own body class since neither fab-open
+       nor tasksettings-open apply here. Always in the DOM, harmless at
+       rest, same idiom as those. -->
+  <div class="fabaddscrim" id="shakeUndoScrim" onclick="closeShakeUndoMenu()"></div>
+  <div class="fabaddsheet shakeundosheet" id="shakeUndoSheet">
+    <div class="quickaddsheethead">
+      <span class="quickaddsheetgrabber"></span>
+      <button class="quickaddsheetclose" onclick="closeShakeUndoMenu()" title="Close">×</button>
+    </div>
+    <div id="shakeUndoBody"></div>
   </div>
 
   <!-- customContextMenu (desktop-only, see handleTaskContextMenu() in
@@ -5526,6 +5562,112 @@ function redo(){
   render();
   queueSave();
   showUndoStatus('Redid: ' + entry.label);
+}
+
+// ---------- Shake-to-undo/redo ----------
+// Mirrors iOS's own system-level "shake to undo," but a web page can only
+// approximate it: iOS 13+ Safari/WKWebView gates the devicemotion event
+// itself behind DeviceMotionEvent.requestPermission(), and that call only
+// resolves (rather than silently rejecting) when made from inside a real
+// user gesture — a tap, never a timer or page-load script. That means an
+// iOS web app has no way to listen for a shake before *something* has
+// been tapped, and no way to detect "the user just tried to shake" before
+// permission exists either — there's nothing to catch it with yet. The
+// closest a web page gets is requestShakePermission() below, fired once
+// from the very first tap anywhere in the app (see the one-time
+// 'pointerdown' listener in 19-bootstrap.js) — so in practice it's live
+// within one tap of opening the app, no separate settings toggle or
+// visible "enable shake" banner needed. Browsers that never gate this
+// (most non-Safari mobile browsers) just start listening immediately,
+// same call path, no prompt shown.
+let shakeMotionPermissionState = 'unknown'; // 'unknown' | 'granted' | 'denied' | 'unsupported'
+let shakeLastMagnitude = null;
+let shakePeakTimes = [];
+const SHAKE_DELTA_THRESHOLD = 14; // m/s^2 jump between consecutive samples to count as one "peak"
+const SHAKE_WINDOW_MS = 1200;     // peaks must all land within this span of each other
+const SHAKE_PEAKS_REQUIRED = 3;   // this many qualifying peaks inside the window = a shake
+const SHAKE_COOLDOWN_MS = 1500;   // ignore further peaks right after a shake fires, so the tail end of the same shake can't immediately reopen the menu
+let shakeCooldownUntil = 0;
+
+function handleDeviceMotion(e){
+  const acc = e.accelerationIncludingGravity || e.acceleration;
+  if(!acc || acc.x === null) return;
+  const magnitude = Math.sqrt((acc.x||0)**2 + (acc.y||0)**2 + (acc.z||0)**2);
+  const now = Date.now();
+  if(shakeLastMagnitude !== null && now >= shakeCooldownUntil
+     && Math.abs(magnitude - shakeLastMagnitude) > SHAKE_DELTA_THRESHOLD){
+    shakePeakTimes = shakePeakTimes.filter(t => now - t < SHAKE_WINDOW_MS);
+    shakePeakTimes.push(now);
+    if(shakePeakTimes.length >= SHAKE_PEAKS_REQUIRED){
+      shakePeakTimes = [];
+      shakeCooldownUntil = now + SHAKE_COOLDOWN_MS;
+      onShakeDetected();
+    }
+  }
+  shakeLastMagnitude = magnitude;
+}
+
+function startShakeListening(){
+  if(shakeMotionPermissionState === 'granted') return; // already listening
+  shakeMotionPermissionState = 'granted';
+  window.addEventListener('devicemotion', handleDeviceMotion);
+}
+
+// Called from the one-time first-tap listener in 19-bootstrap.js. Safe to
+// call more than once (e.g. a stray second registration) — it only acts
+// while the state is still 'unknown', so a definite answer either way
+// sticks rather than re-prompting.
+function requestShakePermission(){
+  if(shakeMotionPermissionState !== 'unknown') return;
+  if(typeof DeviceMotionEvent === 'undefined'){ shakeMotionPermissionState = 'unsupported'; return; }
+  if(typeof DeviceMotionEvent.requestPermission !== 'function'){ startShakeListening(); return; }
+  DeviceMotionEvent.requestPermission().then(result => {
+    if(result === 'granted') startShakeListening();
+    else shakeMotionPermissionState = 'denied';
+  }).catch(() => { shakeMotionPermissionState = 'denied'; });
+}
+
+let shakeUndoOpen = false;
+
+function onShakeDetected(){
+  if(shakeUndoOpen) return;
+  const appShell = document.getElementById('appShell');
+  if(!appShell || appShell.style.display === 'none') return; // not signed in yet
+  openShakeUndoMenu();
+}
+
+function shakeUndoMenuHtml(){
+  const undoLabel = undoStack.length ? undoStack[undoStack.length-1].label : null;
+  const redoLabel = redoStack.length ? redoStack[redoStack.length-1].label : null;
+  return `
+    <div class="shakeundo-title">Undo or redo?</div>
+    <div class="shakeundo-actions">
+      <button ${undoLabel ? '' : 'disabled'} onclick="shakeUndoAction(undo)">Undo${undoLabel ? ': ' + escapeHtml(undoLabel) : ''}</button>
+      <button ${redoLabel ? '' : 'disabled'} onclick="shakeUndoAction(redo)">Redo${redoLabel ? ': ' + escapeHtml(redoLabel) : ''}</button>
+    </div>
+  `;
+}
+
+// Nothing to undo AND nothing to redo (e.g. a brand-new account, or right
+// after signing in with no edits yet this session) — a shake in that
+// state has nothing useful to offer, so it's a silent no-op rather than
+// popping an empty-looking menu.
+function openShakeUndoMenu(){
+  if(undoStack.length === 0 && redoStack.length === 0) return;
+  shakeUndoOpen = true;
+  document.body.classList.add('shakeundo-open');
+  document.getElementById('shakeUndoBody').innerHTML = shakeUndoMenuHtml();
+  if(navigator.vibrate) navigator.vibrate(30);
+}
+
+function closeShakeUndoMenu(){
+  shakeUndoOpen = false;
+  document.body.classList.remove('shakeundo-open');
+}
+
+function shakeUndoAction(fn){
+  closeShakeUndoMenu();
+  fn();
 }
 
 function isOverdue(t){
@@ -10987,6 +11129,10 @@ document.addEventListener('keydown', (e) => {
     }
     if(popoverOpen){ closeAllSettingsPopovers(); render(); return; }
     if(e.key !== 'Escape') return; // Enter has nothing else to do app-wide
+    // Shake-to-undo's own menu (04-undo.js) floats above literally
+    // everything, same reasoning as the Mobile UI Lab overlays checked
+    // right below — it can pop up over any screen in the app.
+    if(shakeUndoOpen){ closeShakeUndoMenu(); return; }
     // Mobile UI Lab overlays (see 01-categories-theme.js/16-task-crud.js) —
     // both float above literally everything else including Settings, so
     // they're checked before any of it.
@@ -11644,6 +11790,17 @@ function pullRefreshEnd(){
 }
 document.addEventListener('touchend', pullRefreshEnd);
 document.addEventListener('touchcancel', () => { pullRefreshGesture = null; pullRefreshReset(); });
+
+// ---------- Shake-to-undo/redo: kick off the permission request ----------
+// See requestShakePermission()'s own comment in 04-undo.js for why this
+// has to wait for a real tap: iOS's motion-permission prompt only fires
+// from inside a user gesture, so the very first tap anywhere in the app —
+// whatever it's actually for — is reused to also ask for motion access,
+// once, so shake detection is live moments after the app opens without a
+// dedicated "enable shake" tap of its own. { once: true } means this
+// listener discards itself after that first tap; requestShakePermission()
+// itself is also a no-op on any later call once a definite answer exists.
+document.addEventListener('pointerdown', requestShakePermission, { once: true });
 
 // Resizing the window can change how tabs wrap into rows even with no
 // state change (nothing else calls render() in that case), which would
