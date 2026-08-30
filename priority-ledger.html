@@ -54,14 +54,19 @@
        quick-add "+" button, selection/drag feedback, and general active-
        state accents — essentially everywhere the app used to hardcode a
        brass color. --secondary is for "needs your attention, tap to see
-       it" indicators — today that's only the pending-items tag (see
-       .pagetag.compact below), but any future indicator in that same
-       spirit (a badge you tap to reveal a backlog, not a status label)
-       should reach for --secondary too. Deliberately NOT extended to
-       .badge.overdue / .badge.priority-high (--estate, hardcoded rust) —
-       those are a fixed "danger" signal, not a themeable accent; recoloring
-       them to whatever a user picks as Secondary (which might not read as
-       urgent at all) would undermine that. */
+       it" indicators (the pending-items tag, see .pagetag.compact below —
+       any future indicator in that same spirit, a badge you tap to reveal
+       a backlog rather than a status label, should reach for --secondary
+       too) AND for the whole "this is today" family — .calcell.today,
+       .dayitem.today, .herotext.today, .todaytag — kept as one recolored
+       group rather than picking just one of them, so "today" still reads
+       the same wherever it shows up the same way it did when all four
+       were Primary; see the "today" comment above .calcell.today further
+       down for why. Deliberately NOT extended to .badge.overdue /
+       .badge.priority-high (--estate, hardcoded rust) — those are a fixed
+       "danger" signal, not a themeable accent; recoloring them to
+       whatever a user picks as Secondary (which might not read as urgent
+       at all) would undermine that. */
     --primary:#A9782F;
     --primary-light:#C99A4E;
     --secondary:#A9782F;
@@ -1106,11 +1111,11 @@
   }
   .daynavrow .navarrow{ justify-self:center; }
   /* Plain text for Yesterday/Tomorrow/a weekday name; Today gets its own
-     larger, Primary-colored treatment so it's unmistakable at a glance
-     which day you're looking at, echoing .todaytag's Primary accent used
-     for "today" everywhere else. Empty (no text at all) on the many days
-     outside dayHeaderTag()'s window — the grid cell still reserves its
-     row space either way. */
+     larger, Secondary-colored treatment so it's unmistakable at a glance
+     which day you're looking at, echoing .todaytag's Secondary accent
+     used for "today" everywhere else. Empty (no text at all) on the many
+     days outside dayHeaderTag()'s window — the grid cell still reserves
+     its row space either way. */
   .dayhero{
     position:relative; overflow:hidden; height:40px; line-height:40px;
     font-family:'Fraunces', serif; font-weight:600; font-size:1.15rem;
@@ -1123,7 +1128,7 @@
      arrows or anything else in .daynavrow. Plain (non-swipe) rendering
      just shows the one .herotext at rest, translateX(0) by default. */
   .herotext{ position:absolute; inset:0; white-space:nowrap; }
-  .herotext.today{ font-size:1.9rem; font-weight:700; color:var(--primary); }
+  .herotext.today{ font-size:1.9rem; font-weight:700; color:var(--secondary); }
   .daylistlabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin: 4px 0 6px; }
   /* Wraps .dayitem plus the optional "N unfinished" line below it (see
      dayItemHtml()) — a <button> can't nest another interactive <button>,
@@ -1137,20 +1142,20 @@
     font-family:'IBM Plex Sans',sans-serif; font-size:0.92rem; color:var(--ink);
     border-left:3px solid transparent; transition:background 120ms ease;
   }
-  /* Beyond the existing .todaytag pill — a tinted row + a Primary-colored
-     left edge + bolded date text, so today's own row still jumps out at a
-     glance while scanning a long "This Month" list, not just when you
-     happen to read as far as its little badge. Left border eats into the
-     row's own left padding (8px vs the others' 4px, offset by the
-     border's 3px) rather than sitting flush against the row edge, so text
-     doesn't visibly shift over by exactly the border's width. */
+  /* Beyond the existing .todaytag pill — a tinted row + a Secondary-
+     colored left edge + bolded date text, so today's own row still jumps
+     out at a glance while scanning a long "This Month" list, not just
+     when you happen to read as far as its little badge. Left border eats
+     into the row's own left padding (8px vs the others' 4px, offset by
+     the border's 3px) rather than sitting flush against the row edge, so
+     text doesn't visibly shift over by exactly the border's width. */
   .dayitem.today{
-    background: color-mix(in srgb, var(--primary) 10%, transparent);
-    border-left-color: var(--primary);
+    background: color-mix(in srgb, var(--secondary) 10%, transparent);
+    border-left-color: var(--secondary);
   }
-  .dayitem.today .daydate{ font-weight:700; color:var(--primary); }
+  .dayitem.today .daydate{ font-weight:700; color:var(--secondary); }
   .todaytag{
-    font-family:'IBM Plex Mono', monospace; font-size:0.58rem; text-transform:uppercase; background:var(--primary);
+    font-family:'IBM Plex Mono', monospace; font-size:0.58rem; text-transform:uppercase; background:var(--secondary);
     color:white; padding:2px 6px; border-radius:4px; margin-left:8px; letter-spacing:0.04em;
   }
   /* A past day's own "copy what's still open onto today" action — only
@@ -2097,13 +2102,15 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.58rem; color:var(--ink-soft); letter-spacing:0.02em;
   }
   .calratio.calexistsdot{ opacity:0.55; }
-  /* Today gets the same Primary-accent treatment .dayhero.today/.todaytag
-     use elsewhere for "today," not a new one-off color, so "today" reads
-     the same wherever it shows up in the app. border-width:3px (up from
-     an original 2px) so it reads clearly even at a phone-width card's
-     smaller cell size. */
-  .calcell.today{ border-color:var(--primary); border-width:3px; }
-  .calcell.today .caldatenum{ color:var(--primary); font-weight:700; }
+  /* Today gets the same Secondary-accent treatment .dayhero.today/
+     .todaytag use elsewhere for "today," not a new one-off color, so
+     "today" reads the same wherever it shows up in the app (the whole
+     family moved together from Primary to Secondary — see the
+     --primary/--secondary doc comment at the top of this file for why).
+     border-width:3px (up from an original 2px) so it reads clearly even
+     at a phone-width card's smaller cell size. */
+  .calcell.today{ border-color:var(--secondary); border-width:3px; }
+  .calcell.today .caldatenum{ color:var(--secondary); font-weight:700; }
   /* Ornate (double-line) border on today's cell — CSS's own
      border-style:double draws two parallel lines with a gap between them
      from a single border declaration, no pseudo-elements or extra
