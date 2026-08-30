@@ -83,6 +83,16 @@ async function addTask(){
   queueSave();
 }
 
+// One-shot: the id of a task whose .check should play the "just
+// completed" celebration burst (see the check-celebrate CSS in <style>
+// and its use in taskRowHtml()/renderTaskDetailPage(), 08-render-core.js)
+// on the very next render only. Set right before that render() call and
+// cleared immediately after, so a later, unrelated render() (a background
+// refresh, another edit) never replays it — a real DOM flag can't survive
+// render() anyway, since render() rebuilds the relevant view's whole
+// innerHTML from scratch.
+let celebrateCheckTaskId = null;
+
 // Completing a task stamps completedAt; reopening it clears that stamp
 // entirely rather than keeping a history of past completions — the undo
 // stack is already this app's history mechanism for "what did this used
@@ -94,7 +104,9 @@ async function toggleStatus(id){
   pushUndo(willBeDone ? `Completed "${t.title}"` : `Reopened "${t.title}"`);
   t.status = willBeDone ? 'done' : 'open';
   t.completedAt = willBeDone ? todayStr() : '';
+  celebrateCheckTaskId = willBeDone ? id : null;
   render();
+  celebrateCheckTaskId = null;
   queueSave();
 }
 

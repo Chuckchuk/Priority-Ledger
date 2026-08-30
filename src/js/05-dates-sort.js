@@ -28,6 +28,15 @@ function fmtDateShort(d){
   return `${dt.getMonth()+1}/${dt.getDate()}/${yy}`;
 }
 
+// Full weekday/month/day form for the masthead's own subheader (distinct
+// from fmtDate()'s compact "Sep 1" used on task badges) — replaced a
+// rotating decorative tagline the project owner found more filler than
+// useful.
+function fmtTodayHeader(){
+  const dt = new Date(todayStr()+'T00:00:00');
+  return dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+}
+
 const WEEKDAY_NAMES = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
 const MONTH_NAMES = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 

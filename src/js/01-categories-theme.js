@@ -496,6 +496,14 @@ async function setDevFieldPickerStyle(val){
   queueSave();
 }
 
+async function setDevCheckGuideAnimationStyle(val){
+  pushUndo(`Changed dev checkbox nudge style to "${val}"`);
+  state.devSettings.checkGuideAnimationStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
 async function setDevTaskLongPressMode(val){
   pushUndo(`Changed dev task long-press mode to "${val}"`);
   state.devSettings.taskLongPressMode = val;
@@ -667,6 +675,23 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="default" ${dev.fieldPickerStyle==='default'?'selected':''}>Default (dropdown)</option>
         <option value="buttons" ${dev.fieldPickerStyle==='buttons'?'selected':''}>Row of buttons</option>
         <option value="progress" ${dev.fieldPickerStyle==='progress'?'selected':''}>Stylized progress bar</option>
+      </select>
+    </div>
+    <!-- checkGuideAnimationStyle — see the "check-guide" comment in
+         08-render-core.js for the full mechanism: this only picks which
+         visual language plays on the main checkbox while every step is
+         done but the task itself isn't checked off yet, guiding you to
+         it. Lives in General (not the mobile-gated "Task Rows & Detail"
+         group above) since the guide shows on whichever .check is on
+         screen — list row or full task page, desktop or mobile — not
+         just under the Mobile UI Lab. -->
+    <div class="${fieldClass}">
+      <span class="${captionClass}">"All steps done" checkbox nudge</span>
+      <select class="${selectClass}" onchange="setDevCheckGuideAnimationStyle(this.value)">
+        <option value="spin" ${dev.checkGuideAnimationStyle==='spin'?'selected':''}>Spinning color ring</option>
+        <option value="sparkle" ${dev.checkGuideAnimationStyle==='sparkle'?'selected':''}>Sparkles</option>
+        <option value="radialping" ${dev.checkGuideAnimationStyle==='radialping'?'selected':''}>Boxy radial ping</option>
+        <option value="glow" ${dev.checkGuideAnimationStyle==='glow'?'selected':''}>Warm pulsing glow</option>
       </select>
     </div>
 

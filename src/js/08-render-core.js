@@ -166,6 +166,39 @@ function taskExpandFieldsHtml(t, canRemoveHere){
   return `${taskTitleFieldHtml(t)}${taskCoreFieldsRowHtml(t, canRemoveHere)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
 }
 
+// The "check-guide" nudge: once every step is done but the task itself
+// isn't checked off yet, the checkbox calls attention to itself — the
+// assumption being that all-steps-done usually IS task-done, so this
+// nudges toward actually checking it rather than leaving it sitting
+// finished-but-unmarked. Purely derived from current state (not a flag
+// set at the moment a step is checked) so it reappears on every render
+// for as long as the condition holds and disappears the instant it
+// doesn't — no timer, nothing to clean up. Gated to subs.length >= 1 so
+// a subtask-less task never gets it (nothing to have "just finished").
+// 2+ subtasks gets the full looping animation (guide-full); exactly 1
+// gets a couple of quick pulses only (guide-quick) — a single step
+// finishing doesn't carry the same "you just cleared the whole list"
+// weight, so it only needs a brief nod, not an insistent loop. `subtle`
+// (true in a task-list row, false on the full task detail page) tones
+// the same animation down via the --guide-scale/--guide-opacity custom
+// properties the CSS reads, rather than forking a second set of
+// keyframes per context.
+function checkGuideClass(t, subs, subtle){
+  if(t.status==='done' || !subs.length || !subs.every(s=>s.done)) return '';
+  const style = (state.devSettings && state.devSettings.checkGuideAnimationStyle) || 'spin';
+  const intensity = subs.length >= 2 ? 'guide-full' : 'guide-quick';
+  return ` guide-check guide-${style} ${intensity}${subtle ? ' guide-subtle' : ''}`;
+}
+
+// The payoff: a one-shot celebration burst when a task is actually
+// checked off (see celebrateCheckTaskId, 16-task-crud.js) — separate from
+// the guide nudge above and not user-configurable, since it's meant to
+// read as this app's one fixed "you did it" moment rather than a style
+// someone tunes.
+function checkCelebrateClass(t){
+  return t.id === celebrateCheckTaskId ? ' celebrate-check' : '';
+}
+
 function taskRowHtml(t, showDot, inDaily, dayDate){
   const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const canRemoveHere = !inDaily || t.category==='misc';
@@ -236,7 +269,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
     <div class="row"${pressAttrs}${ctxMenuAttr} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
-        <div class="check ${t.status==='done'?'done':''}" onclick="toggleStatus('${t.id}')"></div>
+        <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, true)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
         ${subProgressHtml(subs)}
       </div>
       ${dotHtml}
@@ -438,11 +471,12 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
   const t = state.tasks.find(t=>t.id===taskId);
   const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const canRemoveHere = t.category==='misc';
+  const subs = t.subtasks || [];
   return `
     <div class="stackedpage">
       ${pageTagHtml(backOnclick, backLabel)}
       <div class="taskdetailhead">
-        <div class="check ${t.status==='done'?'done':''}" onclick="toggleStatus('${t.id}')"></div>
+        <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
         ${categoryDotHtml(cat, 'cdot')}
       </div>
       ${taskExpandFieldsHtml(t, canRemoveHere)}

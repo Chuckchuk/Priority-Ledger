@@ -6,32 +6,10 @@ function currentLocation(){
   return state.locations.find(l=>l.id===state.location) || state.locations[0];
 }
 
-// Known tabs get a hand-picked line; a custom or renamed tab falls back to
-// a stable pick from GENERIC_TAGLINES, keyed off the tab id via hashStr so
-// it doesn't change on every render — a real random pick would flicker
-// distractingly since this repaints on every render(), not just tab
-// switches.
-const TAB_TAGLINES = {
-  all: 'Every open thread, one place.',
-  work: 'Steady work, steady progress.',
-  household: 'A well-kept home, one task at a time.',
-  personal: "Make time for what's yours.",
-  daily: "Today's page, one line at a time."
-};
-const GENERIC_TAGLINES = [
-  'One task at a time.',
-  'Small steps, steadily kept.',
-  'Clear the page, clear the mind.',
-  'Progress worth logging.',
-  'Every entry counts.'
-];
 function hashStr(s){
   let h = 0;
   for(let i=0; i<s.length; i++) h = (h*31 + s.charCodeAt(i)) | 0;
   return Math.abs(h);
-}
-function taglineFor(tabId){
-  return TAB_TAGLINES[tabId] || GENERIC_TAGLINES[hashStr(tabId) % GENERIC_TAGLINES.length];
 }
 
 function renderLocBadge(){
@@ -39,10 +17,10 @@ function renderLocBadge(){
   badge.style.display = state.locationEnabled ? '' : 'none';
   if(state.locationEnabled) badge.textContent = currentLocation().label;
   // The subheader used to list which tabs the current location was
-  // hiding — that read as a warning rather than something useful, and
-  // didn't apply when locations were off at all. A tagline is useful
-  // (or at least pleasant) regardless of the location feature's state.
-  document.getElementById('statusLine').textContent = taglineFor(activeTab);
+  // hiding, then a rotating decorative tagline — neither carried its
+  // weight (a warning nobody needed, then filler text). Today's date is
+  // useful regardless of tab or location state, so it lives here now.
+  document.getElementById('statusLine').textContent = fmtTodayHeader();
 }
 
 // A checklist tab's count is pending *items* across all its lists, not a

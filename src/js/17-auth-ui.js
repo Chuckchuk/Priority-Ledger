@@ -330,10 +330,10 @@ async function enterApp(){
   dayReturnToCalendar = false;
   document.getElementById('authShell').style.display = 'none';
   document.getElementById('appShell').style.display = '';
-  const signOutRow = document.getElementById('signOutRow');
-  if(signOutRow){
-    signOutRow.style.display = (window.storage || !session) ? 'none' : '';
-    document.getElementById('authEmailLabel').textContent = session ? session.email : '';
+  const signOutBtn = document.getElementById('signOutBtn');
+  if(signOutBtn){
+    signOutBtn.style.display = (window.storage || !session) ? 'none' : '';
+    signOutBtn.title = session ? `Sign out (${session.email})` : 'Sign out';
   }
   const refreshBtn = document.getElementById('refreshBtn');
   if(refreshBtn) refreshBtn.style.display = (localOnlyMode || window.storage) ? 'none' : '';

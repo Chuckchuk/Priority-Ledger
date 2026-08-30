@@ -69,9 +69,9 @@
     <button class="dailyshortcut" id="dailyShortcutBtn" onclick="switchTab('daily')" title="Daily">▤</button>
     <h1>The Ledger</h1>
     <button class="locbadge" id="locBadge" onclick="toggleLocation()"></button>
+    <button class="signoutbtn2" id="signOutBtn" onclick="signOut()" title="Sign out" style="display:none;">Sign out</button>
   </div>
   <div class="status-line" id="statusLine"></div>
-  <div class="status-line" id="signOutRow" style="display:none;"><button class="signoutbtn" onclick="signOut()">Sign out (<span id="authEmailLabel"></span>)</button></div>
   <!-- .appmain is a plain, unstyled wrapper by default (transparent to
        block flow, identical to #tabs/.leathercover being direct .shell
        children) — it exists only so the EXPERIMENTAL tabBarDesktopStyle

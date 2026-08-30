@@ -11,12 +11,14 @@
 // saves last wins, same as it always has.
 //
 // Bandwidth: most ticks cost a few bytes, not the whole state blob — see
-// checkServerUpdatedAt() below. Interval is 3 minutes rather than
-// something tighter, since the visibility-change listener already covers
+// checkServerUpdatedAt() below, which is exactly why this can afford to
+// run every 45s instead of sitting on a longer interval: the overwhelming
+// majority of ticks are a single-column REST read that finds nothing new
+// and does nothing else. The visibility-change listener already covers
 // "I just switched back to this tab" immediately regardless of how long
-// the base interval is; 3 minutes just bounds how stale a *backgrounded*
-// tab can silently get.
-const REFRESH_INTERVAL_MS = 180000;
+// the base interval is; this just bounds how stale a *backgrounded* tab
+// (one device left open while you edit on another) can silently get.
+const REFRESH_INTERVAL_MS = 45000;
 let refreshTimer = null;
 let refreshInFlight = false;
 let appEntered = false; // guards the visibilitychange listener from firing before/after a real login

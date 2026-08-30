@@ -371,14 +371,38 @@ function swipeBackGhostShow(g){
   const peek = SWIPE_BACK_GHOST_PEEK_PX;
   const ghost = document.createElement('div');
   let realHtml = null;
-  try { realHtml = swipeBackPreviewHtml(card); if(realHtml) realHtml = unwrapStackedPage(realHtml); } catch(e) { realHtml = null; }
+  // swipeBackPreviewHtml()'s cases come back two shapes: some are
+  // themselves a drilldown (their own `<div class="stackedpage">`
+  // wrapper — a day detail reached via checklistReturnDay, etc.), others
+  // are a tab's plain top-level view (currentTabBodyHtml(), the day
+  // list, the checklist overview) with no such wrapper at all. Applying
+  // the .stackedpage look unconditionally used to mean a swipe back to a
+  // *top-level* page still rendered the ghost with a drilldown's own
+  // frame — reserved top padding for a page tag, rounder corners, a
+  // different background tint — none of which the real page underneath
+  // actually has, so the moment the ghost faded and the real page took
+  // over, everything visibly jumped into a different layout. Checking
+  // for that wrapper before stripping it (unwrapStackedPage()) is what
+  // lets the ghost pick the matching frame instead of always assuming one.
+  let isSubpage = true;
+  try {
+    realHtml = swipeBackPreviewHtml(card);
+    if(realHtml){
+      isSubpage = /^\s*<div class="stackedpage">/.test(realHtml);
+      realHtml = unwrapStackedPage(realHtml);
+    }
+  } catch(e) { realHtml = null; }
   // .skeleton (the flex/gap layout the placeholder rows need) only
   // applies to the fallback content — real content already carries its
   // own real layout/spacing via the exact same classes the actual page
   // uses (it's built by the actual page's own render function), so
   // forcing a flex gap onto its top-level children here would just
-  // introduce spacing that doesn't match the real thing.
-  ghost.className = realHtml ? 'stackedpage swipebackghost' : 'stackedpage swipebackghost skeleton';
+  // introduce spacing that doesn't match the real thing. The fallback
+  // (realHtml still null — swipeBackPreviewHtml() couldn't say, e.g. the
+  // Claude view) keeps assuming a sub-page frame, since every case that
+  // currently falls through to it backs onto one (Settings).
+  const frameClass = isSubpage ? 'stackedpage' : 'toplevelghost';
+  ghost.className = realHtml ? `${frameClass} swipebackghost` : 'stackedpage swipebackghost skeleton';
   ghost.style.cssText = `position:fixed; margin:0; left:${r.left + peek}px; top:${r.top + peek}px; width:${r.width}px; height:${r.height}px; opacity:0; transition:opacity 120ms ease; pointer-events:none;`;
   ghost.innerHTML = realHtml ? sanitizeGhostHtml(realHtml) : swipeBackGhostContentHtml(g, r.height);
   card.parentElement.insertBefore(ghost, card);
