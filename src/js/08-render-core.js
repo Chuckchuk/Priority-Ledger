@@ -442,6 +442,7 @@ function renderTaskContextMenu(taskId, x, y, includeEdit){
   menu.style.left = x + 'px';
   menu.style.top = y + 'px';
   menu.classList.add('open');
+  applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
     if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
@@ -679,6 +680,7 @@ function render(){
     chkView.innerHTML = '';
     setView.innerHTML = '';
     cldView.innerHTML = '';
+    applyDevElementNames();
     return;
   }
   mtdView.style.display = 'none';
@@ -694,6 +696,7 @@ function render(){
     dayView.innerHTML = '';
     chkView.innerHTML = '';
     setView.innerHTML = '';
+    applyDevElementNames();
     return;
   }
   cldView.style.display = 'none';
@@ -707,6 +710,7 @@ function render(){
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     dayView.innerHTML = '';
     chkView.innerHTML = '';
+    applyDevElementNames();
     return;
   }
   setView.style.display = 'none';
@@ -730,6 +734,7 @@ function render(){
     dayView.innerHTML = ''; // avoid stale duplicate ids
     chkView.innerHTML = '';
   }
+  applyDevElementNames();
 }
 
 // Only visible when the "Pages" texture is on, but harmless to always

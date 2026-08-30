@@ -559,7 +559,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'spin' };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'spin', developmentMode:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -689,6 +689,7 @@ function normalizeState(){
   if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'detail';
   if(typeof state.devSettings.stickyTabBar !== 'boolean') state.devSettings.stickyTabBar = false;
   if(typeof state.devSettings.checkGuideAnimationStyle !== 'string') state.devSettings.checkGuideAnimationStyle = 'spin';
+  if(typeof state.devSettings.developmentMode !== 'boolean') state.devSettings.developmentMode = false;
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)

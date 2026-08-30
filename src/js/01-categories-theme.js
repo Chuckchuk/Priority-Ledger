@@ -591,8 +591,28 @@ function devGroupHtml(key, title, bodyHtml){
 // *same* underlying question ("what should the tab bar look like"), and
 // each links to the other via a small .devgroupnote below its own select
 // so that's discoverable without having to remember it.
+// developmentMode's own toggle always renders, regardless of its own
+// value — every other field in here (and the floating side panel's
+// "Show the floating dev panel" checkbox, includeSidePanelToggle's own
+// row) is gated behind it, so this has to sit outside that gate or
+// turning the mode off would mean no way back on from the UI. Off by
+// default: this Settings section used to just be permanently visible
+// (collapsed, but always there — see the 'dev' key in
+// settingsCollapsedSections), which was fine while this app only ever
+// had one user who was also its developer, but "allow for the dev
+// settings" behind an explicit mode is what the project owner actually
+// asked for once that stopped being assumed. Turning it on also enables
+// applyDevElementNames() (below) — the two share one flag on purpose,
+// since both are squarely "I'm poking at this app's own internals" mode,
+// not two things someone would want independently.
 function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, includeSidePanelToggle){
   const dev = state.devSettings || defaultDevSettings();
+  const devModeToggleHtml = `
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.developmentMode?'checked':''} onchange="toggleDevSetting('developmentMode', this.checked)">
+      Development mode — unlocks every dev setting below, plus an element-name tooltip on hover throughout the app
+    </label>`;
+  if(!dev.developmentMode) return devModeToggleHtml;
   const sidePanelToggleHtml = includeSidePanelToggle === false ? '' : `
     <label class="${rowClass}">
       <input type="checkbox" ${dev.sidePanelEnabled?'checked':''} onchange="toggleDevSetting('sidePanelEnabled', this.checked)">
@@ -845,11 +865,162 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
   `;
 
   return `
+    ${devModeToggleHtml}
     ${sidePanelToggleHtml}
     ${devGroupHtml('dev-general', 'General', generalBody)}
     ${devGroupHtml('dev-desktop', 'Desktop', desktopBody)}
     ${devGroupHtml('dev-mobile', 'Mobile', mobileBody)}
   `;
+}
+
+// ---------- Development mode: element-name tooltips ----------
+// Names as they're actually used in conversation with Claude (CLAUDE.md's
+// own vocabulary, or the closest plain-English equivalent for anything
+// that never got a name written down) — so the project owner can point at
+// something on screen and reference it precisely, instead of describing
+// it. Checked in order via Element.matches(), first match wins, so a more
+// specific selector (an element with an extra modifier class) has to sit
+// above the more general one it would otherwise also match — e.g.
+// '.pagetag.compact' (a "Compact Tag") before plain '.pagetag' (a "Page
+// Tag"), since a compact tag's own element still carries the base
+// .pagetag class too. Not exhaustive — this covers the elements most
+// likely to actually come up, not every single div in the DOM — but
+// covers "most" the way the project owner asked for, and new entries are
+// cheap to add here as more come up in conversation.
+const DEV_ELEMENT_NAME_RULES = [
+  // Masthead
+  { sel: '.settingsbtn', name: 'Settings Button' },
+  { sel: '.dailyshortcut', name: 'Today Button' },
+  { sel: '.locbadge', name: 'Location Badge' },
+  { sel: '.signoutbtn2', name: 'Sign Out Button' },
+  { sel: '#statusLine', name: 'Date Subheader' },
+  { sel: '.masthead h1', name: 'App Title' },
+  // Tab bar
+  { sel: '.tab', name: 'Tab' },
+  { sel: '.tabs', name: 'Tab Bar' },
+  // Stacked-page pattern
+  { sel: '.pagetag.compact', name: 'Compact Tag' },
+  { sel: '.pagetag', name: 'Page Tag' },
+  { sel: '.stackedpage', name: 'Stacked Page' },
+  { sel: '#appCard', name: 'Master View Card' },
+  { sel: '.leathercover', name: 'Leather Cover' },
+  { sel: '.bookmark', name: 'Bookmark Ribbon' },
+  // Task rows (master view / quick view / detail page)
+  { sel: 'li.task', name: 'Task Row' },
+  { sel: '.expand', name: 'Quick View' },
+  { sel: '.taskdetailhead', name: 'Task Detail Header' },
+  { sel: '.taskdetailhead .checkwrap', name: 'Task Detail Checkbox' },
+  { sel: '.check.celebrate-check', name: 'Checkbox (celebrating)' },
+  { sel: '.check.guide-check', name: 'Checkbox (nudging)' },
+  { sel: '.check', name: 'Checkbox' },
+  { sel: '.checkwrap', name: 'Checkbox Wrap' },
+  { sel: '.substack', name: 'Subtask Progress Ticks' },
+  { sel: '.subpip', name: 'Subtask Tick' },
+  { sel: '.rowpin', name: 'Today Pin Button' },
+  { sel: '.rowexpand', name: 'Open Full Page Button' },
+  { sel: '.movetmrw', name: 'Move to Tomorrow Button' },
+  { sel: '.dayremove', name: 'Remove from Day Button' },
+  { sel: '.draghandle', name: 'Drag Handle' },
+  { sel: '.title', name: 'Task Title' },
+  { sel: '.meta', name: 'Task Meta Row' },
+  { sel: '.badge.overdue', name: 'Overdue Badge' },
+  { sel: '.badge.due', name: 'Due Date Badge' },
+  { sel: '.badge.timeframe', name: 'Timeframe Badge' },
+  { sel: '.badge', name: 'Priority Badge' },
+  { sel: '.daybtn', name: 'Today Toggle Button' },
+  { sel: '.flagbtn', name: 'Urgent Flag Button' },
+  { sel: '.catselect', name: 'Category Dropdown' },
+  { sel: 'input[type="date"]', name: 'Due Date Field' },
+  { sel: '.expand-row .remove', name: 'Remove Task Button' },
+  { sel: '.titleedit.bigtitle', name: 'Big Title Field' },
+  { sel: '.titleedit', name: 'Title Field' },
+  { sel: '.taskmeta.checklistmeta', name: 'Checklist Meta Line' },
+  { sel: '.taskmeta', name: 'Meta Line' },
+  { sel: '.subwrap', name: 'Steps/Items List' },
+  { sel: '.sublabel', name: 'Steps/Items Label' },
+  { sel: '.subrow', name: 'Step/Item Row' },
+  { sel: '.subcheck.circle', name: 'Checklist Item Checkbox' },
+  { sel: '.subcheck', name: 'Step Checkbox' },
+  { sel: '.subtext', name: 'Step/Item Text' },
+  { sel: '.subdate', name: 'Step Date' },
+  { sel: '.subadd', name: 'Add Step/Item Field' },
+  { sel: '.subdel', name: 'Delete Step/Item Button' },
+  { sel: '.quickadd', name: 'Quick Add Bar' },
+  { sel: '.addbtn', name: 'Add Button' },
+  { sel: '.sortrow select', name: 'Sort Dropdown' },
+  { sel: '.footer-row button', name: 'Show Completed Button' },
+  { sel: '.empty', name: 'Empty State Message' },
+  // Checklist
+  { sel: '.checklistheader', name: 'Checklist Detail Header' },
+  { sel: '.checkcircle-wrap', name: 'Checklist Progress Circle' },
+  { sel: '.checkcircle', name: 'Checklist Checkbox' },
+  { sel: '.pegpivot', name: 'Checklist Peg' },
+  { sel: '.progressring', name: 'Checklist Progress Ring' },
+  { sel: '.listdate', name: 'List Created Date' },
+  // Daily
+  { sel: '.daynavrow', name: 'Day Nav Row' },
+  { sel: '.navarrow', name: 'Nav Arrow' },
+  { sel: '.dayhero', name: 'Day Label' },
+  { sel: '.todaytag', name: 'Today Tag' },
+  { sel: '.daylistlabel', name: 'Day List Label' },
+  { sel: '.dayitem', name: 'Day Row' },
+  { sel: '.dayaddtoggle', name: 'Add Day Toggle' },
+  { sel: '.dayaddpanel', name: 'Add Day Panel' },
+  { sel: '.dayaddclose', name: 'Close Add-Day Panel Button' },
+  // Calendar
+  { sel: '.calnav', name: 'Calendar Nav Row' },
+  { sel: '.calmonthlabel', name: 'Month Label' },
+  { sel: '.calcell.today', name: "Today's Calendar Cell" },
+  { sel: '.calcell', name: 'Calendar Cell' },
+  { sel: '.calcatchip', name: 'Category Chip' },
+  // Settings
+  { sel: '.settingssectionhead', name: 'Settings Section Header' },
+  { sel: '.catrow', name: 'Tab Row' },
+  { sel: '.catedit', name: 'Tab Name Field' },
+  { sel: '.cdot', name: 'Category Dot' },
+  { sel: '.resetthemebtn', name: 'Reset Theme Button' },
+  { sel: '.texturebtn', name: 'Texture Toggle Button' },
+  // Dev panel
+  { sel: '.devpaneltab', name: 'Dev Panel Tab' },
+  { sel: '.devgrouphead', name: 'Dev Setting Group Header' },
+  // Context menu
+  { sel: '.ctxmenu-danger', name: 'Delete Menu Item' },
+  { sel: '.ctxmenu button', name: 'Menu Item' },
+];
+
+// Runs after every render() (see its call site in 08-render-core.js) and
+// after the right-click/long-press quick-actions menu (renderTaskContextMenu(),
+// same file) — the two most common ways this app's DOM actually changes.
+// A few rarer standalone popovers (the color wheel, the category/icon
+// picker) aren't covered; "most UI elements" per the ask, not literally
+// every one. Cheap no-op when development mode is off (the overwhelming
+// majority of the time).
+//
+// dataset.origTitle caches each element's own authored tooltip (or ''
+// if it never had one) the first time this runs on it, rather than
+// reading title itself fresh every pass — render() rebuilds most of the
+// DOM from scratch each time (fresh elements, nothing to cache yet), but
+// #ctxMenu is a standalone exception render() never touches (only
+// renderTaskContextMenu() does), so its buttons can still be sitting in
+// the DOM, already labeled from a previous pass, the next time an
+// unrelated render() runs while the menu happens to be open. Re-deriving
+// from title directly in that case would prepend the name onto its own
+// previous output a second time; deriving from the cached original
+// every time avoids that regardless of how many passes an element sees.
+function applyDevElementNames(){
+  if(!state.devSettings || !state.devSettings.developmentMode) return;
+  const root = document.getElementById('appShell');
+  if(!root) return;
+  for(const el of root.querySelectorAll('[class],[id]')){
+    let name = null;
+    for(const rule of DEV_ELEMENT_NAME_RULES){
+      if(el.matches(rule.sel)){ name = rule.name; break; }
+    }
+    if(!name) continue;
+    if(el.dataset.origTitle === undefined) el.dataset.origTitle = el.getAttribute('title') || '';
+    const orig = el.dataset.origTitle;
+    el.setAttribute('title', orig ? `${name} - ${orig}` : name);
+  }
 }
 
 // Called unconditionally at the top of render() (see 08-render-core.js) —

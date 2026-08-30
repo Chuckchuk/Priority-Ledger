@@ -191,12 +191,14 @@ function renderTabs(){
     // the onclick entirely instead of trying to chase that noise down —
     // there's nothing else it needs a click for either, per the same
     // reasoning :hover was already turned off for it.
-    // The "Daily" tab jumps straight to today (goToDailyToday(), see
-    // 11-daily-core.js) instead of the plain switchTab() every other tab
-    // uses — per the project owner's ask, tapping it should always mean
-    // "go to today," not "go to wherever Daily was last left."
-    const tabAction = key === 'daily' ? 'goToDailyToday()' : `switchTab('${key}')`;
-    const clickAttr = (overlapStyle && activeTab===key) ? '' : ` onclick="${tabAction}"`;
+    // Every tab, "Daily" included, uses the same plain switchTab() —
+    // "go to today" belongs on the masthead's dedicated shortcut button
+    // instead (#dailyShortcutBtn, goToDailyToday(), see 11-daily-core.js),
+    // per the project owner's own correction. This tab landing wherever
+    // Daily was last left (the day list, a specific day, the calendar) is
+    // exactly the point: it's the tab that remembers, the shortcut button
+    // is the one that always means "today."
+    const clickAttr = (overlapStyle && activeTab===key) ? '' : ` onclick="switchTab('${key}')"`;
     return `<button class="tab ${activeTab===key?'active':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}>${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
   renderTabRowLines();
