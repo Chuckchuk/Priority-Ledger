@@ -167,6 +167,15 @@ function swipeApplyDrag(g, dx){
   const eff = dx < 0 ? dx * 0.15 : dx;
   g.card.style.transform = `translateX(${eff}px) rotate(${eff / 26}deg)`;
   g.card.style.opacity = String(Math.max(1 - Math.abs(eff) / 700, 0.55));
+  // The revealed page fades in step with the drag itself, every frame —
+  // not a fixed-timing fade-in that finishes early regardless of how far
+  // you've actually dragged (see swipeBackGhostShow()'s own comment for
+  // why that changed). Reaches full opacity at the same SWIPE_COMMIT_PX
+  // distance that would commit the swipe on release, so letting go right
+  // around there never has to visibly "catch up." Dragging back toward 0
+  // fades it back out in the same lockstep, not just as a release-time
+  // snap-back — reversing mid-drag reverses the fade mid-drag too.
+  if(g.ghost) g.ghost.style.opacity = String(Math.min(Math.abs(eff) / SWIPE_COMMIT_PX, 1));
 }
 
 // Day/month swipe nav feedback: a padlock-dial style swap of just the
@@ -239,22 +248,20 @@ function swipeSnapBack(card, g){
 // row ids, see the comment there), so without this there's genuinely
 // nothing behind the page as it slides: just #appCard's bare background.
 //
-// Two things a first pass at this got wrong, both because it exactly
-// matched the real page's own box: (1) .stackedpage's own background is
-// only a 5% white mix over --card-bg — nearly the same tone as
-// #appCard's bare background already behind it, so even fully visible it
-// barely read as "a page"; (2) sized/positioned identically to the real
-// page, it stayed *completely* covered by it until the drag had actually
-// moved the real page a real distance, so on a normal quick swipe there
-// was only a sliver of a moment it could ever show at all. Fixed here by
-// (1) .swipebackghost overriding to the more clearly-distinct
-// --card-bg-dim plus a stronger shadow (see <style>), and (2) offsetting
-// the ghost down-right by SWIPE_BACK_GHOST_PEEK_PX so a visible sliver
-// peeks out along the bottom/right edge from the very start of the drag,
-// like the next sheet in a stack, rather than needing the top page to
-// move first. Fades in fast (120ms, not 220ms) so it's visible well
-// before a normal decisive swipe has already committed and flown away.
-const SWIPE_BACK_GHOST_PEEK_PX = 7;
+// Sized and positioned to #appCard's own rect — the same box every base
+// view (a category tab, the day list, the checklist overview) naturally
+// fills, and also, give or take .stackedpage's own few-pixel negative
+// margins, what a real destination stackedpage fills too. Earlier passes
+// sized this to the *outgoing* .stackedpage's own (smaller, offset) rect
+// instead, plus a fixed pixel offset so a sliver would peek out from the
+// very start of the drag: that's what made a master-view destination
+// visibly jump into a differently-framed box the instant the ghost
+// resolved into the real thing, and it's also no longer needed for early
+// visibility now that opacity itself ramps up with drag distance (see
+// swipeApplyDrag()) rather than fading in on a fixed timer — the ghost
+// is already partway visible from the first pixel of drag, so there's
+// nothing left for a positional peek to do.
+
 
 // The real destination content, sanitized — see swipeBackPreviewHtml()
 // below for how this is actually obtained. `id="..."` attributes are
@@ -367,8 +374,8 @@ function swipeBackGhostContentHtml(g, heightPx){
 
 function swipeBackGhostShow(g){
   const card = g.card;
-  const r = card.getBoundingClientRect();
-  const peek = SWIPE_BACK_GHOST_PEEK_PX;
+  const appCardEl = document.getElementById('appCard');
+  const r = (appCardEl || card).getBoundingClientRect();
   const ghost = document.createElement('div');
   let realHtml = null;
   // swipeBackPreviewHtml()'s cases come back two shapes: some are
@@ -403,11 +410,15 @@ function swipeBackGhostShow(g){
   // currently falls through to it backs onto one (Settings).
   const frameClass = isSubpage ? 'stackedpage' : 'toplevelghost';
   ghost.className = realHtml ? `${frameClass} swipebackghost` : 'stackedpage swipebackghost skeleton';
-  ghost.style.cssText = `position:fixed; margin:0; left:${r.left + peek}px; top:${r.top + peek}px; width:${r.width}px; height:${r.height}px; opacity:0; transition:opacity 120ms ease; pointer-events:none;`;
+  // No transition here — opacity is driven directly, every touchmove
+  // frame, by swipeApplyDrag() instead, so it tracks the finger 1:1 the
+  // same way the outgoing card's own transform/opacity already do.
+  // swipeBackGhostHide() adds its own transition when the gesture ends
+  // without committing.
+  ghost.style.cssText = `position:fixed; margin:0; left:${r.left}px; top:${r.top}px; width:${r.width}px; height:${r.height}px; opacity:0; pointer-events:none;`;
   ghost.innerHTML = realHtml ? sanitizeGhostHtml(realHtml) : swipeBackGhostContentHtml(g, r.height);
   card.parentElement.insertBefore(ghost, card);
   g.ghost = ghost;
-  requestAnimationFrame(() => { if(g.ghost) g.ghost.style.opacity = '1'; });
 }
 
 function swipeBackGhostHide(g){
@@ -472,6 +483,11 @@ function swipeDialSnapBack(g){
 // ghost away, so what the eye actually sees is the ghost gracefully
 // dissolving to reveal the real page that's already sitting there,
 // rather than popping out of existence the instant the drag ends.
+// Forced to '1' explicitly (not just assumed already there from
+// swipeApplyDrag()'s per-drag fade) since a commit can also fire on
+// velocity alone (SWIPE_COMMIT_VPX) — a fast short flick can commit well
+// before dx has covered SWIPE_COMMIT_PX, which without this would fly
+// the outgoing page away over a still-partly-faded reveal underneath.
 //
 // The ghost has to be re-parented to <body> right before `after()` runs:
 // it's currently a sibling of `card` inside whatever container the real
@@ -486,6 +502,7 @@ function swipeFlyAway(card, dir, after, g){
   card.style.transition = 'transform 200ms ease-in, opacity 200ms ease-in';
   card.style.transform = `translateX(${dir * Math.max(window.innerWidth, 320)}px) rotate(${dir * 12}deg)`;
   card.style.opacity = '0';
+  if(g && g.ghost) g.ghost.style.opacity = '1';
   setTimeout(() => {
     card.style.transition = '';
     card.style.transform = '';

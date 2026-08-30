@@ -150,7 +150,7 @@ function renderChecklistDetail(taskId){
     <div class="stackedpage">
       ${pageTagHtml('closeChecklistList()', backLabel)}
       <div class="checklistheader">${checklistCheckcircleHtml(t)}</div>
-      <input type="text" class="titleedit checklisttitle" value="${escapeHtml(t.title)}"
+      <input type="text" class="titleedit bigtitle" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
       <div class="taskmeta checklistmeta">Created ${fmtDate(t.createdAt)}</div>
@@ -208,6 +208,13 @@ function renderChecklistPending(categoryId){
 // checklistReturnDay to null even if some earlier visit had left it set,
 // so "opened from Daily" can never leak into an unrelated later open.
 function openChecklistList(id, returnDay){
+  // renderChecklist() checks checklistPendingOpen before selectedListId
+  // (see its own comment), so without clearing this here, opening a list
+  // from the pending view — clicking an item's own text, which calls
+  // this — set selectedListId but kept rendering the pending view right
+  // over it: clicking looked like it did nothing at all, with no visible
+  // sign you'd actually left the pending view.
+  checklistPendingOpen = false;
   checklistReturnDay = returnDay || null;
   selectedListId = id;
   render();

@@ -791,12 +791,16 @@
     width:100%; border:none; border-bottom: 1.5px solid var(--ink-soft); background:transparent;
     font-family:'Fraunces', serif; font-style:italic; font-size:1rem; padding:4px 2px 8px; color:var(--ink); outline:none; margin-bottom:6px;
   }
-  /* The checklist detail page's title reads as a page header sitting
-     right under the big checkcircle above it, not a small inline-edit
-     field the way a standard task's own title field looks — bigger and
-     centered. Still the same <input>, just with this layered on, so the
-     standard task expand view's .titleedit is untouched. */
-  .titleedit.checklisttitle{ font-size:1.5rem; text-align:center; }
+  /* A page-header-sized title sitting right under a big checkbox/
+     checkcircle above it, not a small inline-edit field the way a
+     standard task's own title field looks — bigger and centered. Still
+     the same <input>, just with this layered on, so a normal .titleedit
+     (the inline .expand, the settings sheet) is untouched. Shared by the
+     checklist detail page (renderChecklistDetail(), 13-checklist.js) and
+     the full task detail page (renderTaskDetailPage(), 08-render-core.js
+     — passed in as taskExpandFieldsHtml()'s titleClass param) so the two
+     "big page header" looks can't drift apart. */
+  .titleedit.bigtitle{ font-size:1.5rem; text-align:center; }
   .catselect{
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);
@@ -918,7 +922,7 @@
      taskRowHtml/daySubtaskRowHtml), re-adding it would be a no-op, so the
      button fades out and stops accepting clicks rather than sitting there
      implying there's still something to do. */
-  .movetmrw, .dayremove{
+  .movetmrw, .dayremove, .rowpin, .rowexpand{
     display:flex; align-items:center; justify-content:center;
     width:22px; height:22px; flex-shrink:0; padding:0; line-height:1;
     font-size:0.78rem; cursor:pointer; border-radius:5px;
@@ -928,6 +932,19 @@
   .dayremove:hover{ border-color: var(--estate); color: var(--estate); }
   .movetmrw:disabled{ opacity:0.35; cursor:default; }
   .movetmrw:disabled:hover{ border-color: var(--line); color: var(--ink-soft); }
+  /* .rowpin ("add to today") / .rowexpand ("open full task page") — the
+     master-view row's own always-visible counterparts to .movetmrw/
+     .dayremove above, shown outside Daily instead of those two. Both used
+     to be reachable only by opening a task's edit fields first (the
+     now-Steps-only inline quick view no longer has them, and there's
+     nothing else on a collapsed row to click) — the project owner
+     specifically wanted "today" kept one tap away regardless, and a route
+     to the full task detail page that doesn't require it to be the
+     default tap action. Same accent as the full-fields version's own
+     today toggle (.daybtn.on) when it's set, so the two read as the same
+     control living in two places, not two different ones. */
+  .rowpin.on{ background: var(--primary); color:white; border-color: var(--primary); }
+  .rowexpand:hover{ border-color: var(--ink); color: var(--ink); }
   /* A step's own optional date — discreet by design, per the ask: a
      small muted pill rather than a full date input. Empty state gets a
      dashed underline (echoing .subadd's own placeholder-as-invitation
@@ -1129,14 +1146,19 @@
     position: relative;
   }
   /* The content-shaped stand-in page behind a .stackedpage mid back-swipe
-     (see swipeBackGhostShow()/swipeBackGhostContentHtml() in
-     19-bootstrap.js) — .stackedpage's own background is only a 5% white
-     mix over --card-bg, close enough to #appCard's bare background that a
-     same-toned ghost barely read as "a page" at all. --card-bg-dim plus a
-     heavier shadow makes it unmistakably a distinct surface sitting a
-     little lower down, and this rule's later position in the cascade
-     (same 0-1-0 specificity as .stackedpage's own) is what lets it win
-     without needing !important. Real destination content (see
+     (see swipeBackGhostShow()/swipeApplyDrag() in 19-bootstrap.js) — sized
+     and positioned to #appCard's own rect (the exact box every base view
+     fills, and near enough what a real destination stackedpage fills
+     too), and faded in/out in lockstep with the drag itself rather than
+     on a fixed timer. Since it now genuinely occupies the same box the
+     real page will, it no longer needs its own "distinct surface" look
+     (a dimmer background, a heavier shadow) the way an earlier, smaller,
+     offset-positioned version did to read as "a page" at all — it reads
+     as one now just by being the right size in the right place, so it
+     keeps whichever real frame's own background/shadow instead (see
+     .toplevelghost right below for the other one). overflow:hidden
+     clips real content to that box in case its natural height doesn't
+     exactly match #appCard's own. Real destination content (see
      swipeBackPreviewHtml() in 19-bootstrap.js) is inserted with no extra
      layout override — it's built by the actual page's own render
      function, so it already carries correct spacing via the real
@@ -1145,19 +1167,19 @@
      display:flex/column there since that markup has no layout of its
      own otherwise. */
   .swipebackghost{
-    background: var(--card-bg-dim);
-    box-shadow: 0 16px 34px rgba(0,0,0,0.34), 0 5px 12px rgba(0,0,0,0.18);
     overflow:hidden;
   }
   /* The other frame a swipe-back ghost can wear — for when the real page
      underneath is a master view (a category tab's own body, the day
      list, the checklist overview), not a drilldown. Matches #appCard's
-     own geometry instead of .stackedpage's: no reserved top padding for
-     a page tag (master views don't have one), and #appCard's actual
-     dog-eared corner radius rather than .stackedpage's uniform
+     own geometry instead of .stackedpage's: the same background (plain
+     --card-bg, not .stackedpage's white-mixed tint), no reserved top
+     padding for a page tag (master views don't have one), and #appCard's
+     actual dog-eared corner radius rather than .stackedpage's uniform
      var(--stackpage-radius). See the isSubpage comment in
      swipeBackGhostShow() (19-bootstrap.js) for which case picks which. */
   .toplevelghost{
+    background: var(--card-bg);
     border-radius: 2px 2px 10px 10px;
     padding: 22px 22px 14px;
     position: relative;
@@ -1354,12 +1376,21 @@
     height:78px; margin: 4px 0 -8px;
   }
   .checklistheader .checkcircle-wrap{ transform: scale(2.2); }
-  /* Header atop the full-page task detail opened from Daily (see
-     renderTaskDetailPage) — just the completion check and category dot,
-     since the title/fields below (taskExpandFieldsHtml) carry the rest;
-     no separate title line here the way .checklistheader has one, since
-     the title is itself an editable field right underneath. */
-  .taskdetailhead{ display:flex; align-items:center; gap:8px; margin:4px 0 10px; }
+  /* Header atop the full-page task detail opened from Daily — the
+     completion check and category dot, styled to mirror .checklistheader
+     just above: centered and scaled up so it reads as this page's own
+     big header rather than an ordinary inline row, with the title
+     (.bigtitle, right below) as its caption. height:56px is the same
+     "reserve real flow space for the transform's visual overflow" idea
+     as .checklistheader's own height — .check is 18px, scale(2.2) makes
+     it ~40px, so 56px leaves it room without the negative margin needing
+     to work as hard as .checklistheader's (this header has no separate
+     title line of its own to pull close — .bigtitle sits right after it
+     in the same flow). The category dot stays its normal small size
+     (unscaled, sibling to .check, not inside it) — it's a secondary
+     "which tab is this" hint, not part of the completion action. */
+  .taskdetailhead{ display:flex; align-items:center; justify-content:center; gap:8px; height:56px; margin:4px 0 -6px; }
+  .taskdetailhead .check{ transform: scale(2.2); }
   /* A row, not a stack — the date on the left, progress + the "move
      incomplete" button (when there's something to move) on the right.
      That button used to sit on its own full-width row underneath
@@ -2051,7 +2082,7 @@
      (element selector prefixed with body.mobileui-active) is deliberately
      just high enough to beat each field's own smaller class-level
      font-size, not to fight it in general — nothing needs to look bigger
-     than 16px, so anything already at or above that (.checklisttitle,
+     than 16px, so anything already at or above that (.bigtitle,
      .fabaddsheet's inputs) is untouched. */
   body.mobileui-active input[type="text"],
   body.mobileui-active input[type="email"],

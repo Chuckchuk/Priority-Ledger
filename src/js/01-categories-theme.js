@@ -799,11 +799,16 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       </select>
     </div>
     <div class="${fieldClass}">
-      <span class="${captionClass}">Task tap/long-press</span>
+      <!-- Only affects mobile's long-press, and mobile's tap under
+           'detail' — every other tap (desktop always, mobile under
+           'default'/'split') opens the inline Steps-only quick view
+           regardless of this setting; see taskRowTap()/taskRowHtml()'s
+           own comments in 08-render-core.js. -->
+      <span class="${captionClass}">Task tap/long-press (mobile)</span>
       <select class="${selectClass}" onchange="setDevTaskLongPressMode(this.value)">
-        <option value="detail" ${dev.taskLongPressMode==='detail'?'selected':''}>Detail (default) — tap opens the full task page, long-press shows a quick-actions menu</option>
-        <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap shows Steps, long-press opens a bottom sheet</option>
-        <option value="default" ${dev.taskLongPressMode==='default'?'selected':''}>Classic — tap opens everything inline</option>
+        <option value="detail" ${dev.taskLongPressMode==='detail'?'selected':''}>Detail (default) — mobile tap opens the full task page; long-press shows a quick-actions menu</option>
+        <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap opens Steps; mobile long-press opens a full-fields bottom sheet</option>
+        <option value="default" ${dev.taskLongPressMode==='default'?'selected':''}>Classic — tap opens Steps; no long-press action</option>
       </select>
     </div>
 

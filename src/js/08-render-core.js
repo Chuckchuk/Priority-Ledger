@@ -41,18 +41,30 @@ function fieldPickerHtml(kind, currentValue, onClickFor){
     </div>`;
 }
 
-function taskTitleFieldHtml(t){
-  return `<input type="text" class="titleedit" value="${escapeHtml(t.title)}"
+// extraClass is optional — renderTaskDetailPage() passes 'bigtitle' to
+// match the checklist detail page's large centered title (see .bigtitle
+// in <style>, shared with .titleedit there); every other caller
+// (taskManagementFieldsHtml, the inline .expand) omits it and gets the
+// normal compact field.
+function taskTitleFieldHtml(t, extraClass){
+  return `<input type="text" class="titleedit ${extraClass||''}" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">`;
 }
 
-function taskCoreFieldsRowHtml(t, canRemoveHere){
+// Shared by taskCoreFieldsRowHtml's own today-pin (inside the full task
+// detail/edit fields) and taskRowHtml's always-visible row-level one (see
+// its own comment) — one tooltip string means the two can't drift apart.
+function taskTodayTitle(t){
   const plannedToday = (t.plannedDates||[]).includes(todayStr());
   const otherPlanned = (t.plannedDates||[]).filter(d=>d!==todayStr()).length;
-  const todayTitle = plannedToday ? 'Remove from today’s list'
+  return plannedToday ? 'Remove from today’s list'
     : otherPlanned ? `Also planned on ${otherPlanned} other day${otherPlanned===1?'':'s'} — tap to add today too`
     : 'Add to today’s list';
+}
+
+function taskCoreFieldsRowHtml(t, canRemoveHere){
+  const todayTitle = taskTodayTitle(t);
   return `
       <div class="expand-row">
         <select class="catselect" onchange="updateCategory('${t.id}', this.value)">
@@ -162,8 +174,8 @@ function taskManagementFieldsHtml(t, canRemoveHere){
 // taskLongPressMode) and the full-page task detail opened from Daily
 // (renderTaskDetailPage) so the two can never drift out of sync — edit
 // once, both places update.
-function taskExpandFieldsHtml(t, canRemoveHere){
-  return `${taskTitleFieldHtml(t)}${taskCoreFieldsRowHtml(t, canRemoveHere)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
+function taskExpandFieldsHtml(t, canRemoveHere, titleClass){
+  return `${taskTitleFieldHtml(t, titleClass)}${taskCoreFieldsRowHtml(t, canRemoveHere)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
 }
 
 // The "check-guide" nudge: once every step is done but the task itself
@@ -236,28 +248,34 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // openTaskDetailFromDay/renderTaskDetailPage) rather than expanding
   // inline — everywhere else it's routed through taskRowTap(), which reads
   // taskLongPressMode itself to decide between the inline .expand toggle
-  // ('default'/'split') and jumping straight to the full page ('detail'),
-  // and also swallows the click a touchend/mouseup produces right after a
-  // long-press just fired rather than double-handling it.
+  // ('default'/'split', and 'detail' on desktop, where there's no
+  // long-press gesture to reach the full page with) and jumping straight
+  // to the full page (mobile 'detail' — a plain tap works like a
+  // home-screen icon there, since swipe-back makes returning cheap; see
+  // the "task quick/detail views" note in the taskLongPressMode dev
+  // setting's own comment for why desktop stays on the inline toggle
+  // instead), and also swallows the click a touchend/mouseup produces
+  // right after a long-press just fired rather than double-handling it.
   const rowClick = inDaily ? `openTaskDetailFromDay('${t.id}')` : `taskRowTap(event,'${t.id}')`;
   // 'split' and 'detail' both only apply outside Daily — a Daily row
   // already opens its own full page on a plain tap, so there's no
-  // "everything at once" tap target here to split in the first place.
-  // Gated by mobileUiActive() (touch-first — see the taskLongPressMode
-  // comment in defaultDevSettings(), 02-storage-state.js) so a short tap
-  // keeps opening the *entire* .expand on desktop, where there's no
-  // long-press gesture to reach the rest with.
+  // long-press gesture to add here in the first place.
   const usePressGesture = !inDaily && state.devSettings &&
     (state.devSettings.taskLongPressMode === 'split' || state.devSettings.taskLongPressMode === 'detail') &&
     mobileUiActive();
   const pressAttrs = usePressGesture
     ? ` ontouchstart="taskPressStart(event,'${t.id}')" ontouchmove="taskPressMove(event)" ontouchend="taskPressEnd()" ontouchcancel="taskPressEnd()" onmousedown="taskPressStart(event,'${t.id}')" onmouseup="taskPressEnd()" onmouseleave="taskPressEnd()"`
     : '';
-  // Under 'detail' this .expand is never actually toggled open (its tap
-  // goes straight to the full page instead — see taskRowTap() below), but
-  // it still shares usePressGesture's Steps-only content rather than
-  // forking a third branch here for a div that just sits inert.
-  const expandInner = usePressGesture ? taskSubtasksHtml(t) : taskExpandFieldsHtml(t, canRemoveHere);
+  // The inline .expand is a *quick* view — Steps only, always, on every
+  // platform and every taskLongPressMode — never the full edit fields
+  // (category/due/timeframe/priority/notes) taskExpandFieldsHtml() would
+  // otherwise show. Those now live only on the full task detail page,
+  // reached via the always-visible ⛶ button below (or, on mobile under
+  // 'detail', a plain tap — see rowClick's comment above) — a task row
+  // used to fall back to showing *everything* inline on desktop (nothing
+  // there ever gated it the way usePressGesture gates mobile), which is
+  // exactly the "quick view" cluttered with edit options this replaced.
+  const expandInner = taskSubtasksHtml(t);
   // The right-click menu (desktop-only, see handleTaskContextMenu()
   // below) — scoped to !inDaily for the same reason usePressGesture is: a
   // Daily row already has its own click behavior and canRemoveHere rules
@@ -280,7 +298,10 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
       ${inDaily ? `
         <button class="movetmrw" ${onTomorrow?'disabled':''} onclick="event.stopPropagation(); moveTaskToTomorrow('${t.id}','${dayDate}')" title="${onTomorrow ? 'Already planned for tomorrow' : 'Also plan for tomorrow'}">→</button>
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
-      ` : ''}
+      ` : `
+        <button class="rowpin ${(t.plannedDates||[]).length?'on':''}" onclick="event.stopPropagation(); toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>
+        <button class="rowexpand" onclick="event.stopPropagation(); openMobileTaskDetail('${t.id}')" title="Open full task page">⛶</button>
+      `}
     </div>
     ${inDaily ? '' : `<div class="expand ${expandedTaskIds.has(t.id)?'open':''}" id="exp-${t.id}">${expandInner}</div>`}
   </li>`;
@@ -338,9 +359,14 @@ function taskPressEnd(){
   taskPressTimer = null;
   if(taskPressRow) taskPressRow.classList.remove('pressing');
 }
-// 'detail': a plain tap jumps straight to the full task page — same
-// platform-standard split as a home-screen icon (tap to open, long-press
-// for quick actions). 'default'/'split' keep the inline .expand toggle.
+// Mobile 'detail': a plain tap jumps straight to the full task page —
+// same platform-standard split as a home-screen icon (tap to open,
+// long-press for quick actions), and cheap to back out of via swipe-back.
+// Every other case (desktop regardless of mode, or mobile under
+// 'default'/'split') falls through to toggleExpand()'s inline Steps-only
+// quick view instead — desktop has no swipe-back, so jumping to a full
+// page on every tap would make "just glance at the steps" the expensive
+// path instead of the cheap one.
 function taskRowTap(e, taskId){
   if(taskLongPressFired){ taskLongPressFired = false; e.preventDefault(); return; }
   if(mobileUiActive() && state.devSettings.taskLongPressMode === 'detail'){ openMobileTaskDetail(taskId); return; }
@@ -367,15 +393,19 @@ let ctxMenuTaskId = null;
 // includeEdit is false for the mobile 'detail' long-press menu
 // (openTaskContextMenuForRow() below) — a plain tap there already opens
 // the full task page, so "Edit details" would just be a slower way to do
-// what the tap already does. Desktop's right-click menu keeps it, since
-// desktop has no equivalent tap-to-open-page gesture.
+// what the tap already does. Desktop's right-click menu keeps it (routed
+// to openMobileTaskDetail(), same full page — not toggleExpand(), whose
+// inline .expand is Steps-only now and has no edit fields to open), since
+// desktop's own row already has a .rowexpand button for this too, but a
+// right-click menu that's already open is one less click than reaching
+// for it.
 function taskContextMenuHtml(t, includeEdit){
   const plannedToday = (t.plannedDates||[]).includes(todayStr());
   return `
     <button onclick="ctxMenuAction(()=>toggleStatus('${t.id}'))">${t.status==='done' ? 'Reopen' : 'Mark complete'}</button>
     <button onclick="ctxMenuAction(()=>toggleUrgent('${t.id}'))">${t.urgent ? 'Unmark urgent' : 'Mark urgent'}</button>
     <button onclick="ctxMenuAction(()=>toggleTaskToday('${t.id}'))">${plannedToday ? 'Remove from today' : 'Add to today'}</button>
-    ${includeEdit ? `<button onclick="ctxMenuAction(()=>toggleExpand(event,'${t.id}'))">Edit details</button>` : ''}
+    ${includeEdit ? `<button onclick="ctxMenuAction(()=>openMobileTaskDetail('${t.id}'))">Edit details</button>` : ''}
     <button onclick="ctxMenuCopyTitle('${t.id}')">Copy title</button>
     <div class="ctxmenu-sep"></div>
     <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteTask('${t.id}'))">Delete</button>
@@ -479,7 +509,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
         <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
         ${categoryDotHtml(cat, 'cdot')}
       </div>
-      ${taskExpandFieldsHtml(t, canRemoveHere)}
+      ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle')}
     </div>
   `;
 }

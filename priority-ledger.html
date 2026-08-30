@@ -823,12 +823,16 @@
     width:100%; border:none; border-bottom: 1.5px solid var(--ink-soft); background:transparent;
     font-family:'Fraunces', serif; font-style:italic; font-size:1rem; padding:4px 2px 8px; color:var(--ink); outline:none; margin-bottom:6px;
   }
-  /* The checklist detail page's title reads as a page header sitting
-     right under the big checkcircle above it, not a small inline-edit
-     field the way a standard task's own title field looks — bigger and
-     centered. Still the same <input>, just with this layered on, so the
-     standard task expand view's .titleedit is untouched. */
-  .titleedit.checklisttitle{ font-size:1.5rem; text-align:center; }
+  /* A page-header-sized title sitting right under a big checkbox/
+     checkcircle above it, not a small inline-edit field the way a
+     standard task's own title field looks — bigger and centered. Still
+     the same <input>, just with this layered on, so a normal .titleedit
+     (the inline .expand, the settings sheet) is untouched. Shared by the
+     checklist detail page (renderChecklistDetail(), 13-checklist.js) and
+     the full task detail page (renderTaskDetailPage(), 08-render-core.js
+     — passed in as taskExpandFieldsHtml()'s titleClass param) so the two
+     "big page header" looks can't drift apart. */
+  .titleedit.bigtitle{ font-size:1.5rem; text-align:center; }
   .catselect{
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);
@@ -950,7 +954,7 @@
      taskRowHtml/daySubtaskRowHtml), re-adding it would be a no-op, so the
      button fades out and stops accepting clicks rather than sitting there
      implying there's still something to do. */
-  .movetmrw, .dayremove{
+  .movetmrw, .dayremove, .rowpin, .rowexpand{
     display:flex; align-items:center; justify-content:center;
     width:22px; height:22px; flex-shrink:0; padding:0; line-height:1;
     font-size:0.78rem; cursor:pointer; border-radius:5px;
@@ -960,6 +964,19 @@
   .dayremove:hover{ border-color: var(--estate); color: var(--estate); }
   .movetmrw:disabled{ opacity:0.35; cursor:default; }
   .movetmrw:disabled:hover{ border-color: var(--line); color: var(--ink-soft); }
+  /* .rowpin ("add to today") / .rowexpand ("open full task page") — the
+     master-view row's own always-visible counterparts to .movetmrw/
+     .dayremove above, shown outside Daily instead of those two. Both used
+     to be reachable only by opening a task's edit fields first (the
+     now-Steps-only inline quick view no longer has them, and there's
+     nothing else on a collapsed row to click) — the project owner
+     specifically wanted "today" kept one tap away regardless, and a route
+     to the full task detail page that doesn't require it to be the
+     default tap action. Same accent as the full-fields version's own
+     today toggle (.daybtn.on) when it's set, so the two read as the same
+     control living in two places, not two different ones. */
+  .rowpin.on{ background: var(--primary); color:white; border-color: var(--primary); }
+  .rowexpand:hover{ border-color: var(--ink); color: var(--ink); }
   /* A step's own optional date — discreet by design, per the ask: a
      small muted pill rather than a full date input. Empty state gets a
      dashed underline (echoing .subadd's own placeholder-as-invitation
@@ -1161,14 +1178,19 @@
     position: relative;
   }
   /* The content-shaped stand-in page behind a .stackedpage mid back-swipe
-     (see swipeBackGhostShow()/swipeBackGhostContentHtml() in
-     19-bootstrap.js) — .stackedpage's own background is only a 5% white
-     mix over --card-bg, close enough to #appCard's bare background that a
-     same-toned ghost barely read as "a page" at all. --card-bg-dim plus a
-     heavier shadow makes it unmistakably a distinct surface sitting a
-     little lower down, and this rule's later position in the cascade
-     (same 0-1-0 specificity as .stackedpage's own) is what lets it win
-     without needing !important. Real destination content (see
+     (see swipeBackGhostShow()/swipeApplyDrag() in 19-bootstrap.js) — sized
+     and positioned to #appCard's own rect (the exact box every base view
+     fills, and near enough what a real destination stackedpage fills
+     too), and faded in/out in lockstep with the drag itself rather than
+     on a fixed timer. Since it now genuinely occupies the same box the
+     real page will, it no longer needs its own "distinct surface" look
+     (a dimmer background, a heavier shadow) the way an earlier, smaller,
+     offset-positioned version did to read as "a page" at all — it reads
+     as one now just by being the right size in the right place, so it
+     keeps whichever real frame's own background/shadow instead (see
+     .toplevelghost right below for the other one). overflow:hidden
+     clips real content to that box in case its natural height doesn't
+     exactly match #appCard's own. Real destination content (see
      swipeBackPreviewHtml() in 19-bootstrap.js) is inserted with no extra
      layout override — it's built by the actual page's own render
      function, so it already carries correct spacing via the real
@@ -1177,19 +1199,19 @@
      display:flex/column there since that markup has no layout of its
      own otherwise. */
   .swipebackghost{
-    background: var(--card-bg-dim);
-    box-shadow: 0 16px 34px rgba(0,0,0,0.34), 0 5px 12px rgba(0,0,0,0.18);
     overflow:hidden;
   }
   /* The other frame a swipe-back ghost can wear — for when the real page
      underneath is a master view (a category tab's own body, the day
      list, the checklist overview), not a drilldown. Matches #appCard's
-     own geometry instead of .stackedpage's: no reserved top padding for
-     a page tag (master views don't have one), and #appCard's actual
-     dog-eared corner radius rather than .stackedpage's uniform
+     own geometry instead of .stackedpage's: the same background (plain
+     --card-bg, not .stackedpage's white-mixed tint), no reserved top
+     padding for a page tag (master views don't have one), and #appCard's
+     actual dog-eared corner radius rather than .stackedpage's uniform
      var(--stackpage-radius). See the isSubpage comment in
      swipeBackGhostShow() (19-bootstrap.js) for which case picks which. */
   .toplevelghost{
+    background: var(--card-bg);
     border-radius: 2px 2px 10px 10px;
     padding: 22px 22px 14px;
     position: relative;
@@ -1386,12 +1408,21 @@
     height:78px; margin: 4px 0 -8px;
   }
   .checklistheader .checkcircle-wrap{ transform: scale(2.2); }
-  /* Header atop the full-page task detail opened from Daily (see
-     renderTaskDetailPage) — just the completion check and category dot,
-     since the title/fields below (taskExpandFieldsHtml) carry the rest;
-     no separate title line here the way .checklistheader has one, since
-     the title is itself an editable field right underneath. */
-  .taskdetailhead{ display:flex; align-items:center; gap:8px; margin:4px 0 10px; }
+  /* Header atop the full-page task detail opened from Daily — the
+     completion check and category dot, styled to mirror .checklistheader
+     just above: centered and scaled up so it reads as this page's own
+     big header rather than an ordinary inline row, with the title
+     (.bigtitle, right below) as its caption. height:56px is the same
+     "reserve real flow space for the transform's visual overflow" idea
+     as .checklistheader's own height — .check is 18px, scale(2.2) makes
+     it ~40px, so 56px leaves it room without the negative margin needing
+     to work as hard as .checklistheader's (this header has no separate
+     title line of its own to pull close — .bigtitle sits right after it
+     in the same flow). The category dot stays its normal small size
+     (unscaled, sibling to .check, not inside it) — it's a secondary
+     "which tab is this" hint, not part of the completion action. */
+  .taskdetailhead{ display:flex; align-items:center; justify-content:center; gap:8px; height:56px; margin:4px 0 -6px; }
+  .taskdetailhead .check{ transform: scale(2.2); }
   /* A row, not a stack — the date on the left, progress + the "move
      incomplete" button (when there's something to move) on the right.
      That button used to sit on its own full-width row underneath
@@ -2083,7 +2114,7 @@
      (element selector prefixed with body.mobileui-active) is deliberately
      just high enough to beat each field's own smaller class-level
      font-size, not to fight it in general — nothing needs to look bigger
-     than 16px, so anything already at or above that (.checklisttitle,
+     than 16px, so anything already at or above that (.bigtitle,
      .fabaddsheet's inputs) is untouched. */
   body.mobileui-active input[type="text"],
   body.mobileui-active input[type="email"],
@@ -4236,11 +4267,16 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       </select>
     </div>
     <div class="${fieldClass}">
-      <span class="${captionClass}">Task tap/long-press</span>
+      <!-- Only affects mobile's long-press, and mobile's tap under
+           'detail' — every other tap (desktop always, mobile under
+           'default'/'split') opens the inline Steps-only quick view
+           regardless of this setting; see taskRowTap()/taskRowHtml()'s
+           own comments in 08-render-core.js. -->
+      <span class="${captionClass}">Task tap/long-press (mobile)</span>
       <select class="${selectClass}" onchange="setDevTaskLongPressMode(this.value)">
-        <option value="detail" ${dev.taskLongPressMode==='detail'?'selected':''}>Detail (default) — tap opens the full task page, long-press shows a quick-actions menu</option>
-        <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap shows Steps, long-press opens a bottom sheet</option>
-        <option value="default" ${dev.taskLongPressMode==='default'?'selected':''}>Classic — tap opens everything inline</option>
+        <option value="detail" ${dev.taskLongPressMode==='detail'?'selected':''}>Detail (default) — mobile tap opens the full task page; long-press shows a quick-actions menu</option>
+        <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap opens Steps; mobile long-press opens a full-fields bottom sheet</option>
+        <option value="default" ${dev.taskLongPressMode==='default'?'selected':''}>Classic — tap opens Steps; no long-press action</option>
       </select>
     </div>
 
@@ -4758,26 +4794,35 @@ function defaultDevSettings(){
   // gated by mobileUiActive() like the rest of this file's dev settings:
   // a nicer tap target beats a dropdown on desktop too, so this one
   // applies everywhere once picked, not just on a phone-ish viewport.
-  // taskLongPressMode: 'default' leaves a task row's single tap/click
-  // toggling the *entire* .expand block (every field at once, see
-  // taskExpandFieldsHtml() in 08-render-core.js). 'split' and 'detail' —
-  // both gated by mobileUiActive(), touch-first — arm the same long-press
-  // timer (taskPressStart() et al. in 08-render-core.js) but differ in
-  // what a plain tap and a genuine long-press each do:
-  //   'split':  tap toggles a trimmed .expand showing just Steps
-  //             (taskSubtasksHtml()); long-press opens the rest —
-  //             category, due date, urgent/today, timeframe/priority,
-  //             notes — as its own bottom sheet (openTaskSettingsSheet()).
-  //   'detail': tap jumps straight to the same full-page task detail
-  //             Daily's own taskDetailId uses (openMobileTaskDetail(),
-  //             renderTaskDetailPage()); long-press instead opens a quick-
-  //             actions menu (mark complete/urgent/today, delete — same
-  //             component as the desktop right-click menu, see
-  //             taskContextMenuHtml()/openTaskContextMenuForRow()) anchored
-  //             to the row. This is the platform-standard split (tap to
-  //             go there, long-press to act on it without leaving) and is
-  //             the default — see defaultDevSettings()'s taskLongPressMode
-  //             value below.
+  // taskLongPressMode: a task row's single tap/click always toggles the
+  // inline .expand showing just Steps (taskSubtasksHtml()) now — never
+  // the full field set (category, due date, urgent/today, timeframe/
+  // priority, notes), which used to fall out of this same tap on desktop
+  // (nothing ever gated that the way mobileUiActive() gates the rest of
+  // this setting) and read as "quick view" cluttered with edit options
+  // that took a real decision to reach. Those fields live only on the
+  // full-page task detail now (renderTaskDetailPage()), reached via the
+  // row's own always-visible .rowexpand button (taskRowHtml(),
+  // 08-render-core.js) or the desktop right-click menu's "Edit details" —
+  // both call openMobileTaskDetail() directly, independent of this
+  // setting. This setting only changes what's *additionally* true on
+  // mobile (gated by mobileUiActive(), touch-first), which arms a
+  // long-press timer (taskPressStart() et al.) on top of the tap above:
+  //   'split':  long-press opens the full field set as its own bottom
+  //             sheet (openTaskSettingsSheet()) — Steps are left out,
+  //             already visible via the plain tap above.
+  //   'detail': a plain tap jumps straight past the inline quick view,
+  //             straight to the full-page task detail (openMobileTaskDetail(),
+  //             same page Daily's own taskDetailId uses); long-press
+  //             instead opens a quick-actions menu (mark complete/urgent/
+  //             today, delete — same component as the desktop right-click
+  //             menu, see taskContextMenuHtml()/openTaskContextMenuForRow())
+  //             anchored to the row. This is the platform-standard split
+  //             (tap to go there, long-press to act on it without leaving,
+  //             swipe-back to return cheaply) and is the default — see
+  //             defaultDevSettings()'s taskLongPressMode value below.
+  //   'default': no long-press action at all — the plain tap's Steps-only
+  //             quick view is the only thing this mode adds over desktop.
   // overlapSubtags / overlapHoverMode are two further EXPERIMENTAL
   // sub-options of tabBarDesktopStyle's "overlap" look specifically —
   // only ever offered in the UI while that style is the current pick
@@ -6634,18 +6679,30 @@ function fieldPickerHtml(kind, currentValue, onClickFor){
     </div>`;
 }
 
-function taskTitleFieldHtml(t){
-  return `<input type="text" class="titleedit" value="${escapeHtml(t.title)}"
+// extraClass is optional — renderTaskDetailPage() passes 'bigtitle' to
+// match the checklist detail page's large centered title (see .bigtitle
+// in <style>, shared with .titleedit there); every other caller
+// (taskManagementFieldsHtml, the inline .expand) omits it and gets the
+// normal compact field.
+function taskTitleFieldHtml(t, extraClass){
+  return `<input type="text" class="titleedit ${extraClass||''}" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">`;
 }
 
-function taskCoreFieldsRowHtml(t, canRemoveHere){
+// Shared by taskCoreFieldsRowHtml's own today-pin (inside the full task
+// detail/edit fields) and taskRowHtml's always-visible row-level one (see
+// its own comment) — one tooltip string means the two can't drift apart.
+function taskTodayTitle(t){
   const plannedToday = (t.plannedDates||[]).includes(todayStr());
   const otherPlanned = (t.plannedDates||[]).filter(d=>d!==todayStr()).length;
-  const todayTitle = plannedToday ? 'Remove from today’s list'
+  return plannedToday ? 'Remove from today’s list'
     : otherPlanned ? `Also planned on ${otherPlanned} other day${otherPlanned===1?'':'s'} — tap to add today too`
     : 'Add to today’s list';
+}
+
+function taskCoreFieldsRowHtml(t, canRemoveHere){
+  const todayTitle = taskTodayTitle(t);
   return `
       <div class="expand-row">
         <select class="catselect" onchange="updateCategory('${t.id}', this.value)">
@@ -6755,8 +6812,8 @@ function taskManagementFieldsHtml(t, canRemoveHere){
 // taskLongPressMode) and the full-page task detail opened from Daily
 // (renderTaskDetailPage) so the two can never drift out of sync — edit
 // once, both places update.
-function taskExpandFieldsHtml(t, canRemoveHere){
-  return `${taskTitleFieldHtml(t)}${taskCoreFieldsRowHtml(t, canRemoveHere)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
+function taskExpandFieldsHtml(t, canRemoveHere, titleClass){
+  return `${taskTitleFieldHtml(t, titleClass)}${taskCoreFieldsRowHtml(t, canRemoveHere)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
 }
 
 // The "check-guide" nudge: once every step is done but the task itself
@@ -6829,28 +6886,34 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // openTaskDetailFromDay/renderTaskDetailPage) rather than expanding
   // inline — everywhere else it's routed through taskRowTap(), which reads
   // taskLongPressMode itself to decide between the inline .expand toggle
-  // ('default'/'split') and jumping straight to the full page ('detail'),
-  // and also swallows the click a touchend/mouseup produces right after a
-  // long-press just fired rather than double-handling it.
+  // ('default'/'split', and 'detail' on desktop, where there's no
+  // long-press gesture to reach the full page with) and jumping straight
+  // to the full page (mobile 'detail' — a plain tap works like a
+  // home-screen icon there, since swipe-back makes returning cheap; see
+  // the "task quick/detail views" note in the taskLongPressMode dev
+  // setting's own comment for why desktop stays on the inline toggle
+  // instead), and also swallows the click a touchend/mouseup produces
+  // right after a long-press just fired rather than double-handling it.
   const rowClick = inDaily ? `openTaskDetailFromDay('${t.id}')` : `taskRowTap(event,'${t.id}')`;
   // 'split' and 'detail' both only apply outside Daily — a Daily row
   // already opens its own full page on a plain tap, so there's no
-  // "everything at once" tap target here to split in the first place.
-  // Gated by mobileUiActive() (touch-first — see the taskLongPressMode
-  // comment in defaultDevSettings(), 02-storage-state.js) so a short tap
-  // keeps opening the *entire* .expand on desktop, where there's no
-  // long-press gesture to reach the rest with.
+  // long-press gesture to add here in the first place.
   const usePressGesture = !inDaily && state.devSettings &&
     (state.devSettings.taskLongPressMode === 'split' || state.devSettings.taskLongPressMode === 'detail') &&
     mobileUiActive();
   const pressAttrs = usePressGesture
     ? ` ontouchstart="taskPressStart(event,'${t.id}')" ontouchmove="taskPressMove(event)" ontouchend="taskPressEnd()" ontouchcancel="taskPressEnd()" onmousedown="taskPressStart(event,'${t.id}')" onmouseup="taskPressEnd()" onmouseleave="taskPressEnd()"`
     : '';
-  // Under 'detail' this .expand is never actually toggled open (its tap
-  // goes straight to the full page instead — see taskRowTap() below), but
-  // it still shares usePressGesture's Steps-only content rather than
-  // forking a third branch here for a div that just sits inert.
-  const expandInner = usePressGesture ? taskSubtasksHtml(t) : taskExpandFieldsHtml(t, canRemoveHere);
+  // The inline .expand is a *quick* view — Steps only, always, on every
+  // platform and every taskLongPressMode — never the full edit fields
+  // (category/due/timeframe/priority/notes) taskExpandFieldsHtml() would
+  // otherwise show. Those now live only on the full task detail page,
+  // reached via the always-visible ⛶ button below (or, on mobile under
+  // 'detail', a plain tap — see rowClick's comment above) — a task row
+  // used to fall back to showing *everything* inline on desktop (nothing
+  // there ever gated it the way usePressGesture gates mobile), which is
+  // exactly the "quick view" cluttered with edit options this replaced.
+  const expandInner = taskSubtasksHtml(t);
   // The right-click menu (desktop-only, see handleTaskContextMenu()
   // below) — scoped to !inDaily for the same reason usePressGesture is: a
   // Daily row already has its own click behavior and canRemoveHere rules
@@ -6873,7 +6936,10 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
       ${inDaily ? `
         <button class="movetmrw" ${onTomorrow?'disabled':''} onclick="event.stopPropagation(); moveTaskToTomorrow('${t.id}','${dayDate}')" title="${onTomorrow ? 'Already planned for tomorrow' : 'Also plan for tomorrow'}">→</button>
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
-      ` : ''}
+      ` : `
+        <button class="rowpin ${(t.plannedDates||[]).length?'on':''}" onclick="event.stopPropagation(); toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>
+        <button class="rowexpand" onclick="event.stopPropagation(); openMobileTaskDetail('${t.id}')" title="Open full task page">⛶</button>
+      `}
     </div>
     ${inDaily ? '' : `<div class="expand ${expandedTaskIds.has(t.id)?'open':''}" id="exp-${t.id}">${expandInner}</div>`}
   </li>`;
@@ -6931,9 +6997,14 @@ function taskPressEnd(){
   taskPressTimer = null;
   if(taskPressRow) taskPressRow.classList.remove('pressing');
 }
-// 'detail': a plain tap jumps straight to the full task page — same
-// platform-standard split as a home-screen icon (tap to open, long-press
-// for quick actions). 'default'/'split' keep the inline .expand toggle.
+// Mobile 'detail': a plain tap jumps straight to the full task page —
+// same platform-standard split as a home-screen icon (tap to open,
+// long-press for quick actions), and cheap to back out of via swipe-back.
+// Every other case (desktop regardless of mode, or mobile under
+// 'default'/'split') falls through to toggleExpand()'s inline Steps-only
+// quick view instead — desktop has no swipe-back, so jumping to a full
+// page on every tap would make "just glance at the steps" the expensive
+// path instead of the cheap one.
 function taskRowTap(e, taskId){
   if(taskLongPressFired){ taskLongPressFired = false; e.preventDefault(); return; }
   if(mobileUiActive() && state.devSettings.taskLongPressMode === 'detail'){ openMobileTaskDetail(taskId); return; }
@@ -6960,15 +7031,19 @@ let ctxMenuTaskId = null;
 // includeEdit is false for the mobile 'detail' long-press menu
 // (openTaskContextMenuForRow() below) — a plain tap there already opens
 // the full task page, so "Edit details" would just be a slower way to do
-// what the tap already does. Desktop's right-click menu keeps it, since
-// desktop has no equivalent tap-to-open-page gesture.
+// what the tap already does. Desktop's right-click menu keeps it (routed
+// to openMobileTaskDetail(), same full page — not toggleExpand(), whose
+// inline .expand is Steps-only now and has no edit fields to open), since
+// desktop's own row already has a .rowexpand button for this too, but a
+// right-click menu that's already open is one less click than reaching
+// for it.
 function taskContextMenuHtml(t, includeEdit){
   const plannedToday = (t.plannedDates||[]).includes(todayStr());
   return `
     <button onclick="ctxMenuAction(()=>toggleStatus('${t.id}'))">${t.status==='done' ? 'Reopen' : 'Mark complete'}</button>
     <button onclick="ctxMenuAction(()=>toggleUrgent('${t.id}'))">${t.urgent ? 'Unmark urgent' : 'Mark urgent'}</button>
     <button onclick="ctxMenuAction(()=>toggleTaskToday('${t.id}'))">${plannedToday ? 'Remove from today' : 'Add to today'}</button>
-    ${includeEdit ? `<button onclick="ctxMenuAction(()=>toggleExpand(event,'${t.id}'))">Edit details</button>` : ''}
+    ${includeEdit ? `<button onclick="ctxMenuAction(()=>openMobileTaskDetail('${t.id}'))">Edit details</button>` : ''}
     <button onclick="ctxMenuCopyTitle('${t.id}')">Copy title</button>
     <div class="ctxmenu-sep"></div>
     <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteTask('${t.id}'))">Delete</button>
@@ -7072,7 +7147,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
         <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
         ${categoryDotHtml(cat, 'cdot')}
       </div>
-      ${taskExpandFieldsHtml(t, canRemoveHere)}
+      ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle')}
     </div>
   `;
 }
@@ -9295,7 +9370,7 @@ function renderChecklistDetail(taskId){
     <div class="stackedpage">
       ${pageTagHtml('closeChecklistList()', backLabel)}
       <div class="checklistheader">${checklistCheckcircleHtml(t)}</div>
-      <input type="text" class="titleedit checklisttitle" value="${escapeHtml(t.title)}"
+      <input type="text" class="titleedit bigtitle" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
       <div class="taskmeta checklistmeta">Created ${fmtDate(t.createdAt)}</div>
@@ -9353,6 +9428,13 @@ function renderChecklistPending(categoryId){
 // checklistReturnDay to null even if some earlier visit had left it set,
 // so "opened from Daily" can never leak into an unrelated later open.
 function openChecklistList(id, returnDay){
+  // renderChecklist() checks checklistPendingOpen before selectedListId
+  // (see its own comment), so without clearing this here, opening a list
+  // from the pending view — clicking an item's own text, which calls
+  // this — set selectedListId but kept rendering the pending view right
+  // over it: clicking looked like it did nothing at all, with no visible
+  // sign you'd actually left the pending view.
+  checklistPendingOpen = false;
   checklistReturnDay = returnDay || null;
   selectedListId = id;
   render();
@@ -10619,6 +10701,15 @@ function swipeApplyDrag(g, dx){
   const eff = dx < 0 ? dx * 0.15 : dx;
   g.card.style.transform = `translateX(${eff}px) rotate(${eff / 26}deg)`;
   g.card.style.opacity = String(Math.max(1 - Math.abs(eff) / 700, 0.55));
+  // The revealed page fades in step with the drag itself, every frame —
+  // not a fixed-timing fade-in that finishes early regardless of how far
+  // you've actually dragged (see swipeBackGhostShow()'s own comment for
+  // why that changed). Reaches full opacity at the same SWIPE_COMMIT_PX
+  // distance that would commit the swipe on release, so letting go right
+  // around there never has to visibly "catch up." Dragging back toward 0
+  // fades it back out in the same lockstep, not just as a release-time
+  // snap-back — reversing mid-drag reverses the fade mid-drag too.
+  if(g.ghost) g.ghost.style.opacity = String(Math.min(Math.abs(eff) / SWIPE_COMMIT_PX, 1));
 }
 
 // Day/month swipe nav feedback: a padlock-dial style swap of just the
@@ -10691,22 +10782,20 @@ function swipeSnapBack(card, g){
 // row ids, see the comment there), so without this there's genuinely
 // nothing behind the page as it slides: just #appCard's bare background.
 //
-// Two things a first pass at this got wrong, both because it exactly
-// matched the real page's own box: (1) .stackedpage's own background is
-// only a 5% white mix over --card-bg — nearly the same tone as
-// #appCard's bare background already behind it, so even fully visible it
-// barely read as "a page"; (2) sized/positioned identically to the real
-// page, it stayed *completely* covered by it until the drag had actually
-// moved the real page a real distance, so on a normal quick swipe there
-// was only a sliver of a moment it could ever show at all. Fixed here by
-// (1) .swipebackghost overriding to the more clearly-distinct
-// --card-bg-dim plus a stronger shadow (see <style>), and (2) offsetting
-// the ghost down-right by SWIPE_BACK_GHOST_PEEK_PX so a visible sliver
-// peeks out along the bottom/right edge from the very start of the drag,
-// like the next sheet in a stack, rather than needing the top page to
-// move first. Fades in fast (120ms, not 220ms) so it's visible well
-// before a normal decisive swipe has already committed and flown away.
-const SWIPE_BACK_GHOST_PEEK_PX = 7;
+// Sized and positioned to #appCard's own rect — the same box every base
+// view (a category tab, the day list, the checklist overview) naturally
+// fills, and also, give or take .stackedpage's own few-pixel negative
+// margins, what a real destination stackedpage fills too. Earlier passes
+// sized this to the *outgoing* .stackedpage's own (smaller, offset) rect
+// instead, plus a fixed pixel offset so a sliver would peek out from the
+// very start of the drag: that's what made a master-view destination
+// visibly jump into a differently-framed box the instant the ghost
+// resolved into the real thing, and it's also no longer needed for early
+// visibility now that opacity itself ramps up with drag distance (see
+// swipeApplyDrag()) rather than fading in on a fixed timer — the ghost
+// is already partway visible from the first pixel of drag, so there's
+// nothing left for a positional peek to do.
+
 
 // The real destination content, sanitized — see swipeBackPreviewHtml()
 // below for how this is actually obtained. `id="..."` attributes are
@@ -10819,8 +10908,8 @@ function swipeBackGhostContentHtml(g, heightPx){
 
 function swipeBackGhostShow(g){
   const card = g.card;
-  const r = card.getBoundingClientRect();
-  const peek = SWIPE_BACK_GHOST_PEEK_PX;
+  const appCardEl = document.getElementById('appCard');
+  const r = (appCardEl || card).getBoundingClientRect();
   const ghost = document.createElement('div');
   let realHtml = null;
   // swipeBackPreviewHtml()'s cases come back two shapes: some are
@@ -10855,11 +10944,15 @@ function swipeBackGhostShow(g){
   // currently falls through to it backs onto one (Settings).
   const frameClass = isSubpage ? 'stackedpage' : 'toplevelghost';
   ghost.className = realHtml ? `${frameClass} swipebackghost` : 'stackedpage swipebackghost skeleton';
-  ghost.style.cssText = `position:fixed; margin:0; left:${r.left + peek}px; top:${r.top + peek}px; width:${r.width}px; height:${r.height}px; opacity:0; transition:opacity 120ms ease; pointer-events:none;`;
+  // No transition here — opacity is driven directly, every touchmove
+  // frame, by swipeApplyDrag() instead, so it tracks the finger 1:1 the
+  // same way the outgoing card's own transform/opacity already do.
+  // swipeBackGhostHide() adds its own transition when the gesture ends
+  // without committing.
+  ghost.style.cssText = `position:fixed; margin:0; left:${r.left}px; top:${r.top}px; width:${r.width}px; height:${r.height}px; opacity:0; pointer-events:none;`;
   ghost.innerHTML = realHtml ? sanitizeGhostHtml(realHtml) : swipeBackGhostContentHtml(g, r.height);
   card.parentElement.insertBefore(ghost, card);
   g.ghost = ghost;
-  requestAnimationFrame(() => { if(g.ghost) g.ghost.style.opacity = '1'; });
 }
 
 function swipeBackGhostHide(g){
@@ -10924,6 +11017,11 @@ function swipeDialSnapBack(g){
 // ghost away, so what the eye actually sees is the ghost gracefully
 // dissolving to reveal the real page that's already sitting there,
 // rather than popping out of existence the instant the drag ends.
+// Forced to '1' explicitly (not just assumed already there from
+// swipeApplyDrag()'s per-drag fade) since a commit can also fire on
+// velocity alone (SWIPE_COMMIT_VPX) — a fast short flick can commit well
+// before dx has covered SWIPE_COMMIT_PX, which without this would fly
+// the outgoing page away over a still-partly-faded reveal underneath.
 //
 // The ghost has to be re-parented to <body> right before `after()` runs:
 // it's currently a sibling of `card` inside whatever container the real
@@ -10938,6 +11036,7 @@ function swipeFlyAway(card, dir, after, g){
   card.style.transition = 'transform 200ms ease-in, opacity 200ms ease-in';
   card.style.transform = `translateX(${dir * Math.max(window.innerWidth, 320)}px) rotate(${dir * 12}deg)`;
   card.style.opacity = '0';
+  if(g && g.ghost) g.ghost.style.opacity = '1';
   setTimeout(() => {
     card.style.transition = '';
     card.style.transform = '';

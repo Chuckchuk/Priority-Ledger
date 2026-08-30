@@ -455,26 +455,35 @@ function defaultDevSettings(){
   // gated by mobileUiActive() like the rest of this file's dev settings:
   // a nicer tap target beats a dropdown on desktop too, so this one
   // applies everywhere once picked, not just on a phone-ish viewport.
-  // taskLongPressMode: 'default' leaves a task row's single tap/click
-  // toggling the *entire* .expand block (every field at once, see
-  // taskExpandFieldsHtml() in 08-render-core.js). 'split' and 'detail' —
-  // both gated by mobileUiActive(), touch-first — arm the same long-press
-  // timer (taskPressStart() et al. in 08-render-core.js) but differ in
-  // what a plain tap and a genuine long-press each do:
-  //   'split':  tap toggles a trimmed .expand showing just Steps
-  //             (taskSubtasksHtml()); long-press opens the rest —
-  //             category, due date, urgent/today, timeframe/priority,
-  //             notes — as its own bottom sheet (openTaskSettingsSheet()).
-  //   'detail': tap jumps straight to the same full-page task detail
-  //             Daily's own taskDetailId uses (openMobileTaskDetail(),
-  //             renderTaskDetailPage()); long-press instead opens a quick-
-  //             actions menu (mark complete/urgent/today, delete — same
-  //             component as the desktop right-click menu, see
-  //             taskContextMenuHtml()/openTaskContextMenuForRow()) anchored
-  //             to the row. This is the platform-standard split (tap to
-  //             go there, long-press to act on it without leaving) and is
-  //             the default — see defaultDevSettings()'s taskLongPressMode
-  //             value below.
+  // taskLongPressMode: a task row's single tap/click always toggles the
+  // inline .expand showing just Steps (taskSubtasksHtml()) now — never
+  // the full field set (category, due date, urgent/today, timeframe/
+  // priority, notes), which used to fall out of this same tap on desktop
+  // (nothing ever gated that the way mobileUiActive() gates the rest of
+  // this setting) and read as "quick view" cluttered with edit options
+  // that took a real decision to reach. Those fields live only on the
+  // full-page task detail now (renderTaskDetailPage()), reached via the
+  // row's own always-visible .rowexpand button (taskRowHtml(),
+  // 08-render-core.js) or the desktop right-click menu's "Edit details" —
+  // both call openMobileTaskDetail() directly, independent of this
+  // setting. This setting only changes what's *additionally* true on
+  // mobile (gated by mobileUiActive(), touch-first), which arms a
+  // long-press timer (taskPressStart() et al.) on top of the tap above:
+  //   'split':  long-press opens the full field set as its own bottom
+  //             sheet (openTaskSettingsSheet()) — Steps are left out,
+  //             already visible via the plain tap above.
+  //   'detail': a plain tap jumps straight past the inline quick view,
+  //             straight to the full-page task detail (openMobileTaskDetail(),
+  //             same page Daily's own taskDetailId uses); long-press
+  //             instead opens a quick-actions menu (mark complete/urgent/
+  //             today, delete — same component as the desktop right-click
+  //             menu, see taskContextMenuHtml()/openTaskContextMenuForRow())
+  //             anchored to the row. This is the platform-standard split
+  //             (tap to go there, long-press to act on it without leaving,
+  //             swipe-back to return cheaply) and is the default — see
+  //             defaultDevSettings()'s taskLongPressMode value below.
+  //   'default': no long-press action at all — the plain tap's Steps-only
+  //             quick view is the only thing this mode adds over desktop.
   // overlapSubtags / overlapHoverMode are two further EXPERIMENTAL
   // sub-options of tabBarDesktopStyle's "overlap" look specifically —
   // only ever offered in the UI while that style is the current pick
