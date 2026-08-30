@@ -199,13 +199,11 @@ function renderDayDetail(dateStr){
   const subItems = subDailyItemsForDay(dateStr);
   const checklistItems = checklistDailyItemsForDay(dateStr);
   const { total, done } = dayItemsSummary(dateStr);
-  // What moveIncompleteToTomorrow() actually moves is unfinished standard
-  // tasks and steps — this count has to match that exactly, not the
-  // unified day total, or the button's label would promise more than it
-  // delivers.
-  const unfinishedTasks = allTasks.filter(t=>t.status!=='done');
-  const unfinishedSubs = subItems.filter(x=>!x.sub.done);
-  const unfinishedCount = unfinishedTasks.length + unfinishedSubs.length;
+  // What moveIncompleteToTomorrow() actually moves is dayLeafUnits()'s
+  // unfinished units — this has to match that exactly (task-with-open-
+  // steps doesn't double count itself alongside its steps), or the
+  // button's label would promise more than it delivers.
+  const unfinishedCount = dayLeafUnits(dateStr).filter(u=>!u.done).length;
   const isPast = dateStr < todayStr();
   const nextDate = addDaysToDateStr(dateStr, 1);
   const headerTag = dayHeaderTag(dateStr);

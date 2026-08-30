@@ -73,19 +73,59 @@ function subDailyItemsForDay(dateStr){
   return out;
 }
 
+// A day's standard tasks/steps reduced to the actual countable/movable
+// "leaf units" — what dayItemsSummary()'s total/done counts, and what
+// moveIncompleteToTomorrow()/moveDayUnfinishedToToday() actually move.
+// Naively counting every whole task *and* every step separately double-
+// counts a task that has its own steps planned the same day — a task
+// with 2 steps (one done, one not) would read as "2 unfinished" (the
+// task plus the open step) instead of the 1 real thing still open. The
+// rule: a standard task with steps also planned on this same day isn't
+// its own unit while any of those steps is still open — each step is the
+// unit instead. Once every one of those steps is done, the parent's own
+// checkbox becomes the one remaining unit — a finished step list with an
+// unchecked parent is "one thing left to close out" (the checkbox
+// itself), not zero and not a phantom extra alongside already-finished
+// steps. This mirrors how the project owner actually uses the app: a
+// task with steps is a container, the steps are the real work, *unless*
+// it has none, in which case the task itself is the actionable thing —
+// so a task only ever counts as its own unit when it has no open-step
+// competition for the same day. A step whose parent isn't planned whole
+// on this day (an "orphan" step, no row to nest under — see
+// daySubtaskRowHtml's `nested` param) always counts on its own, since
+// there's no parent unit it could conflict with.
+function dayLeafUnits(dateStr){
+  const tasks = standardTasksForDay(dateStr);
+  const subs = subDailyItemsForDay(dateStr);
+  const byParent = {};
+  subs.forEach(x=>{ (byParent[x.task.id] = byParent[x.task.id] || []).push(x); });
+  const taskIds = new Set(tasks.map(t=>t.id));
+
+  const units = [];
+  tasks.forEach(t=>{
+    const kids = byParent[t.id];
+    if(!kids || !kids.length || kids.every(x=>x.sub.done)){
+      units.push({ kind:'task', task:t, done: t.status==='done' });
+    } else {
+      kids.forEach(x=>units.push({ kind:'sub', task:x.task, sub:x.sub, done: x.sub.done }));
+    }
+  });
+  subs.forEach(x=>{
+    if(!taskIds.has(x.task.id)) units.push({ kind:'sub', task:x.task, sub:x.sub, done: x.sub.done });
+  });
+  return units;
+}
+
 // Unified "how much is on this day, how much of it's done" across all
 // three kinds of daily item — used by the day-list ratio badge, the
 // day-detail header, and the Daily tab's badge count, so all three agree
 // once steps/checklists can be planned onto a day too.
 function dayItemsSummary(dateStr){
-  const tasks = standardTasksForDay(dateStr);
-  const subs = subDailyItemsForDay(dateStr);
+  const units = dayLeafUnits(dateStr);
   const lists = checklistDailyItemsForDay(dateStr);
   return {
-    total: tasks.length + subs.length + lists.length,
-    done: tasks.filter(t=>t.status==='done').length
-      + subs.filter(x=>x.sub.done).length
-      + lists.filter(t=>t.status==='done').length
+    total: units.length + lists.length,
+    done: units.filter(u=>u.done).length + lists.filter(t=>t.status==='done').length
   };
 }
 
@@ -181,26 +221,41 @@ async function addDayByText(){
 // than minting duplicate task objects. An item already carrying tomorrow's
 // date is skipped, so mashing this button repeatedly can't pile up
 // duplicate entries on tomorrow's list the way the old copy did.
-async function moveIncompleteToTomorrow(dateStr){
-  const nextDate = addDaysToDateStr(dateStr, 1);
-  // Checklist lists excluded — a whole named list doesn't have the
-  // "incomplete" urgency a standard task/step does, same reasoning the
-  // old cascade used.
-  const tasks = standardTasksForDay(dateStr).filter(t=>t.status!=='done');
-  const subs = subDailyItemsForDay(dateStr).filter(x=>!x.sub.done);
-  if(tasks.length===0 && subs.length===0) return;
-  pushUndo('Moved incomplete items to tomorrow');
-  await ensureDay(nextDate);
-  tasks.forEach(t=>{
-    if(!t.plannedDates) t.plannedDates = [];
-    if(!t.plannedDates.includes(nextDate)) t.plannedDates.push(nextDate);
-  });
-  subs.forEach(({sub})=>{
-    if(!sub.plannedDates) sub.plannedDates = [];
-    if(!sub.plannedDates.includes(nextDate)) sub.plannedDates.push(nextDate);
+// Shared by moveIncompleteToTomorrow() and moveDayUnfinishedToToday() —
+// copies every unfinished leaf unit (see dayLeafUnits()) from `dateStr`
+// onto `targetDate`, additively (plannedDates gains targetDate, dateStr's
+// own entry is untouched) and idempotently (a unit already carrying
+// targetDate is skipped, so re-running this can't pile up duplicates).
+// Checklist lists are excluded — a whole named list doesn't have the
+// "incomplete" urgency a standard task/step does, same reasoning the old
+// single-day cascade this replaced used.
+async function copyDayUnfinishedTo(dateStr, targetDate, undoLabel){
+  const unfinished = dayLeafUnits(dateStr).filter(u=>!u.done);
+  if(unfinished.length===0) return false;
+  pushUndo(undoLabel);
+  await ensureDay(targetDate);
+  unfinished.forEach(u=>{
+    const obj = u.kind==='task' ? u.task : u.sub;
+    if(!obj.plannedDates) obj.plannedDates = [];
+    if(!obj.plannedDates.includes(targetDate)) obj.plannedDates.push(targetDate);
   });
   render();
   queueSave();
+  return true;
+}
+
+async function moveIncompleteToTomorrow(dateStr){
+  await copyDayUnfinishedTo(dateStr, addDaysToDateStr(dateStr, 1), 'Moved incomplete items to tomorrow');
+}
+
+// The day-list's own per-past-day "N unfinished" marker (see
+// dayItemHtml()) — copies that day's unfinished leaf units onto *today*
+// specifically, regardless of how far in the past the day is, rather than
+// one day forward the way moveIncompleteToTomorrow() does. Same copy
+// (not remove) semantics as that function: the original day keeps its
+// full history, today just also picks up whatever's still open.
+async function moveDayUnfinishedToToday(dateStr){
+  await copyDayUnfinishedTo(dateStr, todayStr(), 'Moved unfinished items to today');
 }
 
 function resetDayAddPicker(){
@@ -391,11 +446,28 @@ function dayItemHtml(dateStr){
   const { total, done } = dayItemsSummary(dateStr);
   const ratio = total ? `<span class="badge subcount">${done}/${total}</span>` : `<span class="badge due">Empty</span>`;
   const isToday = dateStr === todayStr();
+  const isPast = dateStr < todayStr();
+  // Only worth computing/showing on days that have already happened —
+  // dayLeafUnits() is the same leaf-counting rule dayItemsSummary()'s own
+  // total/done use (see the comment there), so this count and the ratio
+  // badge above it can never disagree about what "1 unfinished" means.
+  const unfinishedCount = isPast ? dayLeafUnits(dateStr).filter(u=>!u.done).length : 0;
+  // A <button> can't nest another interactive <button> (the "move to
+  // today" action), so the row is a wrapping div with .dayitem as the
+  // main clickable button and this as a sibling — border-bottom lives on
+  // the wrapper now so the divider still spans the whole grouped row
+  // whether or not the second line is present.
   return `
-    <button class="dayitem ${isToday ? 'today' : ''}" onclick="openDay('${dateStr}')">
-      <span class="daydate">${dayLabel(dateStr)}${isToday ? '<span class="todaytag">Today</span>' : ''}</span>
-      ${ratio}
-    </button>`;
+    <div class="dayitemgroup">
+      <button class="dayitem ${isToday ? 'today' : ''}" onclick="openDay('${dateStr}')">
+        <span class="daydate">${dayLabel(dateStr)}${isToday ? '<span class="todaytag">Today</span>' : ''}</span>
+        ${ratio}
+      </button>
+      ${unfinishedCount>0 ? `
+      <button class="dayunfinished" onclick="event.stopPropagation(); moveDayUnfinishedToToday('${dateStr}')" title="Copy ${unfinishedCount} unfinished item${unfinishedCount===1?'':'s'} onto today's list">
+        ${unfinishedCount} unfinished → Today
+      </button>` : ''}
+    </div>`;
 }
 
 // A step or a whole checklist is a candidate to add to a day the same

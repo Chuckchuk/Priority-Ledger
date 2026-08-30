@@ -1093,9 +1093,15 @@
   .herotext{ position:absolute; inset:0; white-space:nowrap; }
   .herotext.today{ font-size:1.9rem; font-weight:700; color:var(--primary); }
   .daylistlabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin: 4px 0 6px; }
+  /* Wraps .dayitem plus the optional "N unfinished" line below it (see
+     dayItemHtml()) — a <button> can't nest another interactive <button>,
+     so these are siblings, not parent/child, and the divider between rows
+     lives here instead of on .dayitem itself so it still spans the whole
+     grouped row whether or not the second line is present. */
+  .dayitemgroup{ border-bottom:1px dashed var(--line); }
   .dayitem{
     width:100%; display:flex; justify-content:space-between; align-items:center; text-align:left;
-    border:none; border-bottom:1px dashed var(--line); background:none; padding:11px 4px 11px 8px; cursor:pointer;
+    border:none; background:none; padding:11px 4px 11px 8px; cursor:pointer;
     font-family:'IBM Plex Sans',sans-serif; font-size:0.92rem; color:var(--ink);
     border-left:3px solid transparent; transition:background 120ms ease;
   }
@@ -1115,6 +1121,19 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.58rem; text-transform:uppercase; background:var(--primary);
     color:white; padding:2px 6px; border-radius:4px; margin-left:8px; letter-spacing:0.04em;
   }
+  /* A past day's own "copy what's still open onto today" action — only
+     rendered at all when dayLeafUnits() found something unfinished (see
+     dayItemHtml()), so a fully-done or empty past day shows nothing here.
+     Right-aligned under that day's own row, small and muted-but-legible
+     rather than loud — this is a convenience shortcut, not something that
+     should compete with the day/ratio line above it for attention. */
+  .dayunfinished{
+    display:block; width:100%; text-align:right; background:none; border:none; cursor:pointer;
+    padding:0 8px 10px; margin-top:-4px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.03em;
+    color: var(--secondary);
+  }
+  .dayunfinished:hover{ text-decoration:underline; }
   .monthgroup{ margin-bottom:4px; }
   .monthhead{
     width:100%; display:flex; justify-content:space-between; align-items:center; text-align:left;
