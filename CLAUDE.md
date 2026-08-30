@@ -99,6 +99,17 @@ The architecture notes below still describe behavior accurately regardless of wh
 - `sortTasks()` is the canonical sort (urgent first, then due date, done tasks last). Reuse it rather than re-sorting inline.
 - Because `render()` rebuilds a view's whole `innerHTML`, any input inside that view is destroyed and recreated on every mutation — harmless for most fields, but fatal for an "add another one" input the user is meant to keep typing into after Enter (`.subadd`, `#checklistQuickInput`): the *new* input starts empty and unfocused, so without an explicit refocus, focus silently falls out of the field after the first entry. `addSubtask()` calls `focusVisibleSubadd()` and `addChecklistList()` refocuses `#checklistQuickInput` directly after their `render()` for exactly this reason — if you add another "type several in a row" input somewhere, it needs the same explicit refocus-after-render, `this.value=''` in the `onkeydown` handler alone won't do it (that clears the old, about-to-be-replaced element, not the new one).
 
+## Working efficiently (token budget)
+
+The project owner works in tight iterative sessions and hits usage limits fast, so default to a leaner loop:
+
+- Batch first, verify once: apply several related small tweaks (CSS, copy, small logic) before opening the browser to check — not a screenshot after every single edit.
+- Skip the browser loop entirely for changes with no visual/behavioral ambiguity (copy tweaks, renames, comment removal) — reason through correctness instead of re-verifying visually every time.
+- Don't re-read a file right after editing it "to confirm" — Edit already fails loudly if the old text wasn't found.
+- For open-ended searches across many files, delegate to the Explore agent rather than chaining many sequential greps/reads in the main conversation.
+- For geometry/shape-heavy visual asks (notches, torn edges, custom pegs, tab curvature) ask for a reference screenshot, sketch, or existing CSS/SVG snippet before authoring path coordinates blind — blind SVG geometry has repeatedly cost multiple correction rounds in past sessions.
+- When a batched request has a vague reference ("the Add a Task button", "the inner page") and more than one element could match, ask a one-line disambiguation question before editing rather than guessing.
+
 ## Testing locally
 
 Run `python3 build.py` first if you've touched anything under `src/` — `priority-ledger.html` only reflects source changes after a rebuild. Then open `priority-ledger.html` directly in a browser, or:
