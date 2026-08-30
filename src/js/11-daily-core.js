@@ -298,6 +298,23 @@ function openDay(dateStr, fromCalendar){
   selectedDay = dateStr;
   dayReturnToCalendar = !!fromCalendar;
   setDailyLastView(fromCalendar ? 'calendar' : 'list');
+  // Always false here, regardless of whatever it was set to a moment ago —
+  // opening a specific day always means the day *detail* is what should
+  // render, never the grid (renderDaily() checks dailyCalendarOpen before
+  // selectedDay), and this can't safely assume a caller already cleared
+  // it. openCalendarDay() used to rely on exactly that assumption (setting
+  // dailyCalendarOpen = false itself, one line before calling
+  // switchTab('daily')) — but switchTab() now restores dailyCalendarOpen
+  // from dailyLastView on every call (see its own comment), and
+  // dailyLastView is still 'calendar' at that point (this call hasn't run
+  // yet to update it), so that switchTab() call was clobbering the false
+  // right back to true before this function ever got a chance to run —
+  // new days opened from the calendar were creating the day correctly but
+  // landing back on the calendar grid instead of the day itself. Owning
+  // this line here instead of trusting the caller closes that gap for
+  // good, regardless of what any future caller does or doesn't clear
+  // first.
+  dailyCalendarOpen = false;
   resetDayAddPicker();
   render();
 }

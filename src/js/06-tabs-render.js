@@ -179,18 +179,19 @@ function renderTabs(){
       ? ` style="--tabhex:${cat.hex};--tabtext:${relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9'};--tabedge:${shadeHex(cat.hex, -0.25)};--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`
       : ` style="--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`;
     const hoverAttrs = pushMode ? ` onmouseenter="overlapTabHoverStart(${idx})" onmouseleave="overlapTabHoverEnd(${idx})"` : '';
-    // Re-clicking the tab you're already on is a genuine no-op everywhere
-    // else (switchTab() still runs, mainly to close whatever overlay
-    // might be open) — but in overlap style it rebuilds every .tab
-    // element from scratch, and re-running solveGapOverlaps()/
-    // computeOverlapPush() against fresh DOM occasionally lands a hair's
-    // width off the previous pass (sub-pixel measurement noise), which
-    // the transform transition then visibly animates through as a small
-    // unwanted "pulse" on the neighbors. Overlap style's active tab
-    // (and its #tabConnector clone, which copies this same markup) skips
-    // the onclick entirely instead of trying to chase that noise down —
-    // there's nothing else it needs a click for either, per the same
-    // reasoning :hover was already turned off for it.
+    // Re-clicking the tab you're already on now has to actually do
+    // something (return to that tab's own master view out of whatever
+    // drilldown it might be sitting on — see switchTab()'s own comment),
+    // so overlap style's active tab can't skip the onclick the way an
+    // earlier pass here did purely to dodge a cosmetic issue: rebuilding
+    // every .tab element from scratch re-runs solveGapOverlaps()/
+    // computeOverlapPush() against fresh DOM, which occasionally lands a
+    // hair's width off the previous pass (sub-pixel measurement noise)
+    // that the transform transition then visibly animates through as a
+    // small "pulse" on the neighbors. A working return-to-master-view is
+    // worth that trade — if the pulse turns out to actually be
+    // noticeable in practice, that's a rendering-smoothness bug to chase
+    // down on its own terms, not a reason to leave the click dead again.
     // Every tab, "Daily" included, uses the same plain switchTab() —
     // "go to today" belongs on the masthead's dedicated shortcut button
     // instead (#dailyShortcutBtn, goToDailyToday(), see 11-daily-core.js),
@@ -198,7 +199,7 @@ function renderTabs(){
     // Daily was last left (the day list, a specific day, the calendar) is
     // exactly the point: it's the tab that remembers, the shortcut button
     // is the one that always means "today."
-    const clickAttr = (overlapStyle && activeTab===key) ? '' : ` onclick="switchTab('${key}')"`;
+    const clickAttr = ` onclick="switchTab('${key}')"`;
     return `<button class="tab ${activeTab===key?'active':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}>${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
   renderTabRowLines();

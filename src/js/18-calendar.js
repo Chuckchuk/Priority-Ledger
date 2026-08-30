@@ -161,18 +161,16 @@ function closeDailyCalendar(){
 // this actually creates a new day" rule: ensureDay() itself is a no-op
 // (and ends up not calling queueSave()) for a date already in state.days,
 // so tracking an undo step for that case would record a change that
-// never happened. Always closes dailyCalendarOpen (harmless if it was
-// already false, e.g. reached via the category-tab path instead) and
-// switches to 'daily' — both hosts land on the exact same day-detail
-// page this way, which is what "opens up the Page for the Daily" asked
-// for either way you got here. openDay(dateStr, true) marks the day as
-// reached from the calendar (see dayReturnToCalendar in
-// 02-storage-state.js) so its own back tag — and Esc — return to the
-// calendar instead of the plain day list.
+// never happened. switchTab('daily') runs before openDay() — not
+// clearing dailyCalendarOpen itself first the way this used to (openDay()
+// now always does that on its own, see its own comment for why trusting
+// a caller to have done it first was exactly what broke this) — and
+// openDay(dateStr, true) marks the day as reached from the calendar (see
+// dayReturnToCalendar in 02-storage-state.js) so its own back tag — and
+// Esc — return to the calendar instead of the plain day list.
 async function openCalendarDay(dateStr){
   if(!state.days.includes(dateStr)) pushUndo('Added a day');
   await ensureDay(dateStr);
-  dailyCalendarOpen = false;
   switchTab('daily');
   openDay(dateStr, true);
 }
