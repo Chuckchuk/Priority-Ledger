@@ -146,10 +146,12 @@ function renderDailyCalendar(){
 
 function openDailyCalendar(){
   dailyCalendarOpen = true;
+  setDailyLastView('calendar');
   renderDaily();
 }
 function closeDailyCalendar(){
   dailyCalendarOpen = false;
+  setDailyLastView('list');
   renderDaily();
 }
 

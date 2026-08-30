@@ -793,16 +793,26 @@ function switchTab(key){
   // dayReturnToCalendar along with it). None of these get quickAddOpen's
   // FAB exemption either: clicking any tab, including the one you're
   // already on, should always land on that tab's own master view, not
-  // strand you on a drilldown left open from the last time you were
-  // there. dailyCalendarOpen is deliberately untouched — the Calendar is
-  // a peer view of the day list, not a stackedpage sitting on top of it
-  // (see the Daily/Calendar note in CLAUDE.md), so it doesn't fall under
-  // "back to the master view" the same way.
+  // strand you on a drilldown left open from the last time you were there.
   selectedListId = null;
   checklistPendingOpen = false;
   selectedDay = null;
   taskDetailId = null;
   dayReturnToCalendar = false;
+  // dailyCalendarOpen is the one exception to "always the master view" —
+  // Daily has *two* peer master views (the day list and the calendar, see
+  // the Daily/Calendar note in CLAUDE.md), not one, so landing on Daily
+  // means restoring whichever of those was last "home" rather than always
+  // defaulting to the list. dailyLastView (11-daily-core.js) is what
+  // remembers that: dailyCalendarOpen itself only ever means "the grid is
+  // the literal thing on screen right now," which is already false the
+  // moment you open a specific day from it — leaving *it* in charge here
+  // is what let a day opened from the calendar forget that heritage the
+  // instant you switched to another tab and back, landing on the plain
+  // list instead. Recomputed unconditionally (not just when leaving
+  // Daily) since it's harmless to set on every switch and cheaper than
+  // reasoning about which tab you're coming from.
+  dailyCalendarOpen = dailyLastView === 'calendar';
   // Only an actual change of category counts as "leaving" it — re-clicking
   // the tab you're already on (which still runs this whole function, to
   // exit an open overlay per the note above) must not collapse tasks you

@@ -874,118 +874,161 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
 }
 
 // ---------- Development mode: element-name tooltips ----------
-// Names as they're actually used in conversation with Claude (CLAUDE.md's
-// own vocabulary, or the closest plain-English equivalent for anything
-// that never got a name written down) — so the project owner can point at
-// something on screen and reference it precisely, instead of describing
-// it. Checked in order via Element.matches(), first match wins, so a more
-// specific selector (an element with an extra modifier class) has to sit
-// above the more general one it would otherwise also match — e.g.
-// '.pagetag.compact' (a "Compact Tag") before plain '.pagetag' (a "Page
-// Tag"), since a compact tag's own element still carries the base
-// .pagetag class too. Not exhaustive — this covers the elements most
-// likely to actually come up, not every single div in the DOM — but
-// covers "most" the way the project owner asked for, and new entries are
-// cheap to add here as more come up in conversation.
+// The Name half of each tooltip is the selector itself — literally how
+// it'd be typed in a grep or a CSS rule, i.e. "however you actually
+// reference it in code," per the project owner's own ask (not prose like
+// "Page Tag"). Checked in order via Element.matches(), first match wins,
+// so a more specific selector (an element with an extra modifier class)
+// has to sit above the more general one it would otherwise also match —
+// e.g. '.pagetag.compact' before plain '.pagetag', since a compact tag's
+// own element still carries the base .pagetag class too. Not exhaustive —
+// covers the elements most likely to actually come up, not every single
+// div in the DOM — but "most" the way the project owner asked for, and
+// new entries are cheap to add as more come up in conversation.
+//
+// `dest`, where present, is what actually clicking the element navigates
+// to — resolved from the SAME render functions/view names used
+// throughout this codebase's own comments (renderDayList(),
+// currentTabBodyHtml(), etc.), not a separate vocabulary. A plain string
+// when an element's destination never varies; a function(el) when it
+// does — most of these read live app state the same way the element's
+// own onclick handler would decide it for real (e.g. a Page Tag's own
+// onclick attribute, or dayReturnToCalendar/checklistReturnDay), so the
+// tooltip always describes where THIS click, right now, actually goes.
+// Only elements that are genuinely a "link" get one at all — a checkbox
+// or a text field doesn't, since it doesn't take you anywhere.
+function resolvePageTagDest(el){
+  const oc = el.getAttribute('onclick') || '';
+  if(oc.includes('closeDay(')) return dayReturnToCalendar ? 'renderDailyCalendar()' : 'renderDayList()';
+  if(oc.includes('toggleSettings(')) return 'currentTabBodyHtml()';
+  if(oc.includes('closeClaudeView(')) return 'renderSettings()';
+  if(oc.includes('closeChecklistPending(')) return 'renderChecklistOverview()';
+  if(oc.includes('closeChecklistList(')) return checklistReturnDay ? 'renderDayDetail()' : 'renderChecklistOverview()';
+  if(oc.includes('closeTaskDetail(')) return 'renderDayDetail()';
+  if(oc.includes('closeMobileTaskDetail(')) return 'currentTabBodyHtml()';
+  return null;
+}
+function resolveCompactTagDest(el){
+  const oc = el.getAttribute('onclick') || '';
+  if(oc.includes('openDailyCalendar(')) return 'renderDailyCalendar()';
+  if(oc.includes('openChecklistPending(')) return 'renderChecklistPending()';
+  if(oc.includes('closeDailyCalendar(')) return 'renderDayList()';
+  return null;
+}
+function resolveTabDest(el){
+  const key = el.dataset.key;
+  if(!key) return null;
+  if(key === 'daily') return dailyLastView === 'calendar' ? 'renderDailyCalendar()' : 'renderDayList()';
+  const cat = CATEGORIES[key];
+  if(cat && cat.type === 'checklist') return 'renderChecklistOverview()';
+  return 'categoryListHtml()';
+}
+function resolveTaskRowDest(el){
+  const oc = el.getAttribute('onclick') || '';
+  if(oc.includes('openChecklistList(')) return 'renderChecklistDetail()';
+  if(oc.includes('openTaskDetailFromDay(')) return 'renderTaskDetailPage()';
+  return null; // taskRowTap(): usually toggles the inline .expand in place, not a real navigation
+}
+
 const DEV_ELEMENT_NAME_RULES = [
   // Masthead
-  { sel: '.settingsbtn', name: 'Settings Button' },
-  { sel: '.dailyshortcut', name: 'Today Button' },
-  { sel: '.locbadge', name: 'Location Badge' },
-  { sel: '.signoutbtn2', name: 'Sign Out Button' },
-  { sel: '#statusLine', name: 'Date Subheader' },
-  { sel: '.masthead h1', name: 'App Title' },
+  { sel: '.settingsbtn', dest: () => settingsOpen ? 'currentTabBodyHtml()' : 'renderSettings()' },
+  { sel: '.dailyshortcut', dest: 'renderDayDetail() [today]' },
+  { sel: '.locbadge' },
+  { sel: '.signoutbtn2', dest: '#authShell' },
+  { sel: '#statusLine' },
+  { sel: '.masthead h1' },
   // Tab bar
-  { sel: '.tab', name: 'Tab' },
-  { sel: '.tabs', name: 'Tab Bar' },
+  { sel: '.tab', dest: resolveTabDest },
+  { sel: '.tabs' },
   // Stacked-page pattern
-  { sel: '.pagetag.compact', name: 'Compact Tag' },
-  { sel: '.pagetag', name: 'Page Tag' },
-  { sel: '.stackedpage', name: 'Stacked Page' },
-  { sel: '#appCard', name: 'Master View Card' },
-  { sel: '.leathercover', name: 'Leather Cover' },
-  { sel: '.bookmark', name: 'Bookmark Ribbon' },
+  { sel: '.pagetag.compact', dest: resolveCompactTagDest },
+  { sel: '.pagetag', dest: resolvePageTagDest },
+  { sel: '.stackedpage' },
+  { sel: '#appCard' },
+  { sel: '.leathercover' },
+  { sel: '.bookmark' },
   // Task rows (master view / quick view / detail page)
-  { sel: 'li.task', name: 'Task Row' },
-  { sel: '.expand', name: 'Quick View' },
-  { sel: '.taskdetailhead', name: 'Task Detail Header' },
-  { sel: '.taskdetailhead .checkwrap', name: 'Task Detail Checkbox' },
-  { sel: '.check.celebrate-check', name: 'Checkbox (celebrating)' },
-  { sel: '.check.guide-check', name: 'Checkbox (nudging)' },
-  { sel: '.check', name: 'Checkbox' },
-  { sel: '.checkwrap', name: 'Checkbox Wrap' },
-  { sel: '.substack', name: 'Subtask Progress Ticks' },
-  { sel: '.subpip', name: 'Subtask Tick' },
-  { sel: '.rowpin', name: 'Today Pin Button' },
-  { sel: '.rowexpand', name: 'Open Full Page Button' },
-  { sel: '.movetmrw', name: 'Move to Tomorrow Button' },
-  { sel: '.dayremove', name: 'Remove from Day Button' },
-  { sel: '.draghandle', name: 'Drag Handle' },
-  { sel: '.title', name: 'Task Title' },
-  { sel: '.meta', name: 'Task Meta Row' },
-  { sel: '.badge.overdue', name: 'Overdue Badge' },
-  { sel: '.badge.due', name: 'Due Date Badge' },
-  { sel: '.badge.timeframe', name: 'Timeframe Badge' },
-  { sel: '.badge', name: 'Priority Badge' },
-  { sel: '.daybtn', name: 'Today Toggle Button' },
-  { sel: '.flagbtn', name: 'Urgent Flag Button' },
-  { sel: '.catselect', name: 'Category Dropdown' },
-  { sel: 'input[type="date"]', name: 'Due Date Field' },
-  { sel: '.expand-row .remove', name: 'Remove Task Button' },
-  { sel: '.titleedit.bigtitle', name: 'Big Title Field' },
-  { sel: '.titleedit', name: 'Title Field' },
-  { sel: '.taskmeta.checklistmeta', name: 'Checklist Meta Line' },
-  { sel: '.taskmeta', name: 'Meta Line' },
-  { sel: '.subwrap', name: 'Steps/Items List' },
-  { sel: '.sublabel', name: 'Steps/Items Label' },
-  { sel: '.subrow', name: 'Step/Item Row' },
-  { sel: '.subcheck.circle', name: 'Checklist Item Checkbox' },
-  { sel: '.subcheck', name: 'Step Checkbox' },
-  { sel: '.subtext', name: 'Step/Item Text' },
-  { sel: '.subdate', name: 'Step Date' },
-  { sel: '.subadd', name: 'Add Step/Item Field' },
-  { sel: '.subdel', name: 'Delete Step/Item Button' },
-  { sel: '.quickadd', name: 'Quick Add Bar' },
-  { sel: '.addbtn', name: 'Add Button' },
-  { sel: '.sortrow select', name: 'Sort Dropdown' },
-  { sel: '.footer-row button', name: 'Show Completed Button' },
-  { sel: '.empty', name: 'Empty State Message' },
+  { sel: 'li.task', dest: resolveTaskRowDest },
+  { sel: '.rowexpand', dest: 'renderTaskDetailPage()' },
+  { sel: '.expand' },
+  { sel: '.taskdetailhead' },
+  { sel: '.taskdetailhead .checkwrap' },
+  { sel: '.check.celebrate-check' },
+  { sel: '.check.guide-check' },
+  { sel: '.check' },
+  { sel: '.checkwrap' },
+  { sel: '.substack' },
+  { sel: '.subpip' },
+  { sel: '.rowpin' },
+  { sel: '.movetmrw' },
+  { sel: '.dayremove' },
+  { sel: '.draghandle' },
+  { sel: '.title' },
+  { sel: '.meta' },
+  { sel: '.badge.overdue' },
+  { sel: '.badge.due' },
+  { sel: '.badge.timeframe' },
+  { sel: '.badge' },
+  { sel: '.daybtn' },
+  { sel: '.flagbtn' },
+  { sel: '.catselect' },
+  { sel: 'input[type="date"]' },
+  { sel: '.expand-row .remove' },
+  { sel: '.titleedit.bigtitle' },
+  { sel: '.titleedit' },
+  { sel: '.taskmeta.checklistmeta' },
+  { sel: '.taskmeta' },
+  { sel: '.subwrap' },
+  { sel: '.sublabel' },
+  { sel: '.subrow' },
+  { sel: '.subcheck.circle' },
+  { sel: '.subcheck' },
+  { sel: '.subtext' },
+  { sel: '.subdate' },
+  { sel: '.subadd' },
+  { sel: '.subdel' },
+  { sel: '.quickadd' },
+  { sel: '.addbtn' },
+  { sel: '.sortrow select' },
+  { sel: '.footer-row button' },
+  { sel: '.empty' },
   // Checklist
-  { sel: '.checklistheader', name: 'Checklist Detail Header' },
-  { sel: '.checkcircle-wrap', name: 'Checklist Progress Circle' },
-  { sel: '.checkcircle', name: 'Checklist Checkbox' },
-  { sel: '.pegpivot', name: 'Checklist Peg' },
-  { sel: '.progressring', name: 'Checklist Progress Ring' },
-  { sel: '.listdate', name: 'List Created Date' },
+  { sel: '.checklistheader' },
+  { sel: '.checkcircle-wrap' },
+  { sel: '.checkcircle' },
+  { sel: '.pegpivot' },
+  { sel: '.progressring' },
+  { sel: '.listdate' },
   // Daily
-  { sel: '.daynavrow', name: 'Day Nav Row' },
-  { sel: '.navarrow', name: 'Nav Arrow' },
-  { sel: '.dayhero', name: 'Day Label' },
-  { sel: '.todaytag', name: 'Today Tag' },
-  { sel: '.daylistlabel', name: 'Day List Label' },
-  { sel: '.dayitem', name: 'Day Row' },
-  { sel: '.dayaddtoggle', name: 'Add Day Toggle' },
-  { sel: '.dayaddpanel', name: 'Add Day Panel' },
-  { sel: '.dayaddclose', name: 'Close Add-Day Panel Button' },
+  { sel: '.daynavrow' },
+  { sel: '.navarrow' },
+  { sel: '.dayhero' },
+  { sel: '.todaytag' },
+  { sel: '.daylistlabel' },
+  { sel: '.dayitem', dest: 'renderDayDetail()' },
+  { sel: '.dayaddtoggle' },
+  { sel: '.dayaddpanel' },
+  { sel: '.dayaddclose' },
   // Calendar
-  { sel: '.calnav', name: 'Calendar Nav Row' },
-  { sel: '.calmonthlabel', name: 'Month Label' },
-  { sel: '.calcell.today', name: "Today's Calendar Cell" },
-  { sel: '.calcell', name: 'Calendar Cell' },
-  { sel: '.calcatchip', name: 'Category Chip' },
+  { sel: '.calnav' },
+  { sel: '.calmonthlabel' },
+  { sel: '.calcell.today', dest: 'renderDayDetail()' },
+  { sel: '.calcell', dest: 'renderDayDetail()' },
+  { sel: '.calcatchip' },
   // Settings
-  { sel: '.settingssectionhead', name: 'Settings Section Header' },
-  { sel: '.catrow', name: 'Tab Row' },
-  { sel: '.catedit', name: 'Tab Name Field' },
-  { sel: '.cdot', name: 'Category Dot' },
-  { sel: '.resetthemebtn', name: 'Reset Theme Button' },
-  { sel: '.texturebtn', name: 'Texture Toggle Button' },
+  { sel: '.settingssectionhead' },
+  { sel: '.catrow' },
+  { sel: '.catedit' },
+  { sel: '.cdot' },
+  { sel: '.resetthemebtn' },
+  { sel: '.texturebtn' },
   // Dev panel
-  { sel: '.devpaneltab', name: 'Dev Panel Tab' },
-  { sel: '.devgrouphead', name: 'Dev Setting Group Header' },
+  { sel: '.devpaneltab' },
+  { sel: '.devgrouphead' },
   // Context menu
-  { sel: '.ctxmenu-danger', name: 'Delete Menu Item' },
-  { sel: '.ctxmenu button', name: 'Menu Item' },
+  { sel: '.ctxmenu-danger' },
+  { sel: '.ctxmenu button' },
 ];
 
 // Runs after every render() (see its call site in 08-render-core.js) and
@@ -1007,19 +1050,27 @@ const DEV_ELEMENT_NAME_RULES = [
 // from title directly in that case would prepend the name onto its own
 // previous output a second time; deriving from the cached original
 // every time avoids that regardless of how many passes an element sees.
+// The destination half is always resolved fresh against live state
+// though (not cached) — unlike the base name/tooltip, "where this
+// specific click goes right now" can genuinely change between passes
+// (dayReturnToCalendar, settingsOpen, etc.) even when the element itself
+// hasn't been recreated.
 function applyDevElementNames(){
   if(!state.devSettings || !state.devSettings.developmentMode) return;
   const root = document.getElementById('appShell');
   if(!root) return;
   for(const el of root.querySelectorAll('[class],[id]')){
-    let name = null;
-    for(const rule of DEV_ELEMENT_NAME_RULES){
-      if(el.matches(rule.sel)){ name = rule.name; break; }
+    let rule = null;
+    for(const r of DEV_ELEMENT_NAME_RULES){
+      if(el.matches(r.sel)){ rule = r; break; }
     }
-    if(!name) continue;
+    if(!rule) continue;
     if(el.dataset.origTitle === undefined) el.dataset.origTitle = el.getAttribute('title') || '';
     const orig = el.dataset.origTitle;
-    el.setAttribute('title', orig ? `${name} - ${orig}` : name);
+    let label = orig ? `${rule.sel} - ${orig}` : rule.sel;
+    const dest = typeof rule.dest === 'function' ? rule.dest(el) : rule.dest;
+    if(dest) label += ` => ${dest}`;
+    el.setAttribute('title', label);
   }
 }
 

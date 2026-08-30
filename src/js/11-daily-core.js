@@ -19,6 +19,28 @@ function addDaysToDateStr(dateStr, n){
 // same navigation, so there's no window where both would be true at once.
 let dailyCalendarOpen = false;
 
+// Which of Daily's two peer master views — the day list or the calendar —
+// is "home" right now, independent of whatever you're currently drilled
+// into. dailyCalendarOpen alone can't answer this: it only means "the
+// calendar grid is the literal thing on screen this instant," which is
+// already false the moment you open a specific day from it
+// (openCalendarDay() explicitly clears it before opening the day). Without
+// a separate, more durable tracker, switchTab() away and back — or a page
+// reload — had nothing left to tell it a day mid-view was ever reached via
+// the calendar in the first place, and always fell back to the plain day
+// list. setDailyLastView() (called from openDailyCalendar()/
+// closeDailyCalendar() and openDay()'s own fromCalendar branch) is the
+// single place this updates; switchTab() reads it to restore
+// dailyCalendarOpen whenever you land back on the Daily tab. Persisted to
+// plain localStorage (like ledger-last-tab) rather than synced state —
+// this is a per-device UI preference, not ledger data — and restored in
+// enterApp() (17-auth-ui.js) the same way.
+let dailyLastView = localStorage.getItem('ledger-daily-view') === 'calendar' ? 'calendar' : 'list';
+function setDailyLastView(view){
+  dailyLastView = view;
+  localStorage.setItem('ledger-daily-view', view);
+}
+
 // "Add to this day" tree picker state — transient UI state, not
 // persisted, same idiom as expandedMonths above. Reset by
 // resetDayAddPicker() whenever a day is opened or closed.
@@ -275,6 +297,7 @@ function resetDayAddPicker(){
 function openDay(dateStr, fromCalendar){
   selectedDay = dateStr;
   dayReturnToCalendar = !!fromCalendar;
+  setDailyLastView(fromCalendar ? 'calendar' : 'list');
   resetDayAddPicker();
   render();
 }
@@ -284,6 +307,7 @@ function closeDay(){
   if(dayReturnToCalendar){
     dayReturnToCalendar = false;
     dailyCalendarOpen = true;
+    setDailyLastView('calendar');
   }
   render();
 }
