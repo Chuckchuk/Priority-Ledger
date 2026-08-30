@@ -281,21 +281,10 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // Daily row already has its own click behavior and canRemoveHere rules
   // that don't map cleanly onto this.
   const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
-  // A quick double-click jumps straight to the full task page — outside
-  // Daily only, same scoping as .rowexpand right below (a Daily row
-  // already opens its own full page on a single tap, so a second,
-  // separate double-click meaning wouldn't add anything there).
-  // stopPropagation() isn't needed here the way it is on individual
-  // buttons: a dblclick's own pair of preceding click events already ran
-  // taskRowTap() twice (opening/closing the quick view, or navigating,
-  // twice in a row) before this fires, but since this replaces the whole
-  // view outright, whatever that briefly flashed open is moot the instant
-  // it does.
-  const dblClickAttr = inDaily ? '' : ` ondblclick="openMobileTaskDetail('${t.id}')"`;
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
   <li class="task" data-task-id="${t.id}" ${dragTargetAttrs}>
-    <div class="row"${pressAttrs}${ctxMenuAttr}${dblClickAttr} onclick="${rowClick}">
+    <div class="row"${pressAttrs}${ctxMenuAttr} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
         <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, true)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
@@ -378,8 +367,25 @@ function taskPressEnd(){
 // quick view instead — desktop has no swipe-back, so jumping to a full
 // page on every tap would make "just glance at the steps" the expensive
 // path instead of the cheap one.
+//
+// A quick double-tap jumps straight to the full task page too — timed by
+// hand here (lastRowTap below) rather than a native `ondblclick`, whose
+// timing threshold is the OS/browser's own double-click speed (often
+// 400-500ms+, sometimes more). That was loose enough that two genuinely
+// separate, just moderately-quick taps meaning "open the quick view, then
+// close it again" could get mistaken for one double-tap — this window is
+// deliberately tighter, so only an actually-fast double-tap counts.
+const ROW_DOUBLE_TAP_MS = 280;
+let lastRowTap = null; // { taskId, time } | null — the most recent single tap's own taskRowTap() call, for comparing against the next one
 function taskRowTap(e, taskId){
   if(taskLongPressFired){ taskLongPressFired = false; e.preventDefault(); return; }
+  const now = Date.now();
+  if(lastRowTap && lastRowTap.taskId === taskId && now - lastRowTap.time < ROW_DOUBLE_TAP_MS){
+    lastRowTap = null;
+    openMobileTaskDetail(taskId);
+    return;
+  }
+  lastRowTap = { taskId, time: now };
   if(mobileUiActive() && state.devSettings.taskLongPressMode === 'detail'){ openMobileTaskDetail(taskId); return; }
   toggleExpand(e, taskId);
 }
@@ -775,6 +781,23 @@ function switchTab(key){
   // Same idea again for taskLongPressMode 'detail's full-page task
   // detail — tied to one specific task from whichever tab you were on.
   if(mobileTaskDetailId) mobileTaskDetailId = null;
+  // ...and once more for whichever stackedpage drilldown a tab's own
+  // content might be sitting on — a checklist list's own detail page
+  // (selectedListId), its "all pending items" view (checklistPendingOpen),
+  // or Daily's own day/task detail (selectedDay/taskDetailId,
+  // dayReturnToCalendar along with it). None of these get quickAddOpen's
+  // FAB exemption either: clicking any tab, including the one you're
+  // already on, should always land on that tab's own master view, not
+  // strand you on a drilldown left open from the last time you were
+  // there. dailyCalendarOpen is deliberately untouched — the Calendar is
+  // a peer view of the day list, not a stackedpage sitting on top of it
+  // (see the Daily/Calendar note in CLAUDE.md), so it doesn't fall under
+  // "back to the master view" the same way.
+  selectedListId = null;
+  checklistPendingOpen = false;
+  selectedDay = null;
+  taskDetailId = null;
+  dayReturnToCalendar = false;
   // Only an actual change of category counts as "leaving" it — re-clicking
   // the tab you're already on (which still runs this whole function, to
   // exit an open overlay per the note above) must not collapse tasks you

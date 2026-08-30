@@ -105,13 +105,16 @@ async function toggleStatus(id){
   t.status = willBeDone ? 'done' : 'open';
   t.completedAt = willBeDone ? todayStr() : '';
   celebrateCheckTaskId = willBeDone ? id : null;
-  // Completing a task that would otherwise vanish from the current list
-  // right away (showDone off) instead lingers in place for a beat — see
-  // scheduleTaskLeave() below — so there's actually time to see the
-  // celebration play before the row leaves. Reopening, or completing
-  // while completed tasks are already shown (nothing to animate away —
-  // the row just stays put and reorders normally), skip all of that.
-  const willLinger = willBeDone && !showDone;
+  // Completing a task lingers in place for a beat — see scheduleTaskLeave()
+  // below — so there's actually time to see the celebration play before
+  // the row moves, rather than an instant re-sort/vanish. Applies whether
+  // or not completed tasks are currently shown: with showDone off the row
+  // leaves the list for good once it collapses; with it on, the row still
+  // collapses in its original spot and then reappears at its now-sorted
+  // position (the bottom, among the other completed tasks) instead of
+  // teleporting straight there. Reopening skips this entirely — nothing
+  // to animate away, so it renders immediately like every other edit.
+  const willLinger = willBeDone;
   if(willLinger) completingTaskIds.add(id);
   else completingTaskIds.delete(id);
   render();
@@ -133,24 +136,30 @@ const TASK_COMPLETE_LINGER_MS = 650;
 const TASK_LEAVE_COLLAPSE_MS = 280;
 
 // Fires TASK_COMPLETE_LINGER_MS after a task is marked done (see
-// toggleStatus() above). Rather than a second render() removing the row
-// outright, this measures the row's own current height and animates it
-// down to 0 directly on its real DOM node — a genuine layout collapse,
-// not just a fade, so the rows below it slide up to close the gap as a
-// natural side effect of that collapse instead of needing a separate
-// "slide up" animation of their own. Only once the collapse has actually
-// finished does completingTaskIds let go and a real render() remove the
-// task from the data-driven list for good — by then the row is already
-// visually flattened to nothing, so that swap is invisible.
+// toggleStatus() above). Rather than a second render() removing (or
+// re-sorting) the row outright, this measures the row's own current
+// height and animates it down to 0 directly on its real DOM node — a
+// genuine layout collapse, not just a fade, so the rows below it slide up
+// to close the gap as a natural side effect of that collapse instead of
+// needing a separate "slide up" animation of their own. Only once the
+// collapse has actually finished does completingTaskIds let go and a real
+// render() reflect the task's real, now-sorted position for good — with
+// showDone off that means it's gone from the list entirely; with it on,
+// it reappears at the bottom among the other completed tasks, in the
+// same spot it would've landed in immediately before this existed. Either
+// way, by the time that render() runs the row is already visually
+// flattened to nothing, so the swap itself is invisible.
 function scheduleTaskLeave(id){
   setTimeout(() => {
-    // The task may have been reopened, deleted, or showDone flipped on
-    // in the meantime (undo, a second click, Settings) — any of those
-    // means there's nothing left to animate away, so just drop the
-    // now-pointless linger entry and let the next render() reflect
-    // reality normally instead of forcing a collapse that no longer applies.
+    // The task may have been reopened or deleted in the meantime (undo, a
+    // second click) — either means there's nothing left to animate away,
+    // so just drop the now-pointless linger entry and let the next
+    // render() reflect reality normally instead of forcing a collapse
+    // that no longer applies. Unlike an earlier version of this, showDone
+    // being on is no longer one of these bail-out cases — see toggleStatus()'s
+    // own comment for why completing now lingers either way.
     const t = state.tasks.find(t=>t.id===id);
-    if(!t || t.status !== 'done' || showDone){ completingTaskIds.delete(id); return; }
+    if(!t || t.status !== 'done'){ completingTaskIds.delete(id); return; }
     const row = document.querySelector(`li.task[data-task-id="${id}"]`);
     if(!row){ completingTaskIds.delete(id); render(); return; }
     row.style.maxHeight = row.scrollHeight + 'px';
