@@ -537,6 +537,24 @@
   li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
   li.task.dragging{ opacity:0.4; }
   li.task.dragover{ border-top: 2px solid var(--primary); }
+  /* A just-completed task's own collapse-and-leave, once its
+     TASK_COMPLETE_LINGER_MS lingering period is over (see
+     scheduleTaskLeave() in 16-task-crud.js, which sets an explicit
+     max-height in px first, then adds this class and zeroes it out on
+     the next frame so there's a real "before" value to transition away
+     from — max-height:auto/none can't be animated directly). Animating
+     max-height (not just opacity) is what makes the rows below it slide
+     up smoothly as a natural side effect of the collapse, rather than
+     needing a separate "slide up" animation of their own — shrinking
+     this row's own box is what moves everything under it. padding/
+     border collapse alongside it so the row doesn't leave a hairline gap
+     once its content has otherwise vanished. */
+  li.task.task-leaving{
+    transition: max-height 260ms ease, opacity 220ms ease, padding-top 260ms ease, padding-bottom 260ms ease, border-bottom-color 260ms ease;
+    opacity: 0;
+    padding-top: 0; padding-bottom: 0;
+    border-bottom-color: transparent;
+  }
   .dropend{ height:16px; list-style:none; }
   .dropend.dragover{ border-top: 2px solid var(--primary); }
   .row{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; transition: background-color 120ms ease, transform 120ms ease; }
@@ -1376,21 +1394,25 @@
     height:78px; margin: 4px 0 -8px;
   }
   .checklistheader .checkcircle-wrap{ transform: scale(2.2); }
-  /* Header atop the full-page task detail opened from Daily — the
-     completion check and category dot, styled to mirror .checklistheader
-     just above: centered and scaled up so it reads as this page's own
-     big header rather than an ordinary inline row, with the title
-     (.bigtitle, right below) as its caption. height:56px is the same
-     "reserve real flow space for the transform's visual overflow" idea
-     as .checklistheader's own height — .check is 18px, scale(2.2) makes
-     it ~40px, so 56px leaves it room without the negative margin needing
-     to work as hard as .checklistheader's (this header has no separate
-     title line of its own to pull close — .bigtitle sits right after it
-     in the same flow). The category dot stays its normal small size
-     (unscaled, sibling to .check, not inside it) — it's a secondary
-     "which tab is this" hint, not part of the completion action. */
-  .taskdetailhead{ display:flex; align-items:center; justify-content:center; gap:8px; height:56px; margin:4px 0 -6px; }
-  .taskdetailhead .check{ transform: scale(2.2); }
+  /* Header atop the full-page task detail — the completion check plus
+     its subtask-progress ticks, styled to mirror .checklistheader just
+     above: centered and scaled up together (the whole .checkwrap, same
+     idea as .checklistheader scaling .checkcircle-wrap — check and ticks
+     have to move as one unit or the ticks end up a mismatched size next
+     to a bigger check) so it reads as this page's own big header rather
+     than an ordinary inline row, with the title (.bigtitle, right below)
+     as its caption. height:64px reserves real flow space for the
+     transform's visual overflow, same idea as .checklistheader's own
+     height — .checkwrap is check(18px) + 4px gap + .substack(5px) = 27px
+     unscaled, scale(2.2) makes that ~59px, so 64px leaves it room without
+     the negative margin needing to work as hard as .checklistheader's
+     (this header has no separate title line of its own to pull close —
+     .bigtitle sits right after it in the same flow). No category dot
+     here (unlike the inline row's own .checkwrap) — EXPERIMENTAL, task
+     icons/category markers are due their own pass later; dropped for now
+     rather than keep a placement that wasn't working. */
+  .taskdetailhead{ display:flex; align-items:center; justify-content:center; height:64px; margin:4px 0 -6px; }
+  .taskdetailhead .checkwrap{ transform: scale(2.2); }
   /* A row, not a stack — the date on the left, progress + the "move
      incomplete" button (when there's something to move) on the right.
      That button used to sit on its own full-width row underneath

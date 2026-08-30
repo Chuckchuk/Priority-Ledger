@@ -79,6 +79,16 @@ let checklistPendingOpen = false; // showing the "all pending items" view for th
 // already-active tab, which can happen while closing an overlay) —
 // leaving a category is meant to reset every task in it back to collapsed.
 let expandedTaskIds = new Set();
+// Task ids currently in the brief window between "just checked off" and
+// "actually gone from the visible list" — see toggleStatus()/
+// scheduleTaskLeave() in 16-task-crud.js. Treated as still-open by
+// sortTasks()/applySortMode()'s own done-last ordering (05-dates-sort.js)
+// and by categoryVisibleTasks()'s showDone filter (08-render-core.js), so
+// a task lingers in its original spot — checkmark, strikethrough, and the
+// celebration burst all visible — instead of instantly jumping to the
+// bottom or vanishing the moment its status flips. Purely transient UI
+// state, same as expandedTaskIds; never persisted.
+let completingTaskIds = new Set();
 let expandedMonths = new Set();
 let settingsOpen = false;
 // Pure UI chrome for the floating dev panel (see renderDevPanel()/

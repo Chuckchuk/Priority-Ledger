@@ -96,9 +96,18 @@ function parseNaturalDate(raw){
   return '';
 }
 
+// A task mid-completingTaskIds' linger (see its own comment,
+// 02-storage-state.js) sorts as though it were still open — otherwise it
+// would jump straight to the bottom of the list the instant its status
+// flips to 'done', before the celebration animation and collapse ever get
+// a chance to play in its original spot.
+function isDoneForSort(t){
+  return t.status==='done' && !completingTaskIds.has(t.id);
+}
+
 function sortTasks(list){
   return list.slice().sort((a,b)=>{
-    if((a.status==='done') !== (b.status==='done')) return a.status==='done' ? 1 : -1;
+    if(isDoneForSort(a) !== isDoneForSort(b)) return isDoneForSort(a) ? 1 : -1;
     if(a.urgent !== b.urgent) return a.urgent ? -1 : 1;
     // Priority slots in between the urgent flag and due date — tasks that
     // never set it (the default, 0) tie here and fall through to due date
@@ -135,7 +144,7 @@ function setSortMode(val){
 }
 
 function applySortMode(list){
-  const doneLast = (a,b) => (a.status==='done') !== (b.status==='done') ? (a.status==='done'?1:-1) : 0;
+  const doneLast = (a,b) => isDoneForSort(a) !== isDoneForSort(b) ? (isDoneForSort(a)?1:-1) : 0;
   switch(sortMode){
     case 'mixed': return sortTasks(list);
     case 'timeframe': return list.slice().sort((a,b)=> doneLast(a,b) || (TIMEFRAME_ORDER[a.timeframe||''] - TIMEFRAME_ORDER[b.timeframe||'']));

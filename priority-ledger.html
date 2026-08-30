@@ -569,6 +569,24 @@
   li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
   li.task.dragging{ opacity:0.4; }
   li.task.dragover{ border-top: 2px solid var(--primary); }
+  /* A just-completed task's own collapse-and-leave, once its
+     TASK_COMPLETE_LINGER_MS lingering period is over (see
+     scheduleTaskLeave() in 16-task-crud.js, which sets an explicit
+     max-height in px first, then adds this class and zeroes it out on
+     the next frame so there's a real "before" value to transition away
+     from — max-height:auto/none can't be animated directly). Animating
+     max-height (not just opacity) is what makes the rows below it slide
+     up smoothly as a natural side effect of the collapse, rather than
+     needing a separate "slide up" animation of their own — shrinking
+     this row's own box is what moves everything under it. padding/
+     border collapse alongside it so the row doesn't leave a hairline gap
+     once its content has otherwise vanished. */
+  li.task.task-leaving{
+    transition: max-height 260ms ease, opacity 220ms ease, padding-top 260ms ease, padding-bottom 260ms ease, border-bottom-color 260ms ease;
+    opacity: 0;
+    padding-top: 0; padding-bottom: 0;
+    border-bottom-color: transparent;
+  }
   .dropend{ height:16px; list-style:none; }
   .dropend.dragover{ border-top: 2px solid var(--primary); }
   .row{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; transition: background-color 120ms ease, transform 120ms ease; }
@@ -1408,21 +1426,25 @@
     height:78px; margin: 4px 0 -8px;
   }
   .checklistheader .checkcircle-wrap{ transform: scale(2.2); }
-  /* Header atop the full-page task detail opened from Daily — the
-     completion check and category dot, styled to mirror .checklistheader
-     just above: centered and scaled up so it reads as this page's own
-     big header rather than an ordinary inline row, with the title
-     (.bigtitle, right below) as its caption. height:56px is the same
-     "reserve real flow space for the transform's visual overflow" idea
-     as .checklistheader's own height — .check is 18px, scale(2.2) makes
-     it ~40px, so 56px leaves it room without the negative margin needing
-     to work as hard as .checklistheader's (this header has no separate
-     title line of its own to pull close — .bigtitle sits right after it
-     in the same flow). The category dot stays its normal small size
-     (unscaled, sibling to .check, not inside it) — it's a secondary
-     "which tab is this" hint, not part of the completion action. */
-  .taskdetailhead{ display:flex; align-items:center; justify-content:center; gap:8px; height:56px; margin:4px 0 -6px; }
-  .taskdetailhead .check{ transform: scale(2.2); }
+  /* Header atop the full-page task detail — the completion check plus
+     its subtask-progress ticks, styled to mirror .checklistheader just
+     above: centered and scaled up together (the whole .checkwrap, same
+     idea as .checklistheader scaling .checkcircle-wrap — check and ticks
+     have to move as one unit or the ticks end up a mismatched size next
+     to a bigger check) so it reads as this page's own big header rather
+     than an ordinary inline row, with the title (.bigtitle, right below)
+     as its caption. height:64px reserves real flow space for the
+     transform's visual overflow, same idea as .checklistheader's own
+     height — .checkwrap is check(18px) + 4px gap + .substack(5px) = 27px
+     unscaled, scale(2.2) makes that ~59px, so 64px leaves it room without
+     the negative margin needing to work as hard as .checklistheader's
+     (this header has no separate title line of its own to pull close —
+     .bigtitle sits right after it in the same flow). No category dot
+     here (unlike the inline row's own .checkwrap) — EXPERIMENTAL, task
+     icons/category markers are due their own pass later; dropped for now
+     rather than keep a placement that wasn't working. */
+  .taskdetailhead{ display:flex; align-items:center; justify-content:center; height:64px; margin:4px 0 -6px; }
+  .taskdetailhead .checkwrap{ transform: scale(2.2); }
   /* A row, not a stack — the date on the left, progress + the "move
      incomplete" button (when there's something to move) on the right.
      That button used to sit on its own full-width row underneath
@@ -4418,6 +4440,16 @@ let checklistPendingOpen = false; // showing the "all pending items" view for th
 // already-active tab, which can happen while closing an overlay) —
 // leaving a category is meant to reset every task in it back to collapsed.
 let expandedTaskIds = new Set();
+// Task ids currently in the brief window between "just checked off" and
+// "actually gone from the visible list" — see toggleStatus()/
+// scheduleTaskLeave() in 16-task-crud.js. Treated as still-open by
+// sortTasks()/applySortMode()'s own done-last ordering (05-dates-sort.js)
+// and by categoryVisibleTasks()'s showDone filter (08-render-core.js), so
+// a task lingers in its original spot — checkmark, strikethrough, and the
+// celebration burst all visible — instead of instantly jumping to the
+// bottom or vanishing the moment its status flips. Purely transient UI
+// state, same as expandedTaskIds; never persisted.
+let completingTaskIds = new Set();
 let expandedMonths = new Set();
 let settingsOpen = false;
 // Pure UI chrome for the floating dev panel (see renderDevPanel()/
@@ -5403,9 +5435,18 @@ function parseNaturalDate(raw){
   return '';
 }
 
+// A task mid-completingTaskIds' linger (see its own comment,
+// 02-storage-state.js) sorts as though it were still open — otherwise it
+// would jump straight to the bottom of the list the instant its status
+// flips to 'done', before the celebration animation and collapse ever get
+// a chance to play in its original spot.
+function isDoneForSort(t){
+  return t.status==='done' && !completingTaskIds.has(t.id);
+}
+
 function sortTasks(list){
   return list.slice().sort((a,b)=>{
-    if((a.status==='done') !== (b.status==='done')) return a.status==='done' ? 1 : -1;
+    if(isDoneForSort(a) !== isDoneForSort(b)) return isDoneForSort(a) ? 1 : -1;
     if(a.urgent !== b.urgent) return a.urgent ? -1 : 1;
     // Priority slots in between the urgent flag and due date — tasks that
     // never set it (the default, 0) tie here and fall through to due date
@@ -5442,7 +5483,7 @@ function setSortMode(val){
 }
 
 function applySortMode(list){
-  const doneLast = (a,b) => (a.status==='done') !== (b.status==='done') ? (a.status==='done'?1:-1) : 0;
+  const doneLast = (a,b) => isDoneForSort(a) !== isDoneForSort(b) ? (isDoneForSort(a)?1:-1) : 0;
   switch(sortMode){
     case 'mixed': return sortTasks(list);
     case 'timeframe': return list.slice().sort((a,b)=> doneLast(a,b) || (TIMEFRAME_ORDER[a.timeframe||''] - TIMEFRAME_ORDER[b.timeframe||'']));
@@ -6919,10 +6960,21 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // Daily row already has its own click behavior and canRemoveHere rules
   // that don't map cleanly onto this.
   const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
+  // A quick double-click jumps straight to the full task page — outside
+  // Daily only, same scoping as .rowexpand right below (a Daily row
+  // already opens its own full page on a single tap, so a second,
+  // separate double-click meaning wouldn't add anything there).
+  // stopPropagation() isn't needed here the way it is on individual
+  // buttons: a dblclick's own pair of preceding click events already ran
+  // taskRowTap() twice (opening/closing the quick view, or navigating,
+  // twice in a row) before this fires, but since this replaces the whole
+  // view outright, whatever that briefly flashed open is moot the instant
+  // it does.
+  const dblClickAttr = inDaily ? '' : ` ondblclick="openMobileTaskDetail('${t.id}')"`;
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
-  <li class="task" ${dragTargetAttrs}>
-    <div class="row"${pressAttrs}${ctxMenuAttr} onclick="${rowClick}">
+  <li class="task" data-task-id="${t.id}" ${dragTargetAttrs}>
+    <div class="row"${pressAttrs}${ctxMenuAttr}${dblClickAttr} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
         <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, true)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
@@ -7137,15 +7189,16 @@ function renderTaskSettingsSheet(){
 // function to get their own back tag.
 function renderTaskDetailPage(taskId, backOnclick, backLabel){
   const t = state.tasks.find(t=>t.id===taskId);
-  const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const canRemoveHere = t.category==='misc';
   const subs = t.subtasks || [];
   return `
     <div class="stackedpage">
       ${pageTagHtml(backOnclick, backLabel)}
       <div class="taskdetailhead">
-        <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
-        ${categoryDotHtml(cat, 'cdot')}
+        <div class="checkwrap">
+          <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
+          ${subProgressHtml(subs)}
+        </div>
       </div>
       ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle')}
     </div>
@@ -7194,7 +7247,7 @@ function categoryMatchingTasks(){
   });
 }
 function categoryVisibleTasks(){
-  return applySortMode(categoryMatchingTasks()).filter(t => showDone || t.status!=='done');
+  return applySortMode(categoryMatchingTasks()).filter(t => showDone || t.status!=='done' || completingTaskIds.has(t.id));
 }
 
 // Just the <ul class="tasks"> markup (or the empty-state div) — pure,
@@ -9858,9 +9911,68 @@ async function toggleStatus(id){
   t.status = willBeDone ? 'done' : 'open';
   t.completedAt = willBeDone ? todayStr() : '';
   celebrateCheckTaskId = willBeDone ? id : null;
+  // Completing a task that would otherwise vanish from the current list
+  // right away (showDone off) instead lingers in place for a beat — see
+  // scheduleTaskLeave() below — so there's actually time to see the
+  // celebration play before the row leaves. Reopening, or completing
+  // while completed tasks are already shown (nothing to animate away —
+  // the row just stays put and reorders normally), skip all of that.
+  const willLinger = willBeDone && !showDone;
+  if(willLinger) completingTaskIds.add(id);
+  else completingTaskIds.delete(id);
   render();
   celebrateCheckTaskId = null;
   queueSave();
+  if(willLinger) scheduleTaskLeave(id);
+}
+
+// How long the just-checked row lingers, fully visible (checkmark,
+// strikethrough title, the celebration burst), before it starts actually
+// leaving — roughly the celebration burst's own duration
+// (check-celebrate-burst in <style>) plus a small buffer so it doesn't
+// read as cut off.
+const TASK_COMPLETE_LINGER_MS = 650;
+// How long the row's own collapse (max-height/opacity/padding/border, all
+// animated together — see .task-leaving in <style>) takes once it
+// starts. Kept a touch above that rule's own longest transition so the
+// final render() below never fires mid-animation.
+const TASK_LEAVE_COLLAPSE_MS = 280;
+
+// Fires TASK_COMPLETE_LINGER_MS after a task is marked done (see
+// toggleStatus() above). Rather than a second render() removing the row
+// outright, this measures the row's own current height and animates it
+// down to 0 directly on its real DOM node — a genuine layout collapse,
+// not just a fade, so the rows below it slide up to close the gap as a
+// natural side effect of that collapse instead of needing a separate
+// "slide up" animation of their own. Only once the collapse has actually
+// finished does completingTaskIds let go and a real render() remove the
+// task from the data-driven list for good — by then the row is already
+// visually flattened to nothing, so that swap is invisible.
+function scheduleTaskLeave(id){
+  setTimeout(() => {
+    // The task may have been reopened, deleted, or showDone flipped on
+    // in the meantime (undo, a second click, Settings) — any of those
+    // means there's nothing left to animate away, so just drop the
+    // now-pointless linger entry and let the next render() reflect
+    // reality normally instead of forcing a collapse that no longer applies.
+    const t = state.tasks.find(t=>t.id===id);
+    if(!t || t.status !== 'done' || showDone){ completingTaskIds.delete(id); return; }
+    const row = document.querySelector(`li.task[data-task-id="${id}"]`);
+    if(!row){ completingTaskIds.delete(id); render(); return; }
+    row.style.maxHeight = row.scrollHeight + 'px';
+    row.style.overflow = 'hidden';
+    // A separate frame from the height-lock above — the transition
+    // .task-leaving declares needs a real "before" value already painted
+    // to interpolate away from, not the same frame it's applied in.
+    requestAnimationFrame(() => {
+      row.classList.add('task-leaving');
+      row.style.maxHeight = '0px';
+    });
+    setTimeout(() => {
+      completingTaskIds.delete(id);
+      render();
+    }, TASK_LEAVE_COLLAPSE_MS);
+  }, TASK_COMPLETE_LINGER_MS);
 }
 
 async function toggleUrgent(id){

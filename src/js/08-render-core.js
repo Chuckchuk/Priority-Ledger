@@ -281,10 +281,21 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // Daily row already has its own click behavior and canRemoveHere rules
   // that don't map cleanly onto this.
   const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
+  // A quick double-click jumps straight to the full task page — outside
+  // Daily only, same scoping as .rowexpand right below (a Daily row
+  // already opens its own full page on a single tap, so a second,
+  // separate double-click meaning wouldn't add anything there).
+  // stopPropagation() isn't needed here the way it is on individual
+  // buttons: a dblclick's own pair of preceding click events already ran
+  // taskRowTap() twice (opening/closing the quick view, or navigating,
+  // twice in a row) before this fires, but since this replaces the whole
+  // view outright, whatever that briefly flashed open is moot the instant
+  // it does.
+  const dblClickAttr = inDaily ? '' : ` ondblclick="openMobileTaskDetail('${t.id}')"`;
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
-  <li class="task" ${dragTargetAttrs}>
-    <div class="row"${pressAttrs}${ctxMenuAttr} onclick="${rowClick}">
+  <li class="task" data-task-id="${t.id}" ${dragTargetAttrs}>
+    <div class="row"${pressAttrs}${ctxMenuAttr}${dblClickAttr} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
         <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, true)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
@@ -499,15 +510,16 @@ function renderTaskSettingsSheet(){
 // function to get their own back tag.
 function renderTaskDetailPage(taskId, backOnclick, backLabel){
   const t = state.tasks.find(t=>t.id===taskId);
-  const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const canRemoveHere = t.category==='misc';
   const subs = t.subtasks || [];
   return `
     <div class="stackedpage">
       ${pageTagHtml(backOnclick, backLabel)}
       <div class="taskdetailhead">
-        <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
-        ${categoryDotHtml(cat, 'cdot')}
+        <div class="checkwrap">
+          <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
+          ${subProgressHtml(subs)}
+        </div>
       </div>
       ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle')}
     </div>
@@ -556,7 +568,7 @@ function categoryMatchingTasks(){
   });
 }
 function categoryVisibleTasks(){
-  return applySortMode(categoryMatchingTasks()).filter(t => showDone || t.status!=='done');
+  return applySortMode(categoryMatchingTasks()).filter(t => showDone || t.status!=='done' || completingTaskIds.has(t.id));
 }
 
 // Just the <ul class="tasks"> markup (or the empty-state div) — pure,
