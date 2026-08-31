@@ -49,7 +49,7 @@ document.addEventListener('keydown', (e) => {
     // both float above literally everything else including Settings, so
     // they're checked before any of it.
     if(fabAddOpen){ closeFabAdd(); return; }
-    if(ctxMenuTaskId){ closeTaskContextMenu(); return; }
+    if(ctxMenuTaskId || ctxMenuDayStr){ closeCtxMenu(); return; }
     if(taskSettingsOpenId){ closeTaskSettingsSheet(); return; }
     if(quickAddOpen){ toggleQuickAddSheet(false); return; }
     if(claudeView){ closeClaudeView(); return; }
@@ -759,9 +759,9 @@ document.addEventListener('contextmenu', (e) => {
 // closes it via ctxMenuAction()) doesn't also trip this a second time
 // pointlessly.
 document.addEventListener('click', (e) => {
-  if(ctxMenuTaskId && !e.target.closest('#ctxMenu')) closeTaskContextMenu();
+  if((ctxMenuTaskId || ctxMenuDayStr) && !e.target.closest('#ctxMenu')) closeCtxMenu();
 });
-document.addEventListener('scroll', () => { if(ctxMenuTaskId) closeTaskContextMenu(); }, { capture:true, passive:true });
+document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr) closeCtxMenu(); }, { capture:true, passive:true });
 
 // ---------- Keeping the Supabase session alive through long idle stretches ----------
 // ensureFreshSession() (02-storage-state.js) only actually hits the

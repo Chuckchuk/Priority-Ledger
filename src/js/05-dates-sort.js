@@ -12,6 +12,17 @@ function isDueWithinDays(dueDate, days){
   return diffMs / 86400000 <= days;
 }
 
+// Whether a task/step's plannedDates includes today or any day still to
+// come — the pin button's pressed ("on") look reads this instead of a
+// plain .length check, so a task pinned to a day that's since passed
+// doesn't keep looking pressed once that day is gone. Plain string
+// comparison works since plannedDates are always YYYY-MM-DD, same
+// lexicographic-order trick isPast/isOverdue already lean on elsewhere.
+function hasCurrentPlan(plannedDates){
+  const today = todayStr();
+  return (plannedDates||[]).some(d => d >= today);
+}
+
 function fmtDate(d){
   if(!d) return '';
   const dt = new Date(d + 'T00:00:00');

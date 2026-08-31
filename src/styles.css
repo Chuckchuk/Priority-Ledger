@@ -824,6 +824,17 @@
      — passed in as taskExpandFieldsHtml()'s titleClass param) so the two
      "big page header" looks can't drift apart. */
   .titleedit.bigtitle{ font-size:1.5rem; text-align:center; }
+  /* renderTaskDetailPage() only (see taskTitleFieldHtml's includeActions
+     param) — the urgent flag and today-pin sit beside the title itself,
+     top right of the title area, instead of down in the fields row below
+     it the way every other task view still keeps them (taskCoreFieldsRowHtml's
+     own .expandactions). .titleedit keeps its own margin-bottom, so this
+     row's spacing below matches a plain title's. min-width:0 on the input
+     is what lets it actually shrink for the buttons instead of forcing
+     the row wider than the page. */
+  .titlerow{ display:flex; align-items:center; gap:8px; }
+  .titlerow .titleedit{ flex:1; min-width:0; margin-bottom:0; }
+  .titleactions{ display:flex; gap:6px; flex-shrink:0; }
   .catselect{
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);

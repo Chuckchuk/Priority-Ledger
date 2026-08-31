@@ -260,7 +260,7 @@ function renderDayDetail(dateStr){
       ${pageTagHtml('closeDay()', dayReturnToCalendar ? 'Calendar' : 'All Days')}
       <div class="daynavrow">
         <button class="navarrow" ${prevDayStr ? `onclick="goToAdjacentDay(-1)"` : 'disabled'} title="Previous day">‹</button>
-        <span class="dayhero"><span class="herotext ${headerTag && headerTag.today?'today':''}">${headerTag ? headerTag.text : ''}</span></span>
+        <span class="dayhero" oncontextmenu="return handleDayContextMenu(event,'${dateStr}')"><span class="herotext ${headerTag && headerTag.today?'today':''}">${headerTag ? headerTag.text : ''}</span></span>
         <button class="navarrow" ${nextDayStr ? `onclick="goToAdjacentDay(1)"` : 'disabled'} title="Next day">›</button>
       </div>
       <div class="daydetailhead">

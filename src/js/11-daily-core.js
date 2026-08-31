@@ -329,6 +329,36 @@ function closeDay(){
   render();
 }
 
+// Reached from the day-context-menu (see dayContextMenuHtml() in
+// 08-render-core.js) — removes the day itself from state.days and un-plans
+// every task/step that had it in their own plannedDates (their
+// plannedDates just loses that one date; the task/step itself, and any
+// other days it's still planned on, are untouched). Without this cleanup
+// a deleted day would leave orphaned dates behind that ensureDay() would
+// silently resurrect the moment anything referencing them got touched
+// again. Checklist lists go through the same plannedDates field as
+// standard tasks (see tasksForDay()), so the one loop below already
+// covers them too — no separate pass needed. Closes the day-detail page
+// first if you were looking at the very day being deleted (same as
+// clicking "All Days"/Esc would), rather than leaving it open on a day
+// that no longer exists.
+async function deleteDay(dateStr){
+  pushUndo(`Deleted ${dayLabel(dateStr)}`);
+  state.tasks.forEach(task=>{
+    if(task.plannedDates && task.plannedDates.includes(dateStr)){
+      task.plannedDates = task.plannedDates.filter(d=>d!==dateStr);
+    }
+    (task.subtasks||[]).forEach(s=>{
+      if(s.plannedDates && s.plannedDates.includes(dateStr)){
+        s.plannedDates = s.plannedDates.filter(d=>d!==dateStr);
+      }
+    });
+  });
+  state.days = state.days.filter(d=>d!==dateStr);
+  if(selectedDay === dateStr) closeDay(); else render();
+  queueSave();
+}
+
 // Chronological, not state.days' own insertion order (state.days.unshift()
 // in ensureDay() means the array itself is newest-first) — "previous"/
 // "next" on a day-detail page should mean the closest earlier/later day
@@ -511,7 +541,7 @@ function dayItemHtml(dateStr){
   // whether or not the second line is present.
   return `
     <div class="dayitemgroup">
-      <button class="dayitem ${isToday ? 'today' : ''}" onclick="openDay('${dateStr}')">
+      <button class="dayitem ${isToday ? 'today' : ''}" onclick="openDay('${dateStr}')" oncontextmenu="return handleDayContextMenu(event,'${dateStr}')">
         <span class="daydate">${dayLabel(dateStr)}${isToday ? '<span class="todaytag">Today</span>' : ''}</span>
         ${ratio}
       </button>

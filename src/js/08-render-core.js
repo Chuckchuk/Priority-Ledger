@@ -45,11 +45,25 @@ function fieldPickerHtml(kind, currentValue, onClickFor){
 // match the checklist detail page's large centered title (see .bigtitle
 // in <style>, shared with .titleedit there); every other caller
 // (taskManagementFieldsHtml, the inline .expand) omits it and gets the
-// normal compact field.
-function taskTitleFieldHtml(t, extraClass){
-  return `<input type="text" class="titleedit ${extraClass||''}" value="${escapeHtml(t.title)}"
+// normal compact field. includeActions is renderTaskDetailPage()'s alone
+// too — the urgent flag and today-pin sit in the title's own row (top
+// right) there instead of down in taskCoreFieldsRowHtml's fields row,
+// per the project owner's ask to get them out of "below the title."
+// Every other caller leaves them where taskCoreFieldsRowHtml already
+// puts them — see its own hideDayFlagActions param.
+function taskTitleFieldHtml(t, extraClass, includeActions){
+  const titleInput = `<input type="text" class="titleedit ${extraClass||''}" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">`;
+  if(!includeActions) return titleInput;
+  return `
+      <div class="titlerow">
+        ${titleInput}
+        <div class="titleactions">
+          <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
+          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>
+        </div>
+      </div>`;
 }
 
 // Shared by taskCoreFieldsRowHtml's own today-pin (inside the full task
@@ -63,8 +77,16 @@ function taskTodayTitle(t){
     : 'Add to today’s list';
 }
 
-function taskCoreFieldsRowHtml(t, canRemoveHere){
+// hideDayFlagActions is renderTaskDetailPage()'s alone (via
+// taskExpandFieldsHtml, when titleClass is 'bigtitle') — the urgent flag
+// and today-pin render in the title's own row instead (see
+// taskTitleFieldHtml's includeActions), so they'd otherwise appear twice.
+// Remove still renders here regardless; only those two moved.
+function taskCoreFieldsRowHtml(t, canRemoveHere, hideDayFlagActions){
   const todayTitle = taskTodayTitle(t);
+  const dayFlagActions = hideDayFlagActions ? '' : `
+          <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
+          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>`;
   return `
       <div class="expand-row">
         <select class="catselect" onchange="updateCategory('${t.id}', this.value)">
@@ -73,8 +95,7 @@ function taskCoreFieldsRowHtml(t, canRemoveHere){
         <label class="fieldlabel">DUE</label>
         <input type="date" value="${t.dueDate||''}" onchange="updateDueDate('${t.id}', this.value)">
         <div class="expandactions">
-          <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-          <button class="flagbtn daybtn ${(t.plannedDates||[]).length?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>
+          ${dayFlagActions}
           ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
       </div>`;
@@ -137,7 +158,7 @@ function taskSubtasksHtml(t){
             <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <div class="subdate ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
-            <button class="flagbtn daybtn small ${(s.plannedDates||[]).length?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
+            <button class="flagbtn daybtn small ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
             <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
           </div>`;
         }).join('')}
@@ -175,7 +196,8 @@ function taskManagementFieldsHtml(t, canRemoveHere){
 // (renderTaskDetailPage) so the two can never drift out of sync — edit
 // once, both places update.
 function taskExpandFieldsHtml(t, canRemoveHere, titleClass){
-  return `${taskTitleFieldHtml(t, titleClass)}${taskCoreFieldsRowHtml(t, canRemoveHere)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
+  const isDetailPage = titleClass === 'bigtitle';
+  return `${taskTitleFieldHtml(t, titleClass, isDetailPage)}${taskCoreFieldsRowHtml(t, canRemoveHere, isDetailPage)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
 }
 
 // The "check-guide" nudge: once every step is done but the task itself
@@ -299,7 +321,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
         <button class="movetmrw" ${onTomorrow?'disabled':''} onclick="event.stopPropagation(); moveTaskToTomorrow('${t.id}','${dayDate}')" title="${onTomorrow ? 'Already planned for tomorrow' : 'Also plan for tomorrow'}">→</button>
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
       ` : `
-        <button class="rowpin ${(t.plannedDates||[]).length?'on':''}" onclick="event.stopPropagation(); toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>
+        <button class="rowpin ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>
         <button class="rowexpand" onclick="event.stopPropagation(); openMobileTaskDetail('${t.id}')" title="Open full task page">⛶</button>
       `}
     </div>
@@ -460,21 +482,69 @@ function openTaskContextMenuForRow(taskId, rowEl){
   const r = rowEl.getBoundingClientRect();
   renderTaskContextMenu(taskId, r.left, r.bottom + 6, false);
 }
-function closeTaskContextMenu(){
+// Shared by the task menu above and the day menu below — only one
+// #ctxMenu exists, so only one of ctxMenuTaskId/ctxMenuDayStr is ever
+// non-null at a time; closing always clears both regardless of which
+// one's actually set, rather than needing a caller to know which kind of
+// menu is currently open.
+function closeCtxMenu(){
   ctxMenuTaskId = null;
+  ctxMenuDayStr = null;
   document.getElementById('ctxMenu').classList.remove('open');
 }
-// Every menu item routes through this — closes the menu first, then runs
-// the actual action, so a slow-ish action (all of these call render())
-// never leaves a stale menu sitting on screen mid-update.
+// Every menu item (task or day) routes through this — closes the menu
+// first, then runs the actual action, so a slow-ish action (most of these
+// call render()) never leaves a stale menu sitting on screen mid-update.
 function ctxMenuAction(fn){
-  closeTaskContextMenu();
+  closeCtxMenu();
   fn();
 }
 function ctxMenuCopyTitle(taskId){
   const t = state.tasks.find(x=>x.id===taskId);
-  closeTaskContextMenu();
+  closeCtxMenu();
   if(t && navigator.clipboard) navigator.clipboard.writeText(t.title).catch(()=>{});
+}
+
+// ---------- a day's own right-click menu ----------
+// Same #ctxMenu popup the task menu above uses (see renderTaskContextMenu),
+// just with day-flavored content — reached from .dayitem's oncontextmenu
+// (dayItemHtml(), 11-daily-core.js) and .dayhero's (renderDayDetail(),
+// 12-daily-tree.js), the latter for deleting whichever day you're
+// currently looking at. "Open" is included even on .dayhero's own menu
+// (where you're already on that day) rather than only showing it from the
+// list — harmless there (just re-opens the same day), and keeps this one
+// function the single source for both call sites instead of two near-
+// duplicate menus.
+let ctxMenuDayStr = null;
+function dayContextMenuHtml(dateStr){
+  return `
+    <button onclick="ctxMenuAction(()=>openDay('${dateStr}'))">Open</button>
+    <div class="ctxmenu-sep"></div>
+    <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteDay('${dateStr}'))">Delete day</button>
+  `;
+}
+function renderDayContextMenu(dateStr, x, y){
+  if(!state.days.includes(dateStr)) return;
+  ctxMenuDayStr = dateStr;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = dayContextMenuHtml(dateStr);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+  });
+}
+// Desktop-only, same reasoning as handleTaskContextMenu() above — on an
+// actual touch device there's no right-click to intercept, and Mobile UI
+// Lab's own preview mode already covers "acting like a phone" either way.
+function handleDayContextMenu(e, dateStr){
+  if(mobileUiActive()) return true;
+  renderDayContextMenu(dateStr, e.clientX, e.clientY);
+  return false;
 }
 
 // The long-press settings sheet itself — everything taskManagementFieldsHtml()
