@@ -4122,11 +4122,22 @@ function defaultTheme(){
 // category accents / the old pendingTagColor dev experiment's own
 // choices, since removed) rather than introducing new one-off hues.
 const UI_COLOR_PRESETS = [
-  { id:'rust',     label:'Brass & Rust',     primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#9C4530', secondaryLight:'#C3563C' },
-  { id:'classic',  label:'Full Brass',       primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
-  { id:'forest',   label:'Forest & Brass',   primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#A9782F', secondaryLight:'#C99A4E' },
-  { id:'slate',    label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
-  { id:'charcoal', label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' }
+  { id:'rust',      label:'Brass & Rust',     primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#9C4530', secondaryLight:'#C3563C' },
+  { id:'classic',   label:'Full Brass',       primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+  { id:'forest',    label:'Forest & Brass',   primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+  { id:'slate',     label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
+  { id:'charcoal',  label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+  // Four more below, rounding the set out to 9 — two are new hues
+  // (burgundy, teal), two are just fresh remixes of hues already proven
+  // legible above (forest+rust, slate+brass) paired for the first time.
+  // Light variants for the two genuinely new base colors follow the same
+  // multiplicative shadeHex(hex, +0.35) every other Light value here was
+  // built from (see confirmDualColorCustom(), 09-settings.js, for where
+  // that formula is applied live for a custom pair) rather than hand-picked.
+  { id:'forestrust', label:'Forest & Rust',    primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#9C4530', secondaryLight:'#C3563C' },
+  { id:'slatebrass', label:'Slate & Brass',    primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+  { id:'burgundy',  label:'Burgundy & Brass',  primary:'#7A2E35', primaryLight:'#A53E48', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+  { id:'teal',      label:'Teal & Rust',       primary:'#2C5C58', primaryLight:'#3B7C77', secondary:'#9C4530', secondaryLight:'#C3563C' }
 ];
 // 'custom' isn't in UI_COLOR_PRESETS (it's user data, not a fixed
 // preset) — state.theme.customUi carries its own label/primary/
@@ -4150,7 +4161,12 @@ const DESK_PAPER_PRESETS = [
   { id:'oak',      label:'Oak & Ivory',      bg:'#3D2B1F', paper:'#F5EFE0' },
   { id:'navy',     label:'Navy & Parchment', bg:'#1F2937', paper:'#EFDDB0' },
   { id:'plum',     label:'Plum & Linen',     bg:'#3B2A44', paper:'#EDE6DC' },
-  { id:'charcoal', label:'Charcoal & Birch', bg:'#26241F', paper:'#F2ECE0' }
+  { id:'charcoal', label:'Charcoal & Birch', bg:'#26241F', paper:'#F2ECE0' },
+  // Deep oxblood/maroon desk, paired with a paper that leans slightly
+  // warm-blush rather than the plain creams above — echoes the bg's own
+  // warmth (same "contrast, not match" idea Navy & Parchment's cool bg /
+  // warm gold-cream paper already follows) without literally matching it.
+  { id:'maroon',   label:'Maroon & Blush',   bg:'#4B1D23', paper:'#F2E1D9' }
 ];
 
 function clamp255(n){ return Math.max(0, Math.min(255, n)); }
