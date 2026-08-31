@@ -525,17 +525,22 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
   }
+  /* One consistent icon-button size across every small square control on
+     a task — the urgent flag, the today pin (both its full-field version
+     here and the row-level/subtask-row ones further down), move-to-
+     tomorrow, remove-from-day, open-full-page. These used to range from
+     22px to 32px depending on which specific context happened to render
+     them, with no real reason for the spread — same family of action,
+     same footprint everywhere now. */
   .flagbtn{
-    border:1px solid var(--line); background:var(--card-bg-dim); border-radius:5px; width:32px; height:32px;
-    cursor:pointer; font-size:0.85rem; color: var(--ink-soft); flex-shrink:0;
+    border:1px solid var(--line); background:var(--card-bg-dim); border-radius:6px; width:30px; height:30px;
+    cursor:pointer; font-size:0.84rem; color: var(--ink-soft); flex-shrink:0;
   }
   .flagbtn.on{ background: var(--estate); color:white; border-color: var(--estate); }
   /* The "add to today" pin reuses .flagbtn's box but its own accent
      color when on — --primary rather than --estate, so it doesn't read as
-     an alert state sitting right next to the urgent flag. .small is the
-     subtask-row version, sized down to sit comfortably next to .subtext. */
+     an alert state sitting right next to the urgent flag. */
   .daybtn.on{ background: var(--primary); color:white; border-color: var(--primary); }
-  .daybtn.small{ width:26px; height:26px; font-size:0.72rem; }
   .addbtn{
     width:34px; height:34px; border-radius:50%; border:none; flex-shrink:0;
     background: radial-gradient(circle at 35% 30%, var(--primary-light), var(--primary) 70%);
@@ -590,9 +595,38 @@
     width:18px; height:18px; border:1.5px solid var(--ink-soft); border-radius:4px; flex-shrink:0;
     display:flex; align-items:center; justify-content:center; cursor:pointer;
     position: relative;
+    transition: transform 130ms ease, border-color 130ms ease, box-shadow 130ms ease;
   }
   .check.done{ background: var(--ink); border-color: var(--ink); }
   .check.done::after{ content:'✓'; color: var(--card-bg); font-size:12px; }
+  /* Hover feedback — subtle here (a master-view row's own .check, plus
+     the same rule reused by anything that doesn't more specifically
+     match below) since a whole list of these sits close together; a
+     small ring is enough to say "this is clickable" without every row
+     competing for attention at once. .check.done gets its own ink-toned
+     ring instead of Primary, so hovering an already-completed box doesn't
+     read as "there's still an action to take here." */
+  .check:hover{
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+  }
+  .check.done:hover{
+    border-color: var(--ink);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 16%, transparent);
+  }
+  /* The full task detail page's own big header checkbox gets a stronger
+     version — a bigger glow plus a slight lift — since it's the one
+     dominant action on that whole page, not a row among many. Layers on
+     top of .taskdetailhead .checkwrap's own transform:scale(2.2) (see its
+     rule further down) rather than replacing it — scale(1.06) here reads
+     as a further, hover-only nudge on top of that already-big size. */
+  .taskdetailhead .check:hover{
+    transform: scale(1.06);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 22%, transparent);
+  }
+  .taskdetailhead .check.done:hover{
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--ink) 22%, transparent);
+  }
 
   /* ---- "All steps done" checkbox nudge (guide-check) ----
      See checkGuideClass() in 08-render-core.js for when this applies —
@@ -787,15 +821,22 @@
      the page around it — that plus its square-ish corners is what read
      as "very white" and "too square." A soft tinted fill at rest,
      brightening to a real focus ring on click, rather than a stark white
-     box with a hard outline. */
-  .expand textarea{
+     box with a hard outline. Its own class (taskNotesAndMetaHtml(),
+     08-render-core.js) rather than an ancestor selector like `.expand
+     textarea` — this field doesn't actually sit inside .expand (that's
+     the Steps-only inline quick view now; the full task detail page and
+     the long-press bottom sheet, .tasksettingssheet, both render it
+     directly inside their own wrapper), so scoping off .expand silently
+     matched nothing in either of those, the exact two places this
+     mattered most. */
+  .notesfield{
     width:100%; min-height:120px; font-family:'IBM Plex Sans',sans-serif; font-size:0.88rem;
     border:1.5px solid color-mix(in srgb, var(--input-accent) 45%, var(--line));
     border-radius:10px; background: color-mix(in srgb, var(--input-accent) 7%, var(--card-bg-dim));
     padding:10px 12px; resize:vertical; color:var(--ink);
     transition: border-color 150ms ease, box-shadow 150ms ease;
   }
-  .expand textarea:focus{
+  .notesfield:focus{
     outline:none; border-color: var(--input-accent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-accent) 20%, transparent);
   }
@@ -921,11 +962,23 @@
   }
   .subdropend{ height:10px; }
   .subdropend.dragover{ border-top: 2px solid var(--primary); }
-  .draghandle.sub{ font-size:0.78rem; }
+  .draghandle.sub{ font-size:0.85rem; }
   .subcheck{
     width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
     display:flex; align-items:center; justify-content:center; cursor:pointer;
     position:relative;
+    transition: border-color 130ms ease, box-shadow 130ms ease;
+  }
+  /* Same idea as .check:hover, sized down further still — a step's own
+     checkbox is already the smallest of the three (task row, task detail,
+     step), so its hover ring is the subtlest of the three too. */
+  .subcheck:hover{
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent);
+  }
+  .subcheck.done:hover{
+    border-color: var(--ink);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink) 14%, transparent);
   }
   /* Invisible hit-area expansion — the visible box stays exactly 14px
      (the whole point was keeping it visually smaller than a task's own
@@ -959,8 +1012,8 @@
      implying there's still something to do. */
   .movetmrw, .dayremove, .rowpin, .rowexpand{
     display:flex; align-items:center; justify-content:center;
-    width:22px; height:22px; flex-shrink:0; padding:0; line-height:1;
-    font-size:0.78rem; cursor:pointer; border-radius:5px;
+    width:30px; height:30px; flex-shrink:0; padding:0; line-height:1;
+    font-size:0.84rem; cursor:pointer; border-radius:6px;
     background:none; border:1px solid var(--line); color: var(--ink-soft);
   }
   .movetmrw:hover{ border-color: var(--primary); color: var(--primary); }
@@ -2407,10 +2460,6 @@
   body.tasksettings-open #taskSettingsSheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
   .tasksettingssheet{ max-height:80vh; overflow-y:auto; }
   .tasksettingssheet .expand-row{ margin-top:0; }
-  .tasksettingssheet textarea{
-    width:100%; min-height:52px; font-family:'IBM Plex Sans',sans-serif; font-size:0.85rem;
-    border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim); padding:8px; resize:vertical; color:var(--ink);
-  }
 
   /* ---- Shake-to-undo/redo (see 04-undo.js) ----
      Reuses .fabaddsheet/.fabaddscrim's own hidden-by-default base rules

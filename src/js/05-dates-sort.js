@@ -51,6 +51,16 @@ function fmtTodayHeader(){
 const WEEKDAY_NAMES = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
 const MONTH_NAMES = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 
+// Every word/phrase that currently means "today" — this app doesn't
+// track a time of day yet, so "tonight," "this evening," and a bare
+// "morning" all collapse to the same plain date today does. If time-of-
+// day tracking ever gets added, this is the list to split apart: each of
+// these would need to carry its own approximate time instead of just
+// resolving to todayStr() the way they all do now. Not attempting to
+// detect an actual clock time (e.g. "2pm") at all — there's nowhere to
+// put one yet, so parsing one now would just be silently thrown away.
+const TODAY_WORDS = ['today','tday','2day','tonight','tonite','morning','afternoon','evening','night','this morning','this afternoon','this evening'];
+
 // Rudimentary natural-language date detection for steps — deliberately
 // covers only the handful of shorthands actually asked for (today/
 // tomorrow, weekday names, M/D[/YY], "Month Day") rather than a general
@@ -60,7 +70,7 @@ function parseNaturalDate(raw){
   const str = (raw||'').trim().toLowerCase().replace(/\b(\d+)(st|nd|rd|th)\b/,'$1');
   if(!str) return '';
   const today = new Date(todayStr()+'T00:00:00');
-  if(str==='today') return todayStr();
+  if(TODAY_WORDS.includes(str)) return todayStr();
   if(str==='tomorrow' || str==='tmrw' || str==='tmr' || str==='tmrrw') return addDaysToDateStr(todayStr(), 1);
   if(str==='yesterday') return addDaysToDateStr(todayStr(), -1);
 

@@ -103,11 +103,9 @@ document.addEventListener('keydown', (e) => {
 // A left/right finger drag steps between days (Daily) or months
 // (Calendar), mirroring the ArrowLeft/ArrowRight handling above; a
 // rightward drag on any drilldown page triggers that page's own .pagetag
-// "back" action, mirroring a tap on the tag itself. See
-// defaultDevSettings()'s fullPageSwipeNav comment in 02-storage-state.js
-// for how the day/month-nav zone and the swipe-back zone are kept from
-// fighting over the same touch — classifySwipeZone() below is the single
-// place that decides which (if either) a given touch belongs to.
+// "back" action, mirroring a tap on the tag itself. classifySwipeZone()
+// below is the single place that decides which (if either) a given touch
+// belongs to.
 
 let swipeGesture = null; // { mode:'day'|'month'|'back', card, backTag?, label?, labelText?, incomingEl?, incomingDir?, startX, startY, startT, lastX, axis:null|'x'|'y' }
 
@@ -130,9 +128,8 @@ function swipeTextWidth(text, font){
 }
 
 // Checked in this order: the day-nav row (.daynavrow) or the calendar's
-// own nav row (.calnav) claim the gesture either when the touch actually
-// started inside that row, or — with fullPageSwipeNav on — anywhere on
-// that page at all. Only once neither claims it does swipe-right-to-
+// own nav row (.calnav) claim the gesture when the touch actually started
+// inside that row. Only once neither claims it does swipe-right-to-
 // go-back get a chance, and only against a *non-compact* .pagetag (see
 // the Page Tag vs. Compact Tag distinction in devSettingsFieldsHtml()'s
 // comment in 01-categories-theme.js) — a compact tag links two peer
@@ -145,13 +142,12 @@ function swipeTextWidth(text, font){
 function classifySwipeZone(target){
   if(!target || !target.closest) return null;
   if(openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId) return null;
-  const dev = state.devSettings || {};
   const daynav = document.querySelector('.daynavrow');
-  if(daynav && (dev.fullPageSwipeNav || daynav.contains(target))){
+  if(daynav && daynav.contains(target)){
     return { mode:'day', card: daynav.parentElement, label: daynav.querySelector('.dayhero') };
   }
   const calnav = document.querySelector('.calnav');
-  if(calnav && (dev.fullPageSwipeNav || calnav.contains(target))){
+  if(calnav && calnav.contains(target)){
     return { mode:'month', card: calnav.parentElement, label: calnav.querySelector('.calmonthlabel') };
   }
   const stackedpage = target.closest('.stackedpage');
@@ -536,9 +532,8 @@ document.addEventListener('touchstart', (e) => {
 // Not passive — once a gesture has locked onto the horizontal axis this
 // needs to preventDefault() so the page doesn't also scroll/rubber-band
 // underneath the drag. Before that lock, nothing is prevented at all, so
-// an ordinary vertical scroll starting anywhere in a swipe zone (the
-// day-detail task list, most obviously, once fullPageSwipeNav is on)
-// behaves exactly as if this listener didn't exist.
+// an ordinary vertical scroll starting anywhere in a swipe zone behaves
+// exactly as if this listener didn't exist.
 document.addEventListener('touchmove', (e) => {
   if(!swipeGesture) return;
   const t = e.touches[0];

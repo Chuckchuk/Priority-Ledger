@@ -87,27 +87,48 @@ const PEG_START_DEG = -30;
 // a single smooth conic-gradient sweep instead (same start angle, via
 // conic-gradient's `from`), since that many discrete slots would read as
 // clutter rather than countable pegs.
+// SVG, not individually rotated/positioned HTML divs — an earlier version
+// used a zero-size ".pegpivot" per peg (position:absolute + rotate) with a
+// translateZ(0) hack to force every pivot onto its own GPU-composited
+// layer, on the theory that a peg landing on rotate(0deg) — any slot on a
+// cardinal axis — could otherwise get treated as an identity transform
+// and rendered via the plain layout path instead, snapping to a different
+// sub-pixel grid than its genuinely-rotated siblings at non-100% browser
+// zoom. That turned out not to be the whole story: browser zoom (unlike
+// devicePixelRatio) can scale a page by a non-integer factor, and once
+// that scaling makes even nominally "whole-pixel" CSS values (this
+// container is an even 34px, its center a whole-number 17px) land on
+// fractional device pixels, *every* pivot's layout-vs-compositor path can
+// round slightly differently from every other, not just the 0° one —
+// each HTML element is still its own independent layout/paint unit
+// regardless of how many get a compositing layer. SVG shapes don't have
+// that problem: every <rect> here is part of one <svg>, rendered as a
+// single vector rasterization pass, so they scale together identically
+// under any zoom level instead of each being its own independently-
+// rounded box. Same 34×34 viewBox as .checkcircle-wrap's own pixel size
+// (1 viewBox unit == 1 CSS px at rest), so the coordinates below are the
+// exact same numbers the old absolutely-positioned peg used relative to
+// its pivot: a peg 6 wide, 5 tall, sitting 14px out from center (17,17),
+// rotated per-slot around that same center point via SVG's own
+// transform="rotate(angle cx cy)" instead of a wrapping pivot element.
 function checklistProgressHtml(subs){
   if(!subs.length) return '';
   const done = subs.filter(s=>s.done).length;
   const total = subs.length;
   if(total <= CHECKLIST_PEG_LIMIT){
-    // translateZ(0) alongside the rotate is a no-op visually, but it's
-    // there specifically so every pegpivot gets promoted to its own
-    // GPU-composited layer the same way, regardless of angle. Without
-    // it, rotate(0deg) — which a peg lands on exactly whenever a slot
-    // falls on a cardinal axis — can get treated by the browser as an
-    // identity transform and rendered via the plain CPU layout/paint
-    // path instead, snapped to a different sub-pixel grid than its
-    // genuinely-rotated siblings. That mismatch is invisible at 100%
-    // zoom but shows up as that one peg being a slightly different
-    // size at other browser zoom levels, since layout-snapped and
-    // compositor-positioned elements round fractional device pixels
-    // differently once the CSS-px-to-device-px ratio isn't 1:1.
-    return subs.map((s,i)=>{
+    // Painted in "unfilled first, filled last" order (not slot order) so
+    // a filled peg always paints over an unfilled neighbor at their
+    // slightly-overlapping corners — SVG has no z-index to lean on here
+    // the way each pegpivot's own stacking context used to provide, just
+    // plain document order, so the order themselves have to carry it.
+    // Angle still comes from the peg's real slot index `i`, not its
+    // position in this reordered list, so sorting doesn't move anything.
+    const ordered = subs.map((s,i)=>({s,i})).sort((a,b)=>(a.s.done?1:0)-(b.s.done?1:0));
+    const pegs = ordered.map(({s,i})=>{
       const angle = PEG_START_DEG + i*PEG_SLOT_DEG;
-      return `<span class="pegpivot ${s.done?'filled':''}" style="transform:rotate(${angle}deg) translateZ(0)"><span class="peg"></span></span>`;
+      return `<rect class="peg ${s.done?'filled':''}" x="14" y="3" width="6" height="5" rx="1" transform="rotate(${angle} 17 17)"></rect>`;
     }).join('');
+    return `<svg class="pegring" viewBox="0 0 34 34">${pegs}</svg>`;
   }
   const pct = Math.round(done/total*100);
   return `<div class="progressring" style="background: conic-gradient(from ${PEG_START_DEG}deg, var(--ink) ${pct}%, var(--line) 0)"></div>`;

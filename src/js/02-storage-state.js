@@ -349,15 +349,6 @@ function defaultDevSettings(){
   // bar); the option formerly just labeled "Default" is 'classic', now
   // labeled plainly as that instead, since it's no longer the one picked
   // automatically.
-  // fullPageSwipeNav: widens the day/month swipe-nav gesture (see
-  // classifySwipeZone() in 19-bootstrap.js) from its default reserved
-  // strip — .daynavrow / .calnav, the row the prev/next arrows and the
-  // Today/weekday label sit in — to the entire day-detail or calendar
-  // page. Off by default because that same whole-page area is also where
-  // swipe-right-to-go-back (any .stackedpage's own non-compact .pagetag)
-  // normally lives; turning this on makes day/month nav win that contest
-  // everywhere on those two pages specifically, rather than the two
-  // gestures fighting over the same touch.
   // ---- "Mobile UI Lab" (2026-08 mobile-friendliness pass) ----
   // quickAddMobileStyle/taskRowMobileStyle/taskDetailMobileStyle/
   // floatingAddButton are all gated behind mobileUiActive() (see
@@ -559,7 +550,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'spin', developmentMode:false };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'spin', developmentMode:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -660,7 +651,6 @@ function normalizeState(){
   if(typeof state.devSettings.sidePanelEnabled !== 'boolean') state.devSettings.sidePanelEnabled = false;
   if(typeof state.devSettings.leatherInsetPreset !== 'string') state.devSettings.leatherInsetPreset = 'classic';
   if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'leftheavy';
-  if(typeof state.devSettings.fullPageSwipeNav !== 'boolean') state.devSettings.fullPageSwipeNav = false;
   if(typeof state.devSettings.mobileUiPreviewOnDesktop !== 'boolean') state.devSettings.mobileUiPreviewOnDesktop = false;
   // 'default' (the old always-visible inline row) is no longer a valid
   // value — see the quickAddMobileStyle comment above — so an account

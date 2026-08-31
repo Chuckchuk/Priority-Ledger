@@ -229,6 +229,30 @@ function hexToHsv(hex){
   return { h, s: max===0 ? 0 : d/max, v: max };
 }
 
+// The text-input accent (--input-accent, read by .expand textarea/
+// .subdateedit/.taskdate & co. in <style>) — computed off the Ledger
+// color (state.theme.paper, i.e. --card-bg) so it never needs its own
+// setting: whatever "ledger surface" color someone picks, this
+// automatically picks a complementary one for the fields that sit inside
+// it, rather than the flat --card-bg-dim tint (barely distinguishable
+// from the surface itself — see the "very white/square" ask this was
+// built for) or a hardcoded accent that could clash with a custom paper
+// color. Reuses hexToHsv()/hsvToHex() (the color-wheel picker's own
+// conversions, see catWheelPointerDown() in 09-settings.js) rather than
+// adding a second HSL-based color space just for this. A straight 180°
+// hue rotation of the *paper* color's own saturation/value would barely
+// register as different from --card-bg-dim in most cases — paper colors
+// are typically light and low-saturation, and rotating the hue of an
+// already-desaturated color doesn't move it far in RGB terms. Instead
+// only the hue carries over; saturation/value are fixed at levels chosen
+// to read clearly as an accent (a border, a placeholder-ish label)
+// against any paper lightness, light or dark.
+function complementaryAccent(hex){
+  const hsv = hexToHsv(hex);
+  const hue = (hsv.h + 180) % 360;
+  return hsvToHex(hue, 0.48, 0.6);
+}
+
 function relLuminance(hex){
   const num = parseInt(hex.replace('#',''), 16);
   const r = (num >> 16) / 255, g = ((num >> 8) & 0xFF) / 255, b = (num & 0xFF) / 255;
@@ -263,6 +287,7 @@ function applyThemeObject(t){
   if(themeColorMeta) themeColorMeta.setAttribute('content', deskDark);
   root.setProperty('--card-bg', t.paper);
   root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
+  root.setProperty('--input-accent', complementaryAccent(t.paper));
   const ui = uiColorPreset(t.uiPreset);
   root.setProperty('--primary', ui.primary);
   root.setProperty('--primary-light', ui.primaryLight);
@@ -856,12 +881,6 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="grouped" ${dev.settingsRowMobileStyle==='grouped'?'selected':''}>Grouped — Delete moves to its own quiet row</option>
       </select>
     </div>
-
-    ${devSectionHeadHtml('Navigation')}
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.fullPageSwipeNav?'checked':''} onchange="toggleDevSetting('fullPageSwipeNav', this.checked)">
-      Swipe day/month nav: whole page (not just the arrows row) — competes with swipe-right-to-go-back on those two pages; day/month nav wins when this is on
-    </label>
   `;
 
   return `
@@ -973,10 +992,10 @@ const DEV_ELEMENT_NAME_RULES = [
   { sel: '.daybtn' },
   { sel: '.flagbtn' },
   { sel: '.catselect' },
-  { sel: 'input[type="date"]' },
   { sel: '.expand-row .remove' },
   { sel: '.titleedit.bigtitle' },
   { sel: '.titleedit' },
+  { sel: '.notesfield' },
   { sel: '.taskmeta.checklistmeta' },
   { sel: '.taskmeta' },
   { sel: '.subwrap' },

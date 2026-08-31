@@ -71,13 +71,50 @@ function taskCoreFieldsRowHtml(t, canRemoveHere){
           ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${t.category===k?'selected':''}>${v.label}</option>`).join('')}
         </select>
         <label class="fieldlabel">DUE</label>
-        <input type="date" value="${t.dueDate||''}" onchange="updateDueDate('${t.id}', this.value)">
+        <span class="subdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateShort(t.dueDate) : 'Date'}</span>
         <div class="expandactions">
           <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
           <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>
           ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
       </div>`;
+}
+
+// Swap-in-a-text-input trick, same as startEditSubtaskDate()
+// (15-subtask-edit.js) — natural-language parsing (today, tmrw, 9/1,
+// tue…) via parseNaturalDate() instead of a native <input type=date>,
+// per the explicit ask to make a task's own due date behave (and look —
+// see .subdate/.subdateedit in <style>) like a step's already does,
+// rather than the native picker's largely unstyleable white/square
+// chrome. An empty input clears the date; unparseable text just reverts
+// rather than guessing wrong.
+function startEditTaskDueDate(el, taskId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'subdateedit';
+  input.value = t.dueDate ? fmtDateShort(t.dueDate) : '';
+  input.placeholder = 'today, tmrw, 9/1, tue…';
+  el.replaceWith(input);
+  input.focus();
+  input.select();
+  let committed = false;
+  const commit = async () => {
+    if(committed) return;
+    committed = true;
+    const raw = input.value.trim();
+    if(!raw){
+      if(t.dueDate) await updateDueDate(taskId, '');
+      else { render(); reopen(taskId); }
+      return;
+    }
+    const parsed = parseNaturalDate(raw);
+    if(parsed) await updateDueDate(taskId, parsed);
+    else { render(); reopen(taskId); } // unparseable — revert, don't save
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); input.blur(); } });
 }
 
 // Timeframe/Priority both fall back to a plain <select> built straight
@@ -112,7 +149,7 @@ function taskNotesAndMetaHtml(t){
     if(age > 0) metaLine += ` · Open ${age}d`;
   }
   return `
-      <textarea placeholder="Notes…" onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>
+      <textarea class="notesfield" placeholder="Notes…" onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>
       <div class="taskmeta">${metaLine}</div>`;
 }
 
@@ -136,9 +173,11 @@ function taskSubtasksHtml(t){
             <span class="draghandle sub" draggable="true" ondragstart="subDragStart(event,'${t.id}','${s.id}')" ondragend="subDragEnd()" title="Drag to reorder">⠿</span>
             <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
-            <div class="subdate ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
-            <button class="flagbtn daybtn small ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
-            <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
+            <div class="subrowactions">
+              <div class="subdate ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
+              <button class="flagbtn daybtn ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
+              <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
+            </div>
           </div>`;
         }).join('')}
         ${subDropEndHtml(t.id, subs)}

@@ -557,17 +557,22 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
   }
+  /* One consistent icon-button size across every small square control on
+     a task — the urgent flag, the today pin (both its full-field version
+     here and the row-level/subtask-row ones further down), move-to-
+     tomorrow, remove-from-day, open-full-page. These used to range from
+     22px to 32px depending on which specific context happened to render
+     them, with no real reason for the spread — same family of action,
+     same footprint everywhere now. */
   .flagbtn{
-    border:1px solid var(--line); background:var(--card-bg-dim); border-radius:5px; width:32px; height:32px;
-    cursor:pointer; font-size:0.85rem; color: var(--ink-soft); flex-shrink:0;
+    border:1px solid var(--line); background:var(--card-bg-dim); border-radius:6px; width:30px; height:30px;
+    cursor:pointer; font-size:0.84rem; color: var(--ink-soft); flex-shrink:0;
   }
   .flagbtn.on{ background: var(--estate); color:white; border-color: var(--estate); }
   /* The "add to today" pin reuses .flagbtn's box but its own accent
      color when on — --primary rather than --estate, so it doesn't read as
-     an alert state sitting right next to the urgent flag. .small is the
-     subtask-row version, sized down to sit comfortably next to .subtext. */
+     an alert state sitting right next to the urgent flag. */
   .daybtn.on{ background: var(--primary); color:white; border-color: var(--primary); }
-  .daybtn.small{ width:26px; height:26px; font-size:0.72rem; }
   .addbtn{
     width:34px; height:34px; border-radius:50%; border:none; flex-shrink:0;
     background: radial-gradient(circle at 35% 30%, var(--primary-light), var(--primary) 70%);
@@ -622,9 +627,38 @@
     width:18px; height:18px; border:1.5px solid var(--ink-soft); border-radius:4px; flex-shrink:0;
     display:flex; align-items:center; justify-content:center; cursor:pointer;
     position: relative;
+    transition: transform 130ms ease, border-color 130ms ease, box-shadow 130ms ease;
   }
   .check.done{ background: var(--ink); border-color: var(--ink); }
   .check.done::after{ content:'✓'; color: var(--card-bg); font-size:12px; }
+  /* Hover feedback — subtle here (a master-view row's own .check, plus
+     the same rule reused by anything that doesn't more specifically
+     match below) since a whole list of these sits close together; a
+     small ring is enough to say "this is clickable" without every row
+     competing for attention at once. .check.done gets its own ink-toned
+     ring instead of Primary, so hovering an already-completed box doesn't
+     read as "there's still an action to take here." */
+  .check:hover{
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+  }
+  .check.done:hover{
+    border-color: var(--ink);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 16%, transparent);
+  }
+  /* The full task detail page's own big header checkbox gets a stronger
+     version — a bigger glow plus a slight lift — since it's the one
+     dominant action on that whole page, not a row among many. Layers on
+     top of .taskdetailhead .checkwrap's own transform:scale(2.2) (see its
+     rule further down) rather than replacing it — scale(1.06) here reads
+     as a further, hover-only nudge on top of that already-big size. */
+  .taskdetailhead .check:hover{
+    transform: scale(1.06);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 22%, transparent);
+  }
+  .taskdetailhead .check.done:hover{
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--ink) 22%, transparent);
+  }
 
   /* ---- "All steps done" checkbox nudge (guide-check) ----
      See checkGuideClass() in 08-render-core.js for when this applies —
@@ -819,15 +853,22 @@
      the page around it — that plus its square-ish corners is what read
      as "very white" and "too square." A soft tinted fill at rest,
      brightening to a real focus ring on click, rather than a stark white
-     box with a hard outline. */
-  .expand textarea{
+     box with a hard outline. Its own class (taskNotesAndMetaHtml(),
+     08-render-core.js) rather than an ancestor selector like `.expand
+     textarea` — this field doesn't actually sit inside .expand (that's
+     the Steps-only inline quick view now; the full task detail page and
+     the long-press bottom sheet, .tasksettingssheet, both render it
+     directly inside their own wrapper), so scoping off .expand silently
+     matched nothing in either of those, the exact two places this
+     mattered most. */
+  .notesfield{
     width:100%; min-height:120px; font-family:'IBM Plex Sans',sans-serif; font-size:0.88rem;
     border:1.5px solid color-mix(in srgb, var(--input-accent) 45%, var(--line));
     border-radius:10px; background: color-mix(in srgb, var(--input-accent) 7%, var(--card-bg-dim));
     padding:10px 12px; resize:vertical; color:var(--ink);
     transition: border-color 150ms ease, box-shadow 150ms ease;
   }
-  .expand textarea:focus{
+  .notesfield:focus{
     outline:none; border-color: var(--input-accent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-accent) 20%, transparent);
   }
@@ -953,11 +994,23 @@
   }
   .subdropend{ height:10px; }
   .subdropend.dragover{ border-top: 2px solid var(--primary); }
-  .draghandle.sub{ font-size:0.78rem; }
+  .draghandle.sub{ font-size:0.85rem; }
   .subcheck{
     width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
     display:flex; align-items:center; justify-content:center; cursor:pointer;
     position:relative;
+    transition: border-color 130ms ease, box-shadow 130ms ease;
+  }
+  /* Same idea as .check:hover, sized down further still — a step's own
+     checkbox is already the smallest of the three (task row, task detail,
+     step), so its hover ring is the subtlest of the three too. */
+  .subcheck:hover{
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent);
+  }
+  .subcheck.done:hover{
+    border-color: var(--ink);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink) 14%, transparent);
   }
   /* Invisible hit-area expansion — the visible box stays exactly 14px
      (the whole point was keeping it visually smaller than a task's own
@@ -991,8 +1044,8 @@
      implying there's still something to do. */
   .movetmrw, .dayremove, .rowpin, .rowexpand{
     display:flex; align-items:center; justify-content:center;
-    width:22px; height:22px; flex-shrink:0; padding:0; line-height:1;
-    font-size:0.78rem; cursor:pointer; border-radius:5px;
+    width:30px; height:30px; flex-shrink:0; padding:0; line-height:1;
+    font-size:0.84rem; cursor:pointer; border-radius:6px;
     background:none; border:1px solid var(--line); color: var(--ink-soft);
   }
   .movetmrw:hover{ border-color: var(--primary); color: var(--primary); }
@@ -2439,10 +2492,6 @@
   body.tasksettings-open #taskSettingsSheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
   .tasksettingssheet{ max-height:80vh; overflow-y:auto; }
   .tasksettingssheet .expand-row{ margin-top:0; }
-  .tasksettingssheet textarea{
-    width:100%; min-height:52px; font-family:'IBM Plex Sans',sans-serif; font-size:0.85rem;
-    border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim); padding:8px; resize:vertical; color:var(--ink);
-  }
 
   /* ---- Shake-to-undo/redo (see 04-undo.js) ----
      Reuses .fabaddsheet/.fabaddscrim's own hidden-by-default base rules
@@ -4503,12 +4552,6 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="grouped" ${dev.settingsRowMobileStyle==='grouped'?'selected':''}>Grouped — Delete moves to its own quiet row</option>
       </select>
     </div>
-
-    ${devSectionHeadHtml('Navigation')}
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.fullPageSwipeNav?'checked':''} onchange="toggleDevSetting('fullPageSwipeNav', this.checked)">
-      Swipe day/month nav: whole page (not just the arrows row) — competes with swipe-right-to-go-back on those two pages; day/month nav wins when this is on
-    </label>
   `;
 
   return `
@@ -4623,6 +4666,7 @@ const DEV_ELEMENT_NAME_RULES = [
   { sel: '.expand-row .remove' },
   { sel: '.titleedit.bigtitle' },
   { sel: '.titleedit' },
+  { sel: '.notesfield' },
   { sel: '.taskmeta.checklistmeta' },
   { sel: '.taskmeta' },
   { sel: '.subwrap' },
@@ -5088,15 +5132,6 @@ function defaultDevSettings(){
   // bar); the option formerly just labeled "Default" is 'classic', now
   // labeled plainly as that instead, since it's no longer the one picked
   // automatically.
-  // fullPageSwipeNav: widens the day/month swipe-nav gesture (see
-  // classifySwipeZone() in 19-bootstrap.js) from its default reserved
-  // strip — .daynavrow / .calnav, the row the prev/next arrows and the
-  // Today/weekday label sit in — to the entire day-detail or calendar
-  // page. Off by default because that same whole-page area is also where
-  // swipe-right-to-go-back (any .stackedpage's own non-compact .pagetag)
-  // normally lives; turning this on makes day/month nav win that contest
-  // everywhere on those two pages specifically, rather than the two
-  // gestures fighting over the same touch.
   // ---- "Mobile UI Lab" (2026-08 mobile-friendliness pass) ----
   // quickAddMobileStyle/taskRowMobileStyle/taskDetailMobileStyle/
   // floatingAddButton are all gated behind mobileUiActive() (see
@@ -5298,7 +5333,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', fullPageSwipeNav:false, mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'spin', developmentMode:false };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'spin', developmentMode:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -5399,7 +5434,6 @@ function normalizeState(){
   if(typeof state.devSettings.sidePanelEnabled !== 'boolean') state.devSettings.sidePanelEnabled = false;
   if(typeof state.devSettings.leatherInsetPreset !== 'string') state.devSettings.leatherInsetPreset = 'classic';
   if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'leftheavy';
-  if(typeof state.devSettings.fullPageSwipeNav !== 'boolean') state.devSettings.fullPageSwipeNav = false;
   if(typeof state.devSettings.mobileUiPreviewOnDesktop !== 'boolean') state.devSettings.mobileUiPreviewOnDesktop = false;
   // 'default' (the old always-visible inline row) is no longer a valid
   // value — see the quickAddMobileStyle comment above — so an account
@@ -7337,7 +7371,7 @@ function taskNotesAndMetaHtml(t){
     if(age > 0) metaLine += ` · Open ${age}d`;
   }
   return `
-      <textarea placeholder="Notes…" onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>
+      <textarea class="notesfield" placeholder="Notes…" onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>
       <div class="taskmeta">${metaLine}</div>`;
 }
 
@@ -7363,7 +7397,7 @@ function taskSubtasksHtml(t){
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <div class="subrowactions">
               <div class="subdate ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
-              <button class="flagbtn daybtn small ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
+              <button class="flagbtn daybtn ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
               <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
             </div>
           </div>`;
@@ -11608,11 +11642,9 @@ document.addEventListener('keydown', (e) => {
 // A left/right finger drag steps between days (Daily) or months
 // (Calendar), mirroring the ArrowLeft/ArrowRight handling above; a
 // rightward drag on any drilldown page triggers that page's own .pagetag
-// "back" action, mirroring a tap on the tag itself. See
-// defaultDevSettings()'s fullPageSwipeNav comment in 02-storage-state.js
-// for how the day/month-nav zone and the swipe-back zone are kept from
-// fighting over the same touch — classifySwipeZone() below is the single
-// place that decides which (if either) a given touch belongs to.
+// "back" action, mirroring a tap on the tag itself. classifySwipeZone()
+// below is the single place that decides which (if either) a given touch
+// belongs to.
 
 let swipeGesture = null; // { mode:'day'|'month'|'back', card, backTag?, label?, labelText?, incomingEl?, incomingDir?, startX, startY, startT, lastX, axis:null|'x'|'y' }
 
@@ -11635,9 +11667,8 @@ function swipeTextWidth(text, font){
 }
 
 // Checked in this order: the day-nav row (.daynavrow) or the calendar's
-// own nav row (.calnav) claim the gesture either when the touch actually
-// started inside that row, or — with fullPageSwipeNav on — anywhere on
-// that page at all. Only once neither claims it does swipe-right-to-
+// own nav row (.calnav) claim the gesture when the touch actually started
+// inside that row. Only once neither claims it does swipe-right-to-
 // go-back get a chance, and only against a *non-compact* .pagetag (see
 // the Page Tag vs. Compact Tag distinction in devSettingsFieldsHtml()'s
 // comment in 01-categories-theme.js) — a compact tag links two peer
@@ -11650,13 +11681,12 @@ function swipeTextWidth(text, font){
 function classifySwipeZone(target){
   if(!target || !target.closest) return null;
   if(openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId) return null;
-  const dev = state.devSettings || {};
   const daynav = document.querySelector('.daynavrow');
-  if(daynav && (dev.fullPageSwipeNav || daynav.contains(target))){
+  if(daynav && daynav.contains(target)){
     return { mode:'day', card: daynav.parentElement, label: daynav.querySelector('.dayhero') };
   }
   const calnav = document.querySelector('.calnav');
-  if(calnav && (dev.fullPageSwipeNav || calnav.contains(target))){
+  if(calnav && calnav.contains(target)){
     return { mode:'month', card: calnav.parentElement, label: calnav.querySelector('.calmonthlabel') };
   }
   const stackedpage = target.closest('.stackedpage');
@@ -12041,9 +12071,8 @@ document.addEventListener('touchstart', (e) => {
 // Not passive — once a gesture has locked onto the horizontal axis this
 // needs to preventDefault() so the page doesn't also scroll/rubber-band
 // underneath the drag. Before that lock, nothing is prevented at all, so
-// an ordinary vertical scroll starting anywhere in a swipe zone (the
-// day-detail task list, most obviously, once fullPageSwipeNav is on)
-// behaves exactly as if this listener didn't exist.
+// an ordinary vertical scroll starting anywhere in a swipe zone behaves
+// exactly as if this listener didn't exist.
 document.addEventListener('touchmove', (e) => {
   if(!swipeGesture) return;
   const t = e.touches[0];
