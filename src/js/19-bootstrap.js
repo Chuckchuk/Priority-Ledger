@@ -56,7 +56,7 @@ document.addEventListener('keydown', (e) => {
     if(settingsOpen){ toggleSettings(); return; }
     if(checklistPendingOpen){ closeChecklistPending(); return; }
     if(selectedListId){ closeChecklistList(); return; }
-    if(mobileTaskDetailId){ closeMobileTaskDetail(); return; }
+    if(genericTaskDetailId){ closeGenericTaskDetail(); return; }
     if(taskDetailId){ closeTaskDetail(); return; }
     if(selectedDay){ closeDay(); return; }
     if(dailyCalendarOpen){ closeDailyCalendar(); return; }
@@ -304,7 +304,7 @@ function unwrapStackedPage(html){
 // day, which must not be mistaken for "this is the day-detail page's
 // own back-swipe") so it always matches what render() itself treats as
 // "behind" that specific container:
-//   #settingsView / #mobileTaskDetailView -> currentTabBodyHtml()
+//   #settingsView / #genericTaskDetailView -> currentTabBodyHtml()
 //     (both float over activeTab's own view unchanged underneath)
 //   #dailyView -> a task detail (taskDetailId set) backs to its day's
 //     own detail page; the day detail itself backs to the day list or
@@ -321,7 +321,7 @@ function unwrapStackedPage(html){
 // here must never break the actual swipe.
 function swipeBackPreviewHtml(card){
   const containerId = card.parentElement && card.parentElement.id;
-  if(containerId === 'settingsView' || containerId === 'mobileTaskDetailView'){
+  if(containerId === 'settingsView' || containerId === 'genericTaskDetailView'){
     return currentTabBodyHtml();
   }
   if(containerId === 'dailyView'){

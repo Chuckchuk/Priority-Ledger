@@ -339,7 +339,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
       ` : `
         <button class="rowpin ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>
-        <button class="rowexpand" onclick="event.stopPropagation(); openMobileTaskDetail('${t.id}')" title="Open full task page">⛶</button>
+        <button class="rowexpand" onclick="event.stopPropagation(); openGenericTaskDetail('${t.id}')" title="Open full task page">⛶</button>
       `}
     </div>
     ${inDaily ? '' : `<div class="expand ${expandedTaskIds.has(t.id)?'open':''}" id="exp-${t.id}">${expandInner}</div>`}
@@ -421,11 +421,11 @@ function taskRowTap(e, taskId){
   const now = Date.now();
   if(lastRowTap && lastRowTap.taskId === taskId && now - lastRowTap.time < ROW_DOUBLE_TAP_MS){
     lastRowTap = null;
-    openMobileTaskDetail(taskId);
+    openGenericTaskDetail(taskId);
     return;
   }
   lastRowTap = { taskId, time: now };
-  if(mobileUiActive() && state.devSettings.taskLongPressMode === 'detail'){ openMobileTaskDetail(taskId); return; }
+  if(mobileUiActive() && state.devSettings.taskLongPressMode === 'detail'){ openGenericTaskDetail(taskId); return; }
   toggleExpand(e, taskId);
 }
 
@@ -450,7 +450,7 @@ let ctxMenuTaskId = null;
 // (openTaskContextMenuForRow() below) — a plain tap there already opens
 // the full task page, so "Edit details" would just be a slower way to do
 // what the tap already does. Desktop's right-click menu keeps it (routed
-// to openMobileTaskDetail(), same full page — not toggleExpand(), whose
+// to openGenericTaskDetail(), same full page — not toggleExpand(), whose
 // inline .expand is Steps-only now and has no edit fields to open), since
 // desktop's own row already has a .rowexpand button for this too, but a
 // right-click menu that's already open is one less click than reaching
@@ -461,7 +461,7 @@ function taskContextMenuHtml(t, includeEdit){
     <button onclick="ctxMenuAction(()=>toggleStatus('${t.id}'))">${t.status==='done' ? 'Reopen' : 'Mark complete'}</button>
     <button onclick="ctxMenuAction(()=>toggleUrgent('${t.id}'))">${t.urgent ? 'Unmark urgent' : 'Mark urgent'}</button>
     <button onclick="ctxMenuAction(()=>toggleTaskToday('${t.id}'))">${plannedToday ? 'Remove from today' : 'Add to today'}</button>
-    ${includeEdit ? `<button onclick="ctxMenuAction(()=>openMobileTaskDetail('${t.id}'))">Edit details</button>` : ''}
+    ${includeEdit ? `<button onclick="ctxMenuAction(()=>openGenericTaskDetail('${t.id}'))">Edit details</button>` : ''}
     <button onclick="ctxMenuCopyTitle('${t.id}')">Copy title</button>
     <div class="ctxmenu-sep"></div>
     <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteTask('${t.id}'))">Delete</button>
@@ -598,7 +598,7 @@ function renderTaskSettingsSheet(){
 // everywhere else. Two call sites share this: clicking a task or step
 // within Daily (openTaskDetailFromDay, backs to "Daily") and a plain tap
 // on any category tab's row under taskLongPressMode 'detail'
-// (openMobileTaskDetail below, backs to "Back" — there's no single named
+// (openGenericTaskDetail below, backs to "Back" — there's no single named
 // destination since it could be any tab). backOnclick/backLabel are
 // passed in rather than hardcoded so the two never have to fork this
 // function to get their own back tag.
@@ -652,13 +652,13 @@ function closeTaskDetail(){
 // taskDetailId since this one has to work from any category tab (no
 // selectedDay/dailyView to hang off of) and needs its own generic "Back"
 // rather than "Daily".
-let mobileTaskDetailId = null;
-function openMobileTaskDetail(taskId){
-  mobileTaskDetailId = taskId;
+let genericTaskDetailId = null;
+function openGenericTaskDetail(taskId){
+  genericTaskDetailId = taskId;
   render();
 }
-function closeMobileTaskDetail(){
-  mobileTaskDetailId = null;
+function closeGenericTaskDetail(){
+  genericTaskDetailId = null;
   render();
 }
 
@@ -762,23 +762,23 @@ function render(){
   const chkView = document.getElementById('checklistView');
   const setView = document.getElementById('settingsView');
   const cldView = document.getElementById('claudeView');
-  const mtdView = document.getElementById('mobileTaskDetailView');
-  // taskLongPressMode 'detail' (see openMobileTaskDetail() below) — a
+  const gtdView = document.getElementById('genericTaskDetailView');
+  // taskLongPressMode 'detail' (see openGenericTaskDetail() below) — a
   // full-page task detail reachable from a plain tap on ANY category
   // tab's row, not just Daily's own taskDetailId. Highest priority of the
   // view-swapping branches here, same tier as claudeView/settingsOpen
   // (replaces the whole app body, not a floating overlay on top of it —
   // those live outside #appCard entirely, see the Esc handler's Mobile UI
   // Lab overlay comment in 19-bootstrap.js).
-  if(mobileTaskDetailId && !state.tasks.find(x=>x.id===mobileTaskDetailId)) mobileTaskDetailId = null;
-  if(mobileTaskDetailId){
+  if(genericTaskDetailId && !state.tasks.find(x=>x.id===genericTaskDetailId)) genericTaskDetailId = null;
+  if(genericTaskDetailId){
     catView.style.display = 'none';
     dayView.style.display = 'none';
     chkView.style.display = 'none';
     setView.style.display = 'none';
     cldView.style.display = 'none';
-    mtdView.style.display = '';
-    mtdView.innerHTML = renderTaskDetailPage(mobileTaskDetailId, 'closeMobileTaskDetail()', 'Back');
+    gtdView.style.display = '';
+    gtdView.innerHTML = renderTaskDetailPage(genericTaskDetailId, 'closeGenericTaskDetail()', 'Back');
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     dayView.innerHTML = '';
     chkView.innerHTML = '';
@@ -787,8 +787,8 @@ function render(){
     applyDevElementNames();
     return;
   }
-  mtdView.style.display = 'none';
-  mtdView.innerHTML = '';
+  gtdView.style.display = 'none';
+  gtdView.innerHTML = '';
   if(claudeView){
     catView.style.display = 'none';
     dayView.style.display = 'none';
@@ -889,7 +889,7 @@ function switchTab(key){
   if(taskSettingsOpenId) closeTaskSettingsSheet();
   // Same idea again for taskLongPressMode 'detail's full-page task
   // detail — tied to one specific task from whichever tab you were on.
-  if(mobileTaskDetailId) mobileTaskDetailId = null;
+  if(genericTaskDetailId) genericTaskDetailId = null;
   // ...and once more for whichever stackedpage drilldown a tab's own
   // content might be sitting on — a checklist list's own detail page
   // (selectedListId), its "all pending items" view (checklistPendingOpen),

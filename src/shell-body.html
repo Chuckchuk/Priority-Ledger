@@ -152,11 +152,12 @@
       <div id="checklistView" style="display:none;"></div>
       <div id="settingsView" style="display:none;"></div>
       <div id="claudeView" style="display:none;"></div>
-      <!-- taskLongPressMode 'detail' (see openMobileTaskDetail() in
-           08-render-core.js) — the same full-page task detail Daily's own
-           taskDetailId uses, reachable via long-press from any category
-           tab's row instead of just from within Daily. -->
-      <div id="mobileTaskDetailView" style="display:none;"></div>
+      <!-- The same full-page task detail Daily's own taskDetailId uses
+           (see openGenericTaskDetail() in 08-render-core.js), reachable
+           from any category tab's row — via its own always-visible ⛶
+           button, the desktop right-click menu, or (in taskLongPressMode
+           'detail') a plain tap — instead of just from within Daily. -->
+      <div id="genericTaskDetailView" style="display:none;"></div>
     </div>
     </div>
   </div>

@@ -466,7 +466,7 @@ function defaultDevSettings(){
   // full-page task detail now (renderTaskDetailPage()), reached via the
   // row's own always-visible .rowexpand button (taskRowHtml(),
   // 08-render-core.js) or the desktop right-click menu's "Edit details" —
-  // both call openMobileTaskDetail() directly, independent of this
+  // both call openGenericTaskDetail() directly, independent of this
   // setting. This setting only changes what's *additionally* true on
   // mobile (gated by mobileUiActive(), touch-first), which arms a
   // long-press timer (taskPressStart() et al.) on top of the tap above:
@@ -474,7 +474,7 @@ function defaultDevSettings(){
   //             sheet (openTaskSettingsSheet()) — Steps are left out,
   //             already visible via the plain tap above.
   //   'detail': a plain tap jumps straight past the inline quick view,
-  //             straight to the full-page task detail (openMobileTaskDetail(),
+  //             straight to the full-page task detail (openGenericTaskDetail(),
   //             same page Daily's own taskDetailId uses); long-press
   //             instead opens a quick-actions menu (mark complete/urgent/
   //             today, delete — same component as the desktop right-click

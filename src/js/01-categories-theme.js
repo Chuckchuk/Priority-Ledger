@@ -924,7 +924,7 @@ function resolvePageTagDest(el){
   if(oc.includes('closeChecklistPending(')) return 'renderChecklistOverview()';
   if(oc.includes('closeChecklistList(')) return checklistReturnDay ? 'renderDayDetail()' : 'renderChecklistOverview()';
   if(oc.includes('closeTaskDetail(')) return 'renderDayDetail()';
-  if(oc.includes('closeMobileTaskDetail(')) return 'currentTabBodyHtml()';
+  if(oc.includes('closeGenericTaskDetail(')) return 'currentTabBodyHtml()';
   return null;
 }
 function resolveCompactTagDest(el){

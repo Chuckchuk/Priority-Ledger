@@ -4,7 +4,7 @@ function toggleSettings(){
   settingsOpen = !settingsOpen;
   if(settingsOpen){
     claudeView = null;
-    // mobileTaskDetailId is checked ahead of settingsOpen in render() (it
+    // genericTaskDetailId is checked ahead of settingsOpen in render() (it
     // replaces the whole app body from any tab, not just Daily's own
     // taskDetailId) — without clearing it here, opening Settings while
     // that full-page task detail is up would flip settingsOpen on but
@@ -13,7 +13,7 @@ function toggleSettings(){
     // else render() branches on (taskDetailId, selectedListId, etc.) only
     // matters *inside* the branches settingsOpen already short-circuits
     // past, so settingsOpen alone is enough to surface Settings over them.
-    mobileTaskDetailId = null;
+    genericTaskDetailId = null;
   }
   pendingDeleteCategoryId = null;
   closeAllSettingsPopovers();
