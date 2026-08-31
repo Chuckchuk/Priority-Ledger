@@ -638,39 +638,62 @@
      the same 18×18 box either way (.checkcircle-wrap just centers
      .checkcircle inside its own bigger 34px ring) — a style only needs
      its own circle-specific override when it draws something whose
-     *shape*, not just its size, was tuned for .check's square corners;
-     guide-radialping is the one case that's true for (see its own
-     .checkcircle override below). --guide-iter/--guide-scale/
+     *shape or motion*, not just its size, was tuned for .check's square
+     corners; guide-radialping (a literal shape) and guide-wiggle (a
+     rotation, which a perfect circle can't visibly show at all — see its
+     own comment) are the two cases that's true for. --guide-scale/
      --guide-opacity are the shared knobs every style reads, so
-     guide-quick/guide-full (how long it plays) and guide-subtle (how
-     strong it reads) each only have to set the custom properties once
-     instead of forking every keyframe rule per combination. Full
-     intensity is the full task/list detail page's own big header;
-     guide-subtle dials it back for a list row, where a dramatic looping
-     effect next to several other rows would be more distracting than
-     inviting. */
-  :is(.check, .checkcircle).guide-check{ --guide-iter: infinite; --guide-scale: 1.7; --guide-opacity: 0.85; }
-  :is(.check, .checkcircle).guide-quick{ --guide-iter: 2; }
+     guide-subtle (how strong it reads — full intensity on a detail
+     page's big header, dialed back on a list row) only has to set them
+     once instead of forking every keyframe rule.
+     Every style plays exactly 3 times then stops showing anything at
+     all, whether that's guide-check/guide-quick (1 subtask, briefer
+     styles used to play here — now just the same 3 as everything else,
+     see below) — a previous version left this open-ended (infinite while
+     the condition held) or, for the 1-subtask case, cut off at whatever
+     mid-cycle point 2 iterations landed on: a *finite* CSS animation
+     reverts its element to its plain, non-animated styles the instant it
+     finishes, so any style whose "invisible" state only ever existed
+     *inside* the keyframe (not also declared as the element's own resting
+     style) would snap back to fully opaque and stay stuck there — the
+     glitch reported against guide-radialping's single-item case. Each
+     style below now also declares its own resting opacity so there's
+     nothing left to snap back to. */
+  :is(.check, .checkcircle).guide-check{ --guide-iter: 3; --guide-scale: 1.7; --guide-opacity: 0.85; }
   :is(.check, .checkcircle).guide-subtle{ --guide-scale: 1.3; --guide-opacity: 0.5; }
   /* A quick attention-getting shake — rotating the checkbox itself back
-     and forth a few degrees, the same "hey, look here" gesture regardless
-     of whether the thing shaking is a square or a circle, which is what
+     and forth a few degrees, the same "hey, look here" gesture — which
      replaced the previous "spinning color ring" style here: a rotating
      conic-gradient square behind the checkbox, which (a) only ever read
      as a square regardless of what it was drawn behind, and (b) looked
-     like a loading spinner more than a nudge. Animates .check's own
-     transform directly rather than a ::before, so nothing needs a
-     circle-specific override — a rotation doesn't care what shape is
-     doing the rotating. */
-  :is(.check, .checkcircle).guide-wiggle{
+     like a loading spinner more than a nudge. Toned down from its first
+     pass (12°/9°/6°/3° down to 7°/5°/3°/2°) — playing on every render
+     while the condition holds is already a lot of motion; it didn't also
+     need to be a big motion. A perfect circle can't show a pure rotation
+     at all (nothing on a plain ring gives the eye anything to track
+     turning), so .checkcircle gets its own squash-and-stretch "wobble" —
+     a small scale + side-shift wiggle — instead of reusing this rotation;
+     same guide-wiggle *class* (checkGuideClass() doesn't know or care
+     which shape it's labeling), different keyframes per shape. */
+  .check.guide-wiggle{
     animation: check-guide-wiggle 0.6s ease-in-out var(--guide-iter);
   }
   @keyframes check-guide-wiggle{
     0%, 100%{ transform: rotate(0deg); }
-    20%{ transform: rotate(-12deg); }
-    40%{ transform: rotate(9deg); }
-    60%{ transform: rotate(-6deg); }
-    80%{ transform: rotate(3deg); }
+    20%{ transform: rotate(-7deg); }
+    40%{ transform: rotate(5deg); }
+    60%{ transform: rotate(-3deg); }
+    80%{ transform: rotate(2deg); }
+  }
+  .checkcircle.guide-wiggle{
+    animation: checkcircle-guide-wobble 0.6s ease-in-out var(--guide-iter);
+  }
+  @keyframes checkcircle-guide-wobble{
+    0%, 100%{ transform: scale(1, 1) translateX(0); }
+    20%{ transform: scale(0.92, 1.08) translateX(-1.5px); }
+    40%{ transform: scale(1.06, 0.95) translateX(1.5px); }
+    60%{ transform: scale(0.96, 1.04) translateX(-1px); }
+    80%{ transform: scale(1.03, 0.98) translateX(1px); }
   }
   :is(.check, .checkcircle).guide-sparkle::before{
     content:'';
@@ -682,6 +705,7 @@
       radial-gradient(circle, var(--primary) 0 1.5px, transparent 1.6px) 8% 88%,
       radial-gradient(circle, var(--primary) 0 1.5px, transparent 1.6px) 55% 96%;
     background-repeat: no-repeat;
+    opacity: 0;
     animation: check-guide-sparkle 1.3s ease-in-out var(--guide-iter);
     pointer-events:none;
   }
@@ -694,12 +718,19 @@
      so the ping expands as a circle in step with the checkbox it's
      centered on, instead of a square ring visibly mismatched against a
      round box. Everything else about the animation (timing, scale,
-     opacity) is identical between the two. */
+     opacity) is identical between the two. Base opacity:0 (not just the
+     keyframe's own 0%/100% values) is the fix for the "ring left
+     permanently visible" glitch: without it, a *finite* animation (every
+     style now plays exactly 3 times, see the top of this section) reverts
+     to this rule's own un-animated styles the instant it ends — and a
+     border with no opacity declared outside the animation defaults to
+     fully opaque, not invisible. */
   :is(.check, .checkcircle).guide-radialping::before{
     content:'';
     position:absolute; inset:0;
     border:2px solid var(--primary);
     border-radius:4px;
+    opacity: 0;
     animation: check-guide-ping 1.2s ease-out var(--guide-iter);
     pointer-events:none;
   }
@@ -709,11 +740,17 @@
     100%{ transform:scale(var(--guide-scale)); opacity:0; }
   }
   :is(.check, .checkcircle).guide-glow{
-    animation: check-guide-glow 1s ease-in-out var(--guide-iter) alternate;
+    animation: check-guide-glow 1s ease-in-out var(--guide-iter);
   }
+  /* Rises and falls back to nothing *within* every single cycle (not a
+     from/to pair played with alternate direction) specifically so it
+     always ends at "nothing showing," regardless of how many times it's
+     played — an alternating from/to pair ends on whichever one the last
+     iteration happened to land on, which for an odd count (3) is the
+     glowing "to" state, not the resting one. */
   @keyframes check-guide-glow{
-    from{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 60%, transparent); }
-    to{ box-shadow: 0 0 10px 4px color-mix(in srgb, var(--primary) 55%, transparent); }
+    0%, 100%{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 60%, transparent); }
+    50%{ box-shadow: 0 0 10px 4px color-mix(in srgb, var(--primary) 55%, transparent); }
   }
 
   /* ---- Checkbox celebration (celebrate-check) ----

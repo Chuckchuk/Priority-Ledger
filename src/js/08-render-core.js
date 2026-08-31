@@ -226,19 +226,25 @@ function taskExpandFieldsHtml(t, canRemoveHere, titleClass){
 // for as long as the condition holds and disappears the instant it
 // doesn't — no timer, nothing to clean up. Gated to subs.length >= 1 so
 // a subtask-less task never gets it (nothing to have "just finished").
-// 2+ subtasks gets the full looping animation (guide-full); exactly 1
-// gets a couple of quick pulses only (guide-quick) — a single step
-// finishing doesn't carry the same "you just cleared the whole list"
-// weight, so it only needs a brief nod, not an insistent loop. `subtle`
-// (true in a task-list row, false on the full task detail page) tones
-// the same animation down via the --guide-scale/--guide-opacity custom
-// properties the CSS reads, rather than forking a second set of
-// keyframes per context.
+// Every style plays exactly 3 times then settles to nothing showing (see
+// the --guide-iter comment in <style>) regardless of subtask count —
+// 1 vs 2+ subtasks used to change how many times this played (a quick
+// couple of pulses vs. an open-ended loop); now it's the same fixed 3 for
+// either, so there's no intensity split left to compute here. `subtle`
+// (true in a task-list row, false on the full task/list detail page)
+// tones the same animation down via the --guide-scale/--guide-opacity
+// custom properties the CSS reads, rather than forking a second set of
+// keyframes per context. Worth noting: since this is recomputed fresh on
+// every render() (by design — see above), an unrelated render while the
+// condition is still true (editing a different row, say) does restart
+// the 3-play count from zero, the trade-off for staying flag-free. Rare
+// enough in practice — the common case is nothing else changes while
+// you're looking at the one row — not to be worth reintroducing a
+// timer/counter just to close that gap.
 function checkGuideClass(t, subs, subtle){
   if(t.status==='done' || !subs.length || !subs.every(s=>s.done)) return '';
-  const style = (state.devSettings && state.devSettings.checkGuideAnimationStyle) || 'spin';
-  const intensity = subs.length >= 2 ? 'guide-full' : 'guide-quick';
-  return ` guide-check guide-${style} ${intensity}${subtle ? ' guide-subtle' : ''}`;
+  const style = (state.devSettings && state.devSettings.checkGuideAnimationStyle) || 'radialping';
+  return ` guide-check guide-${style}${subtle ? ' guide-subtle' : ''}`;
 }
 
 // The payoff: a one-shot celebration burst when a task is actually

@@ -741,7 +741,7 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     <div class="${fieldClass}">
       <span class="${captionClass}">"All steps done" checkbox nudge</span>
       <select class="${selectClass}" onchange="setDevCheckGuideAnimationStyle(this.value)">
-        <option value="radialping" ${dev.checkGuideAnimationStyle==='radialping'?'selected':''}>Boxy radial ping (default)</option>
+        <option value="radialping" ${dev.checkGuideAnimationStyle==='radialping'?'selected':''}>Radial ping (default)</option>
         <option value="wiggle" ${dev.checkGuideAnimationStyle==='wiggle'?'selected':''}>Wiggle</option>
         <option value="sparkle" ${dev.checkGuideAnimationStyle==='sparkle'?'selected':''}>Sparkles</option>
         <option value="glow" ${dev.checkGuideAnimationStyle==='glow'?'selected':''}>Warm pulsing glow</option>
