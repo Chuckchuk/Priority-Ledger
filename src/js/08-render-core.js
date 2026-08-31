@@ -45,25 +45,11 @@ function fieldPickerHtml(kind, currentValue, onClickFor){
 // match the checklist detail page's large centered title (see .bigtitle
 // in <style>, shared with .titleedit there); every other caller
 // (taskManagementFieldsHtml, the inline .expand) omits it and gets the
-// normal compact field. includeActions is renderTaskDetailPage()'s alone
-// too — the urgent flag and today-pin sit in the title's own row (top
-// right) there instead of down in taskCoreFieldsRowHtml's fields row,
-// per the project owner's ask to get them out of "below the title."
-// Every other caller leaves them where taskCoreFieldsRowHtml already
-// puts them — see its own hideDayFlagActions param.
-function taskTitleFieldHtml(t, extraClass, includeActions){
-  const titleInput = `<input type="text" class="titleedit ${extraClass||''}" value="${escapeHtml(t.title)}"
+// normal compact field.
+function taskTitleFieldHtml(t, extraClass){
+  return `<input type="text" class="titleedit ${extraClass||''}" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">`;
-  if(!includeActions) return titleInput;
-  return `
-      <div class="titlerow">
-        ${titleInput}
-        <div class="titleactions">
-          <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>
-        </div>
-      </div>`;
 }
 
 // Shared by taskCoreFieldsRowHtml's own today-pin (inside the full task
@@ -77,16 +63,8 @@ function taskTodayTitle(t){
     : 'Add to today’s list';
 }
 
-// hideDayFlagActions is renderTaskDetailPage()'s alone (via
-// taskExpandFieldsHtml, when titleClass is 'bigtitle') — the urgent flag
-// and today-pin render in the title's own row instead (see
-// taskTitleFieldHtml's includeActions), so they'd otherwise appear twice.
-// Remove still renders here regardless; only those two moved.
-function taskCoreFieldsRowHtml(t, canRemoveHere, hideDayFlagActions){
+function taskCoreFieldsRowHtml(t, canRemoveHere){
   const todayTitle = taskTodayTitle(t);
-  const dayFlagActions = hideDayFlagActions ? '' : `
-          <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>`;
   return `
       <div class="expand-row">
         <select class="catselect" onchange="updateCategory('${t.id}', this.value)">
@@ -95,7 +73,8 @@ function taskCoreFieldsRowHtml(t, canRemoveHere, hideDayFlagActions){
         <label class="fieldlabel">DUE</label>
         <input type="date" value="${t.dueDate||''}" onchange="updateDueDate('${t.id}', this.value)">
         <div class="expandactions">
-          ${dayFlagActions}
+          <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
+          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>
           ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
       </div>`;
@@ -196,8 +175,7 @@ function taskManagementFieldsHtml(t, canRemoveHere){
 // (renderTaskDetailPage) so the two can never drift out of sync — edit
 // once, both places update.
 function taskExpandFieldsHtml(t, canRemoveHere, titleClass){
-  const isDetailPage = titleClass === 'bigtitle';
-  return `${taskTitleFieldHtml(t, titleClass, isDetailPage)}${taskCoreFieldsRowHtml(t, canRemoveHere, isDetailPage)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
+  return `${taskTitleFieldHtml(t, titleClass)}${taskCoreFieldsRowHtml(t, canRemoveHere)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
 }
 
 // The "check-guide" nudge: once every step is done but the task itself
@@ -589,14 +567,31 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
   const t = state.tasks.find(t=>t.id===taskId);
   const canRemoveHere = t.category==='misc';
   const subs = t.subtasks || [];
+  // Urgent flag + today-pin live in this header row (right of the big
+  // checkbox) rather than inline with the title below, or down in the
+  // fields row further down the page the way every other task view keeps
+  // them — the project owner specifically didn't want them inline with
+  // the title (it threw off the title's own centering) and wanted them
+  // reachable without adding any new vertical space on mobile, so this
+  // row (already reserved for the checkbox, already at the very top)
+  // absorbs them instead of a row of its own. The first, invisible copy
+  // is a pure spacer — same markup, visibility:hidden — so the checkbox
+  // stays visually centered instead of drifting toward the empty left
+  // side once real buttons occupy the right (see .taskdetailhead
+  // .titleactions.titlespacer in <style>).
+  const actionsHtml = `
+    <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
+    <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>`;
   return `
     <div class="stackedpage">
       ${pageTagHtml(backOnclick, backLabel)}
       <div class="taskdetailhead">
+        <div class="titleactions titlespacer" aria-hidden="true">${actionsHtml}</div>
         <div class="checkwrap">
           <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
           ${subProgressHtml(subs)}
         </div>
+        <div class="titleactions">${actionsHtml}</div>
       </div>
       ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle')}
     </div>

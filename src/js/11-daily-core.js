@@ -499,27 +499,37 @@ function renderDayList(){
 
   const curKey = monthKey(todayStr());
   const currentDays = days.filter(d=>monthKey(d)===curKey);
-  const pastDays = days.filter(d=>monthKey(d)!==curKey);
-  const pastGroups = {};
-  pastDays.forEach(d=>{ const k=monthKey(d); (pastGroups[k]=pastGroups[k]||[]).push(d); });
-  const pastKeys = Object.keys(pastGroups).sort((a,b)=>b.localeCompare(a));
+  const otherDays = days.filter(d=>monthKey(d)!==curKey);
+  const otherGroups = {};
+  otherDays.forEach(d=>{ const k=monthKey(d); (otherGroups[k]=otherGroups[k]||[]).push(d); });
+  // Descending (newest month first) throughout, same direction days
+  // within a single month already sort in — a future month is just a
+  // continuation of that same "newest first" order, not a special case,
+  // so it has to land *above* "This Month" (closest future month
+  // directly above it), not lumped in with past months below just
+  // because both used to share one "not the current month" bucket.
+  const otherKeys = Object.keys(otherGroups).sort((a,b)=>b.localeCompare(a));
+  const futureKeys = otherKeys.filter(k=>k>curKey);
+  const pastKeys = otherKeys.filter(k=>k<curKey);
 
+  const monthGroupHtml = (k) => {
+    const open = expandedMonths.has(k);
+    return `
+      <div class="monthgroup">
+        <button class="monthhead" onclick="toggleMonthGroup('${k}')">
+          <span>${monthLabel(k)}</span>
+          <span class="count">${otherGroups[k].length} day${otherGroups[k].length===1?'':'s'} ${open?'▾':'▸'}</span>
+        </button>
+        ${open ? `<div class="monthbody">${otherGroups[k].map(dayItemHtml).join('')}</div>` : ''}
+      </div>`;
+  };
+
+  html += futureKeys.map(monthGroupHtml).join('');
   html += `<div class="daylistlabel">This Month</div>`;
   html += currentDays.length
     ? currentDays.map(dayItemHtml).join('')
     : `<div class="empty" style="padding:14px 4px;">Nothing logged yet this month.</div>`;
-
-  pastKeys.forEach(k=>{
-    const open = expandedMonths.has(k);
-    html += `
-      <div class="monthgroup">
-        <button class="monthhead" onclick="toggleMonthGroup('${k}')">
-          <span>${monthLabel(k)}</span>
-          <span class="count">${pastGroups[k].length} day${pastGroups[k].length===1?'':'s'} ${open?'▾':'▸'}</span>
-        </button>
-        ${open ? `<div class="monthbody">${pastGroups[k].map(dayItemHtml).join('')}</div>` : ''}
-      </div>`;
-  });
+  html += pastKeys.map(monthGroupHtml).join('');
 
   return html;
 }
