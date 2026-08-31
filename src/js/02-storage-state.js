@@ -102,6 +102,15 @@ let devPanelOpen = false;
 let claudeView = null; // null | 'digest' | 'full' — a plain-text view meant for a page-reading agent, not a category/day view
 let pendingDeleteCategoryId = null;
 let pendingDeleteLocationId = null;
+// The "add a new tab" row's type picker (Standard/Checklist) — used to be
+// a native <select> whose live DOM value addCategory() read directly at
+// Enter-press time; now a custom dropdown (customSelectHtml(),
+// 09-settings.js), which has no DOM element with a .value of its own, so
+// the picked type has to live in real state instead. Reset to 'standard'
+// right alongside clearing the name field on a successful add (see
+// tabsSection() in renderSettings()), same "start fresh for the next
+// one" reasoning that clearing the text input already followed.
+let newCatTypeDraft = 'standard';
 // Mobile UI Lab overlay state (see defaultDevSettings() above and
 // toggleQuickAddSheet()/openFabAdd() in 16-task-crud.js) — pure UI chrome,
 // never persisted, same as the other open/closed flags on this page.

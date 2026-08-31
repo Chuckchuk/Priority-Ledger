@@ -4592,6 +4592,18 @@ function devGroupHtml(key, title, bodyHtml){
 // not two things someone would want independently.
 function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, includeSidePanelToggle){
   const dev = state.devSettings || defaultDevSettings();
+  // Shared wrapper for every dropdown field below — all sixteen of these
+  // used to repeat the same caption + native <select> markup; now they
+  // go through customSelectHtml() (09-settings.js) instead, keyed by
+  // rowClass (unique per host: the floating panel vs. Settings' own Dev
+  // Settings section) + the setter's own name, so the floating panel and
+  // the Settings panel can each have their own dropdown open at once
+  // without fighting over the same customSelectOpenKey.
+  const devField = (captionHtml, currentVal, options, onChangeFn) => `
+    <div class="${fieldClass}">
+      <span class="${captionClass}">${captionHtml}</span>
+      ${customSelectHtml(rowClass+':'+onChangeFn, options, currentVal, onChangeFn, selectClass)}
+    </div>`;
   const devModeToggleHtml = `
     <label class="${rowClass}">
       <input type="checkbox" ${dev.developmentMode?'checked':''} onchange="toggleDevSetting('developmentMode', this.checked)">
@@ -4624,15 +4636,12 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
          — a compact tag just always follows the real Secondary color now;
          custom UI colors live in the UI Colors picker below instead (see
          its own "Custom" tile). -->
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Compact tag style</span>
-      <select class="${selectClass}" onchange="setDevPendingTagStyle(this.value)">
-        <option value="default" ${dev.pendingTagStyle==='default'?'selected':''}>Default (small page tag)</option>
-        <option value="jetout" ${dev.pendingTagStyle==='jetout'?'selected':''}>Jets out further</option>
-        <option value="sidebar" ${dev.pendingTagStyle==='sidebar'?'selected':''}>Vertical sidebar strip</option>
-        <option value="booktab" ${dev.pendingTagStyle==='booktab'?'selected':''}>Left edge, overlapping up into the tab row</option>
-      </select>
-    </div>
+    ${devField('Compact tag style', dev.pendingTagStyle, [
+      ['default','Default (small page tag)'],
+      ['jetout','Jets out further'],
+      ['sidebar','Vertical sidebar strip'],
+      ['booktab','Left edge, overlapping up into the tab row']
+    ], 'setDevPendingTagStyle')}
 
     ${devSectionHeadHtml('Checklist')}
     <label class="${rowClass}">
@@ -4641,15 +4650,12 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     </label>
 
     ${devSectionHeadHtml('Cover & Page Sizing')}
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Leather cover size</span>
-      <select class="${selectClass}" onchange="setDevLeatherInset(this.value)">
-        <option value="classic" ${dev.leatherInsetPreset==='classic'?'selected':''}>Default</option>
-        <option value="roomier" ${dev.leatherInsetPreset==='roomier'?'selected':''}>Roomier — thinner cover all around</option>
-        <option value="leftheavy" ${dev.leatherInsetPreset==='leftheavy'?'selected':''}>Left-heavy — wide left margin, thin top</option>
-        <option value="slim" ${dev.leatherInsetPreset==='slim'?'selected':''}>Slim — barely a lip of leather</option>
-      </select>
-    </div>
+    ${devField('Leather cover size', dev.leatherInsetPreset, [
+      ['classic','Default'],
+      ['roomier','Roomier — thinner cover all around'],
+      ['leftheavy','Left-heavy — wide left margin, thin top'],
+      ['slim','Slim — barely a lip of leather']
+    ], 'setDevLeatherInset')}
     <!-- The .stackedpage analog of the leather-cover setting above — how
          big a drilldown page (Settings, checklist detail, a day's own
          detail, etc.) reads relative to #appCard, independent of whether
@@ -4663,35 +4669,26 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
          02-storage-state.js) — its own left margin was widened further
          since the default page tag was reading as too close to
          #appCard's outer edge to comfortably read. -->
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Stacked-page size (Settings, day/task detail, etc.)</span>
-      <select class="${selectClass}" onchange="setDevStackedPageInset(this.value)">
-        <option value="leftheavy" ${dev.stackedPageInsetPreset==='leftheavy'?'selected':''}>Left-heavy — wide left margin, thin top (default)</option>
-        <option value="classic" ${dev.stackedPageInsetPreset==='classic'?'selected':''}>Classic</option>
-        <option value="roomier" ${dev.stackedPageInsetPreset==='roomier'?'selected':''}>Roomier — thinner frame all around</option>
-        <option value="slim" ${dev.stackedPageInsetPreset==='slim'?'selected':''}>Slim — nearly flush with #appCard</option>
-      </select>
-    </div>
+    ${devField('Stacked-page size (Settings, day/task detail, etc.)', dev.stackedPageInsetPreset, [
+      ['leftheavy','Left-heavy — wide left margin, thin top (default)'],
+      ['classic','Classic'],
+      ['roomier','Roomier — thinner frame all around'],
+      ['slim','Slim — nearly flush with #appCard']
+    ], 'setDevStackedPageInset')}
 
     ${devSectionHeadHtml('Task Fields')}
-    <div class="${fieldClass}">
-      <span class="${captionClass}" title="Still debating a progress-bar picker — the fun high-value animation is worth keeping around for, but the interaction itself needs real rework before it's usable. Starred as a reminder to come back to it, not to delete it.">★ Timeframe & Priority picker</span>
-      <select class="${selectClass}" onchange="setDevFieldPickerStyle(this.value)">
-        <option value="default" ${dev.fieldPickerStyle==='default'?'selected':''}>Default (dropdown)</option>
-        <option value="buttons" ${dev.fieldPickerStyle==='buttons'?'selected':''}>Row of buttons</option>
-        <option value="progress" ${dev.fieldPickerStyle==='progress'?'selected':''}>Stylized progress bar</option>
-      </select>
-    </div>
+    ${devField('<span title="Still debating a progress-bar picker — the fun high-value animation is worth keeping around for, but the interaction itself needs real rework before it\'s usable. Starred as a reminder to come back to it, not to delete it.">★ Timeframe &amp; Priority picker</span>', dev.fieldPickerStyle, [
+      ['default','Default (dropdown)'],
+      ['buttons','Row of buttons'],
+      ['progress','Stylized progress bar']
+    ], 'setDevFieldPickerStyle')}
     <!-- categoryLabelStyle — see categoryLabelHtml()'s own comment in
          08-render-core.js: only affects the full task detail page's own
          category label (top-right of the page), not the tab bar itself. -->
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Task detail page's category label</span>
-      <select class="${selectClass}" onchange="setDevCategoryLabelStyle(this.value)">
-        <option value="tab" ${dev.categoryLabelStyle==='tab'?'selected':''}>Colored tab (default)</option>
-        <option value="tape" ${dev.categoryLabelStyle==='tape'?'selected':''}>Washi tape</option>
-      </select>
-    </div>
+    ${devField("Task detail page's category label", dev.categoryLabelStyle, [
+      ['tab','Colored tab (default)'],
+      ['tape','Washi tape']
+    ], 'setDevCategoryLabelStyle')}
 
     ${devSectionHeadHtml('Tab Bar')}
     <label class="${rowClass}">
@@ -4702,57 +4699,45 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
 
   const desktopBody = `
     ${devSectionHeadHtml('Tab Bar')}
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Tab bar style</span>
-      <select class="${selectClass}" onchange="setDevTabBarDesktopStyle(this.value)">
-        <option value="overlap" ${dev.tabBarDesktopStyle==='overlap'?'selected':''}>Overlapping color tabs (default)</option>
-        <option value="default" ${dev.tabBarDesktopStyle==='default'?'selected':''}>Classic (horizontal pill row)</option>
-        <option value="sidetabs" ${dev.tabBarDesktopStyle==='sidetabs'?'selected':''}>Vertical tabs down the left side</option>
-        <option value="indextabs" ${dev.tabBarDesktopStyle==='indextabs'?'selected':''}>Staggered, color-edged index tabs</option>
-      </select>
-    </div>
+    ${devField('Tab bar style', dev.tabBarDesktopStyle, [
+      ['overlap','Overlapping color tabs (default)'],
+      ['default','Classic (horizontal pill row)'],
+      ['sidetabs','Vertical tabs down the left side'],
+      ['indextabs','Staggered, color-edged index tabs']
+    ], 'setDevTabBarDesktopStyle')}
     <div class="devgroupnote">See also Tab Bar under Mobile — this is the same underlying choice, answered separately per viewport.</div>
     ${dev.tabBarDesktopStyle==='overlap' ? `
     <label class="${rowClass}">
       <input type="checkbox" ${dev.overlapSubtags?'checked':''} onchange="toggleDevSetting('overlapSubtags', this.checked)">
       Overlap tabs: floating count badge instead of inline icon/number (only shown when a category has open tasks; adds "!" for anything overdue or High priority)
     </label>
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Overlap tabs: hover/select behavior</span>
-      <select class="${selectClass}" onchange="setDevOverlapHoverMode(this.value)">
-        <option value="default" ${dev.overlapHoverMode==='default'?'selected':''}>Default (hover reorders to the front)</option>
-        <option value="push" ${dev.overlapHoverMode==='push'?'selected':''}>Fixed order — hovering/selecting pushes neighbors aside instead</option>
-      </select>
-    </div>
+    ${devField('Overlap tabs: hover/select behavior', dev.overlapHoverMode, [
+      ['default','Default (hover reorders to the front)'],
+      ['push','Fixed order — hovering/selecting pushes neighbors aside instead']
+    ], 'setDevOverlapHoverMode')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.overlapRankStagger?'checked':''} onchange="toggleDevSetting('overlapRankStagger', this.checked)">
       Overlap tabs: stagger by stacking rank (a covered tab sits a little higher at rest so its own label still peeks over the one covering it)
     </label>
     ` : ''}
     ${dev.tabBarDesktopStyle==='sidetabs' ? `
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Side tabs: appearance</span>
-      <select class="${selectClass}" onchange="setDevSidetabsAppearance(this.value)">
-        <option value="color" ${dev.sidetabsAppearance==='color'?'selected':''}>Colored label (default)</option>
-        <option value="translucentpill" ${dev.sidetabsAppearance==='translucentpill'?'selected':''}>Translucent pill, with icon</option>
-        <option value="edge" ${dev.sidetabsAppearance==='edge'?'selected':''}>Left edge color only, no icon</option>
-        <option value="classic" ${dev.sidetabsAppearance==='classic'?'selected':''}>Classic (original full-width column)</option>
-        <option value="classicband" ${dev.sidetabsAppearance==='classicband'?'selected':''}>Classic + color band (no icon)</option>
-      </select>
-    </div>
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Side tabs: shape (Colored/Translucent Pill/Edge only)</span>
-      <select class="${selectClass}" onchange="setDevSidetabsShape(this.value)">
-        <option value="pagetab" ${dev.sidetabsShape==='pagetab'?'selected':''}>Page-tab point (default)</option>
-        <option value="invertedv" ${dev.sidetabsShape==='invertedv'?'selected':''}>Inverted V</option>
-        <option value="arrows" ${dev.sidetabsShape==='arrows'?'selected':''}>Arrows out</option>
-        <option value="jagged" ${dev.sidetabsShape==='jagged'?'selected':''}>Jagged edge</option>
-        <option value="sawtooth" ${dev.sidetabsShape==='sawtooth'?'selected':''}>Clean sawtooth</option>
-        <option value="flat" ${dev.sidetabsShape==='flat'?'selected':''}>Flat (no point)</option>
-        <option value="random" ${dev.sidetabsShape==='random'?'selected':''}>Random (stable per tab)</option>
-        <option value="iconstyle" ${dev.sidetabsShape==='iconstyle'?'selected':''}>Depending on icon style</option>
-      </select>
-    </div>
+    ${devField('Side tabs: appearance', dev.sidetabsAppearance, [
+      ['color','Colored label (default)'],
+      ['translucentpill','Translucent pill, with icon'],
+      ['edge','Left edge color only, no icon'],
+      ['classic','Classic (original full-width column)'],
+      ['classicband','Classic + color band (no icon)']
+    ], 'setDevSidetabsAppearance')}
+    ${devField('Side tabs: shape (Colored/Translucent Pill/Edge only)', dev.sidetabsShape, [
+      ['pagetab','Page-tab point (default)'],
+      ['invertedv','Inverted V'],
+      ['arrows','Arrows out'],
+      ['jagged','Jagged edge'],
+      ['sawtooth','Clean sawtooth'],
+      ['flat','Flat (no point)'],
+      ['random','Random (stable per tab)'],
+      ['iconstyle','Depending on icon style']
+    ], 'setDevSidetabsShape')}
     ` : ''}
   `;
 
@@ -4763,52 +4748,37 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     </label>
 
     ${devSectionHeadHtml('Quick-Add Bar')}
-    <div class="${fieldClass}">
-      <span class="${captionClass}">"+ Add Task" button position</span>
-      <select class="${selectClass}" onchange="setDevQuickAddTriggerPosition(this.value)">
-        <option value="bottom" ${(dev.quickAddTriggerPosition||'bottom')==='bottom'?'selected':''}>Bottom of the screen (sticky)</option>
-        <option value="top" ${dev.quickAddTriggerPosition==='top'?'selected':''}>Top of the page, under the tabs (sticky)</option>
-      </select>
-    </div>
-    <div class="${fieldClass}">
-      <span class="${captionClass}">"+ Add Task" button opens…</span>
-      <select class="${selectClass}" onchange="setDevQuickAddMobileStyle(this.value)">
-        <option value="topsheet" ${dev.quickAddMobileStyle==='topsheet'?'selected':''}>"+ Add Task" button opens a top sheet</option>
-        <option value="bottomsheet" ${dev.quickAddMobileStyle==='bottomsheet'?'selected':''}>"+ Add Task" button opens a bottom sheet</option>
-        <option value="inline" ${dev.quickAddMobileStyle==='inline'?'selected':''}>"+ Add Task" button expands it in place</option>
-      </select>
-    </div>
+    ${devField('"+ Add Task" button position', dev.quickAddTriggerPosition||'bottom', [
+      ['bottom','Bottom of the screen (sticky)'],
+      ['top','Top of the page, under the tabs (sticky)']
+    ], 'setDevQuickAddTriggerPosition')}
+    ${devField('"+ Add Task" button opens…', dev.quickAddMobileStyle, [
+      ['topsheet','"+ Add Task" button opens a top sheet'],
+      ['bottomsheet','"+ Add Task" button opens a bottom sheet'],
+      ['inline','"+ Add Task" button expands it in place']
+    ], 'setDevQuickAddMobileStyle')}
 
     ${devSectionHeadHtml('Task Rows & Detail')}
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Task row layout</span>
-      <select class="${selectClass}" onchange="setDevTaskRowMobileStyle(this.value)">
-        <option value="default" ${dev.taskRowMobileStyle==='default'?'selected':''}>Default (badges squeeze the title)</option>
-        <option value="stacked" ${dev.taskRowMobileStyle==='stacked'?'selected':''}>Stacked — badges drop below the title</option>
-        <option value="minimal" ${dev.taskRowMobileStyle==='minimal'?'selected':''}>Minimal — hide drag handle & category dot</option>
-      </select>
-    </div>
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Task detail fields</span>
-      <select class="${selectClass}" onchange="setDevTaskDetailMobileStyle(this.value)">
-        <option value="default" ${dev.taskDetailMobileStyle==='default'?'selected':''}>Default (one cramped wrapping row)</option>
-        <option value="stacked" ${dev.taskDetailMobileStyle==='stacked'?'selected':''}>Stacked — one full-width field per row</option>
-        <option value="grouped" ${dev.taskDetailMobileStyle==='grouped'?'selected':''}>Grouped — 2-column fields + an even action row</option>
-      </select>
-    </div>
-    <div class="${fieldClass}">
-      <!-- Only affects mobile's long-press, and mobile's tap under
-           'detail' — every other tap (desktop always, mobile under
-           'default'/'split') opens the inline Steps-only quick view
-           regardless of this setting; see taskRowTap()/taskRowHtml()'s
-           own comments in 08-render-core.js. -->
-      <span class="${captionClass}">Task tap/long-press (mobile)</span>
-      <select class="${selectClass}" onchange="setDevTaskLongPressMode(this.value)">
-        <option value="detail" ${dev.taskLongPressMode==='detail'?'selected':''}>Detail (default) — mobile tap opens the full task page; long-press shows a quick-actions menu</option>
-        <option value="split" ${dev.taskLongPressMode==='split'?'selected':''}>Split — tap opens Steps; mobile long-press opens a full-fields bottom sheet</option>
-        <option value="default" ${dev.taskLongPressMode==='default'?'selected':''}>Classic — tap opens Steps; no long-press action</option>
-      </select>
-    </div>
+    ${devField('Task row layout', dev.taskRowMobileStyle, [
+      ['default','Default (badges squeeze the title)'],
+      ['stacked','Stacked — badges drop below the title'],
+      ['minimal','Minimal — hide drag handle & category dot']
+    ], 'setDevTaskRowMobileStyle')}
+    ${devField('Task detail fields', dev.taskDetailMobileStyle, [
+      ['default','Default (one cramped wrapping row)'],
+      ['stacked','Stacked — one full-width field per row'],
+      ['grouped','Grouped — 2-column fields + an even action row']
+    ], 'setDevTaskDetailMobileStyle')}
+    <!-- Only affects mobile's long-press, and mobile's tap under
+         'detail' — every other tap (desktop always, mobile under
+         'default'/'split') opens the inline Steps-only quick view
+         regardless of this setting; see taskRowTap()/taskRowHtml()'s
+         own comments in 08-render-core.js. -->
+    ${devField('Task tap/long-press (mobile)', dev.taskLongPressMode, [
+      ['detail','Detail (default) — mobile tap opens the full task page; long-press shows a quick-actions menu'],
+      ['split','Split — tap opens Steps; mobile long-press opens a full-fields bottom sheet'],
+      ['default','Classic — tap opens Steps; no long-press action']
+    ], 'setDevTaskLongPressMode')}
 
     ${devSectionHeadHtml('Quick Capture')}
     <label class="${rowClass}">
@@ -4817,23 +4787,17 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     </label>
 
     ${devSectionHeadHtml('Tab Bar')}
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Tab bar style</span>
-      <select class="${selectClass}" onchange="setDevTabBarMobileStyle(this.value)">
-        <option value="default" ${dev.tabBarMobileStyle==='default'?'selected':''}>Default (wraps to a 2nd row)</option>
-        <option value="scroll" ${dev.tabBarMobileStyle==='scroll'?'selected':''}>Scrolls sideways, one row</option>
-      </select>
-    </div>
+    ${devField('Tab bar style', dev.tabBarMobileStyle, [
+      ['default','Default (wraps to a 2nd row)'],
+      ['scroll','Scrolls sideways, one row']
+    ], 'setDevTabBarMobileStyle')}
     <div class="devgroupnote">See also Tab Bar under Desktop — this is the same underlying choice, answered separately per viewport.</div>
 
     ${devSectionHeadHtml('Settings Panel')}
-    <div class="${fieldClass}">
-      <span class="${captionClass}">Settings category rows</span>
-      <select class="${selectClass}" onchange="setDevSettingsRowMobileStyle(this.value)">
-        <option value="default" ${dev.settingsRowMobileStyle==='default'?'selected':''}>Default (everything one flat row)</option>
-        <option value="grouped" ${dev.settingsRowMobileStyle==='grouped'?'selected':''}>Grouped — Delete moves to its own quiet row</option>
-      </select>
-    </div>
+    ${devField('Settings category rows', dev.settingsRowMobileStyle, [
+      ['default','Default (everything one flat row)'],
+      ['grouped','Grouped — Delete moves to its own quiet row']
+    ], 'setDevSettingsRowMobileStyle')}
   `;
 
   return `
@@ -5167,6 +5131,15 @@ let devPanelOpen = false;
 let claudeView = null; // null | 'digest' | 'full' — a plain-text view meant for a page-reading agent, not a category/day view
 let pendingDeleteCategoryId = null;
 let pendingDeleteLocationId = null;
+// The "add a new tab" row's type picker (Standard/Checklist) — used to be
+// a native <select> whose live DOM value addCategory() read directly at
+// Enter-press time; now a custom dropdown (customSelectHtml(),
+// 09-settings.js), which has no DOM element with a .value of its own, so
+// the picked type has to live in real state instead. Reset to 'standard'
+// right alongside clearing the name field on a successful add (see
+// tabsSection() in renderSettings()), same "start fresh for the next
+// one" reasoning that clearing the text input already followed.
+let newCatTypeDraft = 'standard';
 // Mobile UI Lab overlay state (see defaultDevSettings() above and
 // toggleQuickAddSheet()/openFabAdd() in 16-task-crud.js) — pure UI chrome,
 // never persisted, same as the other open/closed flags on this page.
@@ -8789,17 +8762,14 @@ function renderSettings(){
   // fields.
   const devSection = devSettingsFieldsHtml('catlocchk devsettingsrow', 'devpanelfield', 'devpanelcaption', 'devpanelselect');
 
-  const newCatTypeTooltip = "Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off.";
-
   const tabsSection = `
     ${rows}
     <div class="catrow">
       <input type="text" class="catedit" placeholder="+ add a new tab, enter to save" id="newCatNameInput"
-        onkeydown="if(event.key==='Enter'){ addCategory(this.value, document.getElementById('newCatTypeSelect').value); this.value=''; }">
-      <select class="catselect" id="newCatTypeSelect" title="${newCatTypeTooltip}">
-        <option value="standard">Standard</option>
-        <option value="checklist">Checklist</option>
-      </select>
+        onkeydown="if(event.key==='Enter'){ addCategory(this.value, newCatTypeDraft); this.value=''; newCatTypeDraft='standard'; }">
+      <span title="Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off.">
+        ${customSelectHtml('newCatType', [['standard','Standard'],['checklist','Checklist']], newCatTypeDraft, 'setNewCatTypeDraft', 'catselect')}
+      </span>
     </div>
   `;
 
@@ -8883,6 +8853,14 @@ async function deleteCategory(id){
   if(activeTab === id) activeTab = 'all';
   render();
   queueSave();
+}
+
+// Pure UI draft, not a content mutation — no pushUndo, same as any other
+// not-yet-submitted form field. See newCatTypeDraft's own comment in
+// 02-storage-state.js.
+function setNewCatTypeDraft(val){
+  newCatTypeDraft = val;
+  render();
 }
 
 // Type is fixed at creation — there's no UI to convert a tab afterward

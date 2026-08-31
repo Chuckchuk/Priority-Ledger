@@ -220,17 +220,14 @@ function renderSettings(){
   // fields.
   const devSection = devSettingsFieldsHtml('catlocchk devsettingsrow', 'devpanelfield', 'devpanelcaption', 'devpanelselect');
 
-  const newCatTypeTooltip = "Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off.";
-
   const tabsSection = `
     ${rows}
     <div class="catrow">
       <input type="text" class="catedit" placeholder="+ add a new tab, enter to save" id="newCatNameInput"
-        onkeydown="if(event.key==='Enter'){ addCategory(this.value, document.getElementById('newCatTypeSelect').value); this.value=''; }">
-      <select class="catselect" id="newCatTypeSelect" title="${newCatTypeTooltip}">
-        <option value="standard">Standard</option>
-        <option value="checklist">Checklist</option>
-      </select>
+        onkeydown="if(event.key==='Enter'){ addCategory(this.value, newCatTypeDraft); this.value=''; newCatTypeDraft='standard'; }">
+      <span title="Standard tabs track due dates, priority, and timeframe. Checklist tabs are simple named lists of items — good for groceries, packing, shopping, anything you just need to check off.">
+        ${customSelectHtml('newCatType', [['standard','Standard'],['checklist','Checklist']], newCatTypeDraft, 'setNewCatTypeDraft', 'catselect')}
+      </span>
     </div>
   `;
 
@@ -314,6 +311,14 @@ async function deleteCategory(id){
   if(activeTab === id) activeTab = 'all';
   render();
   queueSave();
+}
+
+// Pure UI draft, not a content mutation — no pushUndo, same as any other
+// not-yet-submitted form field. See newCatTypeDraft's own comment in
+// 02-storage-state.js.
+function setNewCatTypeDraft(val){
+  newCatTypeDraft = val;
+  render();
 }
 
 // Type is fixed at creation — there's no UI to convert a tab afterward
