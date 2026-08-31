@@ -46,7 +46,12 @@ function checklistPendingItems(t){
 function renderChecklistOverview(categoryId){
   const cat = CATEGORIES[categoryId];
   const lists = checklistLists(categoryId);
-  const visible = lists.filter(t => showDone || t.status!=='done');
+  // completingTaskIds keeps a just-completed list visible in its original
+  // spot through its own linger-then-collapse (see toggleStatus()/
+  // scheduleTaskLeave(), 16-task-crud.js) instead of vanishing (or
+  // re-sorting to the bottom) the instant its status flips — same
+  // categoryVisibleTasks() does for a standard task row.
+  const visible = lists.filter(t => showDone || t.status!=='done' || completingTaskIds.has(t.id));
   const doneCount = lists.filter(t=>t.status==='done').length;
   const pendingTotal = lists.reduce((sum,t)=>sum+checklistPendingItems(t).length, 0);
   return `
@@ -102,15 +107,49 @@ const PEG_START_DEG = -30;
 // round slightly differently from every other, not just the 0° one —
 // each HTML element is still its own independent layout/paint unit
 // regardless of how many get a compositing layer. SVG shapes don't have
-// that problem: every <rect> here is part of one <svg>, rendered as a
+// that problem: every peg here is part of one <svg>, rendered as a
 // single vector rasterization pass, so they scale together identically
 // under any zoom level instead of each being its own independently-
 // rounded box. Same 34×34 viewBox as .checkcircle-wrap's own pixel size
-// (1 viewBox unit == 1 CSS px at rest), so the coordinates below are the
-// exact same numbers the old absolutely-positioned peg used relative to
-// its pivot: a peg 6 wide, 5 tall, sitting 14px out from center (17,17),
-// rotated per-slot around that same center point via SVG's own
-// transform="rotate(angle cx cy)" instead of a wrapping pivot element.
+// (1 viewBox unit == 1 CSS px at rest), rotated per-slot around that same
+// center point via SVG's own transform="rotate(angle cx cy)" instead of
+// a wrapping pivot element — see pegArcPath() below for the peg's own
+// shape (an annular arc, not a flat rect, as of the pass that added it).
+// A peg's own outer/inner edges follow the ring's curvature (an annular
+// arc segment — straight radial sides, curved top/bottom) instead of a
+// flat-topped rectangle, per the explicit ask to have them read as part
+// of the circle they sit around rather than free-floating little boxes.
+// Computed with real trigonometry (not hand-typed path coordinates) so
+// the curve is exact regardless of radius/angle, and centered on angle 0
+// (straight up) — the caller rotates the whole path to a slot's real
+// angle the same way the old <rect> did, since rotating a shape that's
+// already correct at angle 0 is simpler and less error-prone than
+// re-deriving each slot's own corner points directly.
+// cx/cy: ring center. rInner/rOuter: radius the peg's near/far edge sits
+// at. halfWidthDeg: half the peg's own angular width.
+function pegArcPath(cx, cy, rInner, rOuter, halfWidthDeg){
+  const toXY = (r, deg) => {
+    const rad = deg * Math.PI / 180;
+    return [cx + r * Math.sin(rad), cy - r * Math.cos(rad)];
+  };
+  const [ox1, oy1] = toXY(rOuter, -halfWidthDeg);
+  const [ox2, oy2] = toXY(rOuter, halfWidthDeg);
+  const [ix2, iy2] = toXY(rInner, halfWidthDeg);
+  const [ix1, iy1] = toXY(rInner, -halfWidthDeg);
+  const r3 = n => Math.round(n * 1000) / 1000;
+  return `M ${r3(ox1)} ${r3(oy1)} A ${rOuter} ${rOuter} 0 0 1 ${r3(ox2)} ${r3(oy2)} `
+       + `L ${r3(ix2)} ${r3(iy2)} A ${rInner} ${rInner} 0 0 0 ${r3(ix1)} ${r3(iy1)} Z`;
+}
+// Same radial span the old flat peg used (outer edge 14px out from
+// center, inner edge 9px out — a 5px-thick band), and a half-width
+// (12°) chosen so adjacent pegs still read as separate, slightly
+// distinct ticks at PEG_SLOT_DEG's 30° spacing without touching quite as
+// aggressively as the old rect's corners did.
+const PEG_R_OUTER = 14;
+const PEG_R_INNER = 9;
+const PEG_HALF_WIDTH_DEG = 12;
+const PEG_PATH_AT_ZERO = pegArcPath(17, 17, PEG_R_INNER, PEG_R_OUTER, PEG_HALF_WIDTH_DEG);
+
 function checklistProgressHtml(subs){
   if(!subs.length) return '';
   const done = subs.filter(s=>s.done).length;
@@ -126,7 +165,7 @@ function checklistProgressHtml(subs){
     const ordered = subs.map((s,i)=>({s,i})).sort((a,b)=>(a.s.done?1:0)-(b.s.done?1:0));
     const pegs = ordered.map(({s,i})=>{
       const angle = PEG_START_DEG + i*PEG_SLOT_DEG;
-      return `<rect class="peg ${s.done?'filled':''}" x="14" y="3" width="6" height="5" rx="1" transform="rotate(${angle} 17 17)"></rect>`;
+      return `<path class="peg ${s.done?'filled':''}" d="${PEG_PATH_AT_ZERO}" transform="rotate(${angle} 17 17)"></path>`;
     }).join('');
     return `<svg class="pegring" viewBox="0 0 34 34">${pegs}</svg>`;
   }
@@ -137,22 +176,30 @@ function checklistProgressHtml(subs){
 // Shared by the small icon next to each row in the overview and the
 // large header atop a list's own detail page (.checklistheader scales
 // this same markup up via CSS transform) — one definition means the two
-// can never drift out of sync with each other.
-function checklistCheckcircleHtml(t){
+// can never drift out of sync with each other. `subtle` threads straight
+// through to checkGuideClass() exactly the way taskRowHtml()/
+// renderTaskDetailPage() pass it for a standard task's own .check: true
+// from the overview row (several rows on screen at once), false from the
+// detail header (the one dominant action on that whole page). A
+// checklist "list" is a plain task under the hood (see this file's own
+// top comment), so checkGuideClass()/checkCelebrateClass()
+// (08-render-core.js) work here completely unchanged — they only ever
+// read t.status/t.id/subs, nothing task-shaped-specifically.
+function checklistCheckcircleHtml(t, subtle){
   const subs = t.subtasks || [];
   const done = subs.filter(s=>s.done).length;
   const total = subs.length;
   return `<div class="checkcircle-wrap" title="${total ? `${done}/${total} items` : ''}">
     ${checklistProgressHtml(subs)}
-    <div class="checkcircle ${t.status==='done'?'done':''}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
+    <div class="checkcircle ${t.status==='done'?'done':''}${checkGuideClass(t, subs, subtle)}${checkCelebrateClass(t)}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
   </div>`;
 }
 
 function checklistListRowHtml(t){
   return `
-  <li class="task" onclick="openChecklistList('${t.id}')">
+  <li class="task" data-task-id="${t.id}" onclick="openChecklistList('${t.id}')">
     <div class="row">
-      ${checklistCheckcircleHtml(t)}
+      ${checklistCheckcircleHtml(t, true)}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}<span class="listdate">${fmtDate(t.createdAt)}</span></div>
     </div>
   </li>`;
@@ -170,7 +217,7 @@ function renderChecklistDetail(taskId){
   return `
     <div class="stackedpage">
       ${pageTagHtml('closeChecklistList()', backLabel)}
-      <div class="checklistheader">${checklistCheckcircleHtml(t)}</div>
+      <div class="checklistheader">${checklistCheckcircleHtml(t, false)}</div>
       <input type="text" class="titleedit bigtitle" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">

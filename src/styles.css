@@ -631,28 +631,48 @@
   /* ---- "All steps done" checkbox nudge (guide-check) ----
      See checkGuideClass() in 08-render-core.js for when this applies —
      purely derived from a task's own subtask state, no JS timer behind
-     it. --guide-iter/--guide-scale/--guide-opacity are the shared knobs
-     every style below reads, so guide-quick/guide-full (how long it
-     plays) and guide-subtle (how strong it reads) each only have to set
-     the custom properties once instead of forking every keyframe rule
-     per combination. Full intensity is the full task detail page's own
-     .check; guide-subtle dials it back for a task-list row, where a
-     dramatic looping effect next to several other rows would be more
-     distracting than inviting. */
-  .check.guide-check{ --guide-iter: infinite; --guide-scale: 1.7; --guide-opacity: 0.85; }
-  .check.guide-quick{ --guide-iter: 2; }
-  .check.guide-subtle{ --guide-scale: 1.3; --guide-opacity: 0.5; }
-  .check.guide-spin::before{
-    content:'';
-    position:absolute; inset:-4px;
-    border-radius:6px;
-    background: conic-gradient(from 0deg, var(--primary), transparent 45%, var(--primary));
-    opacity: var(--guide-opacity);
-    animation: check-guide-spin 1s linear var(--guide-iter);
-    pointer-events:none;
+     it — and checklistCheckcircleHtml() (13-checklist.js) for the
+     checklist side, which reuses that same function and the exact same
+     class names. Every rule below is written against :is(.check,
+     .checkcircle) rather than duplicated per shape, since the two are
+     the same 18×18 box either way (.checkcircle-wrap just centers
+     .checkcircle inside its own bigger 34px ring) — a style only needs
+     its own circle-specific override when it draws something whose
+     *shape*, not just its size, was tuned for .check's square corners;
+     guide-radialping is the one case that's true for (see its own
+     .checkcircle override below). --guide-iter/--guide-scale/
+     --guide-opacity are the shared knobs every style reads, so
+     guide-quick/guide-full (how long it plays) and guide-subtle (how
+     strong it reads) each only have to set the custom properties once
+     instead of forking every keyframe rule per combination. Full
+     intensity is the full task/list detail page's own big header;
+     guide-subtle dials it back for a list row, where a dramatic looping
+     effect next to several other rows would be more distracting than
+     inviting. */
+  :is(.check, .checkcircle).guide-check{ --guide-iter: infinite; --guide-scale: 1.7; --guide-opacity: 0.85; }
+  :is(.check, .checkcircle).guide-quick{ --guide-iter: 2; }
+  :is(.check, .checkcircle).guide-subtle{ --guide-scale: 1.3; --guide-opacity: 0.5; }
+  /* A quick attention-getting shake — rotating the checkbox itself back
+     and forth a few degrees, the same "hey, look here" gesture regardless
+     of whether the thing shaking is a square or a circle, which is what
+     replaced the previous "spinning color ring" style here: a rotating
+     conic-gradient square behind the checkbox, which (a) only ever read
+     as a square regardless of what it was drawn behind, and (b) looked
+     like a loading spinner more than a nudge. Animates .check's own
+     transform directly rather than a ::before, so nothing needs a
+     circle-specific override — a rotation doesn't care what shape is
+     doing the rotating. */
+  :is(.check, .checkcircle).guide-wiggle{
+    animation: check-guide-wiggle 0.6s ease-in-out var(--guide-iter);
   }
-  @keyframes check-guide-spin{ to{ transform: rotate(360deg); } }
-  .check.guide-sparkle::before{
+  @keyframes check-guide-wiggle{
+    0%, 100%{ transform: rotate(0deg); }
+    20%{ transform: rotate(-12deg); }
+    40%{ transform: rotate(9deg); }
+    60%{ transform: rotate(-6deg); }
+    80%{ transform: rotate(3deg); }
+  }
+  :is(.check, .checkcircle).guide-sparkle::before{
     content:'';
     position:absolute; inset:-10px;
     background:
@@ -669,7 +689,13 @@
     0%, 100%{ opacity:0; transform:scale(0.7); }
     50%{ opacity: var(--guide-opacity); transform:scale(1); }
   }
-  .check.guide-radialping::before{
+  /* "Boxy" only for .check — border-radius:4px matches its own square
+     corners. .checkcircle's own override right below swaps that to 50%
+     so the ping expands as a circle in step with the checkbox it's
+     centered on, instead of a square ring visibly mismatched against a
+     round box. Everything else about the animation (timing, scale,
+     opacity) is identical between the two. */
+  :is(.check, .checkcircle).guide-radialping::before{
     content:'';
     position:absolute; inset:0;
     border:2px solid var(--primary);
@@ -677,11 +703,12 @@
     animation: check-guide-ping 1.2s ease-out var(--guide-iter);
     pointer-events:none;
   }
+  .checkcircle.guide-radialping::before{ border-radius:50%; }
   @keyframes check-guide-ping{
     0%{ transform:scale(1); opacity: var(--guide-opacity); }
     100%{ transform:scale(var(--guide-scale)); opacity:0; }
   }
-  .check.guide-glow{
+  :is(.check, .checkcircle).guide-glow{
     animation: check-guide-glow 1s ease-in-out var(--guide-iter) alternate;
   }
   @keyframes check-guide-glow{
@@ -691,12 +718,16 @@
 
   /* ---- Checkbox celebration (celebrate-check) ----
      The payoff once the box is actually checked — see celebrateCheckTaskId
-     in 16-task-crud.js for the one-shot flag driving this. A quick pop on
-     the checkbox itself plus a radiating halo on ::before; ::after stays
-     off-limits since .check.done already uses it for the ✓ glyph. Fixed,
-     not a dev-setting style like guide-check above — this is the app's
-     one deliberate "you did it" moment, not something to vary. */
-  .check.celebrate-check{
+     in 16-task-crud.js for the one-shot flag driving this (shared as-is
+     by checklist lists too, see checkCelebrateClass()'s own comment). A
+     quick pop on the checkbox itself plus a radiating halo on ::before;
+     ::after stays off-limits since .done already uses it for the ✓
+     glyph. Fixed, not a dev-setting style like guide-check above — this
+     is the app's one deliberate "you did it" moment, not something to
+     vary. The halo is already a circle (border-radius:50%) regardless of
+     which shape it's radiating from, so :is(.check, .checkcircle) is all
+     .checkcircle needs here too — no separate override required. */
+  :is(.check, .checkcircle).celebrate-check{
     animation: check-celebrate-pop 0.5s cubic-bezier(.34,1.56,.64,1);
   }
   @keyframes check-celebrate-pop{
@@ -704,7 +735,7 @@
     45%{ transform:scale(1.4); }
     100%{ transform:scale(1); }
   }
-  .check.celebrate-check::before{
+  :is(.check, .checkcircle).celebrate-check::before{
     content:'';
     position:absolute; inset:-14px;
     border-radius:50%;
@@ -740,13 +771,49 @@
      pegs/ring sit absolutely inside it — so rows stay column-aligned the
      same way .checkwrap does for .check. */
   .checkcircle-wrap{ position:relative; width:34px; height:34px; flex-shrink:0; }
+  /* top/left:8px, not 50%+transform:translate(-50%,-50%) — .checkcircle-wrap
+     is an even 34px and .checkcircle an even 18px, so (34-18)/2 is a
+     whole-pixel 8, and centering via a fixed offset instead of a
+     percentage+transform leaves `transform` itself completely free for
+     guide-wiggle/celebrate-pop (both above) to animate without a base
+     translate() they'd have to know about and re-include on every frame —
+     an animation's own transform value replaces whatever was there
+     before, it doesn't compose with it. */
   .checkcircle{
-    position:absolute; top:50%; left:50%; transform: translate(-50%,-50%); z-index:1;
+    position:absolute; top:8px; left:8px; z-index:1;
     width:18px; height:18px; border:1.5px solid var(--ink-soft); border-radius:50%;
     display:flex; align-items:center; justify-content:center; cursor:pointer; background: var(--card-bg);
+    transition: border-color 130ms ease, box-shadow 130ms ease;
   }
   .checkcircle.done{ background: var(--ink); border-color: var(--ink); }
   .checkcircle.done::after{ content:'✓'; color: var(--card-bg); font-size:10px; }
+  /* Same hover language as .check (see its own comment) — a colored ring,
+     ink-toned once done. translate(-50%,-50%) already centers .checkcircle
+     at rest; the guide-wiggle/celebrate-pop animations above set their own
+     transform during their run, same as .check, and this hover rule
+     doesn't fight them since it only ever applies between animations. */
+  .checkcircle:hover{
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+  }
+  .checkcircle.done:hover{
+    border-color: var(--ink);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 16%, transparent);
+  }
+  /* The checklist detail page's own big header circle — same "stronger
+     feedback on the one dominant action on this page" idea as
+     .taskdetailhead .check:hover, just without the extra scale (the
+     header already scales the whole .checkcircle-wrap up via CSS
+     transform — see .checklistheader .checkcircle-wrap below — piling a
+     hover-only scale on top of that risks it reading as jumpy rather than
+     additive, unlike .check's own header which isn't already scaled up
+     by its wrapper the same way). */
+  .checklistheader .checkcircle:hover{
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 22%, transparent);
+  }
+  .checklistheader .checkcircle.done:hover{
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--ink) 22%, transparent);
+  }
   /* Each peg is a genuine fixed-size rectangle (not a conic-gradient arc
      slice — those are wedges, wider at the outer edge than the inner
      one, which read as "trapezoids" rather than boxes), rotated around

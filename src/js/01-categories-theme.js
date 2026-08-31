@@ -724,18 +724,26 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     </div>
     <!-- checkGuideAnimationStyle — see the "check-guide" comment in
          08-render-core.js for the full mechanism: this only picks which
-         visual language plays on the main checkbox while every step is
-         done but the task itself isn't checked off yet, guiding you to
-         it. Lives in General (not the mobile-gated "Task Rows & Detail"
-         group above) since the guide shows on whichever .check is on
-         screen — list row or full task page, desktop or mobile — not
-         just under the Mobile UI Lab. -->
+         visual language plays on the main checkbox (and a checklist
+         list's own .checkcircle — see checklistCheckcircleHtml(),
+         13-checklist.js) while every step is done but the task/list
+         itself isn't checked off yet, guiding you to it. Lives in
+         General (not the mobile-gated "Task Rows & Detail" group above)
+         since the guide shows on whichever checkbox is on screen — list
+         row or full detail page, desktop or mobile — not just under the
+         Mobile UI Lab. Default is 'radialping' (per the project owner's
+         own call) rather than the first option here; 'wiggle' replaced
+         a former 'spin' style (a rotating gradient square) that didn't
+         read as a nudge and, being hardcoded square, couldn't work for
+         .checkcircle's own round shape either — see the migration note
+         on checkGuideAnimationStyle in normalizeState(),
+         02-storage-state.js. -->
     <div class="${fieldClass}">
       <span class="${captionClass}">"All steps done" checkbox nudge</span>
       <select class="${selectClass}" onchange="setDevCheckGuideAnimationStyle(this.value)">
-        <option value="spin" ${dev.checkGuideAnimationStyle==='spin'?'selected':''}>Spinning color ring</option>
+        <option value="radialping" ${dev.checkGuideAnimationStyle==='radialping'?'selected':''}>Boxy radial ping (default)</option>
+        <option value="wiggle" ${dev.checkGuideAnimationStyle==='wiggle'?'selected':''}>Wiggle</option>
         <option value="sparkle" ${dev.checkGuideAnimationStyle==='sparkle'?'selected':''}>Sparkles</option>
-        <option value="radialping" ${dev.checkGuideAnimationStyle==='radialping'?'selected':''}>Boxy radial ping</option>
         <option value="glow" ${dev.checkGuideAnimationStyle==='glow'?'selected':''}>Warm pulsing glow</option>
       </select>
     </div>
