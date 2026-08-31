@@ -2243,10 +2243,20 @@
   .colorsplit{ margin-bottom:12px; }
   .colorsplit-colors{ margin-bottom:12px; }
   body:not(.mobileui-active) .colorsplit{
-    display:flex; align-items:flex-start; gap:24px;
+    display:flex; align-items:stretch;
   }
-  body:not(.mobileui-active) .colorsplit-colors{ flex:0 0 auto; margin-bottom:0; }
-  body:not(.mobileui-active) .colorsplit-options{ flex:1; min-width:0; padding-top:8px; }
+  /* A fixed width, not flex:0 0 auto — the left column used to size
+     itself off whichever of its two rows' text happened to be longer
+     ("Desk & Ledger — Navy & Parchment" vs. "UI Colors — Brass & Rust"),
+     which meant picking a different preset could shift the checkbox on
+     the right sideways. A dashed rule between the two (border-left on
+     the options side, so it only ever spans that side's own content
+     height) reads as a real divider rather than just empty gap. */
+  body:not(.mobileui-active) .colorsplit-colors{ flex:0 0 270px; min-width:0; margin-bottom:0; }
+  body:not(.mobileui-active) .colorsplit-options{
+    flex:1; min-width:0; padding:8px 0 0 20px; margin-left:20px;
+    border-left:1px dashed var(--line);
+  }
   .texturerow{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
   .texturebtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.03em;
