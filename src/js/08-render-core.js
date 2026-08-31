@@ -63,15 +63,24 @@ function taskTodayTitle(t){
     : 'Add to today’s list';
 }
 
-function taskCoreFieldsRowHtml(t, canRemoveHere){
+// hideCategory is true only from the full task detail page
+// (renderTaskDetailPage(), via taskExpandFieldsHtml()) — that page now
+// shows the category as a tab-styled label in its own header instead
+// (categoryLabelHtml(), further below), so the plain <select> here would
+// just be a second, redundant way to do the same thing. The long-press
+// bottom sheet (taskManagementFieldsHtml()) has no header to move it to
+// and isn't part of this redesign, so it keeps the <select> exactly as
+// it always has (hideCategory omitted, defaults falsy).
+function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory){
   const todayTitle = taskTodayTitle(t);
   return `
       <div class="expand-row">
+        ${hideCategory ? '' : `
         <select class="catselect" onchange="updateCategory('${t.id}', this.value)">
           ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${t.category===k?'selected':''}>${v.label}</option>`).join('')}
-        </select>
+        </select>`}
         <label class="fieldlabel">DUE</label>
-        <span class="subdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateShort(t.dueDate) : 'Date'}</span>
+        <span class="subdate taskdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateShort(t.dueDate) : 'Date'}</span>
         <div class="expandactions">
           <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
           <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>
@@ -93,7 +102,7 @@ function startEditTaskDueDate(el, taskId){
   if(!t) return;
   const input = document.createElement('input');
   input.type = 'text';
-  input.className = 'subdateedit';
+  input.className = 'subdateedit taskdateedit';
   input.value = t.dueDate ? fmtDateShort(t.dueDate) : '';
   input.placeholder = 'today, tmrw, 9/1, tue…';
   el.replaceWith(input);
@@ -169,8 +178,8 @@ function taskSubtasksHtml(t){
             : subOtherPlanned ? `Also planned on ${subOtherPlanned} other day${subOtherPlanned===1?'':'s'} — tap to add today too`
             : 'Add to today’s list';
           return `
-          <div class="subrow" ondragover="subDragOver(event)" ondrop="subDrop(event,'${t.id}','${s.id}')">
-            <span class="draghandle sub" draggable="true" ondragstart="subDragStart(event,'${t.id}','${s.id}')" ondragend="subDragEnd()" title="Drag to reorder">⠿</span>
+          <div class="subrow" data-sub-id="${s.id}">
+            <span class="draghandle sub" onpointerdown="subHandlePointerDown(event,'${t.id}','${s.id}')" title="Drag to reorder">⠿</span>
             <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <div class="subrowactions">
@@ -209,12 +218,16 @@ function taskManagementFieldsHtml(t, canRemoveHere){
 
 // Everything a task's own detail shows below its row header — title,
 // category/due/urgent/today fields, timeframe/priority, steps, notes,
-// meta line. Shared by the inline .expand under a normal row (default
-// taskLongPressMode) and the full-page task detail opened from Daily
-// (renderTaskDetailPage) so the two can never drift out of sync — edit
-// once, both places update.
-function taskExpandFieldsHtml(t, canRemoveHere, titleClass){
-  return `${taskTitleFieldHtml(t, titleClass)}${taskCoreFieldsRowHtml(t, canRemoveHere)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
+// meta line. Only ever called from renderTaskDetailPage() now (the
+// inline .expand under a normal row is Steps-only these days — see
+// taskSubtasksHtml()'s own comment); still its own function rather than
+// folded into that one call site, since "everything a task's detail page
+// shows below the header" reads clearly as its own unit either way.
+// hideCategory passes straight through to taskCoreFieldsRowHtml() — see
+// its own comment for why the detail page hides the plain category
+// <select> now.
+function taskExpandFieldsHtml(t, canRemoveHere, titleClass, hideCategory){
+  return `${taskTitleFieldHtml(t, titleClass)}${taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
 }
 
 // The "check-guide" nudge: once every step is done but the task itself
@@ -284,10 +297,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // present but silently does nothing.
   const draggableMain = sortMode === 'default';
   const dragHandle = draggableMain
-    ? `<span class="draghandle" draggable="true" ondragstart="taskDragStart(event,'${t.id}')" ondragend="taskDragEnd()" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>`
-    : '';
-  const dragTargetAttrs = draggableMain
-    ? `ondragover="taskDragOver(event)" ondrop="taskDrop(event,'${t.id}')"`
+    ? `<span class="draghandle" onpointerdown="taskHandlePointerDown(event,'${t.id}')" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>`
     : '';
   // Within Daily, clicking a task opens its own full page (see
   // openTaskDetailFromDay/renderTaskDetailPage) rather than expanding
@@ -328,7 +338,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
-  <li class="task" data-task-id="${t.id}" ${dragTargetAttrs}>
+  <li class="task" data-task-id="${t.id}">
     <div class="row"${pressAttrs}${ctxMenuAttr} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
@@ -505,14 +515,16 @@ function openTaskContextMenuForRow(taskId, rowEl){
   const r = rowEl.getBoundingClientRect();
   renderTaskContextMenu(taskId, r.left, r.bottom + 6, false);
 }
-// Shared by the task menu above and the day menu below — only one
-// #ctxMenu exists, so only one of ctxMenuTaskId/ctxMenuDayStr is ever
-// non-null at a time; closing always clears both regardless of which
-// one's actually set, rather than needing a caller to know which kind of
-// menu is currently open.
+// Shared by the task menu above, the day menu below, and the category
+// "Move to" menu further down — only one #ctxMenu exists, so only one of
+// ctxMenuTaskId/ctxMenuDayStr/ctxMenuMoveTaskId is ever non-null at a
+// time; closing always clears all three regardless of which one's
+// actually set, rather than needing a caller to know which kind of menu
+// is currently open.
 function closeCtxMenu(){
   ctxMenuTaskId = null;
   ctxMenuDayStr = null;
+  ctxMenuMoveTaskId = null;
   document.getElementById('ctxMenu').classList.remove('open');
 }
 // Every menu item (task or day) routes through this — closes the menu
@@ -568,6 +580,53 @@ function handleDayContextMenu(e, dateStr){
   if(mobileUiActive()) return true;
   renderDayContextMenu(dateStr, e.clientX, e.clientY);
   return false;
+}
+
+// ---------- Task category "Move to" menu ----------
+// Same #ctxMenu popup the task/day menus above use — see closeCtxMenu()'s
+// own comment for why this is a third sibling flag rather than a new
+// popup element of its own. Opened from the task detail page's own
+// category label (categoryLabelHtml() above) — moving a task between
+// categories is common enough while looking at its own detail page to
+// deserve a dedicated, always-reachable control there instead of only
+// the long-press/right-click quick-actions menu. standardCategoryEntries()
+// (same filter taskCoreFieldsRowHtml()'s old <select> used) excludes
+// checklist-type categories — a standard task moving into one wouldn't
+// make structural sense there — and the task's own current category is
+// left out too, since "move to where it already is" isn't a real option.
+let ctxMenuMoveTaskId = null;
+function categoryMoveMenuHtml(t){
+  const options = standardCategoryEntries().filter(([k])=>k!==t.category);
+  return `
+    <div class="ctxmenu-label">Move to</div>
+    ${options.length ? options.map(([k,v])=>`
+      <button onclick="ctxMenuAction(()=>updateCategory('${t.id}','${k}'))">${categoryDotHtml(v,'cdot')} ${escapeHtml(v.label)}</button>
+    `).join('') : `<div class="ctxmenu-label">No other tabs to move to</div>`}
+  `;
+}
+function renderCategoryMoveMenu(taskId, x, y){
+  const t = state.tasks.find(x2=>x2.id===taskId);
+  if(!t) return;
+  ctxMenuMoveTaskId = taskId;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = categoryMoveMenuHtml(t);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+  });
+}
+// Anchored under the label itself (el) rather than a click coordinate —
+// the label's a small fixed target in a page corner, not a wide row
+// where "wherever the finger happens to be" matters the way it does for
+// openTaskContextMenuForRow()'s own row-anchored menu.
+function openCategoryMoveMenu(el, taskId){
+  const r = el.getBoundingClientRect();
+  renderCategoryMoveMenu(taskId, r.right, r.bottom + 6);
 }
 
 // The long-press settings sheet itself — everything taskManagementFieldsHtml()
@@ -630,6 +689,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
   return `
     <div class="stackedpage">
       ${pageTagHtml(backOnclick, backLabel)}
+      ${categoryLabelHtml(t)}
       <div class="taskdetailhead">
         <div class="titleactions titlespacer" aria-hidden="true">${actionsHtml}</div>
         <div class="checkwrap">
@@ -638,9 +698,40 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
         </div>
         <div class="titleactions">${actionsHtml}</div>
       </div>
-      ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle')}
+      ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle', true)}
     </div>
   `;
+}
+
+// The task's own category, as a small tab-styled label pinned to the top
+// right corner of the detail page (position:absolute against
+// .stackedpage — same trick .pagetag uses top-left, mirrored, so it
+// costs no flow space of its own: "the header area, on the top right,
+// without adding any new space," per the explicit ask). Replaces the
+// plain .catselect <select> that used to sit down in the fields row
+// (taskCoreFieldsRowHtml() hides it there now via hideCategory — see its
+// own comment) — same background color and contrasting text-color math
+// renderTabs() (06-tabs-render.js) already uses for a real tab's
+// --tabhex/--tabtext, so this reads as "the same tab, just parked here"
+// rather than an unrelated new color choice. Deliberately doesn't chase
+// every tabBarDesktopStyle's own exact geometry (sidetabs' shaped
+// peeking edges, overlap's stacking, etc.) — those are tightly coupled
+// to their own specific layouts (peeking ::before/::after positioned
+// against a vertical column, an overlap stacking order keyed to tab
+// index...) and reusing them here blind risked exactly the kind of
+// multi-round geometry correction CLAUDE.md already warns about; color +
+// icon is the one visual thread every style actually shares. Clicking it
+// opens the "Move to" menu (openCategoryMoveMenu()) instead of a native
+// <select> popup. categoryLabelStyle 'tape' (EXPERIMENTAL, see
+// defaultDevSettings()) swaps in a rotated, translucent "washi tape"
+// look instead of the flat tab-colored one — see .categorylabel-tape in
+// <style>.
+function categoryLabelHtml(t){
+  const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
+  const textColor = relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9';
+  const glyph = CATEGORY_ICON_GLYPHS[cat.icon] || CATEGORY_ICON_GLYPHS.dot;
+  const tape = state.devSettings && state.devSettings.categoryLabelStyle === 'tape';
+  return `<button class="categorylabel${tape ? ' categorylabel-tape' : ''}" style="--catlabel-hex:${cat.hex}; --catlabel-text:${textColor}" onclick="event.stopPropagation(); openCategoryMoveMenu(this,'${t.id}')" title="Move to another category">${glyph} ${escapeHtml(cat.label)}</button>`;
 }
 
 function openTaskDetailFromDay(taskId){

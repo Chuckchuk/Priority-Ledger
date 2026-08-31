@@ -155,6 +155,17 @@ let customColorDraft = { h:0, s:0, v:0 };
 // Same single-value/mutual-exclusion treatment as the other Settings
 // popovers — see closeAllSettingsPopovers() in 09-settings.js.
 let locationEditorOpenId = null;
+// Which custom dropdown (see customSelectHtml() in 09-settings.js — the
+// app's own styled replacement for a native <select>, built on the same
+// .ctxmenu visual language as the task/day right-click menus) is
+// currently open, or null. A single string key rather than a boolean
+// like customColorOpen/dualColorCustomOpen, since Settings has many of
+// these on screen (mostly in Dev Settings) and only one may be open at a
+// time — each customSelectHtml() call is given its own unique key (see
+// devFieldHtml() in 01-categories-theme.js) so opening one always closes
+// whichever other one was open, the same mutual-exclusion every other
+// Settings popover already follows.
+let customSelectOpenKey = null;
 // Settings section keys currently collapsed (Manage Tabs/Locations/Task
 // Fields/Appearance/Claude Access/Dev Settings, plus the three device
 // groups nested inside Dev Settings — 'dev-general'/'dev-desktop'/
@@ -550,7 +561,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab' };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -688,6 +699,7 @@ function normalizeState(){
   // the new default happens to be.
   if(state.devSettings.checkGuideAnimationStyle === 'spin') state.devSettings.checkGuideAnimationStyle = 'wiggle';
   if(typeof state.devSettings.developmentMode !== 'boolean') state.devSettings.developmentMode = false;
+  if(typeof state.devSettings.categoryLabelStyle !== 'string') state.devSettings.categoryLabelStyle = 'tab';
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)

@@ -71,9 +71,21 @@ function renderChecklistOverview(categoryId){
 // There are always exactly this many peg slots spaced evenly around the
 // circle, regardless of item count — a 3-item list only fills the first
 // 3 slots and leaves the rest of the ring bare, rather than stretching
-// those 3 pegs to fill the whole circle. This is also the point past
-// which it switches to a smooth progress ring instead, since much
-// beyond this many discrete slots stops reading as separate pegs.
+// those 3 pegs to fill the whole circle (still true after the switch to
+// SVG arc pegs — see pegArcPath()'s own comment further down — this was
+// never actually the source of the "still inconsistent size" issue
+// reported against the SVG version; each peg's shape is computed once
+// at angle 0 and only ever rigidly rotated per slot, which can't change
+// its size). This is also the point past which it switches to a smooth
+// progress ring instead, since much beyond this many discrete slots
+// stops reading as separate pegs. Kept at 12 — a checklist's own item
+// count runs higher than a task's subtask count typically does, so it
+// keeps a roomier cap than the standard-task threshold in
+// subProgressHtml() (06-tabs-render.js), which is a completely separate,
+// deliberately lower limit (8) for the unrelated linear .substack bar a
+// standard task's own subtasks use — the two were briefly conflated into
+// one shared "8" during an earlier pass of this feature; the project
+// owner's own follow-up split them back into two independent numbers.
 const CHECKLIST_PEG_LIMIT = 12;
 const PEG_SLOT_DEG = 360 / CHECKLIST_PEG_LIMIT;
 // Both the first peg slot and the progress ring's 0% point start here:
@@ -141,13 +153,15 @@ function pegArcPath(cx, cy, rInner, rOuter, halfWidthDeg){
        + `L ${r3(ix2)} ${r3(iy2)} A ${rInner} ${rInner} 0 0 0 ${r3(ix1)} ${r3(iy1)} Z`;
 }
 // Same radial span the old flat peg used (outer edge 14px out from
-// center, inner edge 9px out — a 5px-thick band), and a half-width
-// (12°) chosen so adjacent pegs still read as separate, slightly
-// distinct ticks at PEG_SLOT_DEG's 30° spacing without touching quite as
-// aggressively as the old rect's corners did.
+// center, inner edge 9px out — a 5px-thick band). Half-width widened
+// from 12° to 13.5° at the same 30° slot size (CHECKLIST_PEG_LIMIT back
+// at 12) — less padding between adjacent pegs, per the explicit ask,
+// while keeping each one easily visible: 13.5° half-width is 27° of
+// actual peg out of each 30° slot (90% fill) vs. the old 12°-of-30°
+// (80% fill) — a bit fuller, not just carried over unchanged.
 const PEG_R_OUTER = 14;
 const PEG_R_INNER = 9;
-const PEG_HALF_WIDTH_DEG = 12;
+const PEG_HALF_WIDTH_DEG = 13.5;
 const PEG_PATH_AT_ZERO = pegArcPath(17, 17, PEG_R_INNER, PEG_R_OUTER, PEG_HALF_WIDTH_DEG);
 
 function checklistProgressHtml(subs){
@@ -224,8 +238,8 @@ function renderChecklistDetail(taskId){
       <div class="taskmeta checklistmeta">Created ${fmtDate(t.createdAt)}</div>
       <div class="subwrap">
         ${subs.map(s=>`
-          <div class="subrow ${t.status==='done'?'listdone':''}" ondragover="subDragOver(event)" ondrop="subDrop(event,'${t.id}','${s.id}')">
-            <span class="draghandle sub" draggable="true" ondragstart="subDragStart(event,'${t.id}','${s.id}')" ondragend="subDragEnd()" title="Drag to reorder">⠿</span>
+          <div class="subrow ${t.status==='done'?'listdone':''}" data-sub-id="${s.id}">
+            <span class="draghandle sub" onpointerdown="subHandlePointerDown(event,'${t.id}','${s.id}')" title="Drag to reorder">⠿</span>
             <div class="subcheck circle ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>

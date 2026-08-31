@@ -9,14 +9,17 @@
     --paper:#F1EAD9;
     --card-bg:#F1EAD9;
     --card-bg-dim:#E7DDC5;
-    /* Text-input accent — a muted blue here purely as the classic paper's
-       own pre-JS/no-JS fallback (its complement, roughly). Real value is
-       computed per-theme by complementaryAccent() in 01-categories-theme.js,
-       off whatever the user's actually picked as their Ledger color, and
-       set at runtime by applyThemeObject(). See that function's own
-       comment for why a straight complement wasn't good enough on its
-       own. */
-    --input-accent:#4E6B96;
+    /* Text-input accent (.notesfield/.subdateedit & co. in <style>) — the
+       classic preset's own --primary value here, same as that var's own
+       fallback below; applyThemeObject() (01-categories-theme.js) keeps
+       the two in sync at runtime so this always matches whatever UI
+       Colors preset is actually picked, not just the classic default. An
+       earlier version computed this as a color complementary to the
+       Ledger/paper color instead — dropped for reading as "not in-style
+       with the rest of the app" (a true complement can land anywhere on
+       the wheel; the classic cream's happened to be a blue-gray, and
+       nothing else here is ever blue). */
+    --input-accent:#A9782F;
     --ink:#2A2318;
     --ink-soft:#7A6E58;
     /* --primary/--secondary are the "two-pair" general-UI accent colors
@@ -862,7 +865,20 @@
      — that's what keeps a 3-item list's pegs the same size as a
      12-item list's instead of stretching to fill the ring. .pegring
      fills .checkcircle-wrap exactly the way the old peg layer did. */
-  .pegring{ position:absolute; inset:0; width:100%; height:100%; z-index:1; overflow:visible; }
+  /* shape-rendering:geometricPrecision — reported as still showing
+     inconsistent peg sizes at non-100% browser zoom even after the SVG
+     rewrite (which fixed the *original* cause: independent HTML elements
+     each getting laid out/composited via their own path, rounding
+     fractional device pixels differently from each other — see
+     pegArcPath()'s own comment in 13-checklist.js). Every peg is
+     unarguably identical geometry now (one shape, computed once, only
+     ever rigidly rotated per slot), so if anything's still visibly
+     inconsistent at a given zoom level it's down to the renderer's own
+     anti-aliasing/pixel-snapping choices for auto (the default) shape-
+     rendering — geometricPrecision asks for exact geometry over those
+     heuristics, at some cost to render speed that's a non-issue for a
+     handful of small static shapes like these. */
+  .pegring{ position:absolute; inset:0; width:100%; height:100%; z-index:1; overflow:visible; shape-rendering: geometricPrecision; }
   /* An unfilled peg's softer look used to come from opacity — reverted
      for overlap reasons (two translucent pegs stacking visibly darkened
      where they touched, since adjacent pegs' corners slightly overlap at
@@ -918,14 +934,13 @@
   .expand.open{ display:block; }
   /* Notes: bigger (min-height went from 52px, which read as "suddenly
      tiny" next to everything else on the page, to a real writing area)
-     and recolored off --input-accent (a per-theme complementary color —
-     see complementaryAccent() in 01-categories-theme.js — computed from
-     whatever Ledger/paper color the user's actually picked) instead of
-     the flat --card-bg-dim tint, which was barely distinguishable from
-     the page around it — that plus its square-ish corners is what read
-     as "very white" and "too square." A soft tinted fill at rest,
-     brightening to a real focus ring on click, rather than a stark white
-     box with a hard outline. Its own class (taskNotesAndMetaHtml(),
+     and recolored off --input-accent (--primary itself, see
+     applyThemeObject() in 01-categories-theme.js) instead of the flat
+     --card-bg-dim tint, which was barely distinguishable from the page
+     around it — that plus its square-ish corners is what read as "very
+     white" and "too square." A soft tinted fill at rest, brightening to
+     a real focus ring on click, rather than a stark white box with a
+     hard outline. Its own class (taskNotesAndMetaHtml(),
      08-render-core.js) rather than an ancestor selector like `.expand
      textarea` — this field doesn't actually sit inside .expand (that's
      the Steps-only inline quick view now; the full task detail page and
@@ -1058,14 +1073,42 @@
      step's own text was splitting awkwardly around these three controls
      on the same line instead of getting the row's full width to itself. */
   .subrowactions{ display:contents; }
-  body.mobileui-active .subrow{ flex-wrap:wrap; }
-  body.mobileui-active .subrow .subtext{ flex:1 1 auto; min-width:0; }
+  /* align-items:flex-start (not the base rule's center) — once .subtext
+     wraps to two-plus lines the row itself grows taller, and centering
+     against that full new height was pulling the drag handle and
+     checkbox down off the first line of text instead of staying level
+     with it ("inline with the subtask text," per the explicit ask —
+     those two specifically should never move, only .subdate/the pin
+     button/.subdel drop to their own row below). */
+  body.mobileui-active .subrow{ flex-wrap:wrap; align-items:flex-start; }
+  /* flex-basis 0 (the "1" in the flex:1 shorthand), NOT auto — flex-wrap
+     decides which line an item lands on using its *unshrunk* hypothetical
+     size, and an auto basis means that hypothesis is the text's full
+     unwrapped max-content width. For a long step that's wider than the
+     whole row, so the item never even fits next to .subcheck/.draghandle
+     in the first place and gets pushed onto its own line below them —
+     exactly the "checkmark and grabber moved away from the text" bug
+     reported after this rule's first pass, even though align-items above
+     already keeps those two pinned to the top of whichever line .subtext
+     lands on. A 0 basis makes the hypothesis size 0 instead, so .subtext
+     always packs onto the same line as the checkbox/handle before
+     flex-grow (the "1" in "1 1 0") expands it to fill the remaining
+     width and min-width:0 lets it shrink/wrap internally there. */
+  body.mobileui-active .subrow .subtext{ flex:1 1 0%; min-width:0; }
   body.mobileui-active .subrow .subrowactions{
     display:flex; align-items:center; gap:8px; justify-content:flex-end;
     width:100%; margin-top:2px;
   }
   .subdropend{ height:10px; }
   .subdropend.dragover{ border-top: 2px solid var(--primary); }
+  /* The task's own due-date field claims the whole row on mobile, rather
+     than wrapping wherever .expand-row's own flex-wrap happens to leave
+     room for it — per the explicit ask, now that .catselect no longer
+     shares this row on the task detail page (see categoryLabelHtml()'s
+     own comment) and the date field is one of the few things left in it.
+     flex-basis:100% pushes it (and .expandactions, wrapping right after
+     it) onto their own lines below the DUE label. */
+  body.mobileui-active .expand-row .taskdate{ flex:1 1 100%; }
   .draghandle.sub{ font-size:0.85rem; }
   .subcheck{
     width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
@@ -1149,6 +1192,23 @@
   .subdateedit{
     width:120px; border:none; border-bottom:1.5px solid var(--ink-soft); background:transparent;
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; padding:3px 2px; color:var(--ink); outline:none; flex-shrink:0;
+  }
+  /* The task's own due date, unlike a step's — bigger and boxed (a real
+     field, not a discreet pill) now that it's one of the few things left
+     in .expand-row once .catselect moved up to the header (see
+     categoryLabelHtml()'s own comment) and reads as one of that row's
+     more prominent controls rather than something to underplay.
+     .taskdateedit (set by startEditTaskDueDate(), 08-render-core.js) is
+     the equivalent bump for the swapped-in text input while editing. */
+  .subdate.taskdate{
+    font-size: 0.82rem; padding: 7px 10px;
+    background: var(--card-bg-dim); border: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .subdate.taskdate.empty{ border-style: solid; }
+  .subdateedit.taskdateedit{
+    width: 150px; font-size: 0.82rem; padding: 7px 10px;
+    background: var(--card-bg-dim); border: 1px solid var(--input-accent); border-radius: 6px;
   }
   /* A step planned onto a day, shown "TASK > step" (see daySubtaskRowHtml)
      — the task half stays muted so the step itself reads as the subject. */
@@ -2049,6 +2109,14 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
     letter-spacing:0.03em; color: var(--ink-soft);
   }
+  /* uiColorSection/deskPaperSection's own trigger labels ("UI Colors —
+     Brass & Rust") carry an onclick identical to their round swatch now
+     — the whole row is meant to be a clickable target, not just that
+     26px circle — so they get this modifier for the matching cursor.
+     checkGuideSection's own reuse of .uicolorlabel (just for its
+     mono/uppercase text styling) has no onclick and deliberately isn't
+     given this class. */
+  .uicolorlabel.clickable{ cursor:pointer; }
   /* A shortcut straight into the "Custom" tile's own two-tab wheel,
      skipping the preset grid — only rendered next to the trigger label
      when Custom is already the active selection (see uiColorSection/
@@ -2125,10 +2193,28 @@
   }
   .settingssectionchevron{ color: var(--ink-soft); font-size:0.62rem; flex-shrink:0; margin-left:8px; }
   .settingssectionbody{ padding:0 14px 14px; }
-  /* A plain rule between the color pickers and the gradient/texture
-     controls within Appearance — enough to separate "pick colors" from
-     "pick a surface finish" without a second nested card. */
+  /* A plain rule separating Appearance's sub-areas — first between the
+     color section (swatches + Background gradient + Reset) and the
+     surface-finish buttons, then again between those and the checkbox-
+     nudge picker — enough to mark where each ends without a second
+     nested card per area. */
   .settingsdivider{ border-top:1px dashed var(--line); margin:4px 0 14px; }
+  /* Desktop: colors stacked on the left, color-related options (right
+     now just Background gradient) on the right — see colorSplit() in
+     09-settings.js. Mobile (default, no override below): the two just
+     stack as their own full-width rows in document order, reproducing
+     the single-column layout this always had. Gated by the same
+     body:not(.mobileui-active) signal as every other Desktop-vs-Mobile
+     split in this app (tabBarDesktopStyle, sidetabsAppearance, etc.),
+     not a bespoke breakpoint, so "Desktop" means the same thing here it
+     does everywhere else. */
+  .colorsplit{ margin-bottom:12px; }
+  .colorsplit-colors{ margin-bottom:12px; }
+  body:not(.mobileui-active) .colorsplit{
+    display:flex; align-items:flex-start; gap:24px;
+  }
+  body:not(.mobileui-active) .colorsplit-colors{ flex:0 0 auto; margin-bottom:0; }
+  body:not(.mobileui-active) .colorsplit-options{ flex:1; min-width:0; padding-top:8px; }
   .texturerow{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
   .texturebtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.03em;
@@ -2140,6 +2226,30 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.04em;
     background:transparent; border:1px dashed var(--primary); color:var(--primary); border-radius:6px;
     padding:8px 12px; cursor:pointer;
+  }
+  /* Checkbox nudge picker (appearanceSection(), 09-settings.js) —
+     graduated out of Dev Settings, now a real Appearance control. A
+     label + dropdown on the left, a permanently-looping example of the
+     currently-picked style on the right, so you see what you're
+     choosing without having to go complete a real task's steps first. */
+  .checkguiderow{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .checkguidetext{ flex:1; min-width:180px; display:flex; flex-direction:column; gap:6px; }
+  .checkguideexample{
+    flex-shrink:0; width:44px; height:44px; border-radius:8px;
+    background: var(--card-bg-dim); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+  }
+  /* guide-preview forces the same nudge animation every real checkbox
+     plays (see checkGuideClass(), 08-render-core.js) into looping
+     forever instead of the real 3-then-stop limit — a settings example
+     that quietly stopped animating a moment after you opened the panel
+     would read as broken, not as "that's the whole effect." Specificity
+     needs to beat :is(.check,.checkcircle).guide-check's own --guide-
+     iter:3 (also two classes) — three classes here (.check.guide-check
+     .guide-preview) wins outright rather than relying on source order. */
+  .check.guide-check.guide-preview{ --guide-iter: infinite; }
+  .customselectmenu .check.guide-preview{
+    width:16px; height:16px; margin-left:4px; pointer-events:none; flex-shrink:0;
   }
   /* EXPERIMENTAL — see defaultDevSettings() in <script>. A floating panel
      pinned to the far left of the viewport rather than folded into the
@@ -3477,6 +3587,87 @@
   .ctxmenu-sep{ height:1px; background:var(--line); margin:4px 2px; }
   .ctxmenu-danger{ color: var(--estate); }
   .ctxmenu-danger:hover{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
+  /* A non-interactive heading row inside #ctxMenu — "Move to" (the
+     category menu, categoryMoveMenuHtml() in 08-render-core.js) is the
+     one menu here that isn't just a flat list of actions, so it gets a
+     label explaining what the buttons below it actually are. */
+  .ctxmenu-label{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--ink-soft); padding:6px 10px 4px;
+  }
+
+  /* ---- Custom dropdown (customSelectHtml(), 09-settings.js) ----
+     Replaces a native <select> throughout Settings. Reuses .ctxmenu's own
+     look for the popup (background/border/shadow/button styling all
+     inherited unmodified — this is the "use the right-click menu as a
+     base" the project owner asked for) but anchors under its own trigger
+     via plain position:relative/absolute instead of #ctxMenu's
+     position:fixed-at-click-point, the same idiom .uicolorwrap/.catpicker
+     already use elsewhere in Settings — no JS measuring/edge-clamping
+     needed for a dropdown that only ever opens downward from a fixed
+     spot. */
+  .customselectwrap{ position:relative; display:inline-block; width:100%; }
+  .customselectbtn{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:6px;
+    padding:7px 10px; font-family:'IBM Plex Sans', sans-serif; font-size:0.82rem; color:var(--ink);
+    cursor:pointer; text-align:left;
+  }
+  .customselectbtn:hover, .customselectbtn.open{ border-color: var(--primary); }
+  .customselectvalue{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .customselectcaret{ font-size:0.6rem; color:var(--ink-soft); flex-shrink:0; }
+  .customselectmenu{
+    position:absolute; top:calc(100% + 4px); left:0; right:0; width:auto; min-width:220px;
+    max-height:280px; overflow-y:auto;
+  }
+  .customselectmenu button{ display:flex; align-items:center; gap:8px; white-space:normal; }
+  .customselectopttext{ flex:1; }
+  .customselectcheck{ color: var(--primary); flex-shrink:0; }
+  .customselectmenu button.customselectactive .customselectopttext{ color: var(--primary); font-weight:600; }
+
+  /* ---- Task detail page: category label (categoryLabelHtml()) ----
+     position:absolute against .stackedpage, mirroring .pagetag's own
+     top-left placement (see its comment) so this costs no flow space of
+     its own — "the header area, on the top right, without adding any new
+     space," per the explicit ask. --catlabel-hex/--catlabel-text are set
+     inline per-task (the category's own hex, and a contrasting text
+     color computed the same way renderTabs() computes a real tab's
+     --tabtext) so this one rule works for every category without a
+     per-category CSS rule. border-radius rounds only the left (inward-
+     facing) side, flat/square on the right where it meets the page's own
+     edge — mirrors .pagetaglabel's own "round the side facing the
+     content, square the side poking past the edge" logic. */
+  .categorylabel{
+    position:absolute; top:14px; right:-6px; z-index:3;
+    display:flex; align-items:center; gap:5px;
+    border:none; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em;
+    padding:6px 16px 6px 12px;
+    border-radius: 9px 0 0 9px;
+    background: var(--catlabel-hex); color: var(--catlabel-text);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.18);
+    transition: filter 120ms ease;
+  }
+  .categorylabel:hover{ filter: brightness(1.08); }
+  /* EXPERIMENTAL — categoryLabelStyle (see defaultDevSettings() in
+     02-storage-state.js). Swaps the flat tab-colored look above for a
+     strip of washi tape instead: a translucent tint of the same category
+     color (real tape is never fully opaque — color-mix() over white
+     lightens it the way a semi-transparent material over the page
+     underneath would), a slight rotation (tape never sits perfectly
+     straight), and a soft shadow instead of a hard tab-shaped edge.
+     --ink for the text color rather than --catlabel-text — that value
+     was computed for contrast against the *solid* hex, which no longer
+     applies once the background itself is translucent. */
+  .categorylabel.categorylabel-tape{
+    background: color-mix(in srgb, var(--catlabel-hex) 55%, white 20%);
+    color: var(--ink);
+    border-radius: 2px;
+    padding: 6px 14px;
+    transform: rotate(-2.5deg);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  }
+  .categorylabel.categorylabel-tape:hover{ filter: brightness(1.05); }
 
   /* Pull-to-refresh (see 19-bootstrap.js) — #appShell itself drags down
      with the gesture (a plain translateY, damped/capped at

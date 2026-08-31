@@ -229,30 +229,6 @@ function hexToHsv(hex){
   return { h, s: max===0 ? 0 : d/max, v: max };
 }
 
-// The text-input accent (--input-accent, read by .expand textarea/
-// .subdateedit/.taskdate & co. in <style>) — computed off the Ledger
-// color (state.theme.paper, i.e. --card-bg) so it never needs its own
-// setting: whatever "ledger surface" color someone picks, this
-// automatically picks a complementary one for the fields that sit inside
-// it, rather than the flat --card-bg-dim tint (barely distinguishable
-// from the surface itself — see the "very white/square" ask this was
-// built for) or a hardcoded accent that could clash with a custom paper
-// color. Reuses hexToHsv()/hsvToHex() (the color-wheel picker's own
-// conversions, see catWheelPointerDown() in 09-settings.js) rather than
-// adding a second HSL-based color space just for this. A straight 180°
-// hue rotation of the *paper* color's own saturation/value would barely
-// register as different from --card-bg-dim in most cases — paper colors
-// are typically light and low-saturation, and rotating the hue of an
-// already-desaturated color doesn't move it far in RGB terms. Instead
-// only the hue carries over; saturation/value are fixed at levels chosen
-// to read clearly as an accent (a border, a placeholder-ish label)
-// against any paper lightness, light or dark.
-function complementaryAccent(hex){
-  const hsv = hexToHsv(hex);
-  const hue = (hsv.h + 180) % 360;
-  return hsvToHex(hue, 0.48, 0.6);
-}
-
 function relLuminance(hex){
   const num = parseInt(hex.replace('#',''), 16);
   const r = (num >> 16) / 255, g = ((num >> 8) & 0xFF) / 255, b = (num & 0xFF) / 255;
@@ -287,12 +263,22 @@ function applyThemeObject(t){
   if(themeColorMeta) themeColorMeta.setAttribute('content', deskDark);
   root.setProperty('--card-bg', t.paper);
   root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
-  root.setProperty('--input-accent', complementaryAccent(t.paper));
   const ui = uiColorPreset(t.uiPreset);
   root.setProperty('--primary', ui.primary);
   root.setProperty('--primary-light', ui.primaryLight);
   root.setProperty('--secondary', ui.secondary);
   root.setProperty('--secondary-light', ui.secondaryLight);
+  // Text-input accent (--input-accent, read by .notesfield/.subdateedit &
+  // co. in <style>) — just --primary itself now, not a computed
+  // complementary color off the Ledger/paper hue. A true complement can
+  // land anywhere on the color wheel depending on what paper color
+  // someone's actually picked (the classic cream's complement is a
+  // blue-gray, which is exactly what read as "not in-style with other
+  // things in this app" — nothing else here is ever blue). --primary is
+  // "in style" by construction, since it's already what every other
+  // accent in the app — page tags, the quick-add button, selection
+  // feedback — uses.
+  root.setProperty('--input-accent', ui.primary);
   const dark = relLuminance(t.paper) < 0.5;
   root.setProperty('--ink', dark ? '#F1EAD9' : '#2A2318');
   root.setProperty('--ink-soft', dark ? 'rgba(241,234,217,0.65)' : '#7A6E58');
@@ -529,6 +515,13 @@ async function setDevCheckGuideAnimationStyle(val){
   queueSave();
 }
 
+async function setDevCategoryLabelStyle(val){
+  pushUndo(`Changed dev category label style to "${val}"`);
+  state.devSettings.categoryLabelStyle = val;
+  render();
+  queueSave();
+}
+
 async function setDevTaskLongPressMode(val){
   pushUndo(`Changed dev task long-press mode to "${val}"`);
   state.devSettings.taskLongPressMode = val;
@@ -722,29 +715,14 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="progress" ${dev.fieldPickerStyle==='progress'?'selected':''}>Stylized progress bar</option>
       </select>
     </div>
-    <!-- checkGuideAnimationStyle — see the "check-guide" comment in
-         08-render-core.js for the full mechanism: this only picks which
-         visual language plays on the main checkbox (and a checklist
-         list's own .checkcircle — see checklistCheckcircleHtml(),
-         13-checklist.js) while every step is done but the task/list
-         itself isn't checked off yet, guiding you to it. Lives in
-         General (not the mobile-gated "Task Rows & Detail" group above)
-         since the guide shows on whichever checkbox is on screen — list
-         row or full detail page, desktop or mobile — not just under the
-         Mobile UI Lab. Default is 'radialping' (per the project owner's
-         own call) rather than the first option here; 'wiggle' replaced
-         a former 'spin' style (a rotating gradient square) that didn't
-         read as a nudge and, being hardcoded square, couldn't work for
-         .checkcircle's own round shape either — see the migration note
-         on checkGuideAnimationStyle in normalizeState(),
-         02-storage-state.js. -->
+    <!-- categoryLabelStyle — see categoryLabelHtml()'s own comment in
+         08-render-core.js: only affects the full task detail page's own
+         category label (top-right of the page), not the tab bar itself. -->
     <div class="${fieldClass}">
-      <span class="${captionClass}">"All steps done" checkbox nudge</span>
-      <select class="${selectClass}" onchange="setDevCheckGuideAnimationStyle(this.value)">
-        <option value="radialping" ${dev.checkGuideAnimationStyle==='radialping'?'selected':''}>Radial ping (default)</option>
-        <option value="wiggle" ${dev.checkGuideAnimationStyle==='wiggle'?'selected':''}>Wiggle</option>
-        <option value="sparkle" ${dev.checkGuideAnimationStyle==='sparkle'?'selected':''}>Sparkles</option>
-        <option value="glow" ${dev.checkGuideAnimationStyle==='glow'?'selected':''}>Warm pulsing glow</option>
+      <span class="${captionClass}">Task detail page's category label</span>
+      <select class="${selectClass}" onchange="setDevCategoryLabelStyle(this.value)">
+        <option value="tab" ${dev.categoryLabelStyle==='tab'?'selected':''}>Colored tab (default)</option>
+        <option value="tape" ${dev.categoryLabelStyle==='tape'?'selected':''}>Washi tape</option>
       </select>
     </div>
 

@@ -26,7 +26,7 @@ document.addEventListener('keydown', (e) => {
   const appShell = document.getElementById('appShell');
   if(!appShell || appShell.style.display === 'none') return;
 
-  const popoverOpen = openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId;
+  const popoverOpen = openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId || customSelectOpenKey;
 
   if(e.key === 'Escape' || e.key === 'Enter'){
     if(customColorOpen && openCategoryPickerId){
@@ -49,7 +49,7 @@ document.addEventListener('keydown', (e) => {
     // both float above literally everything else including Settings, so
     // they're checked before any of it.
     if(fabAddOpen){ closeFabAdd(); return; }
-    if(ctxMenuTaskId || ctxMenuDayStr){ closeCtxMenu(); return; }
+    if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId){ closeCtxMenu(); return; }
     if(taskSettingsOpenId){ closeTaskSettingsSheet(); return; }
     if(quickAddOpen){ toggleQuickAddSheet(false); return; }
     if(claudeView){ closeClaudeView(); return; }
@@ -141,7 +141,7 @@ function swipeTextWidth(text, font){
 // swipe competing with them.
 function classifySwipeZone(target){
   if(!target || !target.closest) return null;
-  if(openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId) return null;
+  if(openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId || customSelectOpenKey) return null;
   const daynav = document.querySelector('.daynavrow');
   if(daynav && daynav.contains(target)){
     return { mode:'day', card: daynav.parentElement, label: daynav.querySelector('.dayhero') };
@@ -754,9 +754,19 @@ document.addEventListener('contextmenu', (e) => {
 // closes it via ctxMenuAction()) doesn't also trip this a second time
 // pointlessly.
 document.addEventListener('click', (e) => {
-  if((ctxMenuTaskId || ctxMenuDayStr) && !e.target.closest('#ctxMenu')) closeCtxMenu();
+  if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) && !e.target.closest('#ctxMenu')) closeCtxMenu();
 });
-document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr) closeCtxMenu(); }, { capture:true, passive:true });
+document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) closeCtxMenu(); }, { capture:true, passive:true });
+// Same idea for a custom dropdown (customSelectHtml(), 09-settings.js) —
+// unlike the rest of Settings' own popovers (color wheels, location
+// editor), which only ever close via an explicit ×/back/Esc, this one
+// stands in for a native <select>, and a native select always dismisses
+// on an outside click — closest('.customselectwrap') covers both the
+// trigger and its own dropdown, so picking an option (which already
+// closes it via its own onclick) doesn't also trip this a second time.
+document.addEventListener('click', (e) => {
+  if(customSelectOpenKey && !e.target.closest('.customselectwrap')){ customSelectOpenKey = null; render(); }
+});
 
 // ---------- Keeping the Supabase session alive through long idle stretches ----------
 // ensureFreshSession() (02-storage-state.js) only actually hits the

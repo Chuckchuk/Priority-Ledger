@@ -1002,7 +1002,12 @@ function subProgressHtml(subs){
   if(!subs.length) return '';
   const done = subs.filter(s=>s.done).length;
   const total = subs.length;
-  if(total <= 6){
+  // Threshold raised to 8 (from 6) per the project owner, to match the
+  // checklist peg system's own "how many before it stops being legible as
+  // individual items" call — even though this is a completely different
+  // linear-bar component (.substack/.subpip, not the checklist's curved
+  // SVG peg ring), the two limits are meant to line up conceptually.
+  if(total <= 8){
     const pips = subs.map(s=>`<span class="subpip ${s.done?'filled':''}"></span>`).join('');
     return `<div class="substack" title="${done}/${total} steps done">${pips}</div>`;
   }

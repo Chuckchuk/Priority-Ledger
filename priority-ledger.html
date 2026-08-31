@@ -41,14 +41,17 @@
     --paper:#F1EAD9;
     --card-bg:#F1EAD9;
     --card-bg-dim:#E7DDC5;
-    /* Text-input accent — a muted blue here purely as the classic paper's
-       own pre-JS/no-JS fallback (its complement, roughly). Real value is
-       computed per-theme by complementaryAccent() in 01-categories-theme.js,
-       off whatever the user's actually picked as their Ledger color, and
-       set at runtime by applyThemeObject(). See that function's own
-       comment for why a straight complement wasn't good enough on its
-       own. */
-    --input-accent:#4E6B96;
+    /* Text-input accent (.notesfield/.subdateedit & co. in <style>) — the
+       classic preset's own --primary value here, same as that var's own
+       fallback below; applyThemeObject() (01-categories-theme.js) keeps
+       the two in sync at runtime so this always matches whatever UI
+       Colors preset is actually picked, not just the classic default. An
+       earlier version computed this as a color complementary to the
+       Ledger/paper color instead — dropped for reading as "not in-style
+       with the rest of the app" (a true complement can land anywhere on
+       the wheel; the classic cream's happened to be a blue-gray, and
+       nothing else here is ever blue). */
+    --input-accent:#A9782F;
     --ink:#2A2318;
     --ink-soft:#7A6E58;
     /* --primary/--secondary are the "two-pair" general-UI accent colors
@@ -894,7 +897,20 @@
      — that's what keeps a 3-item list's pegs the same size as a
      12-item list's instead of stretching to fill the ring. .pegring
      fills .checkcircle-wrap exactly the way the old peg layer did. */
-  .pegring{ position:absolute; inset:0; width:100%; height:100%; z-index:1; overflow:visible; }
+  /* shape-rendering:geometricPrecision — reported as still showing
+     inconsistent peg sizes at non-100% browser zoom even after the SVG
+     rewrite (which fixed the *original* cause: independent HTML elements
+     each getting laid out/composited via their own path, rounding
+     fractional device pixels differently from each other — see
+     pegArcPath()'s own comment in 13-checklist.js). Every peg is
+     unarguably identical geometry now (one shape, computed once, only
+     ever rigidly rotated per slot), so if anything's still visibly
+     inconsistent at a given zoom level it's down to the renderer's own
+     anti-aliasing/pixel-snapping choices for auto (the default) shape-
+     rendering — geometricPrecision asks for exact geometry over those
+     heuristics, at some cost to render speed that's a non-issue for a
+     handful of small static shapes like these. */
+  .pegring{ position:absolute; inset:0; width:100%; height:100%; z-index:1; overflow:visible; shape-rendering: geometricPrecision; }
   /* An unfilled peg's softer look used to come from opacity — reverted
      for overlap reasons (two translucent pegs stacking visibly darkened
      where they touched, since adjacent pegs' corners slightly overlap at
@@ -950,14 +966,13 @@
   .expand.open{ display:block; }
   /* Notes: bigger (min-height went from 52px, which read as "suddenly
      tiny" next to everything else on the page, to a real writing area)
-     and recolored off --input-accent (a per-theme complementary color —
-     see complementaryAccent() in 01-categories-theme.js — computed from
-     whatever Ledger/paper color the user's actually picked) instead of
-     the flat --card-bg-dim tint, which was barely distinguishable from
-     the page around it — that plus its square-ish corners is what read
-     as "very white" and "too square." A soft tinted fill at rest,
-     brightening to a real focus ring on click, rather than a stark white
-     box with a hard outline. Its own class (taskNotesAndMetaHtml(),
+     and recolored off --input-accent (--primary itself, see
+     applyThemeObject() in 01-categories-theme.js) instead of the flat
+     --card-bg-dim tint, which was barely distinguishable from the page
+     around it — that plus its square-ish corners is what read as "very
+     white" and "too square." A soft tinted fill at rest, brightening to
+     a real focus ring on click, rather than a stark white box with a
+     hard outline. Its own class (taskNotesAndMetaHtml(),
      08-render-core.js) rather than an ancestor selector like `.expand
      textarea` — this field doesn't actually sit inside .expand (that's
      the Steps-only inline quick view now; the full task detail page and
@@ -1090,14 +1105,42 @@
      step's own text was splitting awkwardly around these three controls
      on the same line instead of getting the row's full width to itself. */
   .subrowactions{ display:contents; }
-  body.mobileui-active .subrow{ flex-wrap:wrap; }
-  body.mobileui-active .subrow .subtext{ flex:1 1 auto; min-width:0; }
+  /* align-items:flex-start (not the base rule's center) — once .subtext
+     wraps to two-plus lines the row itself grows taller, and centering
+     against that full new height was pulling the drag handle and
+     checkbox down off the first line of text instead of staying level
+     with it ("inline with the subtask text," per the explicit ask —
+     those two specifically should never move, only .subdate/the pin
+     button/.subdel drop to their own row below). */
+  body.mobileui-active .subrow{ flex-wrap:wrap; align-items:flex-start; }
+  /* flex-basis 0 (the "1" in the flex:1 shorthand), NOT auto — flex-wrap
+     decides which line an item lands on using its *unshrunk* hypothetical
+     size, and an auto basis means that hypothesis is the text's full
+     unwrapped max-content width. For a long step that's wider than the
+     whole row, so the item never even fits next to .subcheck/.draghandle
+     in the first place and gets pushed onto its own line below them —
+     exactly the "checkmark and grabber moved away from the text" bug
+     reported after this rule's first pass, even though align-items above
+     already keeps those two pinned to the top of whichever line .subtext
+     lands on. A 0 basis makes the hypothesis size 0 instead, so .subtext
+     always packs onto the same line as the checkbox/handle before
+     flex-grow (the "1" in "1 1 0") expands it to fill the remaining
+     width and min-width:0 lets it shrink/wrap internally there. */
+  body.mobileui-active .subrow .subtext{ flex:1 1 0%; min-width:0; }
   body.mobileui-active .subrow .subrowactions{
     display:flex; align-items:center; gap:8px; justify-content:flex-end;
     width:100%; margin-top:2px;
   }
   .subdropend{ height:10px; }
   .subdropend.dragover{ border-top: 2px solid var(--primary); }
+  /* The task's own due-date field claims the whole row on mobile, rather
+     than wrapping wherever .expand-row's own flex-wrap happens to leave
+     room for it — per the explicit ask, now that .catselect no longer
+     shares this row on the task detail page (see categoryLabelHtml()'s
+     own comment) and the date field is one of the few things left in it.
+     flex-basis:100% pushes it (and .expandactions, wrapping right after
+     it) onto their own lines below the DUE label. */
+  body.mobileui-active .expand-row .taskdate{ flex:1 1 100%; }
   .draghandle.sub{ font-size:0.85rem; }
   .subcheck{
     width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
@@ -1181,6 +1224,23 @@
   .subdateedit{
     width:120px; border:none; border-bottom:1.5px solid var(--ink-soft); background:transparent;
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; padding:3px 2px; color:var(--ink); outline:none; flex-shrink:0;
+  }
+  /* The task's own due date, unlike a step's — bigger and boxed (a real
+     field, not a discreet pill) now that it's one of the few things left
+     in .expand-row once .catselect moved up to the header (see
+     categoryLabelHtml()'s own comment) and reads as one of that row's
+     more prominent controls rather than something to underplay.
+     .taskdateedit (set by startEditTaskDueDate(), 08-render-core.js) is
+     the equivalent bump for the swapped-in text input while editing. */
+  .subdate.taskdate{
+    font-size: 0.82rem; padding: 7px 10px;
+    background: var(--card-bg-dim); border: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .subdate.taskdate.empty{ border-style: solid; }
+  .subdateedit.taskdateedit{
+    width: 150px; font-size: 0.82rem; padding: 7px 10px;
+    background: var(--card-bg-dim); border: 1px solid var(--input-accent); border-radius: 6px;
   }
   /* A step planned onto a day, shown "TASK > step" (see daySubtaskRowHtml)
      — the task half stays muted so the step itself reads as the subject. */
@@ -2081,6 +2141,14 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
     letter-spacing:0.03em; color: var(--ink-soft);
   }
+  /* uiColorSection/deskPaperSection's own trigger labels ("UI Colors —
+     Brass & Rust") carry an onclick identical to their round swatch now
+     — the whole row is meant to be a clickable target, not just that
+     26px circle — so they get this modifier for the matching cursor.
+     checkGuideSection's own reuse of .uicolorlabel (just for its
+     mono/uppercase text styling) has no onclick and deliberately isn't
+     given this class. */
+  .uicolorlabel.clickable{ cursor:pointer; }
   /* A shortcut straight into the "Custom" tile's own two-tab wheel,
      skipping the preset grid — only rendered next to the trigger label
      when Custom is already the active selection (see uiColorSection/
@@ -2157,10 +2225,28 @@
   }
   .settingssectionchevron{ color: var(--ink-soft); font-size:0.62rem; flex-shrink:0; margin-left:8px; }
   .settingssectionbody{ padding:0 14px 14px; }
-  /* A plain rule between the color pickers and the gradient/texture
-     controls within Appearance — enough to separate "pick colors" from
-     "pick a surface finish" without a second nested card. */
+  /* A plain rule separating Appearance's sub-areas — first between the
+     color section (swatches + Background gradient + Reset) and the
+     surface-finish buttons, then again between those and the checkbox-
+     nudge picker — enough to mark where each ends without a second
+     nested card per area. */
   .settingsdivider{ border-top:1px dashed var(--line); margin:4px 0 14px; }
+  /* Desktop: colors stacked on the left, color-related options (right
+     now just Background gradient) on the right — see colorSplit() in
+     09-settings.js. Mobile (default, no override below): the two just
+     stack as their own full-width rows in document order, reproducing
+     the single-column layout this always had. Gated by the same
+     body:not(.mobileui-active) signal as every other Desktop-vs-Mobile
+     split in this app (tabBarDesktopStyle, sidetabsAppearance, etc.),
+     not a bespoke breakpoint, so "Desktop" means the same thing here it
+     does everywhere else. */
+  .colorsplit{ margin-bottom:12px; }
+  .colorsplit-colors{ margin-bottom:12px; }
+  body:not(.mobileui-active) .colorsplit{
+    display:flex; align-items:flex-start; gap:24px;
+  }
+  body:not(.mobileui-active) .colorsplit-colors{ flex:0 0 auto; margin-bottom:0; }
+  body:not(.mobileui-active) .colorsplit-options{ flex:1; min-width:0; padding-top:8px; }
   .texturerow{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
   .texturebtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.03em;
@@ -2172,6 +2258,30 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.04em;
     background:transparent; border:1px dashed var(--primary); color:var(--primary); border-radius:6px;
     padding:8px 12px; cursor:pointer;
+  }
+  /* Checkbox nudge picker (appearanceSection(), 09-settings.js) —
+     graduated out of Dev Settings, now a real Appearance control. A
+     label + dropdown on the left, a permanently-looping example of the
+     currently-picked style on the right, so you see what you're
+     choosing without having to go complete a real task's steps first. */
+  .checkguiderow{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .checkguidetext{ flex:1; min-width:180px; display:flex; flex-direction:column; gap:6px; }
+  .checkguideexample{
+    flex-shrink:0; width:44px; height:44px; border-radius:8px;
+    background: var(--card-bg-dim); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+  }
+  /* guide-preview forces the same nudge animation every real checkbox
+     plays (see checkGuideClass(), 08-render-core.js) into looping
+     forever instead of the real 3-then-stop limit — a settings example
+     that quietly stopped animating a moment after you opened the panel
+     would read as broken, not as "that's the whole effect." Specificity
+     needs to beat :is(.check,.checkcircle).guide-check's own --guide-
+     iter:3 (also two classes) — three classes here (.check.guide-check
+     .guide-preview) wins outright rather than relying on source order. */
+  .check.guide-check.guide-preview{ --guide-iter: infinite; }
+  .customselectmenu .check.guide-preview{
+    width:16px; height:16px; margin-left:4px; pointer-events:none; flex-shrink:0;
   }
   /* EXPERIMENTAL — see defaultDevSettings() in <script>. A floating panel
      pinned to the far left of the viewport rather than folded into the
@@ -3509,6 +3619,87 @@
   .ctxmenu-sep{ height:1px; background:var(--line); margin:4px 2px; }
   .ctxmenu-danger{ color: var(--estate); }
   .ctxmenu-danger:hover{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
+  /* A non-interactive heading row inside #ctxMenu — "Move to" (the
+     category menu, categoryMoveMenuHtml() in 08-render-core.js) is the
+     one menu here that isn't just a flat list of actions, so it gets a
+     label explaining what the buttons below it actually are. */
+  .ctxmenu-label{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.06em; text-transform:uppercase;
+    color: var(--ink-soft); padding:6px 10px 4px;
+  }
+
+  /* ---- Custom dropdown (customSelectHtml(), 09-settings.js) ----
+     Replaces a native <select> throughout Settings. Reuses .ctxmenu's own
+     look for the popup (background/border/shadow/button styling all
+     inherited unmodified — this is the "use the right-click menu as a
+     base" the project owner asked for) but anchors under its own trigger
+     via plain position:relative/absolute instead of #ctxMenu's
+     position:fixed-at-click-point, the same idiom .uicolorwrap/.catpicker
+     already use elsewhere in Settings — no JS measuring/edge-clamping
+     needed for a dropdown that only ever opens downward from a fixed
+     spot. */
+  .customselectwrap{ position:relative; display:inline-block; width:100%; }
+  .customselectbtn{
+    display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:6px;
+    padding:7px 10px; font-family:'IBM Plex Sans', sans-serif; font-size:0.82rem; color:var(--ink);
+    cursor:pointer; text-align:left;
+  }
+  .customselectbtn:hover, .customselectbtn.open{ border-color: var(--primary); }
+  .customselectvalue{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .customselectcaret{ font-size:0.6rem; color:var(--ink-soft); flex-shrink:0; }
+  .customselectmenu{
+    position:absolute; top:calc(100% + 4px); left:0; right:0; width:auto; min-width:220px;
+    max-height:280px; overflow-y:auto;
+  }
+  .customselectmenu button{ display:flex; align-items:center; gap:8px; white-space:normal; }
+  .customselectopttext{ flex:1; }
+  .customselectcheck{ color: var(--primary); flex-shrink:0; }
+  .customselectmenu button.customselectactive .customselectopttext{ color: var(--primary); font-weight:600; }
+
+  /* ---- Task detail page: category label (categoryLabelHtml()) ----
+     position:absolute against .stackedpage, mirroring .pagetag's own
+     top-left placement (see its comment) so this costs no flow space of
+     its own — "the header area, on the top right, without adding any new
+     space," per the explicit ask. --catlabel-hex/--catlabel-text are set
+     inline per-task (the category's own hex, and a contrasting text
+     color computed the same way renderTabs() computes a real tab's
+     --tabtext) so this one rule works for every category without a
+     per-category CSS rule. border-radius rounds only the left (inward-
+     facing) side, flat/square on the right where it meets the page's own
+     edge — mirrors .pagetaglabel's own "round the side facing the
+     content, square the side poking past the edge" logic. */
+  .categorylabel{
+    position:absolute; top:14px; right:-6px; z-index:3;
+    display:flex; align-items:center; gap:5px;
+    border:none; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.04em;
+    padding:6px 16px 6px 12px;
+    border-radius: 9px 0 0 9px;
+    background: var(--catlabel-hex); color: var(--catlabel-text);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.18);
+    transition: filter 120ms ease;
+  }
+  .categorylabel:hover{ filter: brightness(1.08); }
+  /* EXPERIMENTAL — categoryLabelStyle (see defaultDevSettings() in
+     02-storage-state.js). Swaps the flat tab-colored look above for a
+     strip of washi tape instead: a translucent tint of the same category
+     color (real tape is never fully opaque — color-mix() over white
+     lightens it the way a semi-transparent material over the page
+     underneath would), a slight rotation (tape never sits perfectly
+     straight), and a soft shadow instead of a hard tab-shaped edge.
+     --ink for the text color rather than --catlabel-text — that value
+     was computed for contrast against the *solid* hex, which no longer
+     applies once the background itself is translucent. */
+  .categorylabel.categorylabel-tape{
+    background: color-mix(in srgb, var(--catlabel-hex) 55%, white 20%);
+    color: var(--ink);
+    border-radius: 2px;
+    padding: 6px 14px;
+    transform: rotate(-2.5deg);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  }
+  .categorylabel.categorylabel-tape:hover{ filter: brightness(1.05); }
 
   /* Pull-to-refresh (see 19-bootstrap.js) — #appShell itself drags down
      with the gesture (a plain translateY, damped/capped at
@@ -4005,30 +4196,6 @@ function hexToHsv(hex){
   return { h, s: max===0 ? 0 : d/max, v: max };
 }
 
-// The text-input accent (--input-accent, read by .expand textarea/
-// .subdateedit/.taskdate & co. in <style>) — computed off the Ledger
-// color (state.theme.paper, i.e. --card-bg) so it never needs its own
-// setting: whatever "ledger surface" color someone picks, this
-// automatically picks a complementary one for the fields that sit inside
-// it, rather than the flat --card-bg-dim tint (barely distinguishable
-// from the surface itself — see the "very white/square" ask this was
-// built for) or a hardcoded accent that could clash with a custom paper
-// color. Reuses hexToHsv()/hsvToHex() (the color-wheel picker's own
-// conversions, see catWheelPointerDown() in 09-settings.js) rather than
-// adding a second HSL-based color space just for this. A straight 180°
-// hue rotation of the *paper* color's own saturation/value would barely
-// register as different from --card-bg-dim in most cases — paper colors
-// are typically light and low-saturation, and rotating the hue of an
-// already-desaturated color doesn't move it far in RGB terms. Instead
-// only the hue carries over; saturation/value are fixed at levels chosen
-// to read clearly as an accent (a border, a placeholder-ish label)
-// against any paper lightness, light or dark.
-function complementaryAccent(hex){
-  const hsv = hexToHsv(hex);
-  const hue = (hsv.h + 180) % 360;
-  return hsvToHex(hue, 0.48, 0.6);
-}
-
 function relLuminance(hex){
   const num = parseInt(hex.replace('#',''), 16);
   const r = (num >> 16) / 255, g = ((num >> 8) & 0xFF) / 255, b = (num & 0xFF) / 255;
@@ -4063,12 +4230,22 @@ function applyThemeObject(t){
   if(themeColorMeta) themeColorMeta.setAttribute('content', deskDark);
   root.setProperty('--card-bg', t.paper);
   root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
-  root.setProperty('--input-accent', complementaryAccent(t.paper));
   const ui = uiColorPreset(t.uiPreset);
   root.setProperty('--primary', ui.primary);
   root.setProperty('--primary-light', ui.primaryLight);
   root.setProperty('--secondary', ui.secondary);
   root.setProperty('--secondary-light', ui.secondaryLight);
+  // Text-input accent (--input-accent, read by .notesfield/.subdateedit &
+  // co. in <style>) — just --primary itself now, not a computed
+  // complementary color off the Ledger/paper hue. A true complement can
+  // land anywhere on the color wheel depending on what paper color
+  // someone's actually picked (the classic cream's complement is a
+  // blue-gray, which is exactly what read as "not in-style with other
+  // things in this app" — nothing else here is ever blue). --primary is
+  // "in style" by construction, since it's already what every other
+  // accent in the app — page tags, the quick-add button, selection
+  // feedback — uses.
+  root.setProperty('--input-accent', ui.primary);
   const dark = relLuminance(t.paper) < 0.5;
   root.setProperty('--ink', dark ? '#F1EAD9' : '#2A2318');
   root.setProperty('--ink-soft', dark ? 'rgba(241,234,217,0.65)' : '#7A6E58');
@@ -4305,6 +4482,13 @@ async function setDevCheckGuideAnimationStyle(val){
   queueSave();
 }
 
+async function setDevCategoryLabelStyle(val){
+  pushUndo(`Changed dev category label style to "${val}"`);
+  state.devSettings.categoryLabelStyle = val;
+  render();
+  queueSave();
+}
+
 async function setDevTaskLongPressMode(val){
   pushUndo(`Changed dev task long-press mode to "${val}"`);
   state.devSettings.taskLongPressMode = val;
@@ -4498,29 +4682,14 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
         <option value="progress" ${dev.fieldPickerStyle==='progress'?'selected':''}>Stylized progress bar</option>
       </select>
     </div>
-    <!-- checkGuideAnimationStyle — see the "check-guide" comment in
-         08-render-core.js for the full mechanism: this only picks which
-         visual language plays on the main checkbox (and a checklist
-         list's own .checkcircle — see checklistCheckcircleHtml(),
-         13-checklist.js) while every step is done but the task/list
-         itself isn't checked off yet, guiding you to it. Lives in
-         General (not the mobile-gated "Task Rows & Detail" group above)
-         since the guide shows on whichever checkbox is on screen — list
-         row or full detail page, desktop or mobile — not just under the
-         Mobile UI Lab. Default is 'radialping' (per the project owner's
-         own call) rather than the first option here; 'wiggle' replaced
-         a former 'spin' style (a rotating gradient square) that didn't
-         read as a nudge and, being hardcoded square, couldn't work for
-         .checkcircle's own round shape either — see the migration note
-         on checkGuideAnimationStyle in normalizeState(),
-         02-storage-state.js. -->
+    <!-- categoryLabelStyle — see categoryLabelHtml()'s own comment in
+         08-render-core.js: only affects the full task detail page's own
+         category label (top-right of the page), not the tab bar itself. -->
     <div class="${fieldClass}">
-      <span class="${captionClass}">"All steps done" checkbox nudge</span>
-      <select class="${selectClass}" onchange="setDevCheckGuideAnimationStyle(this.value)">
-        <option value="radialping" ${dev.checkGuideAnimationStyle==='radialping'?'selected':''}>Radial ping (default)</option>
-        <option value="wiggle" ${dev.checkGuideAnimationStyle==='wiggle'?'selected':''}>Wiggle</option>
-        <option value="sparkle" ${dev.checkGuideAnimationStyle==='sparkle'?'selected':''}>Sparkles</option>
-        <option value="glow" ${dev.checkGuideAnimationStyle==='glow'?'selected':''}>Warm pulsing glow</option>
+      <span class="${captionClass}">Task detail page's category label</span>
+      <select class="${selectClass}" onchange="setDevCategoryLabelStyle(this.value)">
+        <option value="tab" ${dev.categoryLabelStyle==='tab'?'selected':''}>Colored tab (default)</option>
+        <option value="tape" ${dev.categoryLabelStyle==='tape'?'selected':''}>Washi tape</option>
       </select>
     </div>
 
@@ -5051,6 +5220,17 @@ let customColorDraft = { h:0, s:0, v:0 };
 // Same single-value/mutual-exclusion treatment as the other Settings
 // popovers — see closeAllSettingsPopovers() in 09-settings.js.
 let locationEditorOpenId = null;
+// Which custom dropdown (see customSelectHtml() in 09-settings.js — the
+// app's own styled replacement for a native <select>, built on the same
+// .ctxmenu visual language as the task/day right-click menus) is
+// currently open, or null. A single string key rather than a boolean
+// like customColorOpen/dualColorCustomOpen, since Settings has many of
+// these on screen (mostly in Dev Settings) and only one may be open at a
+// time — each customSelectHtml() call is given its own unique key (see
+// devFieldHtml() in 01-categories-theme.js) so opening one always closes
+// whichever other one was open, the same mutual-exclusion every other
+// Settings popover already follows.
+let customSelectOpenKey = null;
 // Settings section keys currently collapsed (Manage Tabs/Locations/Task
 // Fields/Appearance/Claude Access/Dev Settings, plus the three device
 // groups nested inside Dev Settings — 'dev-general'/'dev-desktop'/
@@ -5446,7 +5626,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab' };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -5584,6 +5764,7 @@ function normalizeState(){
   // the new default happens to be.
   if(state.devSettings.checkGuideAnimationStyle === 'spin') state.devSettings.checkGuideAnimationStyle = 'wiggle';
   if(typeof state.devSettings.developmentMode !== 'boolean') state.devSettings.developmentMode = false;
+  if(typeof state.devSettings.categoryLabelStyle !== 'string') state.devSettings.categoryLabelStyle = 'tab';
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)
@@ -7174,7 +7355,12 @@ function subProgressHtml(subs){
   if(!subs.length) return '';
   const done = subs.filter(s=>s.done).length;
   const total = subs.length;
-  if(total <= 6){
+  // Threshold raised to 8 (from 6) per the project owner, to match the
+  // checklist peg system's own "how many before it stops being legible as
+  // individual items" call — even though this is a completely different
+  // linear-bar component (.substack/.subpip, not the checklist's curved
+  // SVG peg ring), the two limits are meant to line up conceptually.
+  if(total <= 8){
     const pips = subs.map(s=>`<span class="subpip ${s.done?'filled':''}"></span>`).join('');
     return `<div class="substack" title="${done}/${total} steps done">${pips}</div>`;
   }
@@ -7182,69 +7368,121 @@ function subProgressHtml(subs){
   return `<div class="substack bar" title="${done}/${total} steps done"><div class="subfill" style="width:${pct}%"></div></div>`;
 }
 
-// ---------- Drag reordering ----------
+// ---------- Drag reordering (Pointer Events) ----------
+// Used to be native HTML5 <div draggable> drag-and-drop (dragstart/
+// dragover/drop) — which never fires touch-originated drag events at all
+// on iOS/Android (both platforms' browsers only ever start a native drag
+// session from an actual mouse), so the handle was tappable but reordering
+// silently did nothing on a phone. Pointer Events unify mouse and touch
+// under one API (pointerdown/pointermove/pointerup all fire for either),
+// so this single implementation drives both instead of needing two
+// parallel systems to keep in sync.
+//
 // Main tasks: only draggable in 'default' sort mode (taskRowHtml only
 // renders the handle/attributes there in the first place), reordering
 // state.tasks directly — the same array applySortMode()'s 'default' case
 // reads as-is. Subtasks: always draggable regardless of the main list's
 // sort mode, since a task's steps have never had a sort mode of their own
 // to lock against — array order is the only order they've ever had.
-let draggedTaskId = null;
-let draggedSubtask = null; // { taskId, subId }
+//
+// dragState holds everything one in-progress drag needs: which kind
+// (affects which CSS selector/data attribute identifies a valid drop
+// target, and which reorder* function actually gets called), the
+// dragged item's own id(s), where the gesture started (to distinguish an
+// intentional drag from a stray finger jitter before committing to one),
+// and the drop target most recently under the pointer.
+let dragState = null; // { kind:'task'|'sub', id, taskId?, startX, startY, moved, row, overEl }
+const DRAG_MOVE_THRESHOLD_PX = 6;
 
-function taskDragStart(e, id){
-  draggedTaskId = id;
-  e.dataTransfer.effectAllowed = 'move';
-  e.currentTarget.closest('li.task').classList.add('dragging');
+function dragPointerDown(e, kind, id, taskId){
+  if(e.pointerType === 'mouse' && e.button !== 0) return; // left-click/primary only
+  const row = e.currentTarget.closest(kind === 'task' ? 'li.task' : '.subrow');
+  if(!row) return;
+  dragState = { kind, id, taskId, startX: e.clientX, startY: e.clientY, moved: false, row, overEl: null };
+  // Pointer capture keeps every subsequent event routed to this exact
+  // handle regardless of where the finger/cursor actually wanders —
+  // without it, moving off the small handle element mid-drag would stop
+  // it from receiving move/up events at all.
+  e.currentTarget.setPointerCapture(e.pointerId);
 }
 
-function taskDragOver(e){
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  document.querySelectorAll('li.task.dragover, .dropend.dragover').forEach(el=>el.classList.remove('dragover'));
-  e.currentTarget.classList.add('dragover');
+// Reused by both kinds — which selector counts as a valid drop target,
+// and how to read the id back off whichever element the pointer is
+// currently over, differ per kind but the hit-testing/threshold/visual-
+// feedback logic underneath is identical either way.
+function dragTargetSelector(kind){
+  return kind === 'task' ? 'li.task, .dropend' : '.subrow, .subdropend';
 }
 
-function taskDrop(e, targetId){
-  e.preventDefault();
-  e.currentTarget.classList.remove('dragover');
-  if(draggedTaskId && draggedTaskId !== targetId){
-    const rect = e.currentTarget.getBoundingClientRect();
-    reorderTask(draggedTaskId, targetId, (e.clientY - rect.top) < rect.height/2);
+function dragPointerMove(e){
+  if(!dragState) return;
+  const dx = e.clientX - dragState.startX, dy = e.clientY - dragState.startY;
+  if(!dragState.moved){
+    if(Math.hypot(dx, dy) < DRAG_MOVE_THRESHOLD_PX) return;
+    dragState.moved = true;
+    dragState.row.classList.add('dragging');
   }
-  draggedTaskId = null;
+  e.preventDefault();
+  document.querySelectorAll('.dragover').forEach(el => el.classList.remove('dragover'));
+  // elementsFromPoint (not the single-result elementFromPoint) since the
+  // pointer is very likely still over the dragged row's own children
+  // (its handle, its text) rather than whatever's underneath it — this
+  // walks the whole stack at that point and picks the first element that
+  // actually matches a valid drop target, dragged row included (dropping
+  // back onto your own row/subrow is harmless — reorderTask()/
+  // reorderSubtask() already no-op when dragged and target ids match).
+  const stack = document.elementsFromPoint(e.clientX, e.clientY);
+  const el = stack.find(x => x.matches && x.matches(dragTargetSelector(dragState.kind)));
+  if(el){
+    el.classList.add('dragover');
+    dragState.overEl = el;
+  }
 }
 
-function taskDragEnd(){
-  document.querySelectorAll('li.task.dragging, li.task.dragover, .dropend.dragover').forEach(el=>el.classList.remove('dragging','dragover'));
-  draggedTaskId = null;
+function dragPointerEnd(e){
+  if(!dragState) return;
+  const d = dragState;
+  dragState = null;
+  document.querySelectorAll('.dragging, .dragover').forEach(el => el.classList.remove('dragging', 'dragover'));
+  if(!d.moved || !d.overEl) return;
+  const rect = d.overEl.getBoundingClientRect();
+  const before = (e.clientY - rect.top) < rect.height / 2;
+  if(d.kind === 'task'){
+    if(d.overEl.classList.contains('dropend')) reorderTask(d.id, d.overEl.dataset.lastId, false);
+    else reorderTask(d.id, d.overEl.dataset.taskId, before);
+  } else {
+    if(d.overEl.classList.contains('subdropend')) reorderSubtask(d.taskId, d.id, d.overEl.dataset.lastSubId, false);
+    else reorderSubtask(d.taskId, d.id, d.overEl.dataset.subId, before);
+  }
+}
+document.addEventListener('pointermove', dragPointerMove);
+document.addEventListener('pointerup', dragPointerEnd);
+document.addEventListener('pointercancel', dragPointerEnd);
+
+function taskHandlePointerDown(e, id){
+  dragPointerDown(e, 'task', id);
 }
 
 // A dedicated trailing target, appended after the last row whenever the
 // list is in 'default' sort mode — rather than requiring a drop to land
 // in exactly the bottom half of the last row's own (fairly short) bounds
 // to reach "the end," this gives that same outcome a large, unambiguous
-// target immediately below the list.
-function taskDropEnd(e, lastId){
-  e.preventDefault();
-  e.currentTarget.classList.remove('dragover');
-  if(draggedTaskId) reorderTask(draggedTaskId, lastId, false);
-  draggedTaskId = null;
-}
-
+// target immediately below the list. data-last-id is what
+// dragPointerEnd() reads back to know which real task to reorder after.
 function dropEndHtml(visible){
   if(sortMode !== 'default' || !visible.length) return '';
   const lastId = visible[visible.length-1].id;
-  return `<li class="dropend" ondragover="taskDragOver(event)" ondrop="taskDropEnd(event,'${lastId}')"></li>`;
+  return `<li class="dropend" data-last-id="${lastId}"></li>`;
 }
 
 function reorderTask(draggedId, targetId, before){
-  // Reached via taskDropEnd() when the dragged task is already the last
-  // row: draggedId===targetId here, which would otherwise splice the
-  // dragged item out, then fail to re-find "itself" as the target and
-  // fall back to index 0 — silently yanking it to the front instead of
-  // leaving it exactly where it already was.
-  if(draggedId === targetId) return;
+  // Reached when the dragged task is already the last row (dropped on
+  // its own trailing .dropend) or dropped back onto itself: draggedId
+  // ===targetId here, which would otherwise splice the dragged item out,
+  // then fail to re-find "itself" as the target and fall back to index
+  // 0 — silently yanking it to the front instead of leaving it exactly
+  // where it already was.
+  if(!draggedId || !targetId || draggedId === targetId) return;
   const fromIdx = state.tasks.findIndex(t=>t.id===draggedId);
   const targetExists = state.tasks.some(t=>t.id===targetId);
   if(fromIdx===-1 || !targetExists) return;
@@ -7254,74 +7492,28 @@ function reorderTask(draggedId, targetId, before){
   let toIdx = state.tasks.findIndex(t=>t.id===targetId);
   if(!before) toIdx += 1;
   state.tasks.splice(toIdx, 0, item);
-  // render() replaces the dragged <li> with a brand-new DOM node via
-  // innerHTML — doing that synchronously inside the drop handler yanks
-  // the element the browser's native drag session is still tracking out
-  // from under it, before dragend has even fired on it. That corrupts the
-  // browser's own drag-state bookkeeping and is what made *later* drags
-  // in the same session increasingly unreliable. Deferring to the next
-  // tick lets the drag session finish (dragend included) before the DOM
-  // underneath it changes. queueSave() doesn't touch the DOM, so it can
-  // fire right away against the already-mutated state.
-  setTimeout(render, 0);
+  render();
   queueSave();
 }
 
-function subDragStart(e, taskId, subId){
-  draggedSubtask = { taskId, subId };
-  e.dataTransfer.effectAllowed = 'move';
+function subHandlePointerDown(e, taskId, subId){
   e.stopPropagation();
-  e.currentTarget.closest('.subrow').classList.add('dragging');
-}
-
-function subDragOver(e){
-  e.preventDefault();
-  e.stopPropagation();
-  document.querySelectorAll('.subrow.dragover, .subdropend.dragover').forEach(el=>el.classList.remove('dragover'));
-  e.currentTarget.classList.add('dragover');
-}
-
-function subDrop(e, taskId, subId){
-  e.preventDefault();
-  e.stopPropagation();
-  e.currentTarget.classList.remove('dragover');
-  // Reordering only within the same task's own steps — dragging a step
-  // onto a different task is silently ignored rather than moving it
-  // there, since that's a distinct feature nobody asked for here.
-  if(draggedSubtask && draggedSubtask.taskId===taskId && draggedSubtask.subId!==subId){
-    const rect = e.currentTarget.getBoundingClientRect();
-    reorderSubtask(taskId, draggedSubtask.subId, subId, (e.clientY - rect.top) < rect.height/2);
-  }
-  draggedSubtask = null;
-}
-
-function subDragEnd(){
-  document.querySelectorAll('.subrow.dragging, .subrow.dragover, .subdropend.dragover').forEach(el=>el.classList.remove('dragging','dragover'));
-  draggedSubtask = null;
+  dragPointerDown(e, 'sub', subId, taskId);
 }
 
 // Same reasoning as dropEndHtml() above, one level down: a dedicated
 // trailing target below a task's own steps (or a checklist's own items),
 // so dropping at "the very end" doesn't depend on landing in exactly the
 // bottom half of the last (fairly short) .subrow's bounds.
-function subDropEnd(e, taskId, lastSubId){
-  e.preventDefault();
-  e.stopPropagation();
-  e.currentTarget.classList.remove('dragover');
-  if(draggedSubtask && draggedSubtask.taskId===taskId) reorderSubtask(taskId, draggedSubtask.subId, lastSubId, false);
-  draggedSubtask = null;
-}
-
 function subDropEndHtml(taskId, subs){
   if(!subs.length) return '';
   const lastId = subs[subs.length-1].id;
-  return `<div class="subdropend" ondragover="subDragOver(event)" ondrop="subDropEnd(event,'${taskId}','${lastId}')"></div>`;
+  return `<div class="subdropend" data-last-sub-id="${lastId}"></div>`;
 }
 
 function reorderSubtask(taskId, draggedSubId, targetSubId, before){
-  // Same reasoning as reorderTask()'s identical guard — reached via
-  // subDropEnd() when the dragged step is already the last one.
-  if(draggedSubId === targetSubId) return;
+  // Same reasoning as reorderTask()'s identical guard.
+  if(!draggedSubId || !targetSubId || draggedSubId === targetSubId) return;
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
   const fromIdx = t.subtasks.findIndex(s=>s.id===draggedSubId);
@@ -7333,14 +7525,10 @@ function reorderSubtask(taskId, draggedSubId, targetSubId, before){
   let toIdx = t.subtasks.findIndex(s=>s.id===targetSubId);
   if(!before) toIdx += 1;
   t.subtasks.splice(toIdx, 0, item);
-  // Same reasoning as reorderTask() — defer past the still-active native
-  // drag session on the dragged .subrow rather than yanking it out from
-  // under itself.
-  setTimeout(()=>{ render(); reopen(taskId); }, 0);
+  render();
+  reopen(taskId);
   queueSave();
 }
-
-
 // EXPERIMENTAL — fieldPickerStyle (see defaultDevSettings() in
 // 02-storage-state.js). Drop-in replacement for a plain <select> when
 // stepping through TIMEFRAME_STEPS/PRIORITY_STEPS (02-storage-state.js).
@@ -7406,15 +7594,24 @@ function taskTodayTitle(t){
     : 'Add to today’s list';
 }
 
-function taskCoreFieldsRowHtml(t, canRemoveHere){
+// hideCategory is true only from the full task detail page
+// (renderTaskDetailPage(), via taskExpandFieldsHtml()) — that page now
+// shows the category as a tab-styled label in its own header instead
+// (categoryLabelHtml(), further below), so the plain <select> here would
+// just be a second, redundant way to do the same thing. The long-press
+// bottom sheet (taskManagementFieldsHtml()) has no header to move it to
+// and isn't part of this redesign, so it keeps the <select> exactly as
+// it always has (hideCategory omitted, defaults falsy).
+function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory){
   const todayTitle = taskTodayTitle(t);
   return `
       <div class="expand-row">
+        ${hideCategory ? '' : `
         <select class="catselect" onchange="updateCategory('${t.id}', this.value)">
           ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${t.category===k?'selected':''}>${v.label}</option>`).join('')}
-        </select>
+        </select>`}
         <label class="fieldlabel">DUE</label>
-        <span class="subdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateShort(t.dueDate) : 'Date'}</span>
+        <span class="subdate taskdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateShort(t.dueDate) : 'Date'}</span>
         <div class="expandactions">
           <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
           <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>
@@ -7436,7 +7633,7 @@ function startEditTaskDueDate(el, taskId){
   if(!t) return;
   const input = document.createElement('input');
   input.type = 'text';
-  input.className = 'subdateedit';
+  input.className = 'subdateedit taskdateedit';
   input.value = t.dueDate ? fmtDateShort(t.dueDate) : '';
   input.placeholder = 'today, tmrw, 9/1, tue…';
   el.replaceWith(input);
@@ -7512,8 +7709,8 @@ function taskSubtasksHtml(t){
             : subOtherPlanned ? `Also planned on ${subOtherPlanned} other day${subOtherPlanned===1?'':'s'} — tap to add today too`
             : 'Add to today’s list';
           return `
-          <div class="subrow" ondragover="subDragOver(event)" ondrop="subDrop(event,'${t.id}','${s.id}')">
-            <span class="draghandle sub" draggable="true" ondragstart="subDragStart(event,'${t.id}','${s.id}')" ondragend="subDragEnd()" title="Drag to reorder">⠿</span>
+          <div class="subrow" data-sub-id="${s.id}">
+            <span class="draghandle sub" onpointerdown="subHandlePointerDown(event,'${t.id}','${s.id}')" title="Drag to reorder">⠿</span>
             <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <div class="subrowactions">
@@ -7552,12 +7749,16 @@ function taskManagementFieldsHtml(t, canRemoveHere){
 
 // Everything a task's own detail shows below its row header — title,
 // category/due/urgent/today fields, timeframe/priority, steps, notes,
-// meta line. Shared by the inline .expand under a normal row (default
-// taskLongPressMode) and the full-page task detail opened from Daily
-// (renderTaskDetailPage) so the two can never drift out of sync — edit
-// once, both places update.
-function taskExpandFieldsHtml(t, canRemoveHere, titleClass){
-  return `${taskTitleFieldHtml(t, titleClass)}${taskCoreFieldsRowHtml(t, canRemoveHere)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
+// meta line. Only ever called from renderTaskDetailPage() now (the
+// inline .expand under a normal row is Steps-only these days — see
+// taskSubtasksHtml()'s own comment); still its own function rather than
+// folded into that one call site, since "everything a task's detail page
+// shows below the header" reads clearly as its own unit either way.
+// hideCategory passes straight through to taskCoreFieldsRowHtml() — see
+// its own comment for why the detail page hides the plain category
+// <select> now.
+function taskExpandFieldsHtml(t, canRemoveHere, titleClass, hideCategory){
+  return `${taskTitleFieldHtml(t, titleClass)}${taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
 }
 
 // The "check-guide" nudge: once every step is done but the task itself
@@ -7627,10 +7828,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // present but silently does nothing.
   const draggableMain = sortMode === 'default';
   const dragHandle = draggableMain
-    ? `<span class="draghandle" draggable="true" ondragstart="taskDragStart(event,'${t.id}')" ondragend="taskDragEnd()" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>`
-    : '';
-  const dragTargetAttrs = draggableMain
-    ? `ondragover="taskDragOver(event)" ondrop="taskDrop(event,'${t.id}')"`
+    ? `<span class="draghandle" onpointerdown="taskHandlePointerDown(event,'${t.id}')" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>`
     : '';
   // Within Daily, clicking a task opens its own full page (see
   // openTaskDetailFromDay/renderTaskDetailPage) rather than expanding
@@ -7671,7 +7869,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
-  <li class="task" data-task-id="${t.id}" ${dragTargetAttrs}>
+  <li class="task" data-task-id="${t.id}">
     <div class="row"${pressAttrs}${ctxMenuAttr} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
@@ -7848,14 +8046,16 @@ function openTaskContextMenuForRow(taskId, rowEl){
   const r = rowEl.getBoundingClientRect();
   renderTaskContextMenu(taskId, r.left, r.bottom + 6, false);
 }
-// Shared by the task menu above and the day menu below — only one
-// #ctxMenu exists, so only one of ctxMenuTaskId/ctxMenuDayStr is ever
-// non-null at a time; closing always clears both regardless of which
-// one's actually set, rather than needing a caller to know which kind of
-// menu is currently open.
+// Shared by the task menu above, the day menu below, and the category
+// "Move to" menu further down — only one #ctxMenu exists, so only one of
+// ctxMenuTaskId/ctxMenuDayStr/ctxMenuMoveTaskId is ever non-null at a
+// time; closing always clears all three regardless of which one's
+// actually set, rather than needing a caller to know which kind of menu
+// is currently open.
 function closeCtxMenu(){
   ctxMenuTaskId = null;
   ctxMenuDayStr = null;
+  ctxMenuMoveTaskId = null;
   document.getElementById('ctxMenu').classList.remove('open');
 }
 // Every menu item (task or day) routes through this — closes the menu
@@ -7911,6 +8111,53 @@ function handleDayContextMenu(e, dateStr){
   if(mobileUiActive()) return true;
   renderDayContextMenu(dateStr, e.clientX, e.clientY);
   return false;
+}
+
+// ---------- Task category "Move to" menu ----------
+// Same #ctxMenu popup the task/day menus above use — see closeCtxMenu()'s
+// own comment for why this is a third sibling flag rather than a new
+// popup element of its own. Opened from the task detail page's own
+// category label (categoryLabelHtml() above) — moving a task between
+// categories is common enough while looking at its own detail page to
+// deserve a dedicated, always-reachable control there instead of only
+// the long-press/right-click quick-actions menu. standardCategoryEntries()
+// (same filter taskCoreFieldsRowHtml()'s old <select> used) excludes
+// checklist-type categories — a standard task moving into one wouldn't
+// make structural sense there — and the task's own current category is
+// left out too, since "move to where it already is" isn't a real option.
+let ctxMenuMoveTaskId = null;
+function categoryMoveMenuHtml(t){
+  const options = standardCategoryEntries().filter(([k])=>k!==t.category);
+  return `
+    <div class="ctxmenu-label">Move to</div>
+    ${options.length ? options.map(([k,v])=>`
+      <button onclick="ctxMenuAction(()=>updateCategory('${t.id}','${k}'))">${categoryDotHtml(v,'cdot')} ${escapeHtml(v.label)}</button>
+    `).join('') : `<div class="ctxmenu-label">No other tabs to move to</div>`}
+  `;
+}
+function renderCategoryMoveMenu(taskId, x, y){
+  const t = state.tasks.find(x2=>x2.id===taskId);
+  if(!t) return;
+  ctxMenuMoveTaskId = taskId;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = categoryMoveMenuHtml(t);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+  });
+}
+// Anchored under the label itself (el) rather than a click coordinate —
+// the label's a small fixed target in a page corner, not a wide row
+// where "wherever the finger happens to be" matters the way it does for
+// openTaskContextMenuForRow()'s own row-anchored menu.
+function openCategoryMoveMenu(el, taskId){
+  const r = el.getBoundingClientRect();
+  renderCategoryMoveMenu(taskId, r.right, r.bottom + 6);
 }
 
 // The long-press settings sheet itself — everything taskManagementFieldsHtml()
@@ -7973,6 +8220,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
   return `
     <div class="stackedpage">
       ${pageTagHtml(backOnclick, backLabel)}
+      ${categoryLabelHtml(t)}
       <div class="taskdetailhead">
         <div class="titleactions titlespacer" aria-hidden="true">${actionsHtml}</div>
         <div class="checkwrap">
@@ -7981,9 +8229,40 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
         </div>
         <div class="titleactions">${actionsHtml}</div>
       </div>
-      ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle')}
+      ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle', true)}
     </div>
   `;
+}
+
+// The task's own category, as a small tab-styled label pinned to the top
+// right corner of the detail page (position:absolute against
+// .stackedpage — same trick .pagetag uses top-left, mirrored, so it
+// costs no flow space of its own: "the header area, on the top right,
+// without adding any new space," per the explicit ask). Replaces the
+// plain .catselect <select> that used to sit down in the fields row
+// (taskCoreFieldsRowHtml() hides it there now via hideCategory — see its
+// own comment) — same background color and contrasting text-color math
+// renderTabs() (06-tabs-render.js) already uses for a real tab's
+// --tabhex/--tabtext, so this reads as "the same tab, just parked here"
+// rather than an unrelated new color choice. Deliberately doesn't chase
+// every tabBarDesktopStyle's own exact geometry (sidetabs' shaped
+// peeking edges, overlap's stacking, etc.) — those are tightly coupled
+// to their own specific layouts (peeking ::before/::after positioned
+// against a vertical column, an overlap stacking order keyed to tab
+// index...) and reusing them here blind risked exactly the kind of
+// multi-round geometry correction CLAUDE.md already warns about; color +
+// icon is the one visual thread every style actually shares. Clicking it
+// opens the "Move to" menu (openCategoryMoveMenu()) instead of a native
+// <select> popup. categoryLabelStyle 'tape' (EXPERIMENTAL, see
+// defaultDevSettings()) swaps in a rotated, translucent "washi tape"
+// look instead of the flat tab-colored one — see .categorylabel-tape in
+// <style>.
+function categoryLabelHtml(t){
+  const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
+  const textColor = relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9';
+  const glyph = CATEGORY_ICON_GLYPHS[cat.icon] || CATEGORY_ICON_GLYPHS.dot;
+  const tape = state.devSettings && state.devSettings.categoryLabelStyle === 'tape';
+  return `<button class="categorylabel${tape ? ' categorylabel-tape' : ''}" style="--catlabel-hex:${cat.hex}; --catlabel-text:${textColor}" onclick="event.stopPropagation(); openCategoryMoveMenu(this,'${t.id}')" title="Move to another category">${glyph} ${escapeHtml(cat.label)}</button>`;
 }
 
 function openTaskDetailFromDay(taskId){
@@ -8288,6 +8567,19 @@ function toggleUrgentDraft(){
   document.getElementById('urgentToggle').classList.toggle('on', urgentDraft);
 }
 
+// The checkbox-nudge picker (appearanceSection() below) options — each
+// entry's third slot is the tiny looping example shown next to its own
+// label inside the open dropdown (see customSelectHtml()'s own `preview`
+// slot). Labels intentionally drop the internal "radial ping" style
+// names' parenthetical "(default)" — the checkmark customSelectHtml()
+// already draws next to the active option says that on its own.
+const CHECK_GUIDE_STYLE_OPTIONS = [
+  ['radialping', 'Radial ping'],
+  ['wiggle', 'Wiggle'],
+  ['sparkle', 'Sparkles'],
+  ['glow', 'Warm pulsing glow']
+].map(([v, label]) => [v, label, `<span class="check guide-check guide-${v} guide-preview" aria-hidden="true"></span>`]);
+
 // ---------- Manage tabs ----------
 
 function toggleSettings(){
@@ -8381,6 +8673,10 @@ function renderSettings(){
   `;
 
   const activeUiPreset = uiColorPreset(state.theme.uiPreset);
+  // onclick lives on the label text too now, not just the small round
+  // swatch — the swatch stays the visually obvious target, but the whole
+  // row (including "UI Colors — Brass & Rust" itself) is meant to be a
+  // clickable area, not just its own 26px circle.
   const uiColorSection = `
     <div class="uicolorrow">
       <span class="uicolorwrap">
@@ -8390,7 +8686,7 @@ function renderSettings(){
         </button>
         ${uiColorPickerOpen ? uiColorPickerHtml() : ''}
       </span>
-      <span class="uicolorlabel">UI Colors — ${escapeHtml(activeUiPreset.label)}</span>
+      <span class="uicolorlabel clickable" onclick="toggleUiColorPicker()">UI Colors — ${escapeHtml(activeUiPreset.label)}</span>
       ${state.theme.uiPreset==='custom' ? `<button class="uicolorquicklink" onclick="openDualColorCustomDirect('ui')" title="Edit your custom colors">✎</button>` : ''}
     </div>
   `;
@@ -8404,25 +8700,76 @@ function renderSettings(){
         </button>
         ${deskPaperPickerOpen ? deskPaperPickerHtml() : ''}
       </span>
-      <span class="uicolorlabel">Desk & Ledger — ${escapeHtml(activeDeskPaperPresetLabel())}</span>
+      <span class="uicolorlabel clickable" onclick="toggleDeskPaperPicker()">Desk & Ledger — ${escapeHtml(activeDeskPaperPresetLabel())}</span>
       ${activeDeskPaperPresetLabel()==='Custom' ? `<button class="uicolorquicklink" onclick="openDualColorCustomDirect('desk')" title="Edit your custom colors">✎</button>` : ''}
     </div>
   `;
 
+  // Desktop: colors stacked on the left, color-related options (today
+  // just Background gradient) on the right — see .colorsplit in <style>,
+  // gated the same body:not(.mobileui-active) way every other Desktop-
+  // vs-Mobile split in this app already is. Mobile: the two sides just
+  // stack in document order (colorsplit-colors then colorsplit-options),
+  // reproducing the single-column row-per-control layout this always
+  // had — no separate mobile markup needed, only different CSS.
+  // Reset to Classic Colors moved below the split (still above Textured/
+  // Pages/Leather) and the dotted .settingsdivider moved to *after* it —
+  // per the project owner: gradient and Reset are both squarely "part of
+  // the color section," same as the swatches themselves, so the divider
+  // marking where that section ends belongs past both of them, not
+  // between the swatches and gradient the way it used to sit.
+  const colorSplit = `
+    <div class="colorsplit">
+      <div class="colorsplit-colors">
+        ${deskPaperSection}
+        ${uiColorSection}
+      </div>
+      <div class="colorsplit-options">
+        <label class="catlocchk">
+          <input type="checkbox" ${state.theme.gradient?'checked':''} onchange="toggleThemeGradient(this.checked)">
+          Background gradient
+        </label>
+      </div>
+    </div>
+    <button class="resetthemebtn" onclick="resetTheme()">Reset to classic colors</button>
+  `;
+
+  // Graduated out of Dev Settings (was checkGuideAnimationStyle there) —
+  // a real, always-visible Appearance choice now rather than an
+  // experimental toggle, renamed for a reader who's never heard the
+  // internal "guide-check"/"nudge" terms. Still the same
+  // state.devSettings.checkGuideAnimationStyle field (see
+  // checkGuideClass() in 08-render-core.js for the actual mechanism) —
+  // only the field it's still stored under didn't move, not what it
+  // means or where it's controlled from. The live swatch on the right
+  // (a bare .check with guide-preview forcing --guide-iter:infinite —
+  // see <style> — instead of the real 3-play limit) plays continuously
+  // so it's still demonstrating something the moment you look at it,
+  // and each option in the dropdown itself carries its own tiny looping
+  // copy for the same reason, per the project owner's own ask.
+  const checkGuideVal = state.devSettings.checkGuideAnimationStyle || 'radialping';
+  const checkGuideSection = `
+    <div class="checkguiderow">
+      <div class="checkguidetext">
+        <span class="uicolorlabel">Checkbox nudge — plays once everything inside is checked off</span>
+        ${customSelectHtml('appearance:checkGuideStyle', CHECK_GUIDE_STYLE_OPTIONS, checkGuideVal, 'setDevCheckGuideAnimationStyle')}
+      </div>
+      <div class="checkguideexample" title="Live example">
+        <span class="check guide-check guide-${checkGuideVal} guide-preview"></span>
+      </div>
+    </div>
+  `;
+
   const appearanceSection = `
-    ${deskPaperSection}
-    ${uiColorSection}
+    ${colorSplit}
     <div class="settingsdivider"></div>
-    <label class="catlocchk" style="margin-bottom:10px;">
-      <input type="checkbox" ${state.theme.gradient?'checked':''} onchange="toggleThemeGradient(this.checked)">
-      Background gradient
-    </label>
     <div class="texturerow">
       <button class="texturebtn ${state.theme.grain?'active':''}" onclick="toggleThemeTexture('grain')">Textured</button>
       <button class="texturebtn ${state.theme.pages?'active':''}" onclick="toggleThemeTexture('pages')">Pages</button>
       <button class="texturebtn ${state.theme.leather?'active':''}" onclick="toggleThemeTexture('leather')">Leather</button>
     </div>
-    <button class="resetthemebtn" onclick="resetTheme()">Reset to classic colors</button>
+    <div class="settingsdivider"></div>
+    ${checkGuideSection}
   `;
 
   const claudeSection = `
@@ -8645,7 +8992,66 @@ function closeAllSettingsPopovers(){
   dualColorCustomOpen = false;
   locationEditorOpenId = null;
   pendingDeleteLocationId = null;
+  customSelectOpenKey = null;
   catWheelCancelDrag();
+}
+
+// ---------- Custom dropdown (replaces a native <select> in Settings) ----------
+// Built on the same popup styling as the app's right-click menus
+// (.ctxmenu — see openTaskContextMenu() in 08-render-core.js), per the
+// project owner's own suggestion to use that as a base, but as its own
+// separate component: it anchors under its own trigger (position:relative/
+// absolute, the same idiom every other Settings popover here already
+// uses — .uicolorwrap/.catpicker etc.) rather than at a click point, and
+// tracks which instance is open via customSelectOpenKey
+// (02-storage-state.js) instead of the task/day menu's own
+// ctxMenuTaskId/ctxMenuDayStr/ctxMenuMoveTaskId, so the two systems never
+// fight over the same state despite sharing a look.
+//   key: a string unique to this one control (see devFieldHtml() in
+//     01-categories-theme.js for how Dev Settings' many instances build
+//     theirs).
+//   options: [[value, label, previewHtml?], ...] in display order —
+//     previewHtml (optional) renders after the label, for an animated
+//     example of what picking that option actually looks like (see the
+//     checkbox-nudge picker in appearanceSection() for the one place
+//     that's used today).
+//   value: the currently selected value.
+//   onChangeFn: the setter function's own name (a global function),
+//     called with the newly picked value — interpolated directly into
+//     the option button's onclick, the same "literal function-name
+//     string" idiom every onclick= attribute in this codebase uses.
+//   btnClass: optional extra class(es) on the trigger button, for a host
+//     that wants its own sizing (mirrors the old selectClass parameter
+//     devSettingsFieldsHtml() callers used to pass a native <select>).
+function customSelectHtml(key, options, value, onChangeFn, btnClass){
+  const current = options.find(o=>o[0]===value) || options[0];
+  const open = customSelectOpenKey === key;
+  return `
+    <span class="customselectwrap">
+      <button type="button" class="customselectbtn ${btnClass||''} ${open?'open':''}" onclick="toggleCustomSelect('${key}')">
+        <span class="customselectvalue">${current ? escapeHtml(current[1]) : ''}</span>
+        <span class="customselectcaret">▾</span>
+      </button>
+      ${open ? `
+        <div class="ctxmenu customselectmenu open">
+          ${options.map(([v,label,preview])=>`
+            <button type="button" class="${v===value?'customselectactive':''}" onclick="customSelectOpenKey=null; ${onChangeFn}('${v}')">
+              <span class="customselectopttext">${escapeHtml(label)}</span>
+              ${preview||''}
+              ${v===value?'<span class="customselectcheck">✓</span>':''}
+            </button>
+          `).join('')}
+        </div>` : ''}
+    </span>`;
+}
+
+// Pure UI navigation, like every other Settings popover toggle — mutually
+// exclusive with all of them via closeAllSettingsPopovers().
+function toggleCustomSelect(key){
+  const wasOpen = customSelectOpenKey === key;
+  closeAllSettingsPopovers();
+  customSelectOpenKey = wasOpen ? null : key;
+  render();
 }
 
 // ---------- Custom color wheel ----------
@@ -10334,9 +10740,21 @@ function renderChecklistOverview(categoryId){
 // There are always exactly this many peg slots spaced evenly around the
 // circle, regardless of item count — a 3-item list only fills the first
 // 3 slots and leaves the rest of the ring bare, rather than stretching
-// those 3 pegs to fill the whole circle. This is also the point past
-// which it switches to a smooth progress ring instead, since much
-// beyond this many discrete slots stops reading as separate pegs.
+// those 3 pegs to fill the whole circle (still true after the switch to
+// SVG arc pegs — see pegArcPath()'s own comment further down — this was
+// never actually the source of the "still inconsistent size" issue
+// reported against the SVG version; each peg's shape is computed once
+// at angle 0 and only ever rigidly rotated per slot, which can't change
+// its size). This is also the point past which it switches to a smooth
+// progress ring instead, since much beyond this many discrete slots
+// stops reading as separate pegs. Kept at 12 — a checklist's own item
+// count runs higher than a task's subtask count typically does, so it
+// keeps a roomier cap than the standard-task threshold in
+// subProgressHtml() (06-tabs-render.js), which is a completely separate,
+// deliberately lower limit (8) for the unrelated linear .substack bar a
+// standard task's own subtasks use — the two were briefly conflated into
+// one shared "8" during an earlier pass of this feature; the project
+// owner's own follow-up split them back into two independent numbers.
 const CHECKLIST_PEG_LIMIT = 12;
 const PEG_SLOT_DEG = 360 / CHECKLIST_PEG_LIMIT;
 // Both the first peg slot and the progress ring's 0% point start here:
@@ -10404,13 +10822,15 @@ function pegArcPath(cx, cy, rInner, rOuter, halfWidthDeg){
        + `L ${r3(ix2)} ${r3(iy2)} A ${rInner} ${rInner} 0 0 0 ${r3(ix1)} ${r3(iy1)} Z`;
 }
 // Same radial span the old flat peg used (outer edge 14px out from
-// center, inner edge 9px out — a 5px-thick band), and a half-width
-// (12°) chosen so adjacent pegs still read as separate, slightly
-// distinct ticks at PEG_SLOT_DEG's 30° spacing without touching quite as
-// aggressively as the old rect's corners did.
+// center, inner edge 9px out — a 5px-thick band). Half-width widened
+// from 12° to 13.5° at the same 30° slot size (CHECKLIST_PEG_LIMIT back
+// at 12) — less padding between adjacent pegs, per the explicit ask,
+// while keeping each one easily visible: 13.5° half-width is 27° of
+// actual peg out of each 30° slot (90% fill) vs. the old 12°-of-30°
+// (80% fill) — a bit fuller, not just carried over unchanged.
 const PEG_R_OUTER = 14;
 const PEG_R_INNER = 9;
-const PEG_HALF_WIDTH_DEG = 12;
+const PEG_HALF_WIDTH_DEG = 13.5;
 const PEG_PATH_AT_ZERO = pegArcPath(17, 17, PEG_R_INNER, PEG_R_OUTER, PEG_HALF_WIDTH_DEG);
 
 function checklistProgressHtml(subs){
@@ -10487,8 +10907,8 @@ function renderChecklistDetail(taskId){
       <div class="taskmeta checklistmeta">Created ${fmtDate(t.createdAt)}</div>
       <div class="subwrap">
         ${subs.map(s=>`
-          <div class="subrow ${t.status==='done'?'listdone':''}" ondragover="subDragOver(event)" ondrop="subDrop(event,'${t.id}','${s.id}')">
-            <span class="draghandle sub" draggable="true" ondragstart="subDragStart(event,'${t.id}','${s.id}')" ondragend="subDragEnd()" title="Drag to reorder">⠿</span>
+          <div class="subrow ${t.status==='done'?'listdone':''}" data-sub-id="${s.id}">
+            <span class="draghandle sub" onpointerdown="subHandlePointerDown(event,'${t.id}','${s.id}')" title="Drag to reorder">⠿</span>
             <div class="subcheck circle ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
@@ -11739,7 +12159,7 @@ document.addEventListener('keydown', (e) => {
   const appShell = document.getElementById('appShell');
   if(!appShell || appShell.style.display === 'none') return;
 
-  const popoverOpen = openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId;
+  const popoverOpen = openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId || customSelectOpenKey;
 
   if(e.key === 'Escape' || e.key === 'Enter'){
     if(customColorOpen && openCategoryPickerId){
@@ -11762,7 +12182,7 @@ document.addEventListener('keydown', (e) => {
     // both float above literally everything else including Settings, so
     // they're checked before any of it.
     if(fabAddOpen){ closeFabAdd(); return; }
-    if(ctxMenuTaskId || ctxMenuDayStr){ closeCtxMenu(); return; }
+    if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId){ closeCtxMenu(); return; }
     if(taskSettingsOpenId){ closeTaskSettingsSheet(); return; }
     if(quickAddOpen){ toggleQuickAddSheet(false); return; }
     if(claudeView){ closeClaudeView(); return; }
@@ -11854,7 +12274,7 @@ function swipeTextWidth(text, font){
 // swipe competing with them.
 function classifySwipeZone(target){
   if(!target || !target.closest) return null;
-  if(openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId) return null;
+  if(openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId || customSelectOpenKey) return null;
   const daynav = document.querySelector('.daynavrow');
   if(daynav && daynav.contains(target)){
     return { mode:'day', card: daynav.parentElement, label: daynav.querySelector('.dayhero') };
@@ -12467,9 +12887,19 @@ document.addEventListener('contextmenu', (e) => {
 // closes it via ctxMenuAction()) doesn't also trip this a second time
 // pointlessly.
 document.addEventListener('click', (e) => {
-  if((ctxMenuTaskId || ctxMenuDayStr) && !e.target.closest('#ctxMenu')) closeCtxMenu();
+  if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) && !e.target.closest('#ctxMenu')) closeCtxMenu();
 });
-document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr) closeCtxMenu(); }, { capture:true, passive:true });
+document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) closeCtxMenu(); }, { capture:true, passive:true });
+// Same idea for a custom dropdown (customSelectHtml(), 09-settings.js) —
+// unlike the rest of Settings' own popovers (color wheels, location
+// editor), which only ever close via an explicit ×/back/Esc, this one
+// stands in for a native <select>, and a native select always dismisses
+// on an outside click — closest('.customselectwrap') covers both the
+// trigger and its own dropdown, so picking an option (which already
+// closes it via its own onclick) doesn't also trip this a second time.
+document.addEventListener('click', (e) => {
+  if(customSelectOpenKey && !e.target.closest('.customselectwrap')){ customSelectOpenKey = null; render(); }
+});
 
 // ---------- Keeping the Supabase session alive through long idle stretches ----------
 // ensureFreshSession() (02-storage-state.js) only actually hits the

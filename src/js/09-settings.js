@@ -1,3 +1,16 @@
+// The checkbox-nudge picker (appearanceSection() below) options — each
+// entry's third slot is the tiny looping example shown next to its own
+// label inside the open dropdown (see customSelectHtml()'s own `preview`
+// slot). Labels intentionally drop the internal "radial ping" style
+// names' parenthetical "(default)" — the checkmark customSelectHtml()
+// already draws next to the active option says that on its own.
+const CHECK_GUIDE_STYLE_OPTIONS = [
+  ['radialping', 'Radial ping'],
+  ['wiggle', 'Wiggle'],
+  ['sparkle', 'Sparkles'],
+  ['glow', 'Warm pulsing glow']
+].map(([v, label]) => [v, label, `<span class="check guide-check guide-${v} guide-preview" aria-hidden="true"></span>`]);
+
 // ---------- Manage tabs ----------
 
 function toggleSettings(){
@@ -91,6 +104,10 @@ function renderSettings(){
   `;
 
   const activeUiPreset = uiColorPreset(state.theme.uiPreset);
+  // onclick lives on the label text too now, not just the small round
+  // swatch — the swatch stays the visually obvious target, but the whole
+  // row (including "UI Colors — Brass & Rust" itself) is meant to be a
+  // clickable area, not just its own 26px circle.
   const uiColorSection = `
     <div class="uicolorrow">
       <span class="uicolorwrap">
@@ -100,7 +117,7 @@ function renderSettings(){
         </button>
         ${uiColorPickerOpen ? uiColorPickerHtml() : ''}
       </span>
-      <span class="uicolorlabel">UI Colors — ${escapeHtml(activeUiPreset.label)}</span>
+      <span class="uicolorlabel clickable" onclick="toggleUiColorPicker()">UI Colors — ${escapeHtml(activeUiPreset.label)}</span>
       ${state.theme.uiPreset==='custom' ? `<button class="uicolorquicklink" onclick="openDualColorCustomDirect('ui')" title="Edit your custom colors">✎</button>` : ''}
     </div>
   `;
@@ -114,25 +131,76 @@ function renderSettings(){
         </button>
         ${deskPaperPickerOpen ? deskPaperPickerHtml() : ''}
       </span>
-      <span class="uicolorlabel">Desk & Ledger — ${escapeHtml(activeDeskPaperPresetLabel())}</span>
+      <span class="uicolorlabel clickable" onclick="toggleDeskPaperPicker()">Desk & Ledger — ${escapeHtml(activeDeskPaperPresetLabel())}</span>
       ${activeDeskPaperPresetLabel()==='Custom' ? `<button class="uicolorquicklink" onclick="openDualColorCustomDirect('desk')" title="Edit your custom colors">✎</button>` : ''}
     </div>
   `;
 
+  // Desktop: colors stacked on the left, color-related options (today
+  // just Background gradient) on the right — see .colorsplit in <style>,
+  // gated the same body:not(.mobileui-active) way every other Desktop-
+  // vs-Mobile split in this app already is. Mobile: the two sides just
+  // stack in document order (colorsplit-colors then colorsplit-options),
+  // reproducing the single-column row-per-control layout this always
+  // had — no separate mobile markup needed, only different CSS.
+  // Reset to Classic Colors moved below the split (still above Textured/
+  // Pages/Leather) and the dotted .settingsdivider moved to *after* it —
+  // per the project owner: gradient and Reset are both squarely "part of
+  // the color section," same as the swatches themselves, so the divider
+  // marking where that section ends belongs past both of them, not
+  // between the swatches and gradient the way it used to sit.
+  const colorSplit = `
+    <div class="colorsplit">
+      <div class="colorsplit-colors">
+        ${deskPaperSection}
+        ${uiColorSection}
+      </div>
+      <div class="colorsplit-options">
+        <label class="catlocchk">
+          <input type="checkbox" ${state.theme.gradient?'checked':''} onchange="toggleThemeGradient(this.checked)">
+          Background gradient
+        </label>
+      </div>
+    </div>
+    <button class="resetthemebtn" onclick="resetTheme()">Reset to classic colors</button>
+  `;
+
+  // Graduated out of Dev Settings (was checkGuideAnimationStyle there) —
+  // a real, always-visible Appearance choice now rather than an
+  // experimental toggle, renamed for a reader who's never heard the
+  // internal "guide-check"/"nudge" terms. Still the same
+  // state.devSettings.checkGuideAnimationStyle field (see
+  // checkGuideClass() in 08-render-core.js for the actual mechanism) —
+  // only the field it's still stored under didn't move, not what it
+  // means or where it's controlled from. The live swatch on the right
+  // (a bare .check with guide-preview forcing --guide-iter:infinite —
+  // see <style> — instead of the real 3-play limit) plays continuously
+  // so it's still demonstrating something the moment you look at it,
+  // and each option in the dropdown itself carries its own tiny looping
+  // copy for the same reason, per the project owner's own ask.
+  const checkGuideVal = state.devSettings.checkGuideAnimationStyle || 'radialping';
+  const checkGuideSection = `
+    <div class="checkguiderow">
+      <div class="checkguidetext">
+        <span class="uicolorlabel">Checkbox nudge — plays once everything inside is checked off</span>
+        ${customSelectHtml('appearance:checkGuideStyle', CHECK_GUIDE_STYLE_OPTIONS, checkGuideVal, 'setDevCheckGuideAnimationStyle')}
+      </div>
+      <div class="checkguideexample" title="Live example">
+        <span class="check guide-check guide-${checkGuideVal} guide-preview"></span>
+      </div>
+    </div>
+  `;
+
   const appearanceSection = `
-    ${deskPaperSection}
-    ${uiColorSection}
+    ${colorSplit}
     <div class="settingsdivider"></div>
-    <label class="catlocchk" style="margin-bottom:10px;">
-      <input type="checkbox" ${state.theme.gradient?'checked':''} onchange="toggleThemeGradient(this.checked)">
-      Background gradient
-    </label>
     <div class="texturerow">
       <button class="texturebtn ${state.theme.grain?'active':''}" onclick="toggleThemeTexture('grain')">Textured</button>
       <button class="texturebtn ${state.theme.pages?'active':''}" onclick="toggleThemeTexture('pages')">Pages</button>
       <button class="texturebtn ${state.theme.leather?'active':''}" onclick="toggleThemeTexture('leather')">Leather</button>
     </div>
-    <button class="resetthemebtn" onclick="resetTheme()">Reset to classic colors</button>
+    <div class="settingsdivider"></div>
+    ${checkGuideSection}
   `;
 
   const claudeSection = `
@@ -355,7 +423,66 @@ function closeAllSettingsPopovers(){
   dualColorCustomOpen = false;
   locationEditorOpenId = null;
   pendingDeleteLocationId = null;
+  customSelectOpenKey = null;
   catWheelCancelDrag();
+}
+
+// ---------- Custom dropdown (replaces a native <select> in Settings) ----------
+// Built on the same popup styling as the app's right-click menus
+// (.ctxmenu — see openTaskContextMenu() in 08-render-core.js), per the
+// project owner's own suggestion to use that as a base, but as its own
+// separate component: it anchors under its own trigger (position:relative/
+// absolute, the same idiom every other Settings popover here already
+// uses — .uicolorwrap/.catpicker etc.) rather than at a click point, and
+// tracks which instance is open via customSelectOpenKey
+// (02-storage-state.js) instead of the task/day menu's own
+// ctxMenuTaskId/ctxMenuDayStr/ctxMenuMoveTaskId, so the two systems never
+// fight over the same state despite sharing a look.
+//   key: a string unique to this one control (see devFieldHtml() in
+//     01-categories-theme.js for how Dev Settings' many instances build
+//     theirs).
+//   options: [[value, label, previewHtml?], ...] in display order —
+//     previewHtml (optional) renders after the label, for an animated
+//     example of what picking that option actually looks like (see the
+//     checkbox-nudge picker in appearanceSection() for the one place
+//     that's used today).
+//   value: the currently selected value.
+//   onChangeFn: the setter function's own name (a global function),
+//     called with the newly picked value — interpolated directly into
+//     the option button's onclick, the same "literal function-name
+//     string" idiom every onclick= attribute in this codebase uses.
+//   btnClass: optional extra class(es) on the trigger button, for a host
+//     that wants its own sizing (mirrors the old selectClass parameter
+//     devSettingsFieldsHtml() callers used to pass a native <select>).
+function customSelectHtml(key, options, value, onChangeFn, btnClass){
+  const current = options.find(o=>o[0]===value) || options[0];
+  const open = customSelectOpenKey === key;
+  return `
+    <span class="customselectwrap">
+      <button type="button" class="customselectbtn ${btnClass||''} ${open?'open':''}" onclick="toggleCustomSelect('${key}')">
+        <span class="customselectvalue">${current ? escapeHtml(current[1]) : ''}</span>
+        <span class="customselectcaret">▾</span>
+      </button>
+      ${open ? `
+        <div class="ctxmenu customselectmenu open">
+          ${options.map(([v,label,preview])=>`
+            <button type="button" class="${v===value?'customselectactive':''}" onclick="customSelectOpenKey=null; ${onChangeFn}('${v}')">
+              <span class="customselectopttext">${escapeHtml(label)}</span>
+              ${preview||''}
+              ${v===value?'<span class="customselectcheck">✓</span>':''}
+            </button>
+          `).join('')}
+        </div>` : ''}
+    </span>`;
+}
+
+// Pure UI navigation, like every other Settings popover toggle — mutually
+// exclusive with all of them via closeAllSettingsPopovers().
+function toggleCustomSelect(key){
+  const wasOpen = customSelectOpenKey === key;
+  closeAllSettingsPopovers();
+  customSelectOpenKey = wasOpen ? null : key;
+  render();
 }
 
 // ---------- Custom color wheel ----------
