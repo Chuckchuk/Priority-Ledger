@@ -475,7 +475,11 @@ function renderDayList(){
   const showQuickAddBtn = quickAddDiffDays <= 1;
   const todayMissing = quickAddDiffDays === 0;
   const quickAddLabel = todayMissing ? '+ Add Today' : '+ Add Tomorrow';
-  const textField = `<input type="text" class="dayaddtext" id="dayAddTextInput" placeholder="Add a day… (today, tmrw, 9/1, tue…)" onkeydown="if(event.key==='Enter') addDayByText()">`;
+  // .solo — once both today and tomorrow are already logged,
+  // showQuickAddBtn goes false and this field is the only way left to add
+  // a day at all, so it picks up the same Primary treatment the button it
+  // just lost would have had (see .dayaddtext.solo in <style>).
+  const textField = `<input type="text" class="dayaddtext ${showQuickAddBtn?'':'solo'}" id="dayAddTextInput" placeholder="Add a day… (today, tmrw, 9/1, tue…)" onkeydown="if(event.key==='Enter') addDayByText()">`;
   // Today missing entirely gets its own oversized, attention-grabbing
   // button on a row by itself — sharing a row with the day-text-field the
   // way "+ Add Tomorrow" (today already logged) does would cramp it back

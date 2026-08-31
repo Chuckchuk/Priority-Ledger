@@ -41,6 +41,14 @@
     --paper:#F1EAD9;
     --card-bg:#F1EAD9;
     --card-bg-dim:#E7DDC5;
+    /* Text-input accent — a muted blue here purely as the classic paper's
+       own pre-JS/no-JS fallback (its complement, roughly). Real value is
+       computed per-theme by complementaryAccent() in 01-categories-theme.js,
+       off whatever the user's actually picked as their Ledger color, and
+       set at runtime by applyThemeObject(). See that function's own
+       comment for why a straight complement wasn't good enough on its
+       own. */
+    --input-accent:#4E6B96;
     --ink:#2A2318;
     --ink-soft:#7A6E58;
     /* --primary/--secondary are the "two-pair" general-UI accent colors
@@ -739,56 +747,33 @@
   .checkcircle.done::after{ content:'✓'; color: var(--card-bg); font-size:10px; }
   /* Each peg is a genuine fixed-size rectangle (not a conic-gradient arc
      slice — those are wedges, wider at the outer edge than the inner
-     one, which read as "trapezoids" rather than boxes) positioned at the
-     container's center and rotated around it — transform-origin sits
-     back at that center point, so at rotate(0) it points straight up at
-     a fixed radius, and swinging it to a given item's slot is just
-     varying the rotation angle. Size and radius never change with item
+     one, which read as "trapezoids" rather than boxes), rotated around
+     the ring's own center via SVG's transform="rotate(angle cx cy)" (see
+     checklistProgressHtml(), 13-checklist.js, for why this is SVG rather
+     than absolutely-positioned/rotated HTML elements — zoom-level
+     rendering consistency). Size and radius never change with item
      count, only how many slots (up to CHECKLIST_PEG_LIMIT) are filled in
      — that's what keeps a 3-item list's pegs the same size as a
-     12-item list's instead of stretching to fill the ring. */
-  /* .pegpivot is a zero-size point placed exactly on the container's
-     center (top/left:50% of an even-pixel box lands on a whole pixel,
-     no fraction involved) and rotated — a plain, un-overridden
-     transform-origin ("50% 50%" of a 0×0 box is just that same point)
-     is what actually rotates around it, rather than a .peg carrying
-     both a fractional margin AND a fractional transform-origin that
-     have to cancel out exactly. .peg itself is a static, unrotated
-     offset inside its already-rotated pivot, so it only needs a single
-     centering fraction (half its own width) instead of two independent
-     ones that could drift apart under different rounding. */
-  /* At this spacing, adjacent pegs' corners slightly overlap — two
-     concerns that come with that: an unfilled peg must never paint
-     over a filled one at that seam, and two overlapping unfilled pegs
-     must not visibly darken where they overlap. z-index handles the
-     first (each .pegpivot carries a transform, which gives it its own
-     stacking context, so the ordering has to be set on the pivot
-     itself — setting it on the inner .peg would only reorder within
-     that one pivot's context, not against sibling pivots). Dropping
-     opacity handles the second: .peg's colors are fully opaque solid
-     fills, not a translucent tint over the card, so two overlapping
-     unfilled pegs blend into the exact same flat color instead of
-     stacking into something darker. */
-  .pegpivot{ position:absolute; top:50%; left:50%; width:0; height:0; z-index:1; }
-  .pegpivot.filled{ z-index:2; }
-  /* An unfilled peg's softer look used to come from opacity:0.6 — reverted
+     12-item list's instead of stretching to fill the ring. .pegring
+     fills .checkcircle-wrap exactly the way the old peg layer did. */
+  .pegring{ position:absolute; inset:0; width:100%; height:100%; z-index:1; overflow:visible; }
+  /* An unfilled peg's softer look used to come from opacity — reverted
      for overlap reasons (two translucent pegs stacking visibly darkened
-     where they touched), but the muted color itself is worth keeping.
+     where they touched, since adjacent pegs' corners slightly overlap at
+     this spacing), but the muted color itself is worth keeping.
      color-mix() bakes the same "60% peg color over the card" result into
-     a flat, fully-opaque color instead, so two unfilled pegs overlapping
+     a flat, fully-opaque fill instead, so two unfilled pegs overlapping
      still blend into that one flat color rather than compounding into
-     something darker. Plain fallback declared first, same reasoning as
-     .stackedpage's background: color-mix()-unsupporting browsers just
-     keep the (slightly less soft, but still fine) flat --card-bg-dim. */
-  .peg{
-    position:absolute; top:-14px; left:-3px; width:6px; height:5px;
-    background: var(--card-bg-dim);
-    background: color-mix(in srgb, var(--card-bg-dim) 60%, var(--card-bg) 40%);
-    border: 1px solid var(--ink-soft);
-    border-color: color-mix(in srgb, var(--ink-soft) 60%, var(--card-bg) 40%);
-    border-radius:1px;
+     something darker. checklistProgressHtml() paints filled pegs after
+     unfilled ones in document order specifically so a filled peg always
+     wins that overlap — SVG has no z-index to lean on the way each
+     pegpivot's own stacking context used to give the old HTML version. */
+  .pegring .peg{
+    fill: color-mix(in srgb, var(--card-bg-dim) 60%, var(--card-bg) 40%);
+    stroke: color-mix(in srgb, var(--ink-soft) 60%, var(--card-bg) 40%);
+    stroke-width: 1;
   }
-  .pegpivot.filled .peg{ background: var(--ink); border-color: var(--ink); }
+  .pegring .peg.filled{ fill: var(--ink); stroke: var(--ink); }
   /* Past the peg threshold, a conic-gradient ring takes over — the
      opaque .checkcircle sitting centered on top of it (same z-index
      trick as above) masks the middle, leaving only the outer ring
@@ -825,9 +810,26 @@
   .badge.priority-high{ background: var(--estate); color:white; }
   .expand{ margin: 10px 0 2px 28px; display:none; }
   .expand.open{ display:block; }
+  /* Notes: bigger (min-height went from 52px, which read as "suddenly
+     tiny" next to everything else on the page, to a real writing area)
+     and recolored off --input-accent (a per-theme complementary color —
+     see complementaryAccent() in 01-categories-theme.js — computed from
+     whatever Ledger/paper color the user's actually picked) instead of
+     the flat --card-bg-dim tint, which was barely distinguishable from
+     the page around it — that plus its square-ish corners is what read
+     as "very white" and "too square." A soft tinted fill at rest,
+     brightening to a real focus ring on click, rather than a stark white
+     box with a hard outline. */
   .expand textarea{
-    width:100%; min-height:52px; font-family:'IBM Plex Sans',sans-serif; font-size:0.85rem;
-    border:1px solid var(--line); border-radius:6px; background: var(--card-bg-dim); padding:8px; resize:vertical; color:var(--ink);
+    width:100%; min-height:120px; font-family:'IBM Plex Sans',sans-serif; font-size:0.88rem;
+    border:1.5px solid color-mix(in srgb, var(--input-accent) 45%, var(--line));
+    border-radius:10px; background: color-mix(in srgb, var(--input-accent) 7%, var(--card-bg-dim));
+    padding:10px 12px; resize:vertical; color:var(--ink);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  .expand textarea:focus{
+    outline:none; border-color: var(--input-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-accent) 20%, transparent);
   }
   .expand-row{ display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap; }
   /* Groups the urgent/today-pin/remove buttons into one unit, purely as a
@@ -837,10 +839,6 @@
      buttons stay direct participants in .expand-row's own flex line
      exactly as if this div weren't there at all. */
   .expandactions{ display:contents; }
-  .expand input[type=date]{
-    font-family:'IBM Plex Mono', monospace; font-size:0.75rem; border:1px solid var(--line);
-    border-radius:5px; padding:5px 6px; background: var(--card-bg-dim); color:var(--ink);
-  }
   .remove{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; color: var(--estate); background:none; border:none; cursor:pointer; letter-spacing:0.05em; margin-left:auto; }
   .titleedit{
     width:100%; border:none; border-bottom: 1.5px solid var(--ink-soft); background:transparent;
@@ -939,6 +937,20 @@
      each item's real individual state exactly as it was. */
   .subrow.listdone{ opacity:0.5; }
   .subrow.listdone .subtext{ text-decoration: line-through; }
+  /* display:contents (same trick as .expandactions above it) — invisible
+     to layout by default, so .subdate/the pin button/.subdel stay direct
+     participants of .subrow's own single-line flex row exactly as if
+     this wrapper weren't there. Only becomes a real element on mobile
+     (see body.mobileui-active .subrowactions below), where a longer
+     step's own text was splitting awkwardly around these three controls
+     on the same line instead of getting the row's full width to itself. */
+  .subrowactions{ display:contents; }
+  body.mobileui-active .subrow{ flex-wrap:wrap; }
+  body.mobileui-active .subrow .subtext{ flex:1 1 auto; min-width:0; }
+  body.mobileui-active .subrow .subrowactions{
+    display:flex; align-items:center; gap:8px; justify-content:flex-end;
+    width:100%; margin-top:2px;
+  }
   .subdropend{ height:10px; }
   .subdropend.dragover{ border-top: 2px solid var(--primary); }
   .draghandle.sub{ font-size:0.78rem; }
@@ -1094,6 +1106,17 @@
     0%, 100% { box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent); }
     50% { box-shadow: 0 6px 24px color-mix(in srgb, var(--primary) 68%, transparent); }
   }
+  /* A brighter, more diffuse "backlight" on hover — stops the idle pulse
+     animation (which would otherwise keep overriding box-shadow every
+     frame and fight this) and holds a stronger, wider glow instead of
+     just landing mid-pulse. The second, larger shadow layer is what
+     actually reads as light spilling out behind the button rather than
+     just a bigger drop shadow. Resumes the normal pulse the instant the
+     mouse leaves. */
+  .addday.addtodayhero:hover{
+    animation: none;
+    box-shadow: 0 6px 30px color-mix(in srgb, var(--primary) 75%, transparent), 0 0 46px color-mix(in srgb, var(--primary) 45%, transparent);
+  }
   /* Replaces the old "Pick a date…" toggle button + native <input
      type=date> + separate "Add this day" button — a single always-
      visible text field, parsed via parseNaturalDate() on Enter (see
@@ -1110,6 +1133,20 @@
     background:var(--card-bg-dim); color:var(--ink); outline:none;
   }
   .dayaddtext::placeholder{ color: var(--ink-soft); opacity:0.8; }
+  /* .solo — today and tomorrow are both already logged, so showQuickAddBtn
+     (renderDayList()) hides the quick-add button entirely and this field
+     is the only way left to add a day at all. Picks up the same Primary
+     treatment .addday's own dashed-outline tint uses (solid border
+     instead of dashed, otherwise identical) rather than inventing a
+     separate "highlighted input" look, so it reads as "the button, just
+     shaped like a field" instead of a new kind of emphasis. Typed text
+     stays plain --ink for legibility; only the border/background/
+     placeholder pick up the accent. */
+  .dayaddtext.solo{
+    border:1.5px solid var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, var(--card-bg-dim));
+  }
+  .dayaddtext.solo::placeholder{ color: var(--primary); opacity:0.75; }
   .lockednote{
     display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'IBM Plex Mono', monospace; font-size:0.68rem;
     color: var(--ink-soft); background: var(--card-bg-dim); border-radius:6px; padding:10px 12px; margin-bottom:14px; letter-spacing:0.03em;
@@ -2456,7 +2493,7 @@
     flex-direction:column; align-items:stretch; gap:8px;
   }
   body.mobileui-active[data-taskdetail-mobile="stacked"] .expand-row .catselect,
-  body.mobileui-active[data-taskdetail-mobile="stacked"] .expand-row input[type=date]{
+  body.mobileui-active[data-taskdetail-mobile="stacked"] .expand-row .subdate{
     width:100%;
   }
   body.mobileui-active[data-taskdetail-mobile="stacked"] .expandactions{
@@ -2473,7 +2510,7 @@
   }
   body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row .fieldlabel{ display:none; }
   body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row .catselect,
-  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row input[type=date]{
+  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row .subdate{
     width:100%;
   }
   body.mobileui-active[data-taskdetail-mobile="grouped"] .expandactions{
@@ -3814,6 +3851,30 @@ function hexToHsv(hex){
   return { h, s: max===0 ? 0 : d/max, v: max };
 }
 
+// The text-input accent (--input-accent, read by .expand textarea/
+// .subdateedit/.taskdate & co. in <style>) — computed off the Ledger
+// color (state.theme.paper, i.e. --card-bg) so it never needs its own
+// setting: whatever "ledger surface" color someone picks, this
+// automatically picks a complementary one for the fields that sit inside
+// it, rather than the flat --card-bg-dim tint (barely distinguishable
+// from the surface itself — see the "very white/square" ask this was
+// built for) or a hardcoded accent that could clash with a custom paper
+// color. Reuses hexToHsv()/hsvToHex() (the color-wheel picker's own
+// conversions, see catWheelPointerDown() in 09-settings.js) rather than
+// adding a second HSL-based color space just for this. A straight 180°
+// hue rotation of the *paper* color's own saturation/value would barely
+// register as different from --card-bg-dim in most cases — paper colors
+// are typically light and low-saturation, and rotating the hue of an
+// already-desaturated color doesn't move it far in RGB terms. Instead
+// only the hue carries over; saturation/value are fixed at levels chosen
+// to read clearly as an accent (a border, a placeholder-ish label)
+// against any paper lightness, light or dark.
+function complementaryAccent(hex){
+  const hsv = hexToHsv(hex);
+  const hue = (hsv.h + 180) % 360;
+  return hsvToHex(hue, 0.48, 0.6);
+}
+
 function relLuminance(hex){
   const num = parseInt(hex.replace('#',''), 16);
   const r = (num >> 16) / 255, g = ((num >> 8) & 0xFF) / 255, b = (num & 0xFF) / 255;
@@ -3848,6 +3909,7 @@ function applyThemeObject(t){
   if(themeColorMeta) themeColorMeta.setAttribute('content', deskDark);
   root.setProperty('--card-bg', t.paper);
   root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
+  root.setProperty('--input-accent', complementaryAccent(t.paper));
   const ui = uiColorPreset(t.uiPreset);
   root.setProperty('--primary', ui.primary);
   root.setProperty('--primary-light', ui.primaryLight);
@@ -4558,7 +4620,6 @@ const DEV_ELEMENT_NAME_RULES = [
   { sel: '.daybtn' },
   { sel: '.flagbtn' },
   { sel: '.catselect' },
-  { sel: 'input[type="date"]' },
   { sel: '.expand-row .remove' },
   { sel: '.titleedit.bigtitle' },
   { sel: '.titleedit' },
@@ -5814,6 +5875,16 @@ function fmtTodayHeader(){
 const WEEKDAY_NAMES = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
 const MONTH_NAMES = ['january','february','march','april','may','june','july','august','september','october','november','december'];
 
+// Every word/phrase that currently means "today" — this app doesn't
+// track a time of day yet, so "tonight," "this evening," and a bare
+// "morning" all collapse to the same plain date today does. If time-of-
+// day tracking ever gets added, this is the list to split apart: each of
+// these would need to carry its own approximate time instead of just
+// resolving to todayStr() the way they all do now. Not attempting to
+// detect an actual clock time (e.g. "2pm") at all — there's nowhere to
+// put one yet, so parsing one now would just be silently thrown away.
+const TODAY_WORDS = ['today','tday','2day','tonight','tonite','morning','afternoon','evening','night','this morning','this afternoon','this evening'];
+
 // Rudimentary natural-language date detection for steps — deliberately
 // covers only the handful of shorthands actually asked for (today/
 // tomorrow, weekday names, M/D[/YY], "Month Day") rather than a general
@@ -5823,7 +5894,7 @@ function parseNaturalDate(raw){
   const str = (raw||'').trim().toLowerCase().replace(/\b(\d+)(st|nd|rd|th)\b/,'$1');
   if(!str) return '';
   const today = new Date(todayStr()+'T00:00:00');
-  if(str==='today') return todayStr();
+  if(TODAY_WORDS.includes(str)) return todayStr();
   if(str==='tomorrow' || str==='tmrw' || str==='tmr' || str==='tmrrw') return addDaysToDateStr(todayStr(), 1);
   if(str==='yesterday') return addDaysToDateStr(todayStr(), -1);
 
@@ -7188,13 +7259,50 @@ function taskCoreFieldsRowHtml(t, canRemoveHere){
           ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${t.category===k?'selected':''}>${v.label}</option>`).join('')}
         </select>
         <label class="fieldlabel">DUE</label>
-        <input type="date" value="${t.dueDate||''}" onchange="updateDueDate('${t.id}', this.value)">
+        <span class="subdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateShort(t.dueDate) : 'Date'}</span>
         <div class="expandactions">
           <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
           <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>
           ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
       </div>`;
+}
+
+// Swap-in-a-text-input trick, same as startEditSubtaskDate()
+// (15-subtask-edit.js) — natural-language parsing (today, tmrw, 9/1,
+// tue…) via parseNaturalDate() instead of a native <input type=date>,
+// per the explicit ask to make a task's own due date behave (and look —
+// see .subdate/.subdateedit in <style>) like a step's already does,
+// rather than the native picker's largely unstyleable white/square
+// chrome. An empty input clears the date; unparseable text just reverts
+// rather than guessing wrong.
+function startEditTaskDueDate(el, taskId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'subdateedit';
+  input.value = t.dueDate ? fmtDateShort(t.dueDate) : '';
+  input.placeholder = 'today, tmrw, 9/1, tue…';
+  el.replaceWith(input);
+  input.focus();
+  input.select();
+  let committed = false;
+  const commit = async () => {
+    if(committed) return;
+    committed = true;
+    const raw = input.value.trim();
+    if(!raw){
+      if(t.dueDate) await updateDueDate(taskId, '');
+      else { render(); reopen(taskId); }
+      return;
+    }
+    const parsed = parseNaturalDate(raw);
+    if(parsed) await updateDueDate(taskId, parsed);
+    else { render(); reopen(taskId); } // unparseable — revert, don't save
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); input.blur(); } });
 }
 
 // Timeframe/Priority both fall back to a plain <select> built straight
@@ -7253,9 +7361,11 @@ function taskSubtasksHtml(t){
             <span class="draghandle sub" draggable="true" ondragstart="subDragStart(event,'${t.id}','${s.id}')" ondragend="subDragEnd()" title="Drag to reorder">⠿</span>
             <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
-            <div class="subdate ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
-            <button class="flagbtn daybtn small ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
-            <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
+            <div class="subrowactions">
+              <div class="subdate ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
+              <button class="flagbtn daybtn small ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
+              <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
+            </div>
           </div>`;
         }).join('')}
         ${subDropEndHtml(t.id, subs)}
@@ -8021,7 +8131,19 @@ function toggleUrgentDraft(){
 
 function toggleSettings(){
   settingsOpen = !settingsOpen;
-  if(settingsOpen) claudeView = null;
+  if(settingsOpen){
+    claudeView = null;
+    // mobileTaskDetailId is checked ahead of settingsOpen in render() (it
+    // replaces the whole app body from any tab, not just Daily's own
+    // taskDetailId) — without clearing it here, opening Settings while
+    // that full-page task detail is up would flip settingsOpen on but
+    // render() would still short-circuit back to the task detail, making
+    // Settings look unreachable. No other overlay needs this: everything
+    // else render() branches on (taskDetailId, selectedListId, etc.) only
+    // matters *inside* the branches settingsOpen already short-circuits
+    // past, so settingsOpen alone is enough to surface Settings over them.
+    mobileTaskDetailId = null;
+  }
   pendingDeleteCategoryId = null;
   closeAllSettingsPopovers();
   render();
@@ -9578,7 +9700,11 @@ function renderDayList(){
   const showQuickAddBtn = quickAddDiffDays <= 1;
   const todayMissing = quickAddDiffDays === 0;
   const quickAddLabel = todayMissing ? '+ Add Today' : '+ Add Tomorrow';
-  const textField = `<input type="text" class="dayaddtext" id="dayAddTextInput" placeholder="Add a day… (today, tmrw, 9/1, tue…)" onkeydown="if(event.key==='Enter') addDayByText()">`;
+  // .solo — once both today and tomorrow are already logged,
+  // showQuickAddBtn goes false and this field is the only way left to add
+  // a day at all, so it picks up the same Primary treatment the button it
+  // just lost would have had (see .dayaddtext.solo in <style>).
+  const textField = `<input type="text" class="dayaddtext ${showQuickAddBtn?'':'solo'}" id="dayAddTextInput" placeholder="Add a day… (today, tmrw, 9/1, tue…)" onkeydown="if(event.key==='Enter') addDayByText()">`;
   // Today missing entirely gets its own oversized, attention-grabbing
   // button on a row by itself — sharing a row with the day-text-field the
   // way "+ Add Tomorrow" (today already logged) does would cramp it back
@@ -10063,27 +10189,48 @@ const PEG_START_DEG = -30;
 // a single smooth conic-gradient sweep instead (same start angle, via
 // conic-gradient's `from`), since that many discrete slots would read as
 // clutter rather than countable pegs.
+// SVG, not individually rotated/positioned HTML divs — an earlier version
+// used a zero-size ".pegpivot" per peg (position:absolute + rotate) with a
+// translateZ(0) hack to force every pivot onto its own GPU-composited
+// layer, on the theory that a peg landing on rotate(0deg) — any slot on a
+// cardinal axis — could otherwise get treated as an identity transform
+// and rendered via the plain layout path instead, snapping to a different
+// sub-pixel grid than its genuinely-rotated siblings at non-100% browser
+// zoom. That turned out not to be the whole story: browser zoom (unlike
+// devicePixelRatio) can scale a page by a non-integer factor, and once
+// that scaling makes even nominally "whole-pixel" CSS values (this
+// container is an even 34px, its center a whole-number 17px) land on
+// fractional device pixels, *every* pivot's layout-vs-compositor path can
+// round slightly differently from every other, not just the 0° one —
+// each HTML element is still its own independent layout/paint unit
+// regardless of how many get a compositing layer. SVG shapes don't have
+// that problem: every <rect> here is part of one <svg>, rendered as a
+// single vector rasterization pass, so they scale together identically
+// under any zoom level instead of each being its own independently-
+// rounded box. Same 34×34 viewBox as .checkcircle-wrap's own pixel size
+// (1 viewBox unit == 1 CSS px at rest), so the coordinates below are the
+// exact same numbers the old absolutely-positioned peg used relative to
+// its pivot: a peg 6 wide, 5 tall, sitting 14px out from center (17,17),
+// rotated per-slot around that same center point via SVG's own
+// transform="rotate(angle cx cy)" instead of a wrapping pivot element.
 function checklistProgressHtml(subs){
   if(!subs.length) return '';
   const done = subs.filter(s=>s.done).length;
   const total = subs.length;
   if(total <= CHECKLIST_PEG_LIMIT){
-    // translateZ(0) alongside the rotate is a no-op visually, but it's
-    // there specifically so every pegpivot gets promoted to its own
-    // GPU-composited layer the same way, regardless of angle. Without
-    // it, rotate(0deg) — which a peg lands on exactly whenever a slot
-    // falls on a cardinal axis — can get treated by the browser as an
-    // identity transform and rendered via the plain CPU layout/paint
-    // path instead, snapped to a different sub-pixel grid than its
-    // genuinely-rotated siblings. That mismatch is invisible at 100%
-    // zoom but shows up as that one peg being a slightly different
-    // size at other browser zoom levels, since layout-snapped and
-    // compositor-positioned elements round fractional device pixels
-    // differently once the CSS-px-to-device-px ratio isn't 1:1.
-    return subs.map((s,i)=>{
+    // Painted in "unfilled first, filled last" order (not slot order) so
+    // a filled peg always paints over an unfilled neighbor at their
+    // slightly-overlapping corners — SVG has no z-index to lean on here
+    // the way each pegpivot's own stacking context used to provide, just
+    // plain document order, so the order themselves have to carry it.
+    // Angle still comes from the peg's real slot index `i`, not its
+    // position in this reordered list, so sorting doesn't move anything.
+    const ordered = subs.map((s,i)=>({s,i})).sort((a,b)=>(a.s.done?1:0)-(b.s.done?1:0));
+    const pegs = ordered.map(({s,i})=>{
       const angle = PEG_START_DEG + i*PEG_SLOT_DEG;
-      return `<span class="pegpivot ${s.done?'filled':''}" style="transform:rotate(${angle}deg) translateZ(0)"><span class="peg"></span></span>`;
+      return `<rect class="peg ${s.done?'filled':''}" x="14" y="3" width="6" height="5" rx="1" transform="rotate(${angle} 17 17)"></rect>`;
     }).join('');
+    return `<svg class="pegring" viewBox="0 0 34 34">${pegs}</svg>`;
   }
   const pct = Math.round(done/total*100);
   return `<div class="progressring" style="background: conic-gradient(from ${PEG_START_DEG}deg, var(--ink) ${pct}%, var(--line) 0)"></div>`;
