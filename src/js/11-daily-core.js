@@ -443,11 +443,22 @@ function renderDayList(){
   const quickAddDate = nextOpenDay();
   const quickAddDiffDays = Math.round((new Date(quickAddDate) - new Date(todayStr())) / 86400000);
   const showQuickAddBtn = quickAddDiffDays <= 1;
-  const quickAddLabel = quickAddDiffDays === 0 ? '+ Add Today' : '+ Add Tomorrow';
-  html += `
+  const todayMissing = quickAddDiffDays === 0;
+  const quickAddLabel = todayMissing ? '+ Add Today' : '+ Add Tomorrow';
+  const textField = `<input type="text" class="dayaddtext" id="dayAddTextInput" placeholder="Add a day… (today, tmrw, 9/1, tue…)" onkeydown="if(event.key==='Enter') addDayByText()">`;
+  // Today missing entirely gets its own oversized, attention-grabbing
+  // button on a row by itself — sharing a row with the day-text-field the
+  // way "+ Add Tomorrow" (today already logged) does would cramp it back
+  // down to ordinary-button size. Per the project owner's explicit ask:
+  // this is the one state on this page worth interrupting the normal scan
+  // for, since every other view in Daily assumes today already exists.
+  html += todayMissing ? `
+    <div class="addtodayrow"><button class="addday addtodayhero" onclick="addDay()">${quickAddLabel}</button></div>
+    <div class="adddayrow">${textField}</div>
+  ` : `
     <div class="adddayrow">
       ${showQuickAddBtn ? `<button class="addday" onclick="addDay()">${quickAddLabel}</button>` : ''}
-      <input type="text" class="dayaddtext" id="dayAddTextInput" placeholder="Add a day… (today, tmrw, 9/1, tue…)" onkeydown="if(event.key==='Enter') addDayByText()">
+      ${textField}
     </div>
   `;
 

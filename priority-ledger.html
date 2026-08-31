@@ -1074,6 +1074,26 @@
   }
   .adddayrow{ display:flex; gap:8px; margin-bottom:16px; }
   .adddayrow .addday{ flex:1; width:auto; margin-bottom:0; }
+  .addtodayrow{ margin-bottom:16px; }
+  /* Today-missing-entirely state only (see renderDayList()) — a solid
+     fill instead of the usual dashed-outline tint, a serif headline face
+     instead of the small mono-uppercase utility look every other button
+     on this page uses, and a slow breathing glow, all deliberately louder
+     than anything else here. This is the one state on the day list worth
+     interrupting the normal scan for — every other Daily view quietly
+     assumes today already exists. */
+  .addday.addtodayhero{
+    width:100%; text-align:center; text-transform:none;
+    font-family:'Fraunces', serif; font-size:1.3rem; font-weight:700; letter-spacing:0.01em;
+    padding:24px 14px; border-radius:14px; border:none;
+    background: var(--primary); color:white;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent);
+    animation: addtodaypulse 2.4s ease-in-out infinite;
+  }
+  @keyframes addtodaypulse{
+    0%, 100% { box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 40%, transparent); }
+    50% { box-shadow: 0 6px 24px color-mix(in srgb, var(--primary) 68%, transparent); }
+  }
   /* Replaces the old "Pick a date…" toggle button + native <input
      type=date> + separate "Add this day" button — a single always-
      visible text field, parsed via parseNaturalDate() on Enter (see
@@ -9437,11 +9457,22 @@ function renderDayList(){
   const quickAddDate = nextOpenDay();
   const quickAddDiffDays = Math.round((new Date(quickAddDate) - new Date(todayStr())) / 86400000);
   const showQuickAddBtn = quickAddDiffDays <= 1;
-  const quickAddLabel = quickAddDiffDays === 0 ? '+ Add Today' : '+ Add Tomorrow';
-  html += `
+  const todayMissing = quickAddDiffDays === 0;
+  const quickAddLabel = todayMissing ? '+ Add Today' : '+ Add Tomorrow';
+  const textField = `<input type="text" class="dayaddtext" id="dayAddTextInput" placeholder="Add a day… (today, tmrw, 9/1, tue…)" onkeydown="if(event.key==='Enter') addDayByText()">`;
+  // Today missing entirely gets its own oversized, attention-grabbing
+  // button on a row by itself — sharing a row with the day-text-field the
+  // way "+ Add Tomorrow" (today already logged) does would cramp it back
+  // down to ordinary-button size. Per the project owner's explicit ask:
+  // this is the one state on this page worth interrupting the normal scan
+  // for, since every other view in Daily assumes today already exists.
+  html += todayMissing ? `
+    <div class="addtodayrow"><button class="addday addtodayhero" onclick="addDay()">${quickAddLabel}</button></div>
+    <div class="adddayrow">${textField}</div>
+  ` : `
     <div class="adddayrow">
       ${showQuickAddBtn ? `<button class="addday" onclick="addDay()">${quickAddLabel}</button>` : ''}
-      <input type="text" class="dayaddtext" id="dayAddTextInput" placeholder="Add a day… (today, tmrw, 9/1, tue…)" onkeydown="if(event.key==='Enter') addDayByText()">
+      ${textField}
     </div>
   `;
 
