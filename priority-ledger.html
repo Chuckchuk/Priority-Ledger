@@ -2225,6 +2225,11 @@
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px 4px; cursor:pointer; color:var(--ink-soft);
   }
   .dualcolortab.active{ background: var(--primary); border-color: var(--primary); color:white; }
+  /* The tab that ISN'T selected gets a Secondary-colored border — a
+     small nudge toward "there's another tab here too, don't forget it,"
+     since with just two tabs the inactive one is always exactly the tab
+     you'd want a reminder to also go check. */
+  .dualcolortab:not(.active){ border-color: var(--secondary); }
   /* "= Copy Primary" (UI Colors' Secondary tab only, see
      dualColorCustomHtml() in 09-settings.js) — a plain dashed-outline
      text button, same visual weight as .catwheelback rather than a
@@ -4010,7 +4015,17 @@
 // plain id-keyed object (via rebuildCategoriesIndex) so the many existing
 // `CATEGORIES[key]` / `Object.entries(CATEGORIES)` call sites didn't need
 // to change when categories became dynamic.
-const CATEGORY_PALETTE = ['#3C5A45','#3E4A6B','#9C4530','#A9782F','#5B6560','#6B4226','#2F6B5E','#7A4B6B'];
+// Last 4 (steel blue, burgundy, olive, dusty rose) added later to round
+// out the set — picked to sit in hue gaps the original 8 left open
+// rather than sitting close to an existing choice (steel blue between
+// the existing teal-green and slate-blue; burgundy between rust and
+// mauve; olive a genuinely more yellow-green mustard than brass's
+// orange-gold; dusty rose the one lighter-value option in an otherwise
+// all-mid-dark palette). addCategory() colors a new tab from
+// CATEGORY_PALETTE[state.categories.length % length] and defaultCategories()
+// below only ever reads indices 0-3, so appending here (not inserting)
+// is what keeps both of those stable.
+const CATEGORY_PALETTE = ['#3C5A45','#3E4A6B','#9C4530','#A9782F','#5B6560','#6B4226','#2F6B5E','#7A4B6B','#2C5C7A','#7A2E35','#8C7A1E','#B5677A'];
 // Used only when a task's category tab has been deleted — the task itself
 // is never touched, it just has nothing to look itself up as, and this
 // keeps that rendering path from breaking.
@@ -4047,8 +4062,12 @@ function defaultCategories(){
 // fonts/browsers, which would break "shows in the category's own color"
 // for every choice but the default. Order here is the order offered in
 // categoryPickerHtml()'s icon row.
-const CATEGORY_ICON_ORDER = ['dot','star','flag','house','diamond','square','ring','check'];
-const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⌂', diamond:'◆', square:'■', ring:'○', check:'✓' };
+// triangle/cross added later, same "plain text-presentation glyph, not
+// color emoji" rule as the original 8 — both are ordinary Unicode
+// symbols with no registered emoji presentation, so they're safe to add
+// without re-checking every font this app might render in.
+const CATEGORY_ICON_ORDER = ['dot','star','flag','house','diamond','square','ring','check','triangle','cross'];
+const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⌂', diamond:'◆', square:'■', ring:'○', check:'✓', triangle:'▲', cross:'✚' };
 // Single shared renderer for every place a category's marker shows up
 // (task rows, the task detail page, the tab bar, the day-tree picker, the
 // Settings row) — same reasoning as taskRowHtml being the one place a
@@ -4285,7 +4304,14 @@ function applyThemeObject(t){
   if(themeColorMeta) themeColorMeta.setAttribute('content', deskDark);
   root.setProperty('--card-bg', t.paper);
   root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
-  const ui = uiColorPreset(t.uiPreset);
+  // t.customUi (not uiColorPreset('custom')'s own read of the *real*
+  // state.theme.customUi) is what lets a live drag-preview show a custom
+  // pair that hasn't been committed yet — updateCatWheelUI() in
+  // 09-settings.js calls this with a throwaway {...state.theme, uiPreset:
+  // 'custom', customUi:{...draft}} object while dragging, never touching
+  // state.theme itself, so Escape/"‹ Presets" can cleanly revert just by
+  // re-running applyTheme() (the real, committed state.theme) afterward.
+  const ui = (t.uiPreset === 'custom' && t.customUi) ? t.customUi : uiColorPreset(t.uiPreset);
   root.setProperty('--primary', ui.primary);
   root.setProperty('--primary-light', ui.primaryLight);
   root.setProperty('--secondary', ui.secondary);
@@ -9322,7 +9348,16 @@ function catWheelCancelDrag(){
 
 // Repaints the wheel's own knobs/preview/hex field directly — see the
 // big comment above customColorWheelHtml() for why this can't go through
-// the app's normal render().
+// the app's normal render(). ALSO live-previews the real effect of the
+// color being dragged — the actual desk/ledger/UI accent colors, or (for
+// a category) that category's own tab-bar pill and Settings-row dot —
+// without writing to state at all, so the preview can't outlive the
+// popover: Escape/"‹ Presets" just calls render() (category — nothing
+// was ever mutated, so the real state paints right back) or applyTheme()
+// (theme — re-derives the CSS vars from the real, untouched state.theme)
+// to snap back, and only confirmCustomColor()/confirmDualColorCustom()
+// (Done, Enter, or clicking outside the popover — see the document click
+// listener in 19-bootstrap.js) ever actually commits it.
 function updateCatWheelUI(){
   const ring = document.getElementById('catWheelRing');
   if(!ring) return; // popover closed out from under an in-flight drag
@@ -9347,6 +9382,36 @@ function updateCatWheelUI(){
   // Never stomp on the field while it's actively focused (typing) — only
   // a drag on the ring/square should push a value into it live.
   if(hexInput && document.activeElement !== hexInput) hexInput.value = hex;
+
+  if(dualColorCustomOpen){
+    if(deskPaperPickerOpen){
+      const bg = dualColorField==='bg' ? hex : dualColorHexOf('bg');
+      const paper = dualColorField==='paper' ? hex : dualColorHexOf('paper');
+      applyThemeObject({ ...state.theme, bg, paper });
+    } else if(uiColorPickerOpen){
+      const primary = dualColorField==='primary' ? hex : dualColorHexOf('primary');
+      const secondary = dualColorField==='secondary' ? hex : dualColorHexOf('secondary');
+      applyThemeObject({ ...state.theme, uiPreset:'custom',
+        customUi:{ label:'Custom', primary, primaryLight: shadeHex(primary,0.35), secondary, secondaryLight: shadeHex(secondary,0.35) } });
+    }
+  } else if(customColorOpen && openCategoryPickerId){
+    const tab = document.querySelector(`.tab[data-key="${openCategoryPickerId}"]`);
+    if(tab){
+      tab.style.setProperty('--tabhex', hex);
+      tab.style.setProperty('--tabtext', relLuminance(hex) > 0.5 ? '#2A2318' : '#F1EAD9');
+      tab.style.setProperty('--tabedge', shadeHex(hex, -0.25));
+    }
+    const rowDot = document.querySelector(`.catdotbtn[onclick="toggleCategoryPicker('${openCategoryPickerId}')"] .cdot`);
+    if(rowDot) rowDot.style.color = hex;
+  }
+}
+
+// The non-active tab's own stored draft, as a hex string — used by
+// updateCatWheelUI()'s live preview to know the *other* field's current
+// value while only the active one is mid-drag.
+function dualColorHexOf(field){
+  const c = dualColorDraft[field];
+  return hsvToHex(c.h, c.s, c.v);
 }
 
 function normalizeHexInput(val){
@@ -9606,9 +9671,15 @@ function openDualColorCustomDirect(kind){
 
 // Drops back to the preset grid without closing the popover itself, same
 // "back" idiom as closeCustomColor() for a category's own wheel.
+// applyTheme() (not just render()) is what actually undoes
+// updateCatWheelUI()'s live drag-preview here — state.theme itself was
+// never touched, so re-deriving the CSS vars from it wipes out whatever
+// throwaway {...state.theme, bg/paper/customUi:...} object the preview
+// last applied.
 function closeDualColorCustom(){
   dualColorCustomOpen = false;
   catWheelCancelDrag();
+  applyTheme();
   render();
 }
 
@@ -13027,14 +13098,41 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) closeCtxMenu(); }, { capture:true, passive:true });
 // Same idea for a custom dropdown (customSelectHtml(), 09-settings.js) —
-// unlike the rest of Settings' own popovers (color wheels, location
-// editor), which only ever close via an explicit ×/back/Esc, this one
-// stands in for a native <select>, and a native select always dismisses
-// on an outside click — closest('.customselectwrap') covers both the
-// trigger and its own dropdown, so picking an option (which already
-// closes it via its own onclick) doesn't also trip this a second time.
+// it stands in for a native <select>, and a native select always
+// dismisses on an outside click — closest('.customselectwrap') covers
+// both the trigger and its own dropdown, so picking an option (which
+// already closes it via its own onclick) doesn't also trip this a second
+// time.
 document.addEventListener('click', (e) => {
   if(customSelectOpenKey && !e.target.closest('.customselectwrap')){ customSelectOpenKey = null; render(); }
+});
+// Every other Settings popover (category color/icon picker, UI Colors/
+// Desk & Ledger grids, location editor) gets the same "click away to
+// dismiss" a native picker would have — these used to only close via an
+// explicit ×/back/Esc, which read as broken next to the customSelect
+// dropdown above. A color wheel specifically (customColorOpen/
+// dualColorCustomOpen) treats an outside click as Done/confirm — it
+// literally calls the same confirm*() the "Done" button does, which is
+// safe because a drag has already been live-previewing the real color
+// the whole time (see updateCatWheelUI()'s own comment) — rather than a
+// plain close, mirroring how Enter already behaves for it. Every other
+// popover here has no pending draft to commit, so an outside click there
+// is just a close, same as Escape. Checked before the generic branch so
+// a wheel mid-drag doesn't also get caught by it.
+document.addEventListener('click', (e) => {
+  if(customColorOpen && openCategoryPickerId && !e.target.closest('.catdotwrap')){
+    confirmCustomColor(openCategoryPickerId);
+    return;
+  }
+  if(dualColorCustomOpen && !e.target.closest('.uicolorwrap')){
+    confirmDualColorCustom();
+    return;
+  }
+  if((openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId)
+     && !e.target.closest('.catdotwrap') && !e.target.closest('.uicolorwrap') && !e.target.closest('.locbubblewrap')){
+    closeAllSettingsPopovers();
+    render();
+  }
 });
 
 // ---------- Keeping the Supabase session alive through long idle stretches ----------

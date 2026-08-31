@@ -758,14 +758,41 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) closeCtxMenu(); }, { capture:true, passive:true });
 // Same idea for a custom dropdown (customSelectHtml(), 09-settings.js) —
-// unlike the rest of Settings' own popovers (color wheels, location
-// editor), which only ever close via an explicit ×/back/Esc, this one
-// stands in for a native <select>, and a native select always dismisses
-// on an outside click — closest('.customselectwrap') covers both the
-// trigger and its own dropdown, so picking an option (which already
-// closes it via its own onclick) doesn't also trip this a second time.
+// it stands in for a native <select>, and a native select always
+// dismisses on an outside click — closest('.customselectwrap') covers
+// both the trigger and its own dropdown, so picking an option (which
+// already closes it via its own onclick) doesn't also trip this a second
+// time.
 document.addEventListener('click', (e) => {
   if(customSelectOpenKey && !e.target.closest('.customselectwrap')){ customSelectOpenKey = null; render(); }
+});
+// Every other Settings popover (category color/icon picker, UI Colors/
+// Desk & Ledger grids, location editor) gets the same "click away to
+// dismiss" a native picker would have — these used to only close via an
+// explicit ×/back/Esc, which read as broken next to the customSelect
+// dropdown above. A color wheel specifically (customColorOpen/
+// dualColorCustomOpen) treats an outside click as Done/confirm — it
+// literally calls the same confirm*() the "Done" button does, which is
+// safe because a drag has already been live-previewing the real color
+// the whole time (see updateCatWheelUI()'s own comment) — rather than a
+// plain close, mirroring how Enter already behaves for it. Every other
+// popover here has no pending draft to commit, so an outside click there
+// is just a close, same as Escape. Checked before the generic branch so
+// a wheel mid-drag doesn't also get caught by it.
+document.addEventListener('click', (e) => {
+  if(customColorOpen && openCategoryPickerId && !e.target.closest('.catdotwrap')){
+    confirmCustomColor(openCategoryPickerId);
+    return;
+  }
+  if(dualColorCustomOpen && !e.target.closest('.uicolorwrap')){
+    confirmDualColorCustom();
+    return;
+  }
+  if((openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId)
+     && !e.target.closest('.catdotwrap') && !e.target.closest('.uicolorwrap') && !e.target.closest('.locbubblewrap')){
+    closeAllSettingsPopovers();
+    render();
+  }
 });
 
 // ---------- Keeping the Supabase session alive through long idle stretches ----------

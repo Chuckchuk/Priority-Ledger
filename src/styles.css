@@ -2193,6 +2193,11 @@
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px 4px; cursor:pointer; color:var(--ink-soft);
   }
   .dualcolortab.active{ background: var(--primary); border-color: var(--primary); color:white; }
+  /* The tab that ISN'T selected gets a Secondary-colored border — a
+     small nudge toward "there's another tab here too, don't forget it,"
+     since with just two tabs the inactive one is always exactly the tab
+     you'd want a reminder to also go check. */
+  .dualcolortab:not(.active){ border-color: var(--secondary); }
   /* "= Copy Primary" (UI Colors' Secondary tab only, see
      dualColorCustomHtml() in 09-settings.js) — a plain dashed-outline
      text button, same visual weight as .catwheelback rather than a

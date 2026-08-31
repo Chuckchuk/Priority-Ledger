@@ -622,7 +622,16 @@ function catWheelCancelDrag(){
 
 // Repaints the wheel's own knobs/preview/hex field directly — see the
 // big comment above customColorWheelHtml() for why this can't go through
-// the app's normal render().
+// the app's normal render(). ALSO live-previews the real effect of the
+// color being dragged — the actual desk/ledger/UI accent colors, or (for
+// a category) that category's own tab-bar pill and Settings-row dot —
+// without writing to state at all, so the preview can't outlive the
+// popover: Escape/"‹ Presets" just calls render() (category — nothing
+// was ever mutated, so the real state paints right back) or applyTheme()
+// (theme — re-derives the CSS vars from the real, untouched state.theme)
+// to snap back, and only confirmCustomColor()/confirmDualColorCustom()
+// (Done, Enter, or clicking outside the popover — see the document click
+// listener in 19-bootstrap.js) ever actually commits it.
 function updateCatWheelUI(){
   const ring = document.getElementById('catWheelRing');
   if(!ring) return; // popover closed out from under an in-flight drag
@@ -647,6 +656,36 @@ function updateCatWheelUI(){
   // Never stomp on the field while it's actively focused (typing) — only
   // a drag on the ring/square should push a value into it live.
   if(hexInput && document.activeElement !== hexInput) hexInput.value = hex;
+
+  if(dualColorCustomOpen){
+    if(deskPaperPickerOpen){
+      const bg = dualColorField==='bg' ? hex : dualColorHexOf('bg');
+      const paper = dualColorField==='paper' ? hex : dualColorHexOf('paper');
+      applyThemeObject({ ...state.theme, bg, paper });
+    } else if(uiColorPickerOpen){
+      const primary = dualColorField==='primary' ? hex : dualColorHexOf('primary');
+      const secondary = dualColorField==='secondary' ? hex : dualColorHexOf('secondary');
+      applyThemeObject({ ...state.theme, uiPreset:'custom',
+        customUi:{ label:'Custom', primary, primaryLight: shadeHex(primary,0.35), secondary, secondaryLight: shadeHex(secondary,0.35) } });
+    }
+  } else if(customColorOpen && openCategoryPickerId){
+    const tab = document.querySelector(`.tab[data-key="${openCategoryPickerId}"]`);
+    if(tab){
+      tab.style.setProperty('--tabhex', hex);
+      tab.style.setProperty('--tabtext', relLuminance(hex) > 0.5 ? '#2A2318' : '#F1EAD9');
+      tab.style.setProperty('--tabedge', shadeHex(hex, -0.25));
+    }
+    const rowDot = document.querySelector(`.catdotbtn[onclick="toggleCategoryPicker('${openCategoryPickerId}')"] .cdot`);
+    if(rowDot) rowDot.style.color = hex;
+  }
+}
+
+// The non-active tab's own stored draft, as a hex string — used by
+// updateCatWheelUI()'s live preview to know the *other* field's current
+// value while only the active one is mid-drag.
+function dualColorHexOf(field){
+  const c = dualColorDraft[field];
+  return hsvToHex(c.h, c.s, c.v);
 }
 
 function normalizeHexInput(val){
@@ -906,9 +945,15 @@ function openDualColorCustomDirect(kind){
 
 // Drops back to the preset grid without closing the popover itself, same
 // "back" idiom as closeCustomColor() for a category's own wheel.
+// applyTheme() (not just render()) is what actually undoes
+// updateCatWheelUI()'s live drag-preview here — state.theme itself was
+// never touched, so re-deriving the CSS vars from it wipes out whatever
+// throwaway {...state.theme, bg/paper/customUi:...} object the preview
+// last applied.
 function closeDualColorCustom(){
   dualColorCustomOpen = false;
   catWheelCancelDrag();
+  applyTheme();
   render();
 }
 

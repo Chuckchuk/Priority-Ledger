@@ -4,7 +4,17 @@
 // plain id-keyed object (via rebuildCategoriesIndex) so the many existing
 // `CATEGORIES[key]` / `Object.entries(CATEGORIES)` call sites didn't need
 // to change when categories became dynamic.
-const CATEGORY_PALETTE = ['#3C5A45','#3E4A6B','#9C4530','#A9782F','#5B6560','#6B4226','#2F6B5E','#7A4B6B'];
+// Last 4 (steel blue, burgundy, olive, dusty rose) added later to round
+// out the set — picked to sit in hue gaps the original 8 left open
+// rather than sitting close to an existing choice (steel blue between
+// the existing teal-green and slate-blue; burgundy between rust and
+// mauve; olive a genuinely more yellow-green mustard than brass's
+// orange-gold; dusty rose the one lighter-value option in an otherwise
+// all-mid-dark palette). addCategory() colors a new tab from
+// CATEGORY_PALETTE[state.categories.length % length] and defaultCategories()
+// below only ever reads indices 0-3, so appending here (not inserting)
+// is what keeps both of those stable.
+const CATEGORY_PALETTE = ['#3C5A45','#3E4A6B','#9C4530','#A9782F','#5B6560','#6B4226','#2F6B5E','#7A4B6B','#2C5C7A','#7A2E35','#8C7A1E','#B5677A'];
 // Used only when a task's category tab has been deleted — the task itself
 // is never touched, it just has nothing to look itself up as, and this
 // keeps that rendering path from breaking.
@@ -41,8 +51,12 @@ function defaultCategories(){
 // fonts/browsers, which would break "shows in the category's own color"
 // for every choice but the default. Order here is the order offered in
 // categoryPickerHtml()'s icon row.
-const CATEGORY_ICON_ORDER = ['dot','star','flag','house','diamond','square','ring','check'];
-const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⌂', diamond:'◆', square:'■', ring:'○', check:'✓' };
+// triangle/cross added later, same "plain text-presentation glyph, not
+// color emoji" rule as the original 8 — both are ordinary Unicode
+// symbols with no registered emoji presentation, so they're safe to add
+// without re-checking every font this app might render in.
+const CATEGORY_ICON_ORDER = ['dot','star','flag','house','diamond','square','ring','check','triangle','cross'];
+const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⌂', diamond:'◆', square:'■', ring:'○', check:'✓', triangle:'▲', cross:'✚' };
 // Single shared renderer for every place a category's marker shows up
 // (task rows, the task detail page, the tab bar, the day-tree picker, the
 // Settings row) — same reasoning as taskRowHtml being the one place a
@@ -279,7 +293,14 @@ function applyThemeObject(t){
   if(themeColorMeta) themeColorMeta.setAttribute('content', deskDark);
   root.setProperty('--card-bg', t.paper);
   root.setProperty('--card-bg-dim', shadeHex(t.paper, -0.06));
-  const ui = uiColorPreset(t.uiPreset);
+  // t.customUi (not uiColorPreset('custom')'s own read of the *real*
+  // state.theme.customUi) is what lets a live drag-preview show a custom
+  // pair that hasn't been committed yet — updateCatWheelUI() in
+  // 09-settings.js calls this with a throwaway {...state.theme, uiPreset:
+  // 'custom', customUi:{...draft}} object while dragging, never touching
+  // state.theme itself, so Escape/"‹ Presets" can cleanly revert just by
+  // re-running applyTheme() (the real, committed state.theme) afterward.
+  const ui = (t.uiPreset === 'custom' && t.customUi) ? t.customUi : uiColorPreset(t.uiPreset);
   root.setProperty('--primary', ui.primary);
   root.setProperty('--primary-light', ui.primaryLight);
   root.setProperty('--secondary', ui.secondary);
