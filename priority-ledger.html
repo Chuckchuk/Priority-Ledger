@@ -986,6 +986,12 @@
     border-radius:10px; background: color-mix(in srgb, var(--input-accent) 7%, var(--card-bg-dim));
     padding:10px 12px; resize:vertical; color:var(--ink);
     transition: border-color 150ms ease, box-shadow 150ms ease;
+    /* .subadd (the "+ add a step" field right above this, end of
+       .subwrap) already carries its own dashed bottom rule as its own
+       resting-state underline — with no margin here the two sat flush
+       against each other, reading as one field bleeding into the next
+       rather than two distinct sections. */
+    margin-top:16px;
   }
   .notesfield:focus{
     outline:none; border-color: var(--input-accent);
@@ -1133,14 +1139,20 @@
   }
   .subdropend{ height:10px; }
   .subdropend.dragover{ border-top: 2px solid var(--primary); }
-  /* The task's own due-date field claims the whole row on mobile, rather
-     than wrapping wherever .expand-row's own flex-wrap happens to leave
-     room for it — per the explicit ask, now that .catselect no longer
-     shares this row on the task detail page (see categoryLabelHtml()'s
-     own comment) and the date field is one of the few things left in it.
-     flex-basis:100% pushes it (and .expandactions, wrapping right after
-     it) onto their own lines below the DUE label. */
-  body.mobileui-active .expand-row .taskdate{ flex:1 1 100%; }
+  /* The task's own due-date field claims the whole row on the full detail
+     page now, desktop included, rather than wrapping wherever
+     .expand-row's own flex-wrap happens to leave room for it — per the
+     explicit ask, now that .catselect AND the urgent/pin buttons no
+     longer share this row there (see categoryLabelHtml()'s and
+     taskCoreFieldsRowHtml()'s own hideActions comment; .hideactions is
+     the marker taskCoreFieldsRowHtml() adds to .expand-row specifically
+     on that page) and the date field is one of the only things left in
+     it. flex-basis:100% pushes it onto its own line below the DUE label;
+     the long-press bottom sheet (taskManagementFieldsHtml(), no
+     .hideactions there) still wraps the date field in with the
+     flag/pin/remove buttons exactly as before, so this only ever affects
+     the one page it was asked for. */
+  .expand-row.hideactions .taskdate{ flex:1 1 100%; }
   .draghandle.sub{ font-size:0.85rem; }
   .subcheck{
     width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
@@ -1260,11 +1272,28 @@
      indent alone read as ambiguous on its own. The left border gives that
      cue a visible anchor line rather than just empty space. */
   .daysubnested{ margin-left:34px; padding-left:10px; border-left:2px solid var(--line); }
+  /* Boxed and accent-bordered, not the plain dashed-underline treatment
+     this used to share with a step's own discreet .subdate — adding a
+     step is one of this app's more important actions (arguably more so
+     than the Notes field it used to visually undersell itself next to),
+     so it gets a resting state that reads as its own real control, not
+     an afterthought beneath the step list. Dashed (not solid) at rest is
+     still deliberate: it keeps the field reading as "type here to add
+     one more," the same invitation-style cue .substack's placeholder
+     already leaned on, just upgraded from an underline to a full box. */
   .subadd{
-    width:100%; border:none; border-bottom:1px dashed var(--line); background:transparent;
-    font-family:'IBM Plex Sans',sans-serif; font-size:0.84rem; padding:6px 2px; color:var(--ink); outline:none; margin-top:2px;
+    width:100%; box-sizing:border-box;
+    border:1.5px dashed color-mix(in srgb, var(--input-accent) 55%, var(--line));
+    border-radius:8px; background: color-mix(in srgb, var(--input-accent) 9%, var(--card-bg-dim));
+    font-family:'IBM Plex Sans',sans-serif; font-size:0.86rem; font-weight:600;
+    padding:9px 12px; color:var(--ink); outline:none; margin-top:8px;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
   }
-  .subadd::placeholder{ color: var(--ink-soft); opacity:0.7; }
+  .subadd:focus{
+    border-style:solid; border-color: var(--input-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-accent) 20%, transparent);
+  }
+  .subadd::placeholder{ color: color-mix(in srgb, var(--input-accent) 75%, var(--ink-soft)); opacity:0.85; }
   .badge.subcount{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
   .savestatus{
     text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.62rem;
@@ -4891,6 +4920,35 @@ function resolveTaskRowDest(el){
   if(oc.includes('openTaskDetailFromDay(')) return 'renderTaskDetailPage()';
   return null; // taskRowTap(): usually toggles the inline .expand in place, not a real navigation
 }
+// A right-click/long-press menu button (renderTaskContextMenu(),
+// renderDayContextMenu(), categoryMoveMenuHtml() — all in
+// 08-render-core.js) never carries its own authored `title`, so the
+// generic orig-title-based label would just be the bare selector with
+// nothing else. These buttons' onclick is always the literal command
+// itself, wrapped as `ctxMenuAction(()=>command(args))` so closing the
+// menu and running the command happen together — stripping that wrapper
+// down to `command(args)` is what "what command they run when called"
+// actually shows, and is far more useful in a hover tooltip than the
+// selector alone. Used as a rule's `cmd` (see applyDevElementNames()),
+// not `dest` — this replaces the label half, not the arrow-suffix half.
+function ctxMenuButtonCommand(el){
+  const oc = el.getAttribute('onclick') || '';
+  const m = oc.match(/^ctxMenuAction\(\(\)=>(.+)\)$/);
+  return m ? m[1] : oc;
+}
+// "Where they take you, if they take you somewhere else" — most of these
+// commands (toggleStatus, deleteTask, updateCategory/
+// moveTaskCategoryFollowingTab, ...) just mutate state in place and
+// re-render whatever's already on screen, so they get no arrow suffix at
+// all (same "only elements that are genuinely a link get one" rule
+// resolvePageTagDest() follows above). Only the two that actually
+// navigate somewhere new are listed.
+function ctxMenuButtonDest(el){
+  const cmd = ctxMenuButtonCommand(el);
+  if(cmd.includes('openGenericTaskDetail(')) return 'renderTaskDetailPage()';
+  if(cmd.includes('openDay(')) return 'renderDayDetail()';
+  return null;
+}
 
 const DEV_ELEMENT_NAME_RULES = [
   // Masthead
@@ -4935,6 +4993,7 @@ const DEV_ELEMENT_NAME_RULES = [
   { sel: '.daybtn' },
   { sel: '.flagbtn' },
   { sel: '.catselect' },
+  { sel: '.categorylabel' },
   { sel: '.expand-row .remove' },
   { sel: '.titleedit.bigtitle' },
   { sel: '.titleedit' },
@@ -4985,21 +5044,41 @@ const DEV_ELEMENT_NAME_RULES = [
   { sel: '.cdot' },
   { sel: '.resetthemebtn' },
   { sel: '.texturebtn' },
+  // Color wheel (colorWheelInnerHtml(), 09-settings.js) — shared by both
+  // the category color picker and the desk/paper & UI-color dual
+  // pickers. Previously one of the "rarer standalone popovers" this
+  // whole mechanism openly didn't cover; no longer a special case now
+  // that these have their own rules like everything else.
+  { sel: '.catwheelback' },
+  { sel: '.catwheelring' },
+  { sel: '.catwheelknob' },
+  { sel: '.catwheelsquare' },
+  { sel: '.catwheelsvknob' },
+  { sel: '.uicolorswatch' },
+  { sel: '.uicolorlabel.clickable' },
+  { sel: '.uicolorquicklink' },
+  { sel: '.dualcolortab' },
+  { sel: '.dualcolorcopy' },
   // Dev panel
   { sel: '.devpaneltab' },
   { sel: '.devgrouphead' },
-  // Context menu
-  { sel: '.ctxmenu-danger' },
-  { sel: '.ctxmenu button' },
+  // Context menu (right-click / long-press, and the category Move-to
+  // menu — all share #ctxMenu's markup). cmd/dest here read the button's
+  // own onclick instead of the generic orig-title/dest split every other
+  // rule above uses, since these buttons never carry an authored title
+  // to fall back on — see ctxMenuButtonCommand()'s own comment.
+  { sel: '.ctxmenu-danger', cmd: ctxMenuButtonCommand, dest: ctxMenuButtonDest },
+  { sel: '.ctxmenu button', cmd: ctxMenuButtonCommand, dest: ctxMenuButtonDest },
 ];
 
 // Runs after every render() (see its call site in 08-render-core.js) and
 // after the right-click/long-press quick-actions menu (renderTaskContextMenu(),
 // same file) — the two most common ways this app's DOM actually changes.
-// A few rarer standalone popovers (the color wheel, the category/icon
-// picker) aren't covered; "most UI elements" per the ask, not literally
-// every one. Cheap no-op when development mode is off (the overwhelming
-// majority of the time).
+// The color wheel (colorWheelInnerHtml(), 09-settings.js) used to be a
+// standalone popover this genuinely never covered; it goes through
+// render() like everything else in Settings now, so it's covered the
+// same way — no separate call site needed for it. Cheap no-op when
+// development mode is off (the overwhelming majority of the time).
 //
 // dataset.origTitle caches each element's own authored tooltip (or ''
 // if it never had one) the first time this runs on it, rather than
@@ -5021,14 +5100,30 @@ function applyDevElementNames(){
   if(!state.devSettings || !state.devSettings.developmentMode) return;
   const root = document.getElementById('appShell');
   if(!root) return;
-  for(const el of root.querySelectorAll('[class],[id]')){
+  // ',button' catches the #ctxMenu's own quick-action buttons (renderTask
+  // ContextMenu()/renderDayContextMenu()/categoryMoveMenuHtml(), all in
+  // 08-render-core.js) — plain `<button onclick="...">Label</button>`
+  // with no class or id of their own (only the danger/delete variant
+  // carries a class). '.ctxmenu button' as a RULE selector still matches
+  // those fine via the ancestor combinator, but this outer query is what
+  // decides which elements even get tested against the rule list in the
+  // first place, and a class-or-id-less <button> never showed up in it —
+  // so every ordinary menu item's tooltip (Mark complete, Toggle urgent,
+  // Move to a category, ...) silently never rendered, the exact
+  // "clickable menu item shows no command/destination" gap reported.
+  for(const el of root.querySelectorAll('[class],[id],button')){
     let rule = null;
     for(const r of DEV_ELEMENT_NAME_RULES){
       if(el.matches(r.sel)){ rule = r; break; }
     }
     if(!rule) continue;
     if(el.dataset.origTitle === undefined) el.dataset.origTitle = el.getAttribute('title') || '';
-    const orig = el.dataset.origTitle;
+    // `cmd` (context-menu buttons only, see ctxMenuButtonCommand()) is
+    // resolved fresh every pass, same as `dest` below — it's not cached
+    // onto dataset.origTitle since these buttons keep no authored title
+    // to fall back on anyway, so there's nothing stale to protect it
+    // from the way the #ctxMenu-reuse comment above describes for orig.
+    const orig = typeof rule.cmd === 'function' ? rule.cmd(el) : el.dataset.origTitle;
     let label = orig ? `${rule.sel} - ${orig}` : rule.sel;
     const dest = typeof rule.dest === 'function' ? rule.dest(el) : rule.dest;
     if(dest) label += ` => ${dest}`;
@@ -7593,18 +7688,27 @@ function taskTodayTitle(t){
     : 'Add to today’s list';
 }
 
-// hideCategory is true only from the full task detail page
-// (renderTaskDetailPage(), via taskExpandFieldsHtml()) — that page now
-// shows the category as a tab-styled label in its own header instead
-// (categoryLabelHtml(), further below), so the plain <select> here would
-// just be a second, redundant way to do the same thing. The long-press
-// bottom sheet (taskManagementFieldsHtml()) has no header to move it to
-// and isn't part of this redesign, so it keeps the <select> exactly as
-// it always has (hideCategory omitted, defaults falsy).
-function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory){
+// hideCategory/hideActions are both true only from the full task detail
+// page (renderTaskDetailPage(), via taskExpandFieldsHtml()) — hideCategory
+// because that page now shows the category as a tab-styled label in its
+// own header instead (categoryLabelHtml(), further below), and
+// hideActions because that same header already carries its own urgent
+// flag + today-pin (see renderTaskDetailPage()'s own actionsHtml) — a
+// second copy right below, next to the date field, was showing the exact
+// same two buttons twice on one page. The long-press bottom sheet
+// (taskManagementFieldsHtml()) has no header to hold either of those, so
+// it keeps the <select> and the flag/pin exactly as it always has
+// (both params omitted, default falsy). The "remove" button isn't part
+// of this — it's a real per-field action nothing else on the detail page
+// duplicates, so it stays in .expandactions regardless of hideActions;
+// .hideactions on the row is what lets the date field still claim the
+// full row's width even when a canRemoveHere task leaves that button
+// behind as the row's only other occupant (see the .taskdate rule in
+// <style>).
+function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
   const todayTitle = taskTodayTitle(t);
   return `
-      <div class="expand-row">
+      <div class="expand-row${hideActions ? ' hideactions' : ''}">
         ${hideCategory ? '' : `
         <select class="catselect" onchange="updateCategory('${t.id}', this.value)">
           ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${t.category===k?'selected':''}>${v.label}</option>`).join('')}
@@ -7612,8 +7716,9 @@ function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory){
         <label class="fieldlabel">DUE</label>
         <span class="subdate taskdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateShort(t.dueDate) : 'Date'}</span>
         <div class="expandactions">
+          ${hideActions ? '' : `
           <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>
+          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>`}
           ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
       </div>`;
@@ -7756,8 +7861,16 @@ function taskManagementFieldsHtml(t, canRemoveHere){
 // hideCategory passes straight through to taskCoreFieldsRowHtml() — see
 // its own comment for why the detail page hides the plain category
 // <select> now.
+// hideCategory doubles as taskCoreFieldsRowHtml()'s hideActions too —
+// this function only ever has one caller (renderTaskDetailPage(), always
+// passing hideCategory=true), and on that page the two conditions are
+// the same condition: "this is the full detail page, which already has
+// its own header for both the category label and the urgent/pin
+// buttons." No case exists yet where one would be true without the
+// other, so a second formal parameter here would just be a second name
+// for the same signal.
 function taskExpandFieldsHtml(t, canRemoveHere, titleClass, hideCategory){
-  return `${taskTitleFieldHtml(t, titleClass)}${taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
+  return `${taskTitleFieldHtml(t, titleClass)}${taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideCategory)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
 }
 
 // The "check-guide" nudge: once every step is done but the task itself
@@ -8130,9 +8243,28 @@ function categoryMoveMenuHtml(t){
   return `
     <div class="ctxmenu-label">Move to</div>
     ${options.length ? options.map(([k,v])=>`
-      <button onclick="ctxMenuAction(()=>updateCategory('${t.id}','${k}'))">${categoryDotHtml(v,'cdot')} ${escapeHtml(v.label)}</button>
+      <button onclick="ctxMenuAction(()=>moveTaskCategoryFollowingTab('${t.id}','${k}'))">${categoryDotHtml(v,'cdot')} ${escapeHtml(v.label)}</button>
     `).join('') : `<div class="ctxmenu-label">No other tabs to move to</div>`}
   `;
+}
+// Only this Move-to menu follows the task to its new tab — the plain
+// .catselect <select> (taskCoreFieldsRowHtml(), inline row expand) still
+// calls updateCategory() directly and stays put, since that's an
+// in-place list edit, not a "take me there" action the way this menu is.
+// "Only if you were on that specific category tab" (the explicit ask)
+// reduces to this one activeTab check: a category tab only ever lists
+// tasks whose own category matches it, so reaching this menu from a real
+// category tab already means activeTab === the task's old category —
+// 'all' and 'daily' are the only tabs that can show a task without
+// matching its category, and both are excluded here by name. Sets
+// activeTab directly rather than calling switchTab(newCat) — switchTab()
+// also tears down genericTaskDetailId (see its own comment), which would
+// slam the task detail page you just moved *from* shut; this only needs
+// to swap which tab is waiting underneath for whenever you do back out.
+function moveTaskCategoryFollowingTab(taskId, newCat){
+  const shouldFollow = activeTab !== 'all' && activeTab !== 'daily';
+  updateCategory(taskId, newCat);
+  if(shouldFollow) activeTab = newCat;
 }
 function renderCategoryMoveMenu(taskId, x, y){
   const t = state.tasks.find(x2=>x2.id===taskId);

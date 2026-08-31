@@ -954,6 +954,12 @@
     border-radius:10px; background: color-mix(in srgb, var(--input-accent) 7%, var(--card-bg-dim));
     padding:10px 12px; resize:vertical; color:var(--ink);
     transition: border-color 150ms ease, box-shadow 150ms ease;
+    /* .subadd (the "+ add a step" field right above this, end of
+       .subwrap) already carries its own dashed bottom rule as its own
+       resting-state underline — with no margin here the two sat flush
+       against each other, reading as one field bleeding into the next
+       rather than two distinct sections. */
+    margin-top:16px;
   }
   .notesfield:focus{
     outline:none; border-color: var(--input-accent);
@@ -1101,14 +1107,20 @@
   }
   .subdropend{ height:10px; }
   .subdropend.dragover{ border-top: 2px solid var(--primary); }
-  /* The task's own due-date field claims the whole row on mobile, rather
-     than wrapping wherever .expand-row's own flex-wrap happens to leave
-     room for it — per the explicit ask, now that .catselect no longer
-     shares this row on the task detail page (see categoryLabelHtml()'s
-     own comment) and the date field is one of the few things left in it.
-     flex-basis:100% pushes it (and .expandactions, wrapping right after
-     it) onto their own lines below the DUE label. */
-  body.mobileui-active .expand-row .taskdate{ flex:1 1 100%; }
+  /* The task's own due-date field claims the whole row on the full detail
+     page now, desktop included, rather than wrapping wherever
+     .expand-row's own flex-wrap happens to leave room for it — per the
+     explicit ask, now that .catselect AND the urgent/pin buttons no
+     longer share this row there (see categoryLabelHtml()'s and
+     taskCoreFieldsRowHtml()'s own hideActions comment; .hideactions is
+     the marker taskCoreFieldsRowHtml() adds to .expand-row specifically
+     on that page) and the date field is one of the only things left in
+     it. flex-basis:100% pushes it onto its own line below the DUE label;
+     the long-press bottom sheet (taskManagementFieldsHtml(), no
+     .hideactions there) still wraps the date field in with the
+     flag/pin/remove buttons exactly as before, so this only ever affects
+     the one page it was asked for. */
+  .expand-row.hideactions .taskdate{ flex:1 1 100%; }
   .draghandle.sub{ font-size:0.85rem; }
   .subcheck{
     width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
@@ -1228,11 +1240,28 @@
      indent alone read as ambiguous on its own. The left border gives that
      cue a visible anchor line rather than just empty space. */
   .daysubnested{ margin-left:34px; padding-left:10px; border-left:2px solid var(--line); }
+  /* Boxed and accent-bordered, not the plain dashed-underline treatment
+     this used to share with a step's own discreet .subdate — adding a
+     step is one of this app's more important actions (arguably more so
+     than the Notes field it used to visually undersell itself next to),
+     so it gets a resting state that reads as its own real control, not
+     an afterthought beneath the step list. Dashed (not solid) at rest is
+     still deliberate: it keeps the field reading as "type here to add
+     one more," the same invitation-style cue .substack's placeholder
+     already leaned on, just upgraded from an underline to a full box. */
   .subadd{
-    width:100%; border:none; border-bottom:1px dashed var(--line); background:transparent;
-    font-family:'IBM Plex Sans',sans-serif; font-size:0.84rem; padding:6px 2px; color:var(--ink); outline:none; margin-top:2px;
+    width:100%; box-sizing:border-box;
+    border:1.5px dashed color-mix(in srgb, var(--input-accent) 55%, var(--line));
+    border-radius:8px; background: color-mix(in srgb, var(--input-accent) 9%, var(--card-bg-dim));
+    font-family:'IBM Plex Sans',sans-serif; font-size:0.86rem; font-weight:600;
+    padding:9px 12px; color:var(--ink); outline:none; margin-top:8px;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
   }
-  .subadd::placeholder{ color: var(--ink-soft); opacity:0.7; }
+  .subadd:focus{
+    border-style:solid; border-color: var(--input-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-accent) 20%, transparent);
+  }
+  .subadd::placeholder{ color: color-mix(in srgb, var(--input-accent) 75%, var(--ink-soft)); opacity:0.85; }
   .badge.subcount{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
   .savestatus{
     text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.62rem;

@@ -914,6 +914,35 @@ function resolveTaskRowDest(el){
   if(oc.includes('openTaskDetailFromDay(')) return 'renderTaskDetailPage()';
   return null; // taskRowTap(): usually toggles the inline .expand in place, not a real navigation
 }
+// A right-click/long-press menu button (renderTaskContextMenu(),
+// renderDayContextMenu(), categoryMoveMenuHtml() — all in
+// 08-render-core.js) never carries its own authored `title`, so the
+// generic orig-title-based label would just be the bare selector with
+// nothing else. These buttons' onclick is always the literal command
+// itself, wrapped as `ctxMenuAction(()=>command(args))` so closing the
+// menu and running the command happen together — stripping that wrapper
+// down to `command(args)` is what "what command they run when called"
+// actually shows, and is far more useful in a hover tooltip than the
+// selector alone. Used as a rule's `cmd` (see applyDevElementNames()),
+// not `dest` — this replaces the label half, not the arrow-suffix half.
+function ctxMenuButtonCommand(el){
+  const oc = el.getAttribute('onclick') || '';
+  const m = oc.match(/^ctxMenuAction\(\(\)=>(.+)\)$/);
+  return m ? m[1] : oc;
+}
+// "Where they take you, if they take you somewhere else" — most of these
+// commands (toggleStatus, deleteTask, updateCategory/
+// moveTaskCategoryFollowingTab, ...) just mutate state in place and
+// re-render whatever's already on screen, so they get no arrow suffix at
+// all (same "only elements that are genuinely a link get one" rule
+// resolvePageTagDest() follows above). Only the two that actually
+// navigate somewhere new are listed.
+function ctxMenuButtonDest(el){
+  const cmd = ctxMenuButtonCommand(el);
+  if(cmd.includes('openGenericTaskDetail(')) return 'renderTaskDetailPage()';
+  if(cmd.includes('openDay(')) return 'renderDayDetail()';
+  return null;
+}
 
 const DEV_ELEMENT_NAME_RULES = [
   // Masthead
@@ -958,6 +987,7 @@ const DEV_ELEMENT_NAME_RULES = [
   { sel: '.daybtn' },
   { sel: '.flagbtn' },
   { sel: '.catselect' },
+  { sel: '.categorylabel' },
   { sel: '.expand-row .remove' },
   { sel: '.titleedit.bigtitle' },
   { sel: '.titleedit' },
@@ -1008,21 +1038,41 @@ const DEV_ELEMENT_NAME_RULES = [
   { sel: '.cdot' },
   { sel: '.resetthemebtn' },
   { sel: '.texturebtn' },
+  // Color wheel (colorWheelInnerHtml(), 09-settings.js) — shared by both
+  // the category color picker and the desk/paper & UI-color dual
+  // pickers. Previously one of the "rarer standalone popovers" this
+  // whole mechanism openly didn't cover; no longer a special case now
+  // that these have their own rules like everything else.
+  { sel: '.catwheelback' },
+  { sel: '.catwheelring' },
+  { sel: '.catwheelknob' },
+  { sel: '.catwheelsquare' },
+  { sel: '.catwheelsvknob' },
+  { sel: '.uicolorswatch' },
+  { sel: '.uicolorlabel.clickable' },
+  { sel: '.uicolorquicklink' },
+  { sel: '.dualcolortab' },
+  { sel: '.dualcolorcopy' },
   // Dev panel
   { sel: '.devpaneltab' },
   { sel: '.devgrouphead' },
-  // Context menu
-  { sel: '.ctxmenu-danger' },
-  { sel: '.ctxmenu button' },
+  // Context menu (right-click / long-press, and the category Move-to
+  // menu — all share #ctxMenu's markup). cmd/dest here read the button's
+  // own onclick instead of the generic orig-title/dest split every other
+  // rule above uses, since these buttons never carry an authored title
+  // to fall back on — see ctxMenuButtonCommand()'s own comment.
+  { sel: '.ctxmenu-danger', cmd: ctxMenuButtonCommand, dest: ctxMenuButtonDest },
+  { sel: '.ctxmenu button', cmd: ctxMenuButtonCommand, dest: ctxMenuButtonDest },
 ];
 
 // Runs after every render() (see its call site in 08-render-core.js) and
 // after the right-click/long-press quick-actions menu (renderTaskContextMenu(),
 // same file) — the two most common ways this app's DOM actually changes.
-// A few rarer standalone popovers (the color wheel, the category/icon
-// picker) aren't covered; "most UI elements" per the ask, not literally
-// every one. Cheap no-op when development mode is off (the overwhelming
-// majority of the time).
+// The color wheel (colorWheelInnerHtml(), 09-settings.js) used to be a
+// standalone popover this genuinely never covered; it goes through
+// render() like everything else in Settings now, so it's covered the
+// same way — no separate call site needed for it. Cheap no-op when
+// development mode is off (the overwhelming majority of the time).
 //
 // dataset.origTitle caches each element's own authored tooltip (or ''
 // if it never had one) the first time this runs on it, rather than
@@ -1044,14 +1094,30 @@ function applyDevElementNames(){
   if(!state.devSettings || !state.devSettings.developmentMode) return;
   const root = document.getElementById('appShell');
   if(!root) return;
-  for(const el of root.querySelectorAll('[class],[id]')){
+  // ',button' catches the #ctxMenu's own quick-action buttons (renderTask
+  // ContextMenu()/renderDayContextMenu()/categoryMoveMenuHtml(), all in
+  // 08-render-core.js) — plain `<button onclick="...">Label</button>`
+  // with no class or id of their own (only the danger/delete variant
+  // carries a class). '.ctxmenu button' as a RULE selector still matches
+  // those fine via the ancestor combinator, but this outer query is what
+  // decides which elements even get tested against the rule list in the
+  // first place, and a class-or-id-less <button> never showed up in it —
+  // so every ordinary menu item's tooltip (Mark complete, Toggle urgent,
+  // Move to a category, ...) silently never rendered, the exact
+  // "clickable menu item shows no command/destination" gap reported.
+  for(const el of root.querySelectorAll('[class],[id],button')){
     let rule = null;
     for(const r of DEV_ELEMENT_NAME_RULES){
       if(el.matches(r.sel)){ rule = r; break; }
     }
     if(!rule) continue;
     if(el.dataset.origTitle === undefined) el.dataset.origTitle = el.getAttribute('title') || '';
-    const orig = el.dataset.origTitle;
+    // `cmd` (context-menu buttons only, see ctxMenuButtonCommand()) is
+    // resolved fresh every pass, same as `dest` below — it's not cached
+    // onto dataset.origTitle since these buttons keep no authored title
+    // to fall back on anyway, so there's nothing stale to protect it
+    // from the way the #ctxMenu-reuse comment above describes for orig.
+    const orig = typeof rule.cmd === 'function' ? rule.cmd(el) : el.dataset.origTitle;
     let label = orig ? `${rule.sel} - ${orig}` : rule.sel;
     const dest = typeof rule.dest === 'function' ? rule.dest(el) : rule.dest;
     if(dest) label += ` => ${dest}`;

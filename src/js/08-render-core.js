@@ -63,18 +63,27 @@ function taskTodayTitle(t){
     : 'Add to today’s list';
 }
 
-// hideCategory is true only from the full task detail page
-// (renderTaskDetailPage(), via taskExpandFieldsHtml()) — that page now
-// shows the category as a tab-styled label in its own header instead
-// (categoryLabelHtml(), further below), so the plain <select> here would
-// just be a second, redundant way to do the same thing. The long-press
-// bottom sheet (taskManagementFieldsHtml()) has no header to move it to
-// and isn't part of this redesign, so it keeps the <select> exactly as
-// it always has (hideCategory omitted, defaults falsy).
-function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory){
+// hideCategory/hideActions are both true only from the full task detail
+// page (renderTaskDetailPage(), via taskExpandFieldsHtml()) — hideCategory
+// because that page now shows the category as a tab-styled label in its
+// own header instead (categoryLabelHtml(), further below), and
+// hideActions because that same header already carries its own urgent
+// flag + today-pin (see renderTaskDetailPage()'s own actionsHtml) — a
+// second copy right below, next to the date field, was showing the exact
+// same two buttons twice on one page. The long-press bottom sheet
+// (taskManagementFieldsHtml()) has no header to hold either of those, so
+// it keeps the <select> and the flag/pin exactly as it always has
+// (both params omitted, default falsy). The "remove" button isn't part
+// of this — it's a real per-field action nothing else on the detail page
+// duplicates, so it stays in .expandactions regardless of hideActions;
+// .hideactions on the row is what lets the date field still claim the
+// full row's width even when a canRemoveHere task leaves that button
+// behind as the row's only other occupant (see the .taskdate rule in
+// <style>).
+function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
   const todayTitle = taskTodayTitle(t);
   return `
-      <div class="expand-row">
+      <div class="expand-row${hideActions ? ' hideactions' : ''}">
         ${hideCategory ? '' : `
         <select class="catselect" onchange="updateCategory('${t.id}', this.value)">
           ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${t.category===k?'selected':''}>${v.label}</option>`).join('')}
@@ -82,8 +91,9 @@ function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory){
         <label class="fieldlabel">DUE</label>
         <span class="subdate taskdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateShort(t.dueDate) : 'Date'}</span>
         <div class="expandactions">
+          ${hideActions ? '' : `
           <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>
+          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>`}
           ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
       </div>`;
@@ -226,8 +236,16 @@ function taskManagementFieldsHtml(t, canRemoveHere){
 // hideCategory passes straight through to taskCoreFieldsRowHtml() — see
 // its own comment for why the detail page hides the plain category
 // <select> now.
+// hideCategory doubles as taskCoreFieldsRowHtml()'s hideActions too —
+// this function only ever has one caller (renderTaskDetailPage(), always
+// passing hideCategory=true), and on that page the two conditions are
+// the same condition: "this is the full detail page, which already has
+// its own header for both the category label and the urgent/pin
+// buttons." No case exists yet where one would be true without the
+// other, so a second formal parameter here would just be a second name
+// for the same signal.
 function taskExpandFieldsHtml(t, canRemoveHere, titleClass, hideCategory){
-  return `${taskTitleFieldHtml(t, titleClass)}${taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
+  return `${taskTitleFieldHtml(t, titleClass)}${taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideCategory)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}`;
 }
 
 // The "check-guide" nudge: once every step is done but the task itself
@@ -600,9 +618,28 @@ function categoryMoveMenuHtml(t){
   return `
     <div class="ctxmenu-label">Move to</div>
     ${options.length ? options.map(([k,v])=>`
-      <button onclick="ctxMenuAction(()=>updateCategory('${t.id}','${k}'))">${categoryDotHtml(v,'cdot')} ${escapeHtml(v.label)}</button>
+      <button onclick="ctxMenuAction(()=>moveTaskCategoryFollowingTab('${t.id}','${k}'))">${categoryDotHtml(v,'cdot')} ${escapeHtml(v.label)}</button>
     `).join('') : `<div class="ctxmenu-label">No other tabs to move to</div>`}
   `;
+}
+// Only this Move-to menu follows the task to its new tab — the plain
+// .catselect <select> (taskCoreFieldsRowHtml(), inline row expand) still
+// calls updateCategory() directly and stays put, since that's an
+// in-place list edit, not a "take me there" action the way this menu is.
+// "Only if you were on that specific category tab" (the explicit ask)
+// reduces to this one activeTab check: a category tab only ever lists
+// tasks whose own category matches it, so reaching this menu from a real
+// category tab already means activeTab === the task's old category —
+// 'all' and 'daily' are the only tabs that can show a task without
+// matching its category, and both are excluded here by name. Sets
+// activeTab directly rather than calling switchTab(newCat) — switchTab()
+// also tears down genericTaskDetailId (see its own comment), which would
+// slam the task detail page you just moved *from* shut; this only needs
+// to swap which tab is waiting underneath for whenever you do back out.
+function moveTaskCategoryFollowingTab(taskId, newCat){
+  const shouldFollow = activeTab !== 'all' && activeTab !== 'daily';
+  updateCategory(taskId, newCat);
+  if(shouldFollow) activeTab = newCat;
 }
 function renderCategoryMoveMenu(taskId, x, y){
   const t = state.tasks.find(x2=>x2.id===taskId);
