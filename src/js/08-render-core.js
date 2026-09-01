@@ -800,7 +800,12 @@ function showNoteHoverTip(rowEl, notes){
   const titleEl = rowEl.querySelector('.title');
   const r = (titleEl || rowEl).getBoundingClientRect();
   tip.style.left = r.left + 'px';
-  tip.style.top = (rowEl.getBoundingClientRect().bottom + 6) + 'px';
+  // Anchored to the title text's own bottom (not the whole row's), and a
+  // smaller gap than before — the row's bottom sits further down than
+  // the text itself (badges/meta below it, row padding), which read as
+  // too much empty space between the title and the tip. 4px keeps them
+  // visibly close without the tip touching the text.
+  tip.style.top = (r.bottom + 4) + 'px';
   // Same post-layout nudge-back-onscreen pass renderTaskContextMenu() and
   // renderCategoryMoveMenu() already use — the tip's own width/height
   // aren't knowable until the browser has actually laid it out with real

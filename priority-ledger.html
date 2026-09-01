@@ -158,15 +158,24 @@
     margin:0;
     min-height:100vh;
     /* Center sits ON-screen (was 50% -10%, off the top edge entirely) and
-       the falloff now runs the full 100% to the farthest corner (was
-       75%, fully dark well before reaching most edges) — the previous
-       numbers put nearly the whole visible viewport already past the
-       transition, which is exactly why this read as "just darker" rather
-       than an actual gradient: there was barely any visible falloff left
-       to see. This keeps the same "light from above" idea (still an
-       ellipse, still centered high) but the light-to-dark sweep now
-       genuinely spans the screen instead of mostly happening off-camera. */
-    background: radial-gradient(ellipse at 50% 0%, var(--desk) 0%, var(--desk-dark) 100%);
+       the falloff runs the full 100% to the farthest corner (was 75%,
+       fully dark well before reaching most edges) — the previous numbers
+       put nearly the whole visible viewport already past the transition,
+       which is exactly why this read as "just darker" rather than an
+       actual gradient. A held 0%-30% band at the full, undarkened --desk
+       color (not an immediate 0%-to-100% two-stop fade) is what actually
+       fixes "underwhelming, darkens it all a lot" on top of that first
+       pass — without it, the darkening starts the instant the gradient
+       begins, so a card sitting anywhere over the middle-to-lower page
+       was already deep into --desk-dark; now a real lit zone survives
+       before the falloff starts. --desk-dark itself is also a gentler
+       -0.20 now (shadeHex() call in applyThemeObject(),
+       01-categories-theme.js), not -0.30 — the previous depth read as
+       heavy rather than atmospheric even where the gradient was visible
+       at all. Still the same "light from above" idea (an ellipse,
+       centered high), just tuned so it reads as a deliberate light
+       source instead of a wash of dark. */
+    background: radial-gradient(ellipse at 50% 0%, var(--desk) 0%, var(--desk) 30%, var(--desk-dark) 100%);
     font-family:'IBM Plex Sans', sans-serif;
     color: var(--ink);
     /* The env() terms only add anything inside standalone mode with
@@ -4797,11 +4806,25 @@ function uiColorPreset(id){
 // just accumulate in. Bg is the tiebreaker where paper alone doesn't
 // clearly separate two entries (not needed below — every paper here is
 // distinct enough on its own that no two entries actually tied).
+// Ordered by Ledger (paper) color — see the standing rule on this in
+// CLAUDE.md's "Conventions": any time a preset color is added to *any*
+// of these palette arrays (Desk & Ledger, UI Colors, category colors),
+// re-sort the whole array by its own organizing rule again immediately,
+// don't just append. classic anchors the pale end; the two most
+// saturated/golden entries (barrel, teal) — added later, further along
+// the same "increasingly warm/saturated" direction navy's own parchment
+// already established — anchor the far end.
 const DESK_PAPER_PRESETS = [
-  { id:'classic',  label:'Classic',           bg:'#28362E', paper:'#F1EAD9' },
-  { id:'plum',     label:'Plum & Linen',      bg:'#3B2A44', paper:'#EDE6DC' },
-  { id:'charcoal', label:'Charcoal & Birch',  bg:'#26241F', paper:'#F2ECE0' },
-  { id:'oak',      label:'Oak & Ivory',       bg:'#3D2B1F', paper:'#F5EFE0' },
+  { id:'classic',  label:'Classic',            bg:'#28362E', paper:'#F1EAD9' },
+  // Kept the original moody near-black espresso-brown desk (the project
+  // owner's own favorite part of the old "Espresso & Parchment") but
+  // re-paired: parchment's own gold turned out not to suit it as well as
+  // hoped, so it pairs with a plain warm cream instead — "Cream" also
+  // just reads as the other half of "Espresso," coffee-and-cream. This
+  // is NOT the same paper as Navy & Parchment's own.
+  { id:'espresso', label:'Espresso & Cream',   bg:'#241812', paper:'#F0E6D6' },
+  { id:'plum',     label:'Plum & Linen',       bg:'#3B2A44', paper:'#EDE6DC' },
+  { id:'charcoal', label:'Charcoal & Birch',   bg:'#26241F', paper:'#F2ECE0' },
   // Deep oxblood/maroon desk, paired with a paper that leans slightly
   // warm-blush rather than the plain creams above — echoes the bg's own
   // warmth (same "contrast, not match" idea Navy & Parchment's cool bg /
@@ -4809,15 +4832,22 @@ const DESK_PAPER_PRESETS = [
   // "Vellum" (real bookbinding parchment, not just a color name) rather
   // than "Blush" per the project owner's own ask for a less feminine-
   // reading second word.
-  { id:'maroon',   label:'Maroon & Vellum',   bg:'#4B1D23', paper:'#F2E1D9' },
-  { id:'navy',     label:'Navy & Parchment',  bg:'#1F2937', paper:'#EFDDB0' },
-  // A second parchment-family ledger (paper close to Navy & Parchment's
-  // own, per the project owner's own callout that they especially like
-  // that one) paired with a near-black espresso-brown desk instead —
-  // distinct from Oak's own lighter, redder brown, and from Navy's cool
-  // blue-gray, so this reads as its own option rather than a small
-  // variation on either.
-  { id:'espresso', label:'Espresso & Parchment', bg:'#241812', paper:'#EFDEAE' }
+  { id:'maroon',   label:'Maroon & Vellum',    bg:'#4B1D23', paper:'#F2E1D9' },
+  { id:'oak',      label:'Oak & Ivory',        bg:'#3D2B1F', paper:'#F5EFE0' },
+  { id:'navy',     label:'Navy & Parchment',   bg:'#1F2937', paper:'#EFDDB0' },
+  // A genuinely different, more amber/caramel ledger than Navy's own
+  // parchment (not a re-use — see the project owner's own ask that this
+  // NOT be "exactly the same as Navy & Parchment"), paired with a warm
+  // near-black oak-barrel brown — the "whisky" vibe the project owner
+  // asked to try: not a literal whisky-colored swatch, but the mood of
+  // one (dark aged wood, warm low amber light on the page), same way
+  // Maroon & Vellum's own pairing is about a mood, not a literal match.
+  { id:'barrel',   label:'Barrel & Amber',     bg:'#2E1D12', paper:'#E3C79A' },
+  // A different desk again (the project owner's own ask — not espresso
+  // a second time) paired with the most saturated, golden "parchment
+  // family" ledger of the set — deep teal against warm honey-gold is a
+  // classic library/banker's-lamp pairing.
+  { id:'teal',     label:'Teal & Honey',       bg:'#1C3D42', paper:'#E6C888' }
 ];
 
 function clamp255(n){ return Math.max(0, Math.min(255, n)); }
@@ -9256,7 +9286,12 @@ function showNoteHoverTip(rowEl, notes){
   const titleEl = rowEl.querySelector('.title');
   const r = (titleEl || rowEl).getBoundingClientRect();
   tip.style.left = r.left + 'px';
-  tip.style.top = (rowEl.getBoundingClientRect().bottom + 6) + 'px';
+  // Anchored to the title text's own bottom (not the whole row's), and a
+  // smaller gap than before — the row's bottom sits further down than
+  // the text itself (badges/meta below it, row padding), which read as
+  // too much empty space between the title and the tip. 4px keeps them
+  // visibly close without the tip touching the text.
+  tip.style.top = (r.bottom + 4) + 'px';
   // Same post-layout nudge-back-onscreen pass renderTaskContextMenu() and
   // renderCategoryMoveMenu() already use — the tip's own width/height
   // aren't knowable until the browser has actually laid it out with real

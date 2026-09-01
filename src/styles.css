@@ -126,15 +126,24 @@
     margin:0;
     min-height:100vh;
     /* Center sits ON-screen (was 50% -10%, off the top edge entirely) and
-       the falloff now runs the full 100% to the farthest corner (was
-       75%, fully dark well before reaching most edges) — the previous
-       numbers put nearly the whole visible viewport already past the
-       transition, which is exactly why this read as "just darker" rather
-       than an actual gradient: there was barely any visible falloff left
-       to see. This keeps the same "light from above" idea (still an
-       ellipse, still centered high) but the light-to-dark sweep now
-       genuinely spans the screen instead of mostly happening off-camera. */
-    background: radial-gradient(ellipse at 50% 0%, var(--desk) 0%, var(--desk-dark) 100%);
+       the falloff runs the full 100% to the farthest corner (was 75%,
+       fully dark well before reaching most edges) — the previous numbers
+       put nearly the whole visible viewport already past the transition,
+       which is exactly why this read as "just darker" rather than an
+       actual gradient. A held 0%-30% band at the full, undarkened --desk
+       color (not an immediate 0%-to-100% two-stop fade) is what actually
+       fixes "underwhelming, darkens it all a lot" on top of that first
+       pass — without it, the darkening starts the instant the gradient
+       begins, so a card sitting anywhere over the middle-to-lower page
+       was already deep into --desk-dark; now a real lit zone survives
+       before the falloff starts. --desk-dark itself is also a gentler
+       -0.20 now (shadeHex() call in applyThemeObject(),
+       01-categories-theme.js), not -0.30 — the previous depth read as
+       heavy rather than atmospheric even where the gradient was visible
+       at all. Still the same "light from above" idea (an ellipse,
+       centered high), just tuned so it reads as a deliberate light
+       source instead of a wash of dark. */
+    background: radial-gradient(ellipse at 50% 0%, var(--desk) 0%, var(--desk) 30%, var(--desk-dark) 100%);
     font-family:'IBM Plex Sans', sans-serif;
     color: var(--ink);
     /* The env() terms only add anything inside standalone mode with
