@@ -23,6 +23,27 @@ function hasCurrentPlan(plannedDates){
   return (plannedDates||[]).some(d => d >= today);
 }
 
+// Maps a due date to the Timeframe value it implies, per the project
+// owner's own thresholds — used by updateDueDate() (16-task-crud.js) to
+// auto-fill an unset (or previously auto-set) Timeframe field whenever
+// the due date changes. Deliberately returns null (no opinion, leave
+// Timeframe alone) for two cases: no due date at all, and the 2-week-to-
+// a-month gap, which the project owner explicitly asked to leave
+// ambiguous rather than guessing which side of "short-ish project" vs
+// "long-ish but not quite Long" a task in that range falls on. Overdue
+// dates fold into the <=1 bucket alongside today/tomorrow — none of
+// those found a mention in the original ask, and treating "already due"
+// as anything less urgent than "due tomorrow" would be a stranger
+// reading than folding it in here.
+function deriveTimeframeFromDueDate(dueDate){
+  if(!dueDate) return null;
+  const days = daysBetween(todayStr(), dueDate);
+  if(days <= 1) return 'short';   // overdue, today, or tomorrow
+  if(days <= 13) return 'medium'; // "within a week or two"
+  if(days <= 30) return null;     // 2 weeks to a month — left ambiguous on purpose
+  return 'long';                  // over a month out
+}
+
 function fmtDate(d){
   if(!d) return '';
   const dt = new Date(d + 'T00:00:00');

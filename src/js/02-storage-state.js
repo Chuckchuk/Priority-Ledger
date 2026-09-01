@@ -732,6 +732,19 @@ function normalizeState(){
     if(t.timeframe===undefined) t.timeframe = '';
     if(t.priority===undefined) t.priority = 0;
     if(t.completedAt===undefined) t.completedAt = '';
+    // timeframeManual: whether the current t.timeframe came from an
+    // explicit pick (updateTimeframe(), 14-task-actions.js) rather than
+    // being auto-derived from the due date (deriveTimeframeFromDueDate(),
+    // 05-dates-sort.js) — protects a deliberate choice from later being
+    // silently overwritten when the due date changes. Pre-existing tasks
+    // predate this flag entirely, so there's no real record of which way
+    // any of them got their value; defaulting to "manual" whenever a
+    // timeframe is already set is the safe reading — it means this
+    // feature only ever starts auto-filling *forward* from here, never
+    // reaches back and starts rewriting an established task's already-set
+    // field the first time this ships. A task with no timeframe yet has
+    // nothing to protect either way, so it defaults to auto-eligible.
+    if(typeof t.timeframeManual !== 'boolean') t.timeframeManual = !!t.timeframe;
   });
   rebuildCategoriesIndex();
 }

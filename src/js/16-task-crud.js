@@ -49,7 +49,7 @@ async function submitFabAdd(){
   state.tasks.unshift({
     id: newId('task'),
     title, category, status:'open', urgent:false, dueDate:'', notes:'', subtasks: [],
-    plannedDates: [], timeframe:'', priority:0, completedAt:'',
+    plannedDates: [], timeframe:'', timeframeManual:false, priority:0, completedAt:'',
     createdAt: todayStr()
   });
   input.value = '';
@@ -71,7 +71,7 @@ async function addTask(){
     id: newId('task'),
     title, category, status:'open', urgent: urgentDraft, dueDate:'', notes:'', subtasks: [],
     plannedDates: timeframe==='today' ? [todayStr()] : [],
-    timeframe, priority, completedAt:'',
+    timeframe, timeframeManual: timeframe !== '', priority, completedAt:'',
     createdAt: todayStr()
   });
   input.value = '';
@@ -196,6 +196,20 @@ async function toggleUrgent(id){
 // ensureDay() creates that day if it doesn't exist yet. One-way, same as
 // updateTimeframe's "today" plan: pushing the due date back out past the
 // window later doesn't retroactively unplan it.
+//
+// One-shot, same idiom as celebrateCheckTaskId just below — which task's
+// Timeframe field (see taskAdvancedFieldsRowHtml(), 08-render-core.js)
+// should flash on the very next render, and which of the two flashes:
+// 'auto' (the due-date change just filled/updated Timeframe for you) or
+// 'conflict' (the due date implied a different Timeframe than what's
+// there, but a manual pick is protecting it, so nothing actually
+// changed). Set right before the render() call below and cleared
+// immediately after, for the same reason celebrateCheckTaskId is —
+// render() rebuilds the relevant view from scratch each time, so a DOM
+// class alone can't survive it, and a later unrelated render() must
+// never replay a flash that isn't its own.
+let timeframeFlashTaskId = null;
+let timeframeFlashKind = null; // 'auto' | 'conflict'
 async function updateDueDate(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
@@ -209,8 +223,28 @@ async function updateDueDate(id, val){
       await ensureDay(val);
     }
   }
+  // See deriveTimeframeFromDueDate()'s own comment (05-dates-sort.js) for
+  // the actual thresholds/ambiguous-zone reasoning. Only ever fires when
+  // the derived value would be a real *change* from the current one —
+  // re-deriving the same value the field already holds isn't worth
+  // flashing over, auto or manual either way.
+  timeframeFlashTaskId = null;
+  timeframeFlashKind = null;
+  const derivedTimeframe = deriveTimeframeFromDueDate(val);
+  if(derivedTimeframe && derivedTimeframe !== t.timeframe){
+    if(!t.timeframeManual){
+      t.timeframe = derivedTimeframe;
+      timeframeFlashTaskId = id;
+      timeframeFlashKind = 'auto';
+    } else {
+      timeframeFlashTaskId = id;
+      timeframeFlashKind = 'conflict';
+    }
+  }
   render();
   reopen(id);
+  timeframeFlashTaskId = null;
+  timeframeFlashKind = null;
   queueSave();
 }
 

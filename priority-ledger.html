@@ -1104,6 +1104,40 @@
     .fieldbtn.active.atmax, .fieldprogress.atmax .fieldprogressfill, .fieldprogress.atmax .fieldprogressdot.current{
       animation:none !important;
     }
+    .timeframewrap.timeframe-flash-auto, .timeframewrap.timeframe-flash-conflict{
+      animation:none !important;
+    }
+  }
+  /* One-shot flash after a due-date change auto-fills or conflicts with
+     the Timeframe field — see timeframeFlashTaskId (16-task-crud.js) for
+     when each fires. display:contents at rest (same invisible-wrapper
+     trick as .expandactions/.subrowactions) so this costs nothing when
+     idle; only becomes a real box — something a box-shadow ring can
+     actually radiate from — for the ~1s the animation plays. --primary
+     (not --secondary) for the "auto" case specifically because
+     --secondary equals --estate's own fixed rust-red under the default
+     Brass & Rust preset — using it here would make "I just changed this"
+     and "I did NOT change this, look" flash the same color by accident
+     under the one preset most accounts actually use. --estate for
+     "conflict" reuses this app's one existing fixed danger/attention
+     color (already .badge.overdue, the Urgent field's own pulse, etc.)
+     rather than introducing a second, redundant "red." */
+  .timeframewrap{ display:contents; }
+  .timeframewrap.timeframe-flash-auto,
+  .timeframewrap.timeframe-flash-conflict{
+    display:inline-flex; border-radius:8px;
+  }
+  .timeframewrap.timeframe-flash-auto{ animation: timeframe-flash-auto 1.1s ease-out; }
+  .timeframewrap.timeframe-flash-conflict{ animation: timeframe-flash-conflict 1.1s ease-out; }
+  @keyframes timeframe-flash-auto{
+    0%{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 60%, transparent); }
+    35%{ box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 35%, transparent); }
+    100%{ box-shadow: 0 0 0 0 transparent; }
+  }
+  @keyframes timeframe-flash-conflict{
+    0%{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--estate) 60%, transparent); }
+    35%{ box-shadow: 0 0 0 6px color-mix(in srgb, var(--estate) 35%, transparent); }
+    100%{ box-shadow: 0 0 0 0 transparent; }
   }
   .empty{ font-family:'Fraunces', serif; font-style:italic; color: var(--ink-soft); text-align:center; padding: 26px 10px; font-size:1rem; }
   .footer-row{ display:flex; justify-content:center; padding: 12px 0 4px; }
@@ -1298,6 +1332,20 @@
      the display-mode rule below is scoped to, so the long-press settings
      sheet's own narrower, shared-row date field is untouched. */
   .expand-row.hideactions .taskdateedit{ width:100%; box-sizing:border-box; }
+  /* A second, unrelated quirk in the same area: inside the long-press
+     settings sheet, this same edit input was ALSO already rendering
+     full-width — but only by accident. .fabaddsheet input[type=text]
+     below (shared by every text field in that sheet) carries an extra
+     bare `input` type selector on top of its one class, which edges out
+     .datefieldedit.taskdateedit's own two-classes-no-type specificity
+     even though neither rule was written with the other in mind — the
+     wider look here happened to be reasonable (a small 150px box would
+     look cramped in a full-width mobile-style sheet), but it was never a
+     deliberate choice, just whichever rule happened to have one extra
+     specificity point. Made explicit here instead, so the sheet's actual
+     layout no longer depends on staying accidentally undiscovered by
+     whoever next touches either rule. */
+  .tasksettingssheet .datefieldedit.taskdateedit{ width:100%; box-sizing:border-box; }
   /* A step planned onto a day, shown "TASK > step" (see daySubtaskRowHtml)
      — the task half stays muted so the step itself reads as the subject. */
   .daysubparent{ color: var(--ink-soft); }
@@ -5998,6 +6046,19 @@ function normalizeState(){
     if(t.timeframe===undefined) t.timeframe = '';
     if(t.priority===undefined) t.priority = 0;
     if(t.completedAt===undefined) t.completedAt = '';
+    // timeframeManual: whether the current t.timeframe came from an
+    // explicit pick (updateTimeframe(), 14-task-actions.js) rather than
+    // being auto-derived from the due date (deriveTimeframeFromDueDate(),
+    // 05-dates-sort.js) — protects a deliberate choice from later being
+    // silently overwritten when the due date changes. Pre-existing tasks
+    // predate this flag entirely, so there's no real record of which way
+    // any of them got their value; defaulting to "manual" whenever a
+    // timeframe is already set is the safe reading — it means this
+    // feature only ever starts auto-filling *forward* from here, never
+    // reaches back and starts rewriting an established task's already-set
+    // field the first time this ships. A task with no timeframe yet has
+    // nothing to protect either way, so it defaults to auto-eligible.
+    if(typeof t.timeframeManual !== 'boolean') t.timeframeManual = !!t.timeframe;
   });
   rebuildCategoriesIndex();
 }
@@ -6392,6 +6453,27 @@ function isDueWithinDays(dueDate, days){
 function hasCurrentPlan(plannedDates){
   const today = todayStr();
   return (plannedDates||[]).some(d => d >= today);
+}
+
+// Maps a due date to the Timeframe value it implies, per the project
+// owner's own thresholds — used by updateDueDate() (16-task-crud.js) to
+// auto-fill an unset (or previously auto-set) Timeframe field whenever
+// the due date changes. Deliberately returns null (no opinion, leave
+// Timeframe alone) for two cases: no due date at all, and the 2-week-to-
+// a-month gap, which the project owner explicitly asked to leave
+// ambiguous rather than guessing which side of "short-ish project" vs
+// "long-ish but not quite Long" a task in that range falls on. Overdue
+// dates fold into the <=1 bucket alongside today/tomorrow — none of
+// those found a mention in the original ask, and treating "already due"
+// as anything less urgent than "due tomorrow" would be a stranger
+// reading than folding it in here.
+function deriveTimeframeFromDueDate(dueDate){
+  if(!dueDate) return null;
+  const days = daysBetween(todayStr(), dueDate);
+  if(days <= 1) return 'short';   // overdue, today, or tomorrow
+  if(days <= 13) return 'medium'; // "within a week or two"
+  if(days <= 30) return null;     // 2 weeks to a month — left ambiguous on purpose
+  return 'long';                  // over a month out
 }
 
 function fmtDate(d){
@@ -7902,10 +7984,24 @@ function taskAdvancedFieldsRowHtml(t){
     || `<select class="catselect" onchange="updatePriority('${t.id}', this.value)">
           ${PRIORITY_STEPS.map(s=>`<option value="${s.v}" ${String(t.priority||0)===s.v?'selected':''}>${s.label}</option>`).join('')}
         </select>`;
+  // One-shot highlight after a due-date change (see timeframeFlashTaskId,
+  // 16-task-crud.js): 'auto' (green) when this field was just filled/
+  // updated for you, 'conflict' (red) when the date implied a different
+  // value but a manual pick protected the field, so nothing actually
+  // changed here — the flash is the only signal that a conflict even
+  // happened. .timeframewrap wraps whichever picker markup actually
+  // rendered above (a plain <select>, .fieldbuttons, or .fieldprogress,
+  // depending on fieldPickerStyle) rather than threading a class through
+  // fieldPickerHtml() itself, since that function is also shared by the
+  // quick-add bar's own timeframe field (syncQuickField(),
+  // 06-tabs-render.js), which this flash has no business touching.
+  const timeframeFlash = timeframeFlashTaskId === t.id
+    ? (timeframeFlashKind === 'conflict' ? ' timeframe-flash-conflict' : ' timeframe-flash-auto')
+    : '';
   return `
       <div class="expand-row">
         <label class="fieldlabel">TIMEFRAME</label>
-        ${timeframePicker}
+        <span class="timeframewrap${timeframeFlash}">${timeframePicker}</span>
         <label class="fieldlabel">PRIORITY</label>
         ${priorityPicker}
       </div>`;
@@ -11473,11 +11569,22 @@ async function toggleTaskToday(id){
 // auto-unplan it, since the task may since have been deliberately kept on
 // that day's list for reasons unrelated to this field; use the existing
 // Unplan button for that.
+// timeframeManual tracks whether this field's current value came from an
+// explicit pick here vs. being auto-derived from the due date (see
+// deriveTimeframeFromDueDate() in 05-dates-sort.js and its use in
+// updateDueDate(), 16-task-crud.js) — this is the only place that flag
+// ever gets set. Any real pick sets it true, which is what stops a later
+// due-date change from silently overwriting a deliberate choice; picking
+// back to "None" resets it to false instead of leaving it permanently
+// "manual" with nothing in it to protect, so a cleared field re-opts
+// into auto-tracking on the next due-date change rather than staying
+// inert forever.
 async function updateTimeframe(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t || val === t.timeframe) return;
   pushUndo(`Set timeframe for "${t.title}"`);
   t.timeframe = val;
+  t.timeframeManual = val !== '';
   if(val === 'today'){
     if(!t.plannedDates) t.plannedDates = [];
     if(!t.plannedDates.includes(todayStr())) t.plannedDates.push(todayStr());
@@ -11650,7 +11757,7 @@ async function submitFabAdd(){
   state.tasks.unshift({
     id: newId('task'),
     title, category, status:'open', urgent:false, dueDate:'', notes:'', subtasks: [],
-    plannedDates: [], timeframe:'', priority:0, completedAt:'',
+    plannedDates: [], timeframe:'', timeframeManual:false, priority:0, completedAt:'',
     createdAt: todayStr()
   });
   input.value = '';
@@ -11672,7 +11779,7 @@ async function addTask(){
     id: newId('task'),
     title, category, status:'open', urgent: urgentDraft, dueDate:'', notes:'', subtasks: [],
     plannedDates: timeframe==='today' ? [todayStr()] : [],
-    timeframe, priority, completedAt:'',
+    timeframe, timeframeManual: timeframe !== '', priority, completedAt:'',
     createdAt: todayStr()
   });
   input.value = '';
@@ -11797,6 +11904,20 @@ async function toggleUrgent(id){
 // ensureDay() creates that day if it doesn't exist yet. One-way, same as
 // updateTimeframe's "today" plan: pushing the due date back out past the
 // window later doesn't retroactively unplan it.
+//
+// One-shot, same idiom as celebrateCheckTaskId just below — which task's
+// Timeframe field (see taskAdvancedFieldsRowHtml(), 08-render-core.js)
+// should flash on the very next render, and which of the two flashes:
+// 'auto' (the due-date change just filled/updated Timeframe for you) or
+// 'conflict' (the due date implied a different Timeframe than what's
+// there, but a manual pick is protecting it, so nothing actually
+// changed). Set right before the render() call below and cleared
+// immediately after, for the same reason celebrateCheckTaskId is —
+// render() rebuilds the relevant view from scratch each time, so a DOM
+// class alone can't survive it, and a later unrelated render() must
+// never replay a flash that isn't its own.
+let timeframeFlashTaskId = null;
+let timeframeFlashKind = null; // 'auto' | 'conflict'
 async function updateDueDate(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
@@ -11810,8 +11931,28 @@ async function updateDueDate(id, val){
       await ensureDay(val);
     }
   }
+  // See deriveTimeframeFromDueDate()'s own comment (05-dates-sort.js) for
+  // the actual thresholds/ambiguous-zone reasoning. Only ever fires when
+  // the derived value would be a real *change* from the current one —
+  // re-deriving the same value the field already holds isn't worth
+  // flashing over, auto or manual either way.
+  timeframeFlashTaskId = null;
+  timeframeFlashKind = null;
+  const derivedTimeframe = deriveTimeframeFromDueDate(val);
+  if(derivedTimeframe && derivedTimeframe !== t.timeframe){
+    if(!t.timeframeManual){
+      t.timeframe = derivedTimeframe;
+      timeframeFlashTaskId = id;
+      timeframeFlashKind = 'auto';
+    } else {
+      timeframeFlashTaskId = id;
+      timeframeFlashKind = 'conflict';
+    }
+  }
   render();
   reopen(id);
+  timeframeFlashTaskId = null;
+  timeframeFlashKind = null;
   queueSave();
 }
 

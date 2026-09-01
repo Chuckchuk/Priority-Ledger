@@ -144,11 +144,22 @@ async function toggleTaskToday(id){
 // auto-unplan it, since the task may since have been deliberately kept on
 // that day's list for reasons unrelated to this field; use the existing
 // Unplan button for that.
+// timeframeManual tracks whether this field's current value came from an
+// explicit pick here vs. being auto-derived from the due date (see
+// deriveTimeframeFromDueDate() in 05-dates-sort.js and its use in
+// updateDueDate(), 16-task-crud.js) — this is the only place that flag
+// ever gets set. Any real pick sets it true, which is what stops a later
+// due-date change from silently overwriting a deliberate choice; picking
+// back to "None" resets it to false instead of leaving it permanently
+// "manual" with nothing in it to protect, so a cleared field re-opts
+// into auto-tracking on the next due-date change rather than staying
+// inert forever.
 async function updateTimeframe(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t || val === t.timeframe) return;
   pushUndo(`Set timeframe for "${t.title}"`);
   t.timeframe = val;
+  t.timeframeManual = val !== '';
   if(val === 'today'){
     if(!t.plannedDates) t.plannedDates = [];
     if(!t.plannedDates.includes(todayStr())) t.plannedDates.push(todayStr());

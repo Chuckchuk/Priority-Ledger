@@ -160,10 +160,24 @@ function taskAdvancedFieldsRowHtml(t){
     || `<select class="catselect" onchange="updatePriority('${t.id}', this.value)">
           ${PRIORITY_STEPS.map(s=>`<option value="${s.v}" ${String(t.priority||0)===s.v?'selected':''}>${s.label}</option>`).join('')}
         </select>`;
+  // One-shot highlight after a due-date change (see timeframeFlashTaskId,
+  // 16-task-crud.js): 'auto' (green) when this field was just filled/
+  // updated for you, 'conflict' (red) when the date implied a different
+  // value but a manual pick protected the field, so nothing actually
+  // changed here — the flash is the only signal that a conflict even
+  // happened. .timeframewrap wraps whichever picker markup actually
+  // rendered above (a plain <select>, .fieldbuttons, or .fieldprogress,
+  // depending on fieldPickerStyle) rather than threading a class through
+  // fieldPickerHtml() itself, since that function is also shared by the
+  // quick-add bar's own timeframe field (syncQuickField(),
+  // 06-tabs-render.js), which this flash has no business touching.
+  const timeframeFlash = timeframeFlashTaskId === t.id
+    ? (timeframeFlashKind === 'conflict' ? ' timeframe-flash-conflict' : ' timeframe-flash-auto')
+    : '';
   return `
       <div class="expand-row">
         <label class="fieldlabel">TIMEFRAME</label>
-        ${timeframePicker}
+        <span class="timeframewrap${timeframeFlash}">${timeframePicker}</span>
         <label class="fieldlabel">PRIORITY</label>
         ${priorityPicker}
       </div>`;

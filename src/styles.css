@@ -1072,6 +1072,40 @@
     .fieldbtn.active.atmax, .fieldprogress.atmax .fieldprogressfill, .fieldprogress.atmax .fieldprogressdot.current{
       animation:none !important;
     }
+    .timeframewrap.timeframe-flash-auto, .timeframewrap.timeframe-flash-conflict{
+      animation:none !important;
+    }
+  }
+  /* One-shot flash after a due-date change auto-fills or conflicts with
+     the Timeframe field — see timeframeFlashTaskId (16-task-crud.js) for
+     when each fires. display:contents at rest (same invisible-wrapper
+     trick as .expandactions/.subrowactions) so this costs nothing when
+     idle; only becomes a real box — something a box-shadow ring can
+     actually radiate from — for the ~1s the animation plays. --primary
+     (not --secondary) for the "auto" case specifically because
+     --secondary equals --estate's own fixed rust-red under the default
+     Brass & Rust preset — using it here would make "I just changed this"
+     and "I did NOT change this, look" flash the same color by accident
+     under the one preset most accounts actually use. --estate for
+     "conflict" reuses this app's one existing fixed danger/attention
+     color (already .badge.overdue, the Urgent field's own pulse, etc.)
+     rather than introducing a second, redundant "red." */
+  .timeframewrap{ display:contents; }
+  .timeframewrap.timeframe-flash-auto,
+  .timeframewrap.timeframe-flash-conflict{
+    display:inline-flex; border-radius:8px;
+  }
+  .timeframewrap.timeframe-flash-auto{ animation: timeframe-flash-auto 1.1s ease-out; }
+  .timeframewrap.timeframe-flash-conflict{ animation: timeframe-flash-conflict 1.1s ease-out; }
+  @keyframes timeframe-flash-auto{
+    0%{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 60%, transparent); }
+    35%{ box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary) 35%, transparent); }
+    100%{ box-shadow: 0 0 0 0 transparent; }
+  }
+  @keyframes timeframe-flash-conflict{
+    0%{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--estate) 60%, transparent); }
+    35%{ box-shadow: 0 0 0 6px color-mix(in srgb, var(--estate) 35%, transparent); }
+    100%{ box-shadow: 0 0 0 0 transparent; }
   }
   .empty{ font-family:'Fraunces', serif; font-style:italic; color: var(--ink-soft); text-align:center; padding: 26px 10px; font-size:1rem; }
   .footer-row{ display:flex; justify-content:center; padding: 12px 0 4px; }
@@ -1266,6 +1300,20 @@
      the display-mode rule below is scoped to, so the long-press settings
      sheet's own narrower, shared-row date field is untouched. */
   .expand-row.hideactions .taskdateedit{ width:100%; box-sizing:border-box; }
+  /* A second, unrelated quirk in the same area: inside the long-press
+     settings sheet, this same edit input was ALSO already rendering
+     full-width — but only by accident. .fabaddsheet input[type=text]
+     below (shared by every text field in that sheet) carries an extra
+     bare `input` type selector on top of its one class, which edges out
+     .datefieldedit.taskdateedit's own two-classes-no-type specificity
+     even though neither rule was written with the other in mind — the
+     wider look here happened to be reasonable (a small 150px box would
+     look cramped in a full-width mobile-style sheet), but it was never a
+     deliberate choice, just whichever rule happened to have one extra
+     specificity point. Made explicit here instead, so the sheet's actual
+     layout no longer depends on staying accidentally undiscovered by
+     whoever next touches either rule. */
+  .tasksettingssheet .datefieldedit.taskdateedit{ width:100%; box-sizing:border-box; }
   /* A step planned onto a day, shown "TASK > step" (see daySubtaskRowHtml)
      — the task half stays muted so the step itself reads as the subject. */
   .daysubparent{ color: var(--ink-soft); }
