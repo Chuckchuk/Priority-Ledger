@@ -2968,6 +2968,17 @@
     grid-column:1 / -1; display:flex; justify-content:space-around; align-items:center; margin-top:4px;
   }
   body.mobileui-active[data-taskdetail-mobile="grouped"] .expandactions .remove{ margin-left:0; }
+  /* Glitch fix: this variant's 2-column grid was written back when
+     .catselect and .datefield always shared the row as its two columns.
+     The full detail page's own .expand-row (.hideactions — see
+     taskCoreFieldsRowHtml()'s own comment, 08-render-core.js) hides
+     .catselect entirely now, leaving .datefield as the row's only real
+     content — with nothing telling it to span both columns, it just sat
+     in column 1, claiming half the row's width and leaving column 2
+     visibly empty. */
+  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row.hideactions .datefield{
+    grid-column: 1 / -1;
+  }
 
   /* stickyTabBar (EXPERIMENTAL, see defaultDevSettings() in 02-storage-
      state.js) — pins .tabswrap (and the .tabs row inside it) to the top of
@@ -3004,6 +3015,13 @@
      regardless of what's selected — see the comment on
      defaultDevSettings() in 02-storage-state.js. */
 
+  /* Taller tap target on any phone-ish viewport, regardless of which
+     tabBarMobileStyle variant is active — per the explicit ask: the
+     desktop-sized 9px/11px padding made a real swipe/tap easy to miss by
+     a few pixels, which (especially in "scroll" mode just below) read as
+     the gesture failing or grabbing the wrong thing rather than a plain
+     mis-tap. */
+  body.mobileui-active .tab{ padding: 13px 14px 15px; }
   /* scroll: one row, no wrap — scrolls sideways instead, with scroll-snap
      and a trailing fade hinting more tabs are off-screen. Scrollbar
      hidden since the fade + snap already communicate "more content"
@@ -3011,6 +3029,16 @@
   body.mobileui-active[data-tabbar-mobile="scroll"] .tabs{
     flex-wrap:nowrap; overflow-x:auto; scroll-snap-type:x proximity;
     -webkit-overflow-scrolling:touch; scrollbar-width:none;
+    /* Tells the browser a touch that starts on this row is this row's
+       own horizontal gesture, full stop — without it (the default
+       touch-action:auto lets either axis win), a swipe that starts even
+       slightly off-axis could get claimed by the page's own vertical
+       scroll instead, which is exactly the "scrolls up/down instead of
+       left/right if I don't hit it just right" complaint. Same standard
+       fix any horizontally-scrolling strip needs (an OS tab bar, a
+       carousel) — a touch starting on a strip this thin is overwhelmingly
+       meant for it, not the page behind it. */
+    touch-action: pan-x;
   }
   body.mobileui-active[data-tabbar-mobile="scroll"] .tabs::-webkit-scrollbar{ display:none; }
   body.mobileui-active[data-tabbar-mobile="scroll"] .tab{ flex-shrink:0; scroll-snap-align:start; }
@@ -3815,6 +3843,26 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.06em; text-transform:uppercase;
     color: var(--ink-soft); padding:6px 10px 4px;
   }
+
+  /* ---- Note hover tooltip (see noteHoverStart() etc., 08-render-core.js) ----
+     .ctxmenu's own popover look (position:fixed, placed by JS against a
+     row's rect, no scrim) but non-interactive — plain text, not buttons,
+     so no button-hover states or gap-between-items needed. white-space:
+     pre-wrap preserves whatever line breaks are actually in the note
+     (a real multi-line textarea field) rather than collapsing them the
+     way plain text content normally would. max-width caps how wide a
+     long single line can stretch the popup; pointer-events:none means
+     the tip itself can never intercept the mouseleave that's supposed to
+     dismiss it if the cursor happens to drift over the tip rather than
+     back onto the row. */
+  .notehovertip{
+    display:none; position:fixed; z-index:200; max-width:260px;
+    background: var(--card-bg); border:1px solid var(--line); border-radius:8px;
+    box-shadow:0 10px 28px rgba(0,0,0,0.35); padding:9px 12px;
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.82rem; color:var(--ink);
+    white-space:pre-wrap; pointer-events:none;
+  }
+  .notehovertip.open{ display:block; }
 
   /* ---- Sharing (see 19-sharing.js) ----
      .sharemenu is #ctxMenu's own anchored-popover look (position:fixed,

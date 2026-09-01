@@ -381,10 +381,16 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // Daily row already has its own click behavior and canRemoveHere rules
   // that don't map cleanly onto this.
   const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
+  // Hover-preview of a task's own Notes — only wired up at all when there
+  // are actually notes to show, so a task without any never pays for (or
+  // could ever trigger) the hover machinery in the first place. See
+  // noteHoverStart()'s own comment further down for the delay/desktop-
+  // only reasoning.
+  const noteHoverAttrs = t.notes ? ` onmouseenter="noteHoverStart(event,'${t.id}')" onmouseleave="noteHoverEnd()"` : '';
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
   <li class="task" data-task-id="${t.id}">
-    <div class="row"${pressAttrs}${ctxMenuAttr} onclick="${rowClick}">
+    <div class="row"${pressAttrs}${ctxMenuAttr}${noteHoverAttrs} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
         <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, true)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
@@ -583,6 +589,70 @@ function ctxMenuCopyTitle(taskId){
   const t = state.tasks.find(x=>x.id===taskId);
   closeCtxMenu();
   if(t && navigator.clipboard) navigator.clipboard.writeText(t.title).catch(()=>{});
+}
+
+// ---------- a task row's Notes hover preview ----------
+// Only wired up on rows that actually have notes (see taskRowHtml()'s own
+// noteHoverAttrs) — a task with none never even attaches the listeners
+// that would trigger this. Desktop-only (mobileUiActive() bails out
+// immediately): there's no hover on a touch device, and even where a
+// stray synthetic mouseenter fires from a tap, showing a popup nobody
+// asked for on every row with notes would be exactly the noisiness this
+// was designed to avoid. Delayed rather than instant — a quick pass of
+// the cursor across several rows (scanning the list, not actually
+// pausing on any one of them) shouldn't flash a popup per row; only
+// genuinely lingering on one does.
+const NOTE_HOVER_DELAY_MS = 900;
+let noteHoverTimer = null;
+function noteHoverStart(e, taskId){
+  if(mobileUiActive()) return;
+  clearTimeout(noteHoverTimer);
+  const rowEl = e.currentTarget;
+  if(!rowEl) return;
+  noteHoverTimer = setTimeout(() => {
+    noteHoverTimer = null;
+    // rowEl.isConnected guards against the 900ms delay outliving the row
+    // itself — render() rebuilding the list (a status toggle, a reorder,
+    // switching tabs) detaches the old element from the document without
+    // ever firing its mouseleave, so without this a still-pending timer
+    // from a row that's since been replaced would call
+    // getBoundingClientRect() on an orphaned node instead of just doing
+    // nothing.
+    if(!rowEl.isConnected) return;
+    const t = state.tasks.find(x=>x.id===taskId);
+    if(!t || !t.notes) return;
+    showNoteHoverTip(rowEl, t.notes);
+  }, NOTE_HOVER_DELAY_MS);
+}
+// Shared by the mouseleave below and anything else that should dismiss
+// the tip outright (a click on the row, closeCtxMenu()'s own callers,
+// etc. — not currently needed elsewhere, but cheap to keep general).
+function noteHoverEnd(){
+  clearTimeout(noteHoverTimer);
+  noteHoverTimer = null;
+  hideNoteHoverTip();
+}
+function showNoteHoverTip(rowEl, notes){
+  const tip = document.getElementById('noteHoverTip');
+  if(!tip) return;
+  tip.textContent = notes;
+  tip.classList.add('open');
+  const r = rowEl.getBoundingClientRect();
+  tip.style.left = r.left + 'px';
+  tip.style.top = (r.bottom + 6) + 'px';
+  // Same post-layout nudge-back-onscreen pass renderTaskContextMenu() and
+  // renderCategoryMoveMenu() already use — the tip's own width/height
+  // aren't knowable until the browser has actually laid it out with real
+  // content in it.
+  requestAnimationFrame(() => {
+    const tr = tip.getBoundingClientRect();
+    if(tr.right > window.innerWidth) tip.style.left = Math.max(8, window.innerWidth - tr.width - 8) + 'px';
+    if(tr.bottom > window.innerHeight) tip.style.top = Math.max(8, r.top - tr.height - 6) + 'px';
+  });
+}
+function hideNoteHoverTip(){
+  const tip = document.getElementById('noteHoverTip');
+  if(tip) tip.classList.remove('open');
 }
 
 // ---------- a day's own right-click menu ----------

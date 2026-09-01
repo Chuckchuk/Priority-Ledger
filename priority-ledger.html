@@ -3000,6 +3000,17 @@
     grid-column:1 / -1; display:flex; justify-content:space-around; align-items:center; margin-top:4px;
   }
   body.mobileui-active[data-taskdetail-mobile="grouped"] .expandactions .remove{ margin-left:0; }
+  /* Glitch fix: this variant's 2-column grid was written back when
+     .catselect and .datefield always shared the row as its two columns.
+     The full detail page's own .expand-row (.hideactions — see
+     taskCoreFieldsRowHtml()'s own comment, 08-render-core.js) hides
+     .catselect entirely now, leaving .datefield as the row's only real
+     content — with nothing telling it to span both columns, it just sat
+     in column 1, claiming half the row's width and leaving column 2
+     visibly empty. */
+  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row.hideactions .datefield{
+    grid-column: 1 / -1;
+  }
 
   /* stickyTabBar (EXPERIMENTAL, see defaultDevSettings() in 02-storage-
      state.js) — pins .tabswrap (and the .tabs row inside it) to the top of
@@ -3036,6 +3047,13 @@
      regardless of what's selected — see the comment on
      defaultDevSettings() in 02-storage-state.js. */
 
+  /* Taller tap target on any phone-ish viewport, regardless of which
+     tabBarMobileStyle variant is active — per the explicit ask: the
+     desktop-sized 9px/11px padding made a real swipe/tap easy to miss by
+     a few pixels, which (especially in "scroll" mode just below) read as
+     the gesture failing or grabbing the wrong thing rather than a plain
+     mis-tap. */
+  body.mobileui-active .tab{ padding: 13px 14px 15px; }
   /* scroll: one row, no wrap — scrolls sideways instead, with scroll-snap
      and a trailing fade hinting more tabs are off-screen. Scrollbar
      hidden since the fade + snap already communicate "more content"
@@ -3043,6 +3061,16 @@
   body.mobileui-active[data-tabbar-mobile="scroll"] .tabs{
     flex-wrap:nowrap; overflow-x:auto; scroll-snap-type:x proximity;
     -webkit-overflow-scrolling:touch; scrollbar-width:none;
+    /* Tells the browser a touch that starts on this row is this row's
+       own horizontal gesture, full stop — without it (the default
+       touch-action:auto lets either axis win), a swipe that starts even
+       slightly off-axis could get claimed by the page's own vertical
+       scroll instead, which is exactly the "scrolls up/down instead of
+       left/right if I don't hit it just right" complaint. Same standard
+       fix any horizontally-scrolling strip needs (an OS tab bar, a
+       carousel) — a touch starting on a strip this thin is overwhelmingly
+       meant for it, not the page behind it. */
+    touch-action: pan-x;
   }
   body.mobileui-active[data-tabbar-mobile="scroll"] .tabs::-webkit-scrollbar{ display:none; }
   body.mobileui-active[data-tabbar-mobile="scroll"] .tab{ flex-shrink:0; scroll-snap-align:start; }
@@ -3848,6 +3876,26 @@
     color: var(--ink-soft); padding:6px 10px 4px;
   }
 
+  /* ---- Note hover tooltip (see noteHoverStart() etc., 08-render-core.js) ----
+     .ctxmenu's own popover look (position:fixed, placed by JS against a
+     row's rect, no scrim) but non-interactive — plain text, not buttons,
+     so no button-hover states or gap-between-items needed. white-space:
+     pre-wrap preserves whatever line breaks are actually in the note
+     (a real multi-line textarea field) rather than collapsing them the
+     way plain text content normally would. max-width caps how wide a
+     long single line can stretch the popup; pointer-events:none means
+     the tip itself can never intercept the mouseleave that's supposed to
+     dismiss it if the cursor happens to drift over the tip rather than
+     back onto the row. */
+  .notehovertip{
+    display:none; position:fixed; z-index:200; max-width:260px;
+    background: var(--card-bg); border:1px solid var(--line); border-radius:8px;
+    box-shadow:0 10px 28px rgba(0,0,0,0.35); padding:9px 12px;
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.82rem; color:var(--ink);
+    white-space:pre-wrap; pointer-events:none;
+  }
+  .notehovertip.open{ display:block; }
+
   /* ---- Sharing (see 19-sharing.js) ----
      .sharemenu is #ctxMenu's own anchored-popover look (position:fixed,
      placed by JS at a clicked button's rect) but with room for a link
@@ -4270,6 +4318,15 @@
        needs; no scrim, closed by the document-level click/Esc/scroll
        listeners in 19-bootstrap.js instead. -->
   <div class="ctxmenu" id="ctxMenu"></div>
+
+  <!-- Hover-preview of a task's own Notes, shown from the inline quick
+       view (a category tab's row list) after a short hold — see
+       noteHoverStart() in 08-render-core.js. Same position:fixed/no-scrim
+       idiom as #ctxMenu just above, styled off the same .ctxmenu visual
+       language (see .notehovertip in <style>) since this is also a small
+       floating popup anchored to a row, just non-interactive text instead
+       of buttons. -->
+  <div class="notehovertip" id="noteHoverTip"></div>
 
   <!-- Share menu (openShareMenu(), 19-sharing.js) — same anchored-popover
        idiom as #ctxMenu above (position:fixed, placed by JS at the
@@ -8423,10 +8480,16 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // Daily row already has its own click behavior and canRemoveHere rules
   // that don't map cleanly onto this.
   const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
+  // Hover-preview of a task's own Notes — only wired up at all when there
+  // are actually notes to show, so a task without any never pays for (or
+  // could ever trigger) the hover machinery in the first place. See
+  // noteHoverStart()'s own comment further down for the delay/desktop-
+  // only reasoning.
+  const noteHoverAttrs = t.notes ? ` onmouseenter="noteHoverStart(event,'${t.id}')" onmouseleave="noteHoverEnd()"` : '';
   const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
   return `
   <li class="task" data-task-id="${t.id}">
-    <div class="row"${pressAttrs}${ctxMenuAttr} onclick="${rowClick}">
+    <div class="row"${pressAttrs}${ctxMenuAttr}${noteHoverAttrs} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
         <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, true)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
@@ -8625,6 +8688,70 @@ function ctxMenuCopyTitle(taskId){
   const t = state.tasks.find(x=>x.id===taskId);
   closeCtxMenu();
   if(t && navigator.clipboard) navigator.clipboard.writeText(t.title).catch(()=>{});
+}
+
+// ---------- a task row's Notes hover preview ----------
+// Only wired up on rows that actually have notes (see taskRowHtml()'s own
+// noteHoverAttrs) — a task with none never even attaches the listeners
+// that would trigger this. Desktop-only (mobileUiActive() bails out
+// immediately): there's no hover on a touch device, and even where a
+// stray synthetic mouseenter fires from a tap, showing a popup nobody
+// asked for on every row with notes would be exactly the noisiness this
+// was designed to avoid. Delayed rather than instant — a quick pass of
+// the cursor across several rows (scanning the list, not actually
+// pausing on any one of them) shouldn't flash a popup per row; only
+// genuinely lingering on one does.
+const NOTE_HOVER_DELAY_MS = 900;
+let noteHoverTimer = null;
+function noteHoverStart(e, taskId){
+  if(mobileUiActive()) return;
+  clearTimeout(noteHoverTimer);
+  const rowEl = e.currentTarget;
+  if(!rowEl) return;
+  noteHoverTimer = setTimeout(() => {
+    noteHoverTimer = null;
+    // rowEl.isConnected guards against the 900ms delay outliving the row
+    // itself — render() rebuilding the list (a status toggle, a reorder,
+    // switching tabs) detaches the old element from the document without
+    // ever firing its mouseleave, so without this a still-pending timer
+    // from a row that's since been replaced would call
+    // getBoundingClientRect() on an orphaned node instead of just doing
+    // nothing.
+    if(!rowEl.isConnected) return;
+    const t = state.tasks.find(x=>x.id===taskId);
+    if(!t || !t.notes) return;
+    showNoteHoverTip(rowEl, t.notes);
+  }, NOTE_HOVER_DELAY_MS);
+}
+// Shared by the mouseleave below and anything else that should dismiss
+// the tip outright (a click on the row, closeCtxMenu()'s own callers,
+// etc. — not currently needed elsewhere, but cheap to keep general).
+function noteHoverEnd(){
+  clearTimeout(noteHoverTimer);
+  noteHoverTimer = null;
+  hideNoteHoverTip();
+}
+function showNoteHoverTip(rowEl, notes){
+  const tip = document.getElementById('noteHoverTip');
+  if(!tip) return;
+  tip.textContent = notes;
+  tip.classList.add('open');
+  const r = rowEl.getBoundingClientRect();
+  tip.style.left = r.left + 'px';
+  tip.style.top = (r.bottom + 6) + 'px';
+  // Same post-layout nudge-back-onscreen pass renderTaskContextMenu() and
+  // renderCategoryMoveMenu() already use — the tip's own width/height
+  // aren't knowable until the browser has actually laid it out with real
+  // content in it.
+  requestAnimationFrame(() => {
+    const tr = tip.getBoundingClientRect();
+    if(tr.right > window.innerWidth) tip.style.left = Math.max(8, window.innerWidth - tr.width - 8) + 'px';
+    if(tr.bottom > window.innerHeight) tip.style.top = Math.max(8, r.top - tr.height - 6) + 'px';
+  });
+}
+function hideNoteHoverTip(){
+  const tip = document.getElementById('noteHoverTip');
+  if(tip) tip.classList.remove('open');
 }
 
 // ---------- a day's own right-click menu ----------
@@ -14157,6 +14284,18 @@ document.addEventListener('click', (e) => {
   if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) && !e.target.closest('#ctxMenu')) closeCtxMenu();
 });
 document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) closeCtxMenu(); }, { capture:true, passive:true });
+// The note hover tip (08-render-core.js) has no per-instance id to check
+// the way #ctxMenu's ctxMenuTaskId/etc. do — noteHoverEnd() is always
+// safe to call regardless of whether anything's actually showing, so a
+// scroll just clears it unconditionally rather than needing its own
+// tracked "is this open" flag. A render() rebuilding a row's own DOM
+// (toggling its expand, moving it after a status change, etc.) already
+// drops that row's mouseenter/mouseleave listeners for free by replacing
+// the element, but wouldn't otherwise dismiss an already-open tip left
+// pointing at the old one — the click that triggers most such renders
+// lands here too.
+document.addEventListener('click', () => noteHoverEnd());
+document.addEventListener('scroll', () => noteHoverEnd(), { capture:true, passive:true });
 // Same "click away to dismiss" as #ctxMenu above, for the share menu
 // (19-sharing.js). shareButtonHtml()'s own onclick already stops
 // propagation, so this only ever fires for a genuine outside click.
