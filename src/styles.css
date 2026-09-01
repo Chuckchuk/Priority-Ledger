@@ -1849,6 +1849,12 @@
     height:78px; margin: 4px 0 -8px;
   }
   .checklistheader .checkcircle-wrap{ transform: scale(2.2); }
+  /* Share button, top-right of the checklist detail page — same corner
+     .categorylabel claims on a standard task's own detail page, free
+     here since renderChecklistDetail() never shows one. Plain wrapper
+     (not a tab shape like .categorylabel) since .sharebtn already
+     carries its own .flagbtn box styling. */
+  .checklistsharewrap{ position:absolute; top:14px; right:14px; z-index:3; }
   /* Header atop the full-page task detail — the completion check plus
      its subtask-progress ticks, styled to mirror .checklistheader just
      above: centered and scaled up together (the whole .checkwrap, same
@@ -3808,6 +3814,73 @@
   .ctxmenu-label{
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; letter-spacing:0.06em; text-transform:uppercase;
     color: var(--ink-soft); padding:6px 10px 4px;
+  }
+
+  /* ---- Sharing (see 19-sharing.js) ----
+     .sharemenu is #ctxMenu's own anchored-popover look (position:fixed,
+     placed by JS at a clicked button's rect) but with room for a link
+     field above the flat button list, not just the list itself. */
+  .sharemenu{
+    display:none; position:fixed; z-index:200; width:260px;
+    flex-direction:column; gap:1px;
+    background: var(--card-bg); border:1px solid var(--line); border-radius:8px;
+    box-shadow:0 10px 28px rgba(0,0,0,0.35); padding:6px;
+  }
+  .sharemenu.open{ display:flex; }
+  .sharemenu button{
+    display:block; width:100%; text-align:left; background:none; border:none; border-radius:5px;
+    padding:8px 10px; font-family:'IBM Plex Sans', sans-serif; font-size:0.85rem; color:var(--ink); cursor:pointer;
+  }
+  .sharemenu button:hover{ background: var(--card-bg-dim); }
+  .sharemenu-note{
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.78rem; color:var(--ink-soft);
+    padding:4px 10px 8px; line-height:1.4;
+  }
+  .sharemenu-linkrow{ display:flex; gap:6px; padding:2px 10px 8px; }
+  .sharemenu-linkrow input{
+    flex:1; min-width:0; background: var(--card-bg-dim); border:1px solid var(--line); border-radius:6px;
+    padding:6px 8px; font-family:'IBM Plex Mono', monospace; font-size:0.72rem; color:var(--ink);
+  }
+  .sharemenu-linkrow button{
+    width:auto; flex-shrink:0; border:1px solid var(--line); border-radius:6px; padding:6px 12px;
+  }
+  /* Embeds .ctxmenu's own button-list look inside a larger, centered
+     modal card (#shareImportModal below) rather than as its own
+     standalone fixed-position popover — everything but position/shadow
+     carries over unchanged, which is the point: it's meant to read as
+     the same "Move to" category menu .categorylabel opens, just parked
+     somewhere else. */
+  .ctxmenu.ctxmenu-embedded{ position:static; display:flex; box-shadow:none; border:none; padding:0; width:auto; min-width:0; }
+  /* ---- Import dialog for a ?share=<id> link (openShareImportDialog()) ----
+     Centered scrim+card, not anchored to any element — this opens right
+     at boot. */
+  .shareimport{ display:none; }
+  .shareimport.open{ display:block; }
+  .shareimport-scrim{
+    position:fixed; inset:0; z-index:210; background: rgba(0,0,0,0.45);
+  }
+  .shareimport-card{
+    position:fixed; z-index:211; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:min(320px, calc(100vw - 32px)); max-height:calc(100vh - 64px); overflow-y:auto;
+    background: var(--card-bg); border:1px solid var(--line); border-radius:12px;
+    box-shadow:0 16px 40px rgba(0,0,0,0.4); padding:16px;
+  }
+  .shareimport-heading{
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; letter-spacing:0.05em; text-transform:uppercase;
+    color: var(--ink-soft); margin-bottom:10px;
+  }
+  .shareimport-preview{ margin-bottom:10px; }
+  /* Shared between the import dialog's preview and the standalone
+     no-account page (renderShareStandaloneContent()) — same "big title"
+     treatment .checklisttitle/.bigtitle already give a detail page's own
+     title, just as static text since neither view is editable. */
+  .sharestandalone-title{
+    font-family:'Fraunces', serif; font-size:1.3rem; font-weight:600; color:var(--ink);
+  }
+  .sharestandalone-title.done{ text-decoration: line-through; color: var(--ink-soft); }
+  .sharestandalone-notes{
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.85rem; color:var(--ink-soft);
+    margin-top:6px; white-space:pre-wrap;
   }
 
   /* ---- Custom dropdown (customSelectHtml(), 09-settings.js) ----

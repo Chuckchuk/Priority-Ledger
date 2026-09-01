@@ -49,6 +49,8 @@ document.addEventListener('keydown', (e) => {
     // both float above literally everything else including Settings, so
     // they're checked before any of it.
     if(fabAddOpen){ closeFabAdd(); return; }
+    if(shareImportId){ closeShareImportDialog(); return; }
+    if(shareMenuTaskId){ closeShareMenu(); return; }
     if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId){ closeCtxMenu(); return; }
     if(taskSettingsOpenId){ closeTaskSettingsSheet(); return; }
     if(quickAddOpen){ toggleQuickAddSheet(false); return; }
@@ -757,6 +759,12 @@ document.addEventListener('click', (e) => {
   if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) && !e.target.closest('#ctxMenu')) closeCtxMenu();
 });
 document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) closeCtxMenu(); }, { capture:true, passive:true });
+// Same "click away to dismiss" as #ctxMenu above, for the share menu
+// (19-sharing.js). shareButtonHtml()'s own onclick already stops
+// propagation, so this only ever fires for a genuine outside click.
+document.addEventListener('click', (e) => {
+  if(shareMenuTaskId && !e.target.closest('#shareMenu')) closeShareMenu();
+});
 // Same idea for a custom dropdown (customSelectHtml(), 09-settings.js) —
 // it stands in for a native <select>, and a native select always
 // dismisses on an outside click — closest('.customselectwrap') covers
@@ -869,6 +877,12 @@ function isLocalDevHost(){
     document.getElementById('resetShell').style.display = '';
     return;
   }
+  // ?share=<id> (see 19-sharing.js): stashed now, consumed once — either
+  // by enterApp() (below, once a session exists) or by
+  // showShareStandalone() at the very end of this function if none does.
+  const shareParam = new URLSearchParams(location.search).get('share');
+  if(shareParam) pendingShareId = shareParam;
+
   if(window.storage){ await enterApp(); return; }
   if(isLocalDevHost() && new URLSearchParams(location.search).has('localdev')){
     localOnlyMode = true;
@@ -877,5 +891,6 @@ function isLocalDevHost(){
   }
   session = loadSession();
   if(session && await ensureFreshSession()){ await enterApp(); return; }
+  if(pendingShareId){ await showShareStandalone(pendingShareId); return; }
   document.getElementById('authShell').style.display = '';
 })();

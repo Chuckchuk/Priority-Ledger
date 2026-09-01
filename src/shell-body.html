@@ -63,6 +63,14 @@
     <div class="autherror" id="resetError"></div>
   </div>
 </div>
+<!-- Standalone read-only view for a ?share=<id> link opened with no
+     account signed in (see showShareStandalone(), 19-sharing.js) — same
+     .shell/.masthead/.card pattern as authShell/resetShell above, just
+     with its content filled in by JS instead of a static form. Its own
+     "sign in to save this" CTA re-shows authShell without losing the
+     pending share id (showShareAuthPrompt()), so the normal login/signup
+     flow underneath is untouched. -->
+<div class="shell" id="shareShell" style="display:none;"></div>
 <div class="shell" id="appShell" style="display:none;">
   <div class="masthead">
     <button class="settingsbtn" id="settingsBtn" onclick="toggleSettings()" title="Settings">⚙</button>
@@ -220,6 +228,22 @@
        needs; no scrim, closed by the document-level click/Esc/scroll
        listeners in 19-bootstrap.js instead. -->
   <div class="ctxmenu" id="ctxMenu"></div>
+
+  <!-- Share menu (openShareMenu(), 19-sharing.js) — same anchored-popover
+       idiom as #ctxMenu above (position:fixed, placed by JS at the
+       clicked button's rect) but richer content (a link field, not just
+       a flat button list), so it gets its own container rather than
+       overloading #ctxMenu's markup assumptions. -->
+  <div class="sharemenu" id="shareMenu"></div>
+
+  <!-- Import dialog for a ?share=<id> link opened while already signed
+       in (openShareImportDialog(), 19-sharing.js) — a centered modal
+       rather than an anchored popover, since it opens at boot with no
+       button to anchor to. Its category picker reuses .ctxmenu's own
+       styling (see .ctxmenu-embedded in <style>) to match the
+       .categorylabel "Move to" menu's look, per the explicit ask to keep
+       this feeling like the same category picker. -->
+  <div class="shareimport" id="shareImportModal"></div>
 </div>
 
 <div class="devpanel" id="devPanel" style="display:none;">
