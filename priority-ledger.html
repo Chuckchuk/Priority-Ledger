@@ -13895,8 +13895,19 @@ function toggleExpand(evt, id){
 async function toggleLocation(){
   if(!state.locationEnabled || state.locations.length < 2) return;
   const idx = state.locations.findIndex(l=>l.id===state.location);
+  const prevCategory = CATEGORIES[activeTab];
   state.location = state.locations[(idx + 1) % state.locations.length].id;
-  if(!visibleTabs().includes(activeTab)) activeTab = 'all';
+  if(!visibleTabs().includes(activeTab)){
+    // The category we were on just disappeared from view (it's not shown
+    // at the new location). If another category shares its exact name —
+    // e.g. two separate "Errands" categories, one per location — jump to
+    // that one instead of bailing out to "All": same-named categories
+    // read as "the same tab, filtered per location" to the person using
+    // them, even though they're unrelated category records underneath.
+    const sibling = prevCategory && state.categories.find(c =>
+      c.id !== prevCategory.id && c.label === prevCategory.label && visibleTabs().includes(c.id));
+    activeTab = sibling ? sibling.id : 'all';
+  }
   render();
   queueSave();
 }
