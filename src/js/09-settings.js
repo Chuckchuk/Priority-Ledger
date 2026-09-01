@@ -4,12 +4,19 @@
 // slot). Labels intentionally drop the internal "radial ping" style
 // names' parenthetical "(default)" — the checkmark customSelectHtml()
 // already draws next to the active option says that on its own.
+// 'none' gets a plain, static preview (no guide-check/guide-${v} classes
+// at all) rather than running it through the same map() as the real
+// animated styles below — there's no "off" animation to loop, the point
+// is showing exactly what an ordinary, un-nudged checkbox looks like.
 const CHECK_GUIDE_STYLE_OPTIONS = [
-  ['radialping', 'Radial ping'],
-  ['wiggle', 'Wiggle'],
-  ['sparkle', 'Sparkles'],
-  ['glow', 'Warm pulsing glow']
-].map(([v, label]) => [v, label, `<span class="check guide-check guide-${v} guide-preview" aria-hidden="true"></span>`]);
+  ['none', 'Off — no nudge', `<span class="check" aria-hidden="true"></span>`],
+  ...[
+    ['radialping', 'Radial ping'],
+    ['wiggle', 'Wiggle'],
+    ['sparkle', 'Sparkles'],
+    ['glow', 'Warm pulsing glow']
+  ].map(([v, label]) => [v, label, `<span class="check guide-check guide-${v} guide-preview" aria-hidden="true"></span>`])
+];
 
 // ---------- Manage tabs ----------
 
@@ -186,7 +193,7 @@ function renderSettings(){
         ${customSelectHtml('appearance:checkGuideStyle', CHECK_GUIDE_STYLE_OPTIONS, checkGuideVal, 'setDevCheckGuideAnimationStyle')}
       </div>
       <div class="checkguideexample" title="Live example">
-        <span class="check guide-check guide-${checkGuideVal} guide-preview"></span>
+        <span class="check${checkGuideVal==='none' ? '' : ` guide-check guide-${checkGuideVal} guide-preview`}"></span>
       </div>
     </div>
   `;

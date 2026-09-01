@@ -311,6 +311,7 @@ function taskExpandFieldsHtml(t, canRemoveHere, titleClass, hideCategory){
 function checkGuideClass(t, subs, subtle){
   if(t.status==='done' || !subs.length || !subs.every(s=>s.done)) return '';
   const style = (state.devSettings && state.devSettings.checkGuideAnimationStyle) || 'radialping';
+  if(style === 'none') return '';
   return ` guide-check guide-${style}${subtle ? ' guide-subtle' : ''}`;
 }
 
