@@ -125,7 +125,16 @@
   body{
     margin:0;
     min-height:100vh;
-    background: radial-gradient(ellipse at 50% -10%, var(--desk) 0%, var(--desk-dark) 75%);
+    /* Center sits ON-screen (was 50% -10%, off the top edge entirely) and
+       the falloff now runs the full 100% to the farthest corner (was
+       75%, fully dark well before reaching most edges) — the previous
+       numbers put nearly the whole visible viewport already past the
+       transition, which is exactly why this read as "just darker" rather
+       than an actual gradient: there was barely any visible falloff left
+       to see. This keeps the same "light from above" idea (still an
+       ellipse, still centered high) but the light-to-dark sweep now
+       genuinely spans the screen instead of mostly happening off-camera. */
+    background: radial-gradient(ellipse at 50% 0%, var(--desk) 0%, var(--desk-dark) 100%);
     font-family:'IBM Plex Sans', sans-serif;
     color: var(--ink);
     /* The env() terms only add anything inside standalone mode with
@@ -2171,6 +2180,22 @@
     background:none; border:1px solid var(--line); border-radius:5px; padding:5px 8px; cursor:pointer; color: var(--ink-soft);
   }
   .trashactions .trashforget{ border-color: var(--estate); color: var(--estate); }
+  /* Recently Deleted gets Secondary's own "something's outstanding, tap
+     to see it" treatment (same reasoning the checklist pending-items tag
+     already uses that color for) whenever it actually has something in
+     it — a colored outline plus a slow, soft pulse rather than the flat
+     --line border every other Settings card gets. Only trashhasitems
+     (see the settingsSectionHtml() call in renderSettings()) carries
+     this; an empty Recently Deleted stays visually quiet. */
+  .settingssection.trashhasitems{
+    border-color: var(--secondary);
+    animation: settingssection-trash-pulse 2.6s ease-in-out infinite;
+  }
+  @keyframes settingssection-trash-pulse{
+    0%{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--secondary) 32%, transparent); }
+    70%{ box-shadow: 0 0 0 7px color-mix(in srgb, var(--secondary) 0%, transparent); }
+    100%{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--secondary) 0%, transparent); }
+  }
 
   /* ---- Checklist templates (13-checklist.js) ---- */
   .checklisttemplateslink{ margin: -8px 0 14px; }
@@ -2335,6 +2360,17 @@
     box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
   }
   .catswatch.active{ border-color: var(--ink); }
+  /* A user-saved color (categoryPickerHtml(), state.customCategoryColors)
+     — same .catswatch, wrapped only so the small × remove badge has
+     something to position against without affecting the swatch's own
+     20px sizing or the row's gap between swatches. */
+  .catswatchcustomwrap{ position:relative; display:inline-flex; }
+  .catswatchremove{
+    position:absolute; top:-5px; right:-5px; width:14px; height:14px; border-radius:50%;
+    background: var(--card-bg); border:1px solid var(--line); color: var(--ink-soft);
+    font-size:0.55rem; line-height:1; padding:0; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .catswatchremove:hover{ border-color: var(--estate); color: var(--estate); }
   /* A fixed little rainbow rather than a preview of the current color —
      see the comment above customIsActive in categoryPickerHtml() for why
      it reads its "active" state from that instead of ever changing its
@@ -2465,6 +2501,22 @@
     padding:6px 8px; cursor:pointer;
   }
   .uipresetbtn.active{ border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+  /* A saved custom template's own tile (customPresetTileHtml(),
+     09-settings.js) — the ✎/× pair sits beside the button rather than
+     overlaid on its top-right corner the way .catswatchremove does for a
+     plain color swatch: a template has its own text label running the
+     width of the row, which a corner badge would risk sitting on top of
+     for a long saved name. */
+  .uipresettilewrap{ display:flex; align-items:center; gap:4px; }
+  .uipresettilewrap .uipresetbtn{ flex:1; min-width:0; }
+  .uipresettileactions{ display:flex; gap:3px; flex-shrink:0; }
+  .uipresetedit, .uipresetremove{
+    width:20px; height:20px; border-radius:50%; padding:0; flex-shrink:0;
+    background: var(--card-bg-dim); border:1px solid var(--line); color: var(--ink-soft);
+    font-size:0.58rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .uipresetremove:hover{ border-color: var(--estate); color: var(--estate); }
+  .uipresetedit:hover{ border-color: var(--primary); color: var(--primary); }
   .uipresetswatches{ display:flex; flex-shrink:0; width:22px; height:22px; border-radius:50%; overflow:hidden; }
   .uipresetswatch{ width:50%; height:100%; }
   .uipresetlabel{

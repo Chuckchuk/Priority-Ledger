@@ -240,7 +240,7 @@ function renderSettings(){
       ${settingsSectionHtml('locations', 'Locations', locationSection)}
       ${settingsSectionHtml('taskFields', 'Task Fields', taskFieldsSection)}
       ${settingsSectionHtml('appearance', 'Appearance', appearanceSection)}
-      ${settingsSectionHtml('trash', 'Recently Deleted', trashSection)}
+      ${settingsSectionHtml('trash', 'Recently Deleted', trashSection, (state.trash||[]).length ? 'trashhasitems' : '')}
       ${settingsSectionHtml('claude', 'Claude Access', claudeSection)}
       ${settingsSectionHtml('dev', 'Dev Settings', devSection)}
     </div>
@@ -254,10 +254,10 @@ function renderSettings(){
 // lives outside the DOM (a native <details> per section would reset
 // itself shut on every render(), which is exactly the bug Dev Settings
 // used to have).
-function settingsSectionHtml(key, title, bodyHtml){
+function settingsSectionHtml(key, title, bodyHtml, extraClass){
   const collapsed = settingsCollapsedSections.has(key);
   return `
-    <div class="settingssection">
+    <div class="settingssection ${extraClass||''}">
       <button class="settingssectionhead" onclick="toggleSettingsSection('${key}')">
         <span class="settingssectiontitle">${title}</span>
         <span class="settingssectionchevron">${collapsed ? '▸' : '▾'}</span>
@@ -363,7 +363,17 @@ async function addCategory(text, type){
   const label = (text||'').trim();
   if(!label) return;
   pushUndo(`Added tab "${label}"`);
-  const hex = CATEGORY_PALETTE[state.categories.length % CATEGORY_PALETTE.length];
+  // First palette color not already in use by an existing tab, rather
+  // than a blind CATEGORY_PALETTE[length % length] walk — that used to
+  // be collision-safe for free only because defaultCategories()'s 4 seed
+  // colors happened to sit at the array's own first 4 indices; now that
+  // CATEGORY_PALETTE is ordered by hue for browsing instead (see its own
+  // comment) and defaultCategories() picks its 4 colors explicitly
+  // rather than positionally, an index-based walk can no longer promise
+  // that on its own. Falls back to the old modulo pick only once every
+  // palette color is already in use somewhere.
+  const usedHexes = new Set(state.categories.map(c=>c.hex.toLowerCase()));
+  const hex = CATEGORY_PALETTE.find(h=>!usedHexes.has(h.toLowerCase())) || CATEGORY_PALETTE[state.categories.length % CATEGORY_PALETTE.length];
   // Only the workspace you're currently in gets checked by default — you
   // add a tab while thinking about the location you're actually at, and
   // can check any others afterward the same way you would for an
@@ -414,21 +424,44 @@ function categoryPickerHtml(c){
   const swatches = CATEGORY_PALETTE.map(hex=>`
     <button class="catswatch ${c.hex.toLowerCase()===hex.toLowerCase()?'active':''}" style="background:${hex}" onclick="setCategoryColor('${c.id}','${hex}')" title="${hex}"></button>`
   ).join('');
+  // User-saved colors (state.customCategoryColors, see
+  // saveCurrentCategoryColorToCustom() below) always render after every
+  // default swatch above, never interleaved with them — per the project
+  // owner's own ask, so "my own colors" reads as its own trailing group.
+  // Each gets a small × overlay (customPresetTileHtml's ✎/× pair below
+  // is for the *named* Desk & Ledger/UI Colors templates — a single
+  // saved hex has no name to edit, so a plain single-color swatch here
+  // only ever needs "remove," not "edit": editing one just means picking
+  // it via the wheel again and saving the new value alongside it.
+  const customSwatches = (state.customCategoryColors||[]).map((hex,i)=>`
+    <span class="catswatchcustomwrap">
+      <button class="catswatch ${c.hex.toLowerCase()===hex.toLowerCase()?'active':''}" style="background:${hex}" onclick="setCategoryColor('${c.id}','${hex}')" title="${hex}"></button>
+      <button class="catswatchremove" onclick="event.stopPropagation(); deleteCustomCategoryColor(${i})" title="Remove from your colors">×</button>
+    </span>`
+  ).join('');
   // A permanent little rainbow, not a preview of the current color (that
   // would fight with .catswatch.active's own border-based "you're here"
   // signal when the current hex already matches this exactly) — its
-  // .active state (a preset can never equal it) is what actually shows
-  // "your color right now isn't one of the presets."
-  const customIsActive = !CATEGORY_PALETTE.some(hex=>hex.toLowerCase()===c.hex.toLowerCase());
-  const icons = CATEGORY_ICON_ORDER.map(id=>`
-    <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}">${CATEGORY_ICON_GLYPHS[id]}</button>`
-  ).join('');
+  // .active state (nothing above can ever equal it) is what actually
+  // shows "your color right now isn't one of the presets or your own
+  // saved colors."
+  const customIsActive = !CATEGORY_PALETTE.some(hex=>hex.toLowerCase()===c.hex.toLowerCase())
+    && !(state.customCategoryColors||[]).some(hex=>hex.toLowerCase()===c.hex.toLowerCase());
+  // Same per-glyph transform:scale() correction categoryDotHtml() applies
+  // everywhere else an icon shows up — without it here too, the picker's
+  // own preview wouldn't match what picking it actually looks like.
+  const icons = CATEGORY_ICON_ORDER.map(id=>{
+    const scale = CATEGORY_ICON_SCALE[id] || 1;
+    const glyphStyle = scale !== 1 ? ` style="display:inline-block;transform:scale(${scale})"` : '';
+    return `
+    <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}"><span${glyphStyle}>${CATEGORY_ICON_GLYPHS[id]}</span></button>`;
+  }).join('');
   return `
     <div class="catpicker">
       <button class="catpickerclose" onclick="toggleCategoryPicker('${c.id}')" title="Close">×</button>
       <div class="catpickerlabel">Color</div>
       <div class="catswatchrow">
-        ${swatches}
+        ${swatches}${customSwatches}
         <button class="catswatch catswatchcustom ${customIsActive?'active':''}" onclick="openCustomColor('${c.id}')" title="Custom color"></button>
       </div>
       <div class="catpickerlabel">Icon</div>
@@ -462,6 +495,8 @@ function closeAllSettingsPopovers(){
   uiColorPickerOpen = false;
   deskPaperPickerOpen = false;
   dualColorCustomOpen = false;
+  editingDualColorPresetId = null;
+  dualColorSaveTemplateOpen = false;
   locationEditorOpenId = null;
   pendingDeleteLocationId = null;
   customSelectOpenKey = null;
@@ -593,7 +628,37 @@ function customColorWheelHtml(c){
     <div class="catpicker">
       <button class="catpickerclose" onclick="toggleCategoryPicker('${c.id}')" title="Close">×</button>
       ${colorWheelInnerHtml(`closeCustomColor()`, '‹ Presets', `confirmCustomColor('${c.id}')`)}
+      <button class="dualcolorcopy" onclick="saveCurrentCategoryColorToCustom()">+ Save to Colors</button>
     </div>`;
+}
+
+// Saves whatever the wheel is currently showing into the user's own
+// color list (state.customCategoryColors), available from every
+// category's picker from then on — reads the same authoritative hex
+// field confirmCustomColor() does. Purely additive: doesn't apply this
+// color to the category whose wheel happens to be open, or close the
+// wheel, so "save this to try on other tabs later" and "apply it to
+// this tab right now" stay two separate actions you can do in either
+// order (or just one of them).
+function saveCurrentCategoryColorToCustom(){
+  const input = document.getElementById('catCustomHexInput');
+  const hex = normalizeHexInput(input ? input.value : '');
+  if(!hex) return;
+  if(!Array.isArray(state.customCategoryColors)) state.customCategoryColors = [];
+  if(state.customCategoryColors.some(h=>h.toLowerCase()===hex.toLowerCase())) return;
+  pushUndo('Saved a custom color');
+  state.customCategoryColors.push(hex);
+  render();
+  queueSave();
+}
+
+async function deleteCustomCategoryColor(index){
+  const hex = (state.customCategoryColors||[])[index];
+  if(hex === undefined) return;
+  pushUndo('Removed a saved color');
+  state.customCategoryColors.splice(index, 1);
+  render();
+  queueSave();
 }
 
 function openCustomColor(id){
@@ -921,12 +986,35 @@ function dualColorCustomHtml(kind){
   // a thing anyone reaches for there.
   const copyPrimaryHtml = (!isDesk && dualColorField==='secondary')
     ? `<button class="dualcolorcopy" onclick="copyPrimaryToSecondary()">= Copy Primary</button>` : '';
+  // Reached this wheel via a saved template's own ✎ (editingDualColorPresetId
+  // set, see openDualColorTemplateEdit() below): no name to ask for again,
+  // "Update Template" just overwrites the same entry in place. Otherwise:
+  // the plain "+ Save as Template" button expands an inline name form
+  // (dualColorSaveTemplateOpen) — same .templatesaveform markup/styling
+  // the checklist template system already uses (startSaveListAsTemplate(),
+  // 13-checklist.js), reused here rather than inventing a second look for
+  // the same idea. Either path both saves AND applies (see
+  // confirmSaveDualColorTemplate()) — "Done" and "Done, and remember
+  // this" are the same action once you're naming it.
+  const saveHtml = editingDualColorPresetId
+    ? `<button class="dualcolorcopy" onclick="confirmSaveDualColorTemplate('${kind}')">Update Template</button>`
+    : dualColorSaveTemplateOpen
+      ? `<div class="templatesaveform">
+           <input type="text" id="dualColorTemplateNameInput" placeholder="Name this template" maxlength="40"
+             onkeydown="if(event.key==='Enter'){ event.preventDefault(); confirmSaveDualColorTemplate('${kind}'); }">
+           <div class="templatesaveformactions">
+             <button class="templatecreateconfirm" onclick="confirmSaveDualColorTemplate('${kind}')">Save</button>
+             <button class="templatecreatecancel" onclick="cancelSaveDualColorTemplate()">Cancel</button>
+           </div>
+         </div>`
+      : `<button class="dualcolorcopy" onclick="startSaveDualColorTemplate()">+ Save as Template</button>`;
   return `
     <div class="catpicker">
       <button class="catpickerclose" onclick="${isDesk?'toggleDeskPaperPicker':'toggleUiColorPicker'}()" title="Close">×</button>
       ${tabsHtml}
       ${copyPrimaryHtml}
       ${colorWheelInnerHtml('closeDualColorCustom()', '‹ Presets', 'confirmDualColorCustom()')}
+      ${saveHtml}
     </div>`;
 }
 
@@ -962,7 +1050,107 @@ function openDualColorCustom(){
   }
   customColorDraft = dualColorDraft[dualColorField];
   dualColorCustomOpen = true;
+  // Not editing any specific saved template — a fresh, unsaved custom
+  // pick. openDualColorTemplateEdit() below is the only other way into
+  // this wheel, and it sets this itself right after calling here.
+  editingDualColorPresetId = null;
+  dualColorSaveTemplateOpen = false;
   render();
+}
+
+// Opens the wheel pre-loaded with a saved template's own colors, for
+// tweaking — the ✎ on a customPresetTileHtml() tile. Reuses
+// openDualColorCustom() for the actual wheel-opening (same seeding idiom,
+// same render()) and then overwrites its draft with the template's own
+// values instead of whatever the live theme currently has, plus marks
+// which template this is so dualColorCustomHtml()'s "Update Template"
+// button knows to overwrite it in place rather than asking for a new name.
+function openDualColorTemplateEdit(kind, id){
+  closeAllSettingsPopovers();
+  if(kind === 'desk') deskPaperPickerOpen = true; else uiColorPickerOpen = true;
+  const list = kind === 'desk' ? state.customDeskPresets : state.customUiPresets;
+  const tpl = (list||[]).find(t=>t.id===id);
+  if(!tpl) return;
+  openDualColorCustom();
+  dualColorDraft = kind === 'desk'
+    ? { bg: hexToHsv(tpl.bg), paper: hexToHsv(tpl.paper) }
+    : { primary: hexToHsv(tpl.primary), secondary: hexToHsv(tpl.secondary) };
+  dualColorField = kind === 'desk' ? 'bg' : 'primary';
+  customColorDraft = dualColorDraft[dualColorField];
+  editingDualColorPresetId = id;
+  render();
+}
+
+async function deleteDualColorTemplate(kind, id){
+  const key = kind === 'desk' ? 'customDeskPresets' : 'customUiPresets';
+  const list = state[key] || [];
+  const idx = list.findIndex(t=>t.id===id);
+  if(idx === -1) return;
+  pushUndo(`Removed "${list[idx].label}" template`);
+  list.splice(idx, 1);
+  if(editingDualColorPresetId === id) editingDualColorPresetId = null;
+  render();
+  queueSave();
+}
+
+function startSaveDualColorTemplate(){
+  dualColorSaveTemplateOpen = true;
+  render();
+  document.getElementById('dualColorTemplateNameInput')?.focus();
+}
+function cancelSaveDualColorTemplate(){
+  dualColorSaveTemplateOpen = false;
+  render();
+}
+
+// The one moment a Desk & Ledger or UI Colors *template* actually saves
+// — both applies it (same commit confirmDualColorCustom() does) and
+// either pushes a new named entry or, if opened via a template's own ✎
+// (editingDualColorPresetId), overwrites that entry in place. Reads the
+// active tab's hex from the input field first (same "typed hex wins"
+// rule confirm*() follows) and syncs it into dualColorDraft before
+// reading *both* fields back out of dualColorDraft, so the entry is
+// always built from the freshest values regardless of which tab
+// happened to be showing.
+async function confirmSaveDualColorTemplate(kind){
+  const hexInput = document.getElementById('catCustomHexInput');
+  const activeHex = normalizeHexInput(hexInput ? hexInput.value : '') || dualColorHexOf(dualColorField);
+  dualColorDraft[dualColorField] = hexToHsv(activeHex);
+  const key = kind === 'desk' ? 'customDeskPresets' : 'customUiPresets';
+  if(!Array.isArray(state[key])) state[key] = [];
+  let entry;
+  if(kind === 'desk'){
+    const bg = dualColorHexOf('bg'), paper = dualColorHexOf('paper');
+    entry = { bg, paper };
+    state.theme.bg = bg;
+    state.theme.paper = paper;
+  } else {
+    const primary = dualColorHexOf('primary'), secondary = dualColorHexOf('secondary');
+    entry = { primary, primaryLight: shadeHex(primary, 0.35), secondary, secondaryLight: shadeHex(secondary, 0.35) };
+    state.theme.customUi = { label: 'Custom', ...entry };
+    state.theme.uiPreset = 'custom';
+  }
+  if(editingDualColorPresetId){
+    const existing = state[key].find(t=>t.id===editingDualColorPresetId);
+    if(existing){
+      pushUndo(`Updated "${existing.label}" template`);
+      Object.assign(existing, entry);
+      if(kind === 'ui') state.theme.customUi.label = existing.label;
+    }
+  } else {
+    const nameInput = document.getElementById('dualColorTemplateNameInput');
+    const name = (nameInput ? nameInput.value.trim() : '') || (kind==='desk' ? 'My Desk & Ledger' : 'My UI Colors');
+    pushUndo(`Saved "${name}" as a template`);
+    state[key].push({ id: newId('tpl'), label: name, ...entry });
+    if(kind === 'ui') state.theme.customUi.label = name;
+  }
+  dualColorCustomOpen = false;
+  editingDualColorPresetId = null;
+  dualColorSaveTemplateOpen = false;
+  catWheelCancelDrag();
+  applyTheme();
+  render();
+  queueSave();
 }
 
 // Shortcut for when Custom is already the active selection and you want
@@ -1050,6 +1238,14 @@ function deskPaperPickerHtml(){
       <span class="uipresetlabel">${escapeHtml(p.label)}</span>
     </button>`
   ).join('');
+  const customSaved = (state.customDeskPresets||[]).map(p=>
+    customPresetTileHtml('desk', p, deskPaperPresetActive(p))
+  ).join('');
+  // "Custom" only reads active when nothing above — built-in or one of
+  // your own saved templates — already matches exactly; a saved
+  // template's own tile is what lights up once you've actually named
+  // and kept a color, so this one goes back to being just the "start
+  // fresh" entry point instead of two tiles both claiming to be active.
   const customTile = `
     <button class="uipresetbtn customtile ${activeDeskPaperPresetLabel()==='Custom'?'active':''}" onclick="openDualColorCustom()">
       <span class="uipresetswatches">
@@ -1062,7 +1258,7 @@ function deskPaperPickerHtml(){
     <div class="catpicker uicolorpicker">
       <button class="catpickerclose" onclick="toggleDeskPaperPicker()" title="Close">×</button>
       <div class="catpickerlabel">Desk & Ledger</div>
-      <div class="uipresetgrid">${options}${customTile}</div>
+      <div class="uipresetgrid">${options}${customSaved}${customTile}</div>
     </div>`;
 }
 
@@ -1070,12 +1266,50 @@ function deskPaperPresetActive(p){
   return state.theme.bg.toLowerCase()===p.bg.toLowerCase() && state.theme.paper.toLowerCase()===p.paper.toLowerCase();
 }
 
+// A saved custom template's own tile (Desk & Ledger's customDeskPresets
+// or UI Colors' customUiPresets) — same .uipresetbtn shape and click-to-
+// apply behavior as a built-in preset, plus a small ✎ (reopen the wheel
+// loaded with these colors — openDualColorTemplateEdit()) and × (remove
+// — deleteDualColorTemplate()) pair in the corner that a built-in preset
+// doesn't get, since those can't be edited or deleted. Both stop
+// propagation so tapping either one doesn't also fire the tile's own
+// apply-this-preset click underneath it.
+function customPresetTileHtml(kind, tpl, isActive){
+  const swatches = kind === 'desk' ? [tpl.bg, tpl.paper] : [tpl.primary, tpl.secondary];
+  const applyFn = kind === 'desk' ? 'applyCustomDeskPreset' : 'applyCustomUiPreset';
+  return `
+    <span class="uipresettilewrap">
+      <button class="uipresetbtn ${isActive?'active':''}" onclick="${applyFn}('${tpl.id}')">
+        <span class="uipresetswatches">
+          <span class="uipresetswatch" style="background:${swatches[0]}"></span>
+          <span class="uipresetswatch" style="background:${swatches[1]}"></span>
+        </span>
+        <span class="uipresetlabel">${escapeHtml(tpl.label)}</span>
+      </button>
+      <span class="uipresettileactions">
+        <button class="uipresetedit" onclick="event.stopPropagation(); openDualColorTemplateEdit('${kind}','${tpl.id}')" title="Edit template">✎</button>
+        <button class="uipresetremove" onclick="event.stopPropagation(); deleteDualColorTemplate('${kind}','${tpl.id}')" title="Remove template">×</button>
+      </span>
+    </span>`;
+}
+
+async function applyCustomDeskPreset(id){
+  const p = (state.customDeskPresets||[]).find(t=>t.id===id);
+  if(!p || deskPaperPresetActive(p)) return;
+  pushUndo(`Changed desk & ledger colors to "${p.label}"`);
+  state.theme.bg = p.bg;
+  state.theme.paper = p.paper;
+  applyTheme();
+  render();
+  queueSave();
+}
+
 // Same "— <name>" trigger-label pattern as UI Colors, even though (unlike
 // UI Colors) there's no stored preset id to read back — bg/paper are
 // freely editable on their own, so this just checks whether they
 // currently happen to match one of the presets exactly.
 function activeDeskPaperPresetLabel(){
-  const match = DESK_PAPER_PRESETS.find(deskPaperPresetActive);
+  const match = DESK_PAPER_PRESETS.find(deskPaperPresetActive) || (state.customDeskPresets||[]).find(deskPaperPresetActive);
   return match ? match.label : 'Custom';
 }
 
@@ -1132,9 +1366,19 @@ function uiColorPickerHtml(){
       <span class="uipresetlabel">${escapeHtml(p.label)}</span>
     </button>`
   ).join('');
+  const customSaved = (state.customUiPresets||[]).map(p=>
+    customPresetTileHtml('ui', p, state.theme.uiPreset==='custom' && !!state.theme.customUi
+      && state.theme.customUi.primary.toLowerCase()===p.primary.toLowerCase()
+      && state.theme.customUi.secondary.toLowerCase()===p.secondary.toLowerCase())
+  ).join('');
   const customPreview = state.theme.customUi || uiColorPreset('rust');
+  // Only reads active when the live pair isn't literally a saved
+  // template's own colors too — same "don't double-highlight" reasoning
+  // as Desk & Ledger's own customTile above.
+  const blankCustomActive = state.theme.uiPreset==='custom'
+    && !(state.customUiPresets||[]).some(p=>p.primary.toLowerCase()===customPreview.primary.toLowerCase() && p.secondary.toLowerCase()===customPreview.secondary.toLowerCase());
   const customTile = `
-    <button class="uipresetbtn customtile ${state.theme.uiPreset==='custom'?'active':''}" onclick="openDualColorCustom()">
+    <button class="uipresetbtn customtile ${blankCustomActive?'active':''}" onclick="openDualColorCustom()">
       <span class="uipresetswatches">
         <span class="uipresetswatch" style="background:${customPreview.primary}"></span>
         <span class="uipresetswatch" style="background:${customPreview.secondary}"></span>
@@ -1145,7 +1389,7 @@ function uiColorPickerHtml(){
     <div class="catpicker uicolorpicker">
       <button class="catpickerclose" onclick="toggleUiColorPicker()" title="Close">×</button>
       <div class="catpickerlabel">UI Colors</div>
-      <div class="uipresetgrid">${options}${customTile}</div>
+      <div class="uipresetgrid">${options}${customSaved}${customTile}</div>
     </div>`;
 }
 
@@ -1162,6 +1406,25 @@ async function setUiColorPreset(id){
   const p = uiColorPreset(id);
   pushUndo(`Changed UI colors to "${p.label}"`);
   state.theme.uiPreset = id;
+  applyTheme();
+  render();
+  queueSave();
+}
+
+// A saved custom pair applies as its own clone (not a live reference to
+// the template list entry) so later editing or deleting that template
+// can't retroactively change whatever's already applied — same reasoning
+// confirmSaveDualColorTemplate() follows for the write in the other
+// direction.
+async function applyCustomUiPreset(id){
+  const p = (state.customUiPresets||[]).find(t=>t.id===id);
+  if(!p) return;
+  if(state.theme.uiPreset==='custom' && state.theme.customUi
+    && state.theme.customUi.primary.toLowerCase()===p.primary.toLowerCase()
+    && state.theme.customUi.secondary.toLowerCase()===p.secondary.toLowerCase()) return;
+  pushUndo(`Changed UI colors to "${p.label}"`);
+  state.theme.customUi = { ...p };
+  state.theme.uiPreset = 'custom';
   applyTheme();
   render();
   queueSave();

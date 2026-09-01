@@ -4,17 +4,20 @@
 // plain id-keyed object (via rebuildCategoriesIndex) so the many existing
 // `CATEGORIES[key]` / `Object.entries(CATEGORIES)` call sites didn't need
 // to change when categories became dynamic.
-// Last 4 (steel blue, burgundy, olive, dusty rose) added later to round
-// out the set — picked to sit in hue gaps the original 8 left open
-// rather than sitting close to an existing choice (steel blue between
-// the existing teal-green and slate-blue; burgundy between rust and
-// mauve; olive a genuinely more yellow-green mustard than brass's
-// orange-gold; dusty rose the one lighter-value option in an otherwise
-// all-mid-dark palette). addCategory() colors a new tab from
-// CATEGORY_PALETTE[state.categories.length % length] and defaultCategories()
-// below only ever reads indices 0-3, so appending here (not inserting)
-// is what keeps both of those stable.
-const CATEGORY_PALETTE = ['#3C5A45','#3E4A6B','#9C4530','#A9782F','#5B6560','#6B4226','#2F6B5E','#7A4B6B','#2C5C7A','#7A2E35','#8C7A1E','#B5677A'];
+// Ordered by hue (warm red through to the cool blues/purples) rather
+// than the order each one happened to get added in, same organizing
+// idea as UI_COLOR_PRESETS/DESK_PAPER_PRESETS above — a category's own
+// swatch picker (categoryPickerHtml(), 09-settings.js) reads straight
+// off this array, so this is what actually determines its on-screen
+// order. Sage sits with the greens despite being much less saturated
+// than its neighbors (a deliberate "muted" option, not a hue-sort
+// mistake). defaultCategories() below picks its 4 seed colors by literal
+// hex rather than by position in this array specifically so reordering
+// this for browsing can never silently change what a brand-new account's
+// first few tabs look like; addCategory() (09-settings.js) picks the
+// first color here not already in use by an existing tab, also
+// independent of array position, for the same reason.
+const CATEGORY_PALETTE = ['#9C4530','#6B4226','#A9782F','#8C7A1E','#3C5A45','#5B6560','#2F6B5E','#2C5C7A','#3E4A6B','#7A4B6B','#B5677A','#7A2E35'];
 // Used only when a task's category tab has been deleted — the task itself
 // is never touched, it just has nothing to look itself up as, and this
 // keeps that rendering path from breaking.
@@ -26,21 +29,22 @@ const FALLBACK_CATEGORY = { id:'_orphan', label:'Uncategorized', hex:'#5B6560', 
 // one deliberate exception) so the location feature actually does
 // something visible out of the box, the same way "Estate Upkeep only
 // applies at MA" did for the owner's own accounts — Work and Personal
-// stay at both locations since neither maps to a single place. Hexes are
-// CATEGORY_PALETTE[0..2] in order — addCategory() colors a new tab from
-// CATEGORY_PALETTE[state.categories.length % length], so leaving these
-// three at indices 0-2 keeps a user's first added tab (index 3) from
-// landing on a color one of these already uses.
+// stay at both locations since neither maps to a single place. Colors
+// are the same forest/slate/rust/brass spread this app has always
+// started a new account with — spelled out as their own literal hexes
+// (not CATEGORY_PALETTE[0..3]) specifically so CATEGORY_PALETTE stays
+// free to reorder for browsing (see its own comment) without quietly
+// changing what a new account's first four tabs look like.
 function defaultCategories(){
   return [
-    { id:'work',      label:'Work',      hex: CATEGORY_PALETTE[0], locations:['home','away'], type:'standard' },
-    { id:'household', label:'Household', hex: CATEGORY_PALETTE[1], locations:['home'],         type:'standard' },
-    { id:'personal',  label:'Personal',  hex: CATEGORY_PALETTE[2], locations:['home','away'],  type:'standard' },
+    { id:'work',      label:'Work',      hex: '#3C5A45', locations:['home','away'], type:'standard' },
+    { id:'household', label:'Household', hex: '#3E4A6B', locations:['home'],         type:'standard' },
+    { id:'personal',  label:'Personal',  hex: '#9C4530', locations:['home','away'], type:'standard' },
     // A checklist-type tab in the defaults, so a new account sees one
     // without having to discover "Settings → add a tab → Checklist"
     // first — "Lists" rather than "Purchase Lists" so it doesn't read as
     // scoped to shopping specifically (packing, chores, anything).
-    { id:'lists',     label:'Lists',     hex: CATEGORY_PALETTE[3], locations:['home','away'],  type:'checklist' }
+    { id:'lists',     label:'Lists',     hex: '#A9782F', locations:['home','away'],  type:'checklist' }
   ];
 }
 // A category's marker is a single glyph colored via its own hex — 'dot'
@@ -55,8 +59,35 @@ function defaultCategories(){
 // color emoji" rule as the original 8 — both are ordinary Unicode
 // symbols with no registered emoji presentation, so they're safe to add
 // without re-checking every font this app might render in.
-const CATEGORY_ICON_ORDER = ['dot','star','flag','house','diamond','square','ring','check','triangle','cross'];
-const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⌂', diamond:'◆', square:'■', ring:'○', check:'✓', triangle:'▲', cross:'✚' };
+// 'house' and 'ring' both used to be hollow/outline glyphs (⌂, ○) — per
+// the project owner's own callout, every icon here should read as a
+// solid, filled shape (like 'star' always has), not a mix of filled and
+// outline. 'house' keeps its id (still reads as "a house," just now a
+// filled pentagon — a square base + triangular roof silhouette — instead
+// of the outline glyph); 'ring' is gone entirely rather than just filled
+// in, since a filled circle would only duplicate 'dot' — 'hexagon' takes
+// its place in the same array position instead, a genuinely different
+// filled silhouette. See the icon migration in normalizeState()
+// (02-storage-state.js) for accounts that had 'ring' saved already, and
+// CATEGORY_ICON_SCALE below for why each glyph also carries its own
+// visual-size correction now.
+const CATEGORY_ICON_ORDER = ['dot','star','flag','house','diamond','square','hexagon','check','triangle','cross'];
+const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⬟', diamond:'◆', square:'■', hexagon:'⬢', check:'✓', triangle:'▲', cross:'✚' };
+// Per-glyph visual-size correction, applied as a CSS transform:scale()
+// (not font-size — that would compose wrongly with each call site's own
+// differently-sized base class, .dot/.cdot/.caticonbtn/etc., since an
+// inline font-size fully replaces rather than multiplies the class's
+// own). Different Unicode symbols at the identical font-size cover very
+// different fractions of their own box — a thin glyph like '✓' or '▲'
+// visually reads noticeably smaller than a filled disc like '●' at the
+// same nominal size. These values were measured, not eyeballed: each
+// glyph rendered to an offscreen canvas at a fixed size, its actual
+// opaque-pixel bounding box measured, then scaled so its own covered
+// area matches 'star' — the reference the project owner pointed at —
+// rather than guessing proportions by eye (see the project owner's own
+// past feedback on authoring visual geometry blind). 1 means "already
+// matches, no correction needed."
+const CATEGORY_ICON_SCALE = { dot:1.47, star:1, flag:1.37, house:0.82, diamond:1.48, square:1.62, hexagon:1.12, check:1.58, triangle:0.95, cross:1.06 };
 // Single shared renderer for every place a category's marker shows up
 // (task rows, the task detail page, the tab bar, the day-tree picker, the
 // Settings row) — same reasoning as taskRowHtml being the one place a
@@ -65,8 +96,11 @@ const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⌂', d
 // site keeps its own layout/spacing rules; only the glyph-vs-background
 // rendering is unified here.
 function categoryDotHtml(c, cls){
-  const glyph = CATEGORY_ICON_GLYPHS[c.icon] || CATEGORY_ICON_GLYPHS.dot;
-  return `<span class="${cls}" style="color:${c.hex}">${glyph}</span>`;
+  const icon = c.icon || 'dot';
+  const glyph = CATEGORY_ICON_GLYPHS[icon] || CATEGORY_ICON_GLYPHS.dot;
+  const scale = CATEGORY_ICON_SCALE[icon] || 1;
+  const scaleStyle = scale !== 1 ? `display:inline-block;transform:scale(${scale});` : '';
+  return `<span class="${cls}" style="color:${c.hex};${scaleStyle}">${glyph}</span>`;
 }
 
 let CATEGORIES = {};
@@ -158,23 +192,24 @@ function defaultTheme(){
 // from colors already used elsewhere in the app (the pre-dynamic
 // category accents / the old pendingTagColor dev experiment's own
 // choices, since removed) rather than introducing new one-off hues.
+// Ordered around the color wheel by Primary's own hue (warm red through
+// to the neutral/near-black end) rather than the order each one happened
+// to get added in — same pairs sit adjacent to each other (rust/classic
+// both brass, forest/forestrust both forest-green, slate/slatebrass both
+// slate-blue) since they share a Primary, with the fixed-hue trio
+// (forest, teal, slate) sweeping green→cyan→blue between them, and
+// charcoal (the one near-neutral, least "colorful" choice) landing last
+// rather than in the middle of an otherwise real hue sweep.
 const UI_COLOR_PRESETS = [
+  { id:'burgundy',  label:'Burgundy & Brass',  primary:'#7A2E35', primaryLight:'#A53E48', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'rust',      label:'Brass & Rust',     primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#9C4530', secondaryLight:'#C3563C' },
   { id:'classic',   label:'Full Brass',       primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'forest',    label:'Forest & Brass',   primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#A9782F', secondaryLight:'#C99A4E' },
-  { id:'slate',     label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
-  { id:'charcoal',  label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' },
-  // Four more below, rounding the set out to 9 — two are new hues
-  // (burgundy, teal), two are just fresh remixes of hues already proven
-  // legible above (forest+rust, slate+brass) paired for the first time.
-  // Light variants for the two genuinely new base colors follow the same
-  // multiplicative shadeHex(hex, +0.35) every other Light value here was
-  // built from (see confirmDualColorCustom(), 09-settings.js, for where
-  // that formula is applied live for a custom pair) rather than hand-picked.
   { id:'forestrust', label:'Forest & Rust',    primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#9C4530', secondaryLight:'#C3563C' },
+  { id:'teal',      label:'Teal & Rust',       primary:'#2C5C58', primaryLight:'#3B7C77', secondary:'#9C4530', secondaryLight:'#C3563C' },
+  { id:'slate',     label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
   { id:'slatebrass', label:'Slate & Brass',    primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#A9782F', secondaryLight:'#C99A4E' },
-  { id:'burgundy',  label:'Burgundy & Brass',  primary:'#7A2E35', primaryLight:'#A53E48', secondary:'#A9782F', secondaryLight:'#C99A4E' },
-  { id:'teal',      label:'Teal & Rust',       primary:'#2C5C58', primaryLight:'#3B7C77', secondary:'#9C4530', secondaryLight:'#C3563C' }
+  { id:'charcoal',  label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' }
 ];
 // 'custom' isn't in UI_COLOR_PRESETS (it's user data, not a fixed
 // preset) — state.theme.customUi carries its own label/primary/
@@ -193,17 +228,38 @@ function uiColorPreset(id){
 // reason there should be: once picked, bg/paper are exactly as free to
 // keep customizing as if they'd been dragged to by hand.
 // 'classic' reproduces the app's original literal bg/paper hexes.
+// Ordered by Ledger (paper) color, from classic's own pale cream out to
+// navy's much more saturated golden parchment at the far end — plum
+// first since its paper is the grayest/least-saturated of the bunch (a
+// small step further from classic than classic is from itself), then
+// charcoal and oak (both close, pale near-white creams), then maroon's
+// slightly pinker blush, ending on the two genuinely parchment-toned
+// papers (navy, then espresso, its own paper picked to sit right next to
+// navy's) — a real gradient rather than the add-order the set used to
+// just accumulate in. Bg is the tiebreaker where paper alone doesn't
+// clearly separate two entries (not needed below — every paper here is
+// distinct enough on its own that no two entries actually tied).
 const DESK_PAPER_PRESETS = [
-  { id:'classic',  label:'Classic',          bg:'#28362E', paper:'#F1EAD9' },
-  { id:'oak',      label:'Oak & Ivory',      bg:'#3D2B1F', paper:'#F5EFE0' },
-  { id:'navy',     label:'Navy & Parchment', bg:'#1F2937', paper:'#EFDDB0' },
-  { id:'plum',     label:'Plum & Linen',     bg:'#3B2A44', paper:'#EDE6DC' },
-  { id:'charcoal', label:'Charcoal & Birch', bg:'#26241F', paper:'#F2ECE0' },
+  { id:'classic',  label:'Classic',           bg:'#28362E', paper:'#F1EAD9' },
+  { id:'plum',     label:'Plum & Linen',      bg:'#3B2A44', paper:'#EDE6DC' },
+  { id:'charcoal', label:'Charcoal & Birch',  bg:'#26241F', paper:'#F2ECE0' },
+  { id:'oak',      label:'Oak & Ivory',       bg:'#3D2B1F', paper:'#F5EFE0' },
   // Deep oxblood/maroon desk, paired with a paper that leans slightly
   // warm-blush rather than the plain creams above — echoes the bg's own
   // warmth (same "contrast, not match" idea Navy & Parchment's cool bg /
   // warm gold-cream paper already follows) without literally matching it.
-  { id:'maroon',   label:'Maroon & Blush',   bg:'#4B1D23', paper:'#F2E1D9' }
+  // "Vellum" (real bookbinding parchment, not just a color name) rather
+  // than "Blush" per the project owner's own ask for a less feminine-
+  // reading second word.
+  { id:'maroon',   label:'Maroon & Vellum',   bg:'#4B1D23', paper:'#F2E1D9' },
+  { id:'navy',     label:'Navy & Parchment',  bg:'#1F2937', paper:'#EFDDB0' },
+  // A second parchment-family ledger (paper close to Navy & Parchment's
+  // own, per the project owner's own callout that they especially like
+  // that one) paired with a near-black espresso-brown desk instead —
+  // distinct from Oak's own lighter, redder brown, and from Navy's cool
+  // blue-gray, so this reads as its own option rather than a small
+  // variation on either.
+  { id:'espresso', label:'Espresso & Parchment', bg:'#241812', paper:'#EFDEAE' }
 ];
 
 function clamp255(n){ return Math.max(0, Math.min(255, n)); }

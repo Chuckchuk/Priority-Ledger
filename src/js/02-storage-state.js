@@ -164,6 +164,16 @@ let deskPaperPickerOpen = false;
 let dualColorCustomOpen = false;
 let dualColorField = null;
 let dualColorDraft = {};
+// Whichever saved custom template (state.customDeskPresets/customUiPresets)
+// the wheel is currently mid-edit of, or null when it's just building a
+// brand new one — see openDualColorTemplateEdit()/confirmSaveDualColorTemplate()
+// in 09-settings.js. Set null again by anything that closes/confirms the
+// wheel, same lifecycle as dualColorCustomOpen itself.
+let editingDualColorPresetId = null;
+// Showing the inline "name this template" form inside the wheel — see
+// startSaveDualColorTemplate() in 09-settings.js. Only meaningful while
+// dualColorCustomOpen is also true.
+let dualColorSaveTemplateOpen = false;
 // The category color/icon popover's "Custom" sub-panel (a hue ring + a
 // saturation/value square, see catWheelPointerDown() in 09-settings.js) —
 // only meaningful while openCategoryPickerId names a category.
@@ -661,7 +671,17 @@ function defaultState(){
     advancedTaskFields: true,
     devSettings: defaultDevSettings(),
     trash: [],
-    checklistTemplates
+    checklistTemplates,
+    // User-saved color templates (Desk & Ledger / UI Colors) and single
+    // saved icon colors — separate from the fixed DESK_PAPER_PRESETS/
+    // UI_COLOR_PRESETS/CATEGORY_PALETTE arrays in 01-categories-theme.js,
+    // which are shipped defaults nobody can edit or delete. See
+    // dualColorCustomHtml()/confirmSaveDualColorTemplate() and
+    // categoryPickerHtml()/saveCurrentCategoryColorToCustom() in
+    // 09-settings.js for where these are written.
+    customDeskPresets: [],
+    customUiPresets: [],
+    customCategoryColors: []
   };
 }
 
@@ -692,6 +712,9 @@ function normalizeState(){
   if(!Array.isArray(state.trash)) state.trash = [];
   purgeOldTrash();
   if(!Array.isArray(state.checklistTemplates)) state.checklistTemplates = [];
+  if(!Array.isArray(state.customDeskPresets)) state.customDeskPresets = [];
+  if(!Array.isArray(state.customUiPresets)) state.customUiPresets = [];
+  if(!Array.isArray(state.customCategoryColors)) state.customCategoryColors = [];
   // Accounts saved before tabs became editable won't have a categories
   // array yet — seed it with the same set they've always seen so nothing
   // about their existing tasks' categories changes. Same idea for
@@ -709,6 +732,13 @@ function normalizeState(){
   // falls back to 'standard' rather than pointing at a type nothing
   // renders any more.
   state.categories.forEach(c => { if(c.type === 'calendar') c.type = 'standard'; });
+  // 'ring' (a hollow-circle icon) was replaced outright by 'hexagon' — a
+  // filled shape, not just a filled-in circle, since a solid circle would
+  // have only duplicated 'dot' — see CATEGORY_ICON_GLYPHS' own comment in
+  // 01-categories-theme.js. Any account that had a category actually set
+  // to 'ring' picks up the new icon automatically rather than pointing at
+  // a glyph that no longer exists.
+  state.categories.forEach(c => { if(c.icon === 'ring') c.icon = 'hexagon'; });
   if(!Array.isArray(state.locations) || !state.locations.length) state.locations = defaultLocations();
   if(typeof state.locationEnabled !== 'boolean') state.locationEnabled = true;
   if(!state.theme) state.theme = defaultTheme();
