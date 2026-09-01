@@ -4784,20 +4784,34 @@ function defaultTheme(){
 // Ordered around the color wheel by Primary's own hue (warm red through
 // to the neutral/near-black end) rather than the order each one happened
 // to get added in — same pairs sit adjacent to each other (rust/classic
-// both brass, forest/forestrust both forest-green, slate/slatebrass both
-// slate-blue) since they share a Primary, with the fixed-hue trio
-// (forest, teal, slate) sweeping green→cyan→blue between them, and
+// both brass, forest/forestrust both forest-green, slate/slatebrass/
+// copper all slate-blue) since they share a Primary, with the fixed-hue
+// trio (forest, teal, slate) sweeping green→cyan→blue between them, and
 // charcoal (the one near-neutral, least "colorful" choice) landing last
-// rather than in the middle of an otherwise real hue sweep.
+// rather than in the middle of an otherwise real hue sweep. Secondary is
+// always one of a small fixed set of "metal" accents (Brass, Rust, and
+// now Copper) rather than a free color — that's deliberate, so re-sort
+// against Primary's hue only when adding another entry, per the standing
+// rule in CLAUDE.md.
 const UI_COLOR_PRESETS = [
   { id:'burgundy',  label:'Burgundy & Brass',  primary:'#7A2E35', primaryLight:'#A53E48', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'rust',      label:'Brass & Rust',     primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#9C4530', secondaryLight:'#C3563C' },
   { id:'classic',   label:'Full Brass',       primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'forest',    label:'Forest & Brass',   primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'forestrust', label:'Forest & Rust',    primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#9C4530', secondaryLight:'#C3563C' },
-  { id:'teal',      label:'Teal & Rust',       primary:'#2C5C58', primaryLight:'#3B7C77', secondary:'#9C4530', secondaryLight:'#C3563C' },
+  // Was "Teal & Rust" — changed to Brass per the project owner's own ask
+  // (one of Forest & Rust / Teal & Rust should switch its Rust to Brass;
+  // Forest & Rust couldn't, since that would have just duplicated Forest
+  // & Brass exactly — Teal had no Brass sibling yet, so this is the one).
+  { id:'teal',      label:'Teal & Brass',      primary:'#2C5C58', primaryLight:'#3B7C77', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'slate',     label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
   { id:'slatebrass', label:'Slate & Brass',    primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+  // Copper (#B87333, the standard web/real-world copper reference hex)
+  // as a third "metal" Secondary alongside Brass/Rust, per the project
+  // owner's own ask — paired with Slate (an existing Primary, not a new
+  // one) for a cool-blue-against-warm-copper contrast, and grouped here
+  // with the rest of the slate-primary family rather than off on its own.
+  { id:'copper',    label:'Slate & Copper',   primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#B87333', secondaryLight:'#F89B45' },
   { id:'charcoal',  label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' }
 ];
 // 'custom' isn't in UI_COLOR_PRESETS (it's user data, not a fixed
