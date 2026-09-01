@@ -3875,12 +3875,31 @@
      treatment .checklisttitle/.bigtitle already give a detail page's own
      title, just as static text since neither view is editable. */
   .sharestandalone-title{
-    font-family:'Fraunces', serif; font-size:1.3rem; font-weight:600; color:var(--ink);
+    font-family:'Fraunces', serif; font-size:1.5rem; font-weight:600; color:var(--ink);
+    text-align:center; margin: 2px 0 4px;
   }
   .sharestandalone-title.done{ text-decoration: line-through; color: var(--ink-soft); }
   .sharestandalone-notes{
     font-family:'IBM Plex Sans', sans-serif; font-size:0.85rem; color:var(--ink-soft);
     margin-top:6px; white-space:pre-wrap;
+  }
+  /* The big checkbox atop the standalone page (renderShareStandaloneContent())
+     — reuses .checkwrap/.check (task) or .checkcircle-wrap/.checkcircle
+     (checklist) completely unmodified, so a done/open item looks exactly
+     like it would on the real detail page; this just centers and scales
+     up whichever wrapper it's applied alongside. */
+  .sharecheck{ display:flex; justify-content:center; margin: 6px 0 12px; transform: scale(1.7); }
+  /* Echoes .categorylabel's own geometry (top:14px; right:-6px, same
+     tab-shaped pill) — the one corner a real detail page always shows
+     *something* in, so an unmissable "Shared" pill there instead of a
+     category name is what keeps this from reading as the viewer's own
+     task now that everything else matches the real detail page's look. */
+  .sharedbadge{
+    position:absolute; top:14px; right:-6px; z-index:3;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; letter-spacing:0.04em; text-transform:uppercase;
+    padding:6px 16px 6px 12px; border-radius:9px 0 0 9px;
+    background: var(--primary); color:white;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.18);
   }
 
   /* ---- Custom dropdown (customSelectHtml(), 09-settings.js) ----

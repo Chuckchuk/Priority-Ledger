@@ -311,21 +311,47 @@ function renderShareStandaloneError(msg){
     </div>`;
 }
 
+// Reuses the real detail pages' own visual language (the big checkbox,
+// .bigtitle-style centered title, .taskmeta) rather than a generic card,
+// per the explicit ask to make this read as "the detail page" and not a
+// stripped-down summary — every piece here is the same class a real
+// .check/.checkcircle/.subrow/.subcheck already carries, just without
+// the onclick handlers (this view is read-only, there's nothing for a
+// tap to do). .sharedbadge deliberately echoes .categorylabel's own
+// geometry (top:14px; right:-6px, same tab-shaped pill) — the one spot
+// a real detail page always shows *something* in that corner, so
+// putting an unmissable "Shared" pill there instead of a category name
+// is what makes this unmistakably not the viewer's own task, even
+// though everything else now looks exactly like their own detail page
+// would. A task with no subtasks omits the items section entirely
+// (matches how little emphasis the real pages give an empty steps list)
+// — only an actually-empty *checklist* gets a (subtle, .empty-styled)
+// callout, since a shared list with zero items is worth noting; a
+// zero-subtask task is just the ordinary common case.
 function renderShareStandaloneContent(shareId, data, stale){
   const shell = document.getElementById('shareShell');
-  const items = (data.subtasks || []).map(s => `
-    <div class="subrow readonly">
-      <div class="subcheck ${data.isChecklist ? 'circle' : ''} ${s.done ? 'done' : ''}"></div>
-      <div class="subtext ${s.done ? 'done' : ''}">${escapeHtml(s.text)}</div>
-    </div>`).join('');
+  const done = data.status === 'done';
+  const items = data.subtasks || [];
+  const checkHtml = data.isChecklist
+    ? `<div class="checkcircle-wrap sharecheck"><div class="checkcircle ${done?'done':''}"></div></div>`
+    : `<div class="checkwrap sharecheck"><div class="check ${done?'done':''}"></div></div>`;
+  const itemsHtml = items.length
+    ? `<div class="subwrap">${items.map(s => `
+        <div class="subrow readonly">
+          <div class="subcheck ${data.isChecklist ? 'circle' : ''} ${s.done ? 'done' : ''}"></div>
+          <div class="subtext ${s.done ? 'done' : ''}">${escapeHtml(s.text)}</div>
+        </div>`).join('')}</div>`
+    : (data.isChecklist ? `<div class="empty">This list is empty.</div>` : '');
   shell.innerHTML = `
     <div class="masthead"><h1>The Ledger</h1><div class="tagline">shared with you</div></div>
     <div class="card">
       ${stale ? `<div class="sharemenu-note">Offline — showing the last version we saw.</div>` : ''}
-      <div class="sharestandalone-title ${data.status==='done' ? 'done' : ''}">${escapeHtml(data.title)}</div>
-      ${data.dueDate ? `<div class="taskmeta">Due ${fmtDate(data.dueDate)}</div>` : ''}
+      <div class="sharedbadge">Shared</div>
+      ${checkHtml}
+      <div class="sharestandalone-title ${done ? 'done' : ''}">${escapeHtml(data.title)}</div>
+      ${data.dueDate ? `<div class="taskmeta checklistmeta">Due ${fmtDate(data.dueDate)}</div>` : ''}
       ${data.notes ? `<div class="sharestandalone-notes">${escapeHtml(data.notes)}</div>` : ''}
-      <div class="subwrap">${items || '<div class="empty">Nothing here yet.</div>'}</div>
+      ${itemsHtml}
       <div class="footer-row"><button onclick="showShareAuthPrompt('${shareId}')">Sign in to add this to your Ledger</button></div>
     </div>`;
 }
