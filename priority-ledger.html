@@ -4799,13 +4799,7 @@ const UI_COLOR_PRESETS = [
   { id:'classic',   label:'Full Brass',       primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'forest',    label:'Forest & Brass',   primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'forestrust', label:'Forest & Rust',    primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#9C4530', secondaryLight:'#C3563C' },
-  // Was "Teal & Rust" — changed to Brass per the project owner's own ask
-  // (one of Forest & Rust / Teal & Rust should switch its Rust to Brass;
-  // Forest & Rust couldn't, since that would have just duplicated Forest
-  // & Brass exactly — Teal had no Brass sibling yet, so this is the one).
-  { id:'teal',      label:'Teal & Brass',      primary:'#2C5C58', primaryLight:'#3B7C77', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   { id:'slate',     label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
-  { id:'slatebrass', label:'Slate & Brass',    primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#A9782F', secondaryLight:'#C99A4E' },
   // Copper (#B87333, the standard web/real-world copper reference hex)
   // as a third "metal" Secondary alongside Brass/Rust, per the project
   // owner's own ask — paired with Slate (an existing Primary, not a new
@@ -4851,7 +4845,10 @@ function uiColorPreset(id){
 // the same "increasingly warm/saturated" direction navy's own parchment
 // already established — anchor the far end.
 const DESK_PAPER_PRESETS = [
-  { id:'classic',  label:'Classic',            bg:'#28362E', paper:'#F1EAD9' },
+  // "Forest & Bone" — a real name in line with every other entry here
+  // (was just "Classic"), for the app's own original literal bg/paper
+  // hexes. id stays 'classic' (nothing keys off the label text).
+  { id:'classic',  label:'Forest & Bone',       bg:'#28362E', paper:'#F1EAD9' },
   // Kept the original moody near-black espresso-brown desk (the project
   // owner's own favorite part of the old "Espresso & Parchment") but
   // re-paired: parchment's own gold turned out not to suit it as well as
