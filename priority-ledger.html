@@ -1142,6 +1142,15 @@
   .empty{ font-family:'Fraunces', serif; font-style:italic; color: var(--ink-soft); text-align:center; padding: 26px 10px; font-size:1rem; }
   .footer-row{ display:flex; justify-content:center; padding: 12px 0 4px; }
   .footer-row button{ background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; color: var(--ink-soft); cursor:pointer; letter-spacing:0.05em; }
+  /* .remove already declares color:var(--estate) on its own (see below),
+     but this rule's own type+class selector outranks .remove's
+     class-only one, so a .remove button sitting in a .footer-row (the
+     checklist's own "Delete list", and now the task detail page's
+     "Delete Task") was silently landing on the muted --ink-soft above
+     instead — a real bug, not a deliberate "buttons here are quiet by
+     default" choice, since neither rule was written with the other in
+     mind. */
+  .footer-row .remove{ color: var(--estate); }
   .subwrap{ margin-top:10px; }
   .sublabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin-bottom:6px; }
   .pendinggroup{ margin-bottom:16px; }
@@ -1314,11 +1323,18 @@
      class, since ".task" already correctly said which variant this was
      regardless of what the base class itself was called. */
   .datefield.taskdate{
-    font-size: 0.82rem; padding: 7px 10px;
+    font-size: 0.82rem; padding: 7px 10px; color: var(--ink);
     background: var(--card-bg-dim); border: 1px solid var(--line); border-bottom: 1px solid var(--line);
     border-radius: 6px;
   }
-  .datefield.taskdate.empty{ border-style: solid; }
+  /* .datefield's own base rule (above) sets color:var(--ink-soft) for
+     every state, since a step's own discreet pill is meant to stay muted
+     whether or not it has a value — that's the right call there, but
+     .taskdate inherited it too, so a task's actual due date read as
+     grayed-out/placeholder-ish even once set, indistinguishable at a
+     glance from still waiting on input. Only .empty (no value set) gets
+     the muted color now; a real value reads in normal --ink. */
+  .datefield.taskdate.empty{ border-style: solid; color: var(--ink-soft); }
   .datefieldedit.taskdateedit{
     width: 150px; font-size: 0.82rem; padding: 7px 10px;
     background: var(--card-bg-dim); border: 1px solid var(--input-accent); border-radius: 6px;
@@ -1364,28 +1380,32 @@
      indent alone read as ambiguous on its own. The left border gives that
      cue a visible anchor line rather than just empty space. */
   .daysubnested{ margin-left:34px; padding-left:10px; border-left:2px solid var(--line); }
-  /* Boxed and accent-bordered, not the plain dashed-underline treatment
-     this used to share with a step's own discreet .datefield — adding a
-     step is one of this app's more important actions (arguably more so
-     than the Notes field it used to visually undersell itself next to),
-     so it gets a resting state that reads as its own real control, not
-     an afterthought beneath the step list. Dashed (not solid) at rest is
-     still deliberate: it keeps the field reading as "type here to add
-     one more," the same invitation-style cue .substack's placeholder
-     already leaned on, just upgraded from an underline to a full box. */
+  /* Boxed, not the plain dashed-underline treatment this used to share
+     with a step's own discreet .datefield — adding a step is one of this
+     app's more important actions (arguably more so than the Notes field
+     it used to visually undersell itself next to), so it gets a resting
+     state that reads as its own real control, not an afterthought
+     beneath the step list. Dashed (not solid) at rest is still
+     deliberate: it keeps the field reading as "type here to add one
+     more," the same invitation-style cue .substack's placeholder already
+     leaned on, just upgraded from an underline to a full box.
+     Deliberately NOT accent-colored (border/background/placeholder all
+     went through --input-accent originally) — per the explicit ask,
+     that read as flashy and competed with the rest of the page for
+     attention once it wasn't the only prominent thing on screen. The
+     shape/weight alone (box, dashed border, bold text) still says "real
+     control, press here" without borrowing a color that's supposed to
+     mean something elsewhere on the page. */
   .subadd{
     width:100%; box-sizing:border-box;
-    border:1.5px dashed color-mix(in srgb, var(--input-accent) 55%, var(--line));
-    border-radius:8px; background: color-mix(in srgb, var(--input-accent) 9%, var(--card-bg-dim));
+    border:1.5px dashed var(--line);
+    border-radius:8px; background: var(--card-bg-dim);
     font-family:'IBM Plex Sans',sans-serif; font-size:0.86rem; font-weight:600;
     padding:9px 12px; color:var(--ink); outline:none; margin-top:8px;
-    transition: border-color 150ms ease, box-shadow 150ms ease;
+    transition: border-color 150ms ease;
   }
-  .subadd:focus{
-    border-style:solid; border-color: var(--input-accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-accent) 20%, transparent);
-  }
-  .subadd::placeholder{ color: color-mix(in srgb, var(--input-accent) 75%, var(--ink-soft)); opacity:0.85; }
+  .subadd:focus{ border-style:solid; border-color: var(--ink-soft); }
+  .subadd::placeholder{ color: var(--ink-soft); opacity:0.85; }
   /* Reverts .subadd back to its old quiet dashed-underline look — no box,
      no accent border/background — but only inside a task row's own
      inline .expand (the Steps-only quick view every category list shows;
@@ -1893,6 +1913,48 @@
   .taskdetailhead .checkwrap{ transform: scale(2.2); }
   .taskdetailhead .titleactions{ display:flex; gap:6px; flex-shrink:0; }
   .taskdetailhead .titlespacer{ visibility:hidden; pointer-events:none; }
+  /* EXPERIMENTAL — taskDetailActionsPosition dev setting (starred in
+     Settings, see devSettingsFieldsHtml()'s own comment): alternate spots
+     for the real .titleactions (flag/pin) besides 'side', the default
+     above (no override needed for it). Both variants pull the real
+     .titleactions out of .taskdetailhead's flex flow entirely
+     (position:absolute against .stackedpage — the same positioned
+     ancestor .categorylabel and .pagetag already use, even though
+     .titleactions lives one level deeper in the DOM; position:absolute
+     escapes straight to the nearest positioned ancestor regardless of
+     nesting) and hide .titlespacer, which exists only to keep the
+     checkbox centered while a same-weight sibling occupies the row's
+     other side — once .titleactions leaves that flow, .taskdetailhead
+     re-centers on its own remaining child instead. */
+  body[data-taskdetail-actions="corner"] .taskdetailhead,
+  body[data-taskdetail-actions="topleft"] .taskdetailhead{
+    justify-content:center;
+  }
+  body[data-taskdetail-actions="corner"] .taskdetailhead .titlespacer,
+  body[data-taskdetail-actions="topleft"] .taskdetailhead .titlespacer{
+    display:none;
+  }
+  body[data-taskdetail-actions="corner"] .taskdetailhead .titleactions:not(.titlespacer),
+  body[data-taskdetail-actions="topleft"] .taskdetailhead .titleactions:not(.titlespacer){
+    position:absolute; z-index:3;
+  }
+  /* corner: an actual swap with .categorylabel — flag/pin take its exact
+     top-right coordinates, and the label moves down into roughly where
+     flag/pin sat by default, against the same header row the checkbox is
+     in. */
+  body[data-taskdetail-actions="corner"] .taskdetailhead .titleactions:not(.titlespacer){
+    top:14px; right:-6px;
+  }
+  body[data-taskdetail-actions="corner"] .categorylabel{
+    top:82px; right:-6px;
+  }
+  /* topleft: a small cluster just under the Back tag (.pagetag sits at
+     top:14px; left:-6px — see <style>'s own .pagetag rule), the one
+     corner nothing else occupies, rather than sharing either corner
+     already spoken for. */
+  body[data-taskdetail-actions="topleft"] .taskdetailhead .titleactions:not(.titlespacer){
+    top:54px; left:14px;
+  }
   /* A row, not a stack — the date on the left, progress + the "move
      incomplete" button (when there's something to move) on the right.
      That button used to sit on its own full-width row underneath
@@ -4533,6 +4595,11 @@ function applyDevSettings(){
   // rules in <style>; 'none' needs no matching selector since it's just
   // today's plain indent with nothing added.
   document.body.dataset.expandGrouping = d.expandGroupingStyle || 'rail';
+  // EXPERIMENTAL, starred in Settings — a few alternate spots for the
+  // urgent-flag/today-pin pair in the full Task Detail page's header (see
+  // the body[data-taskdetail-actions=…] rules in <style>). 'side' (the
+  // default) needs no matching selector, same as 'none' above.
+  document.body.dataset.taskdetailActions = d.taskDetailActionsPosition || 'side';
   refreshMobileUiActive();
 }
 
@@ -4687,6 +4754,13 @@ async function setDevCategoryLabelStyle(val){
 async function setDevExpandGroupingStyle(val){
   pushUndo(`Changed dev quick-view steps grouping to "${val}"`);
   state.devSettings.expandGroupingStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+async function setDevTaskDetailActionsPosition(val){
+  pushUndo(`Changed dev task detail actions position to "${val}"`);
+  state.devSettings.taskDetailActionsPosition = val;
   applyDevSettings();
   render();
   queueSave();
@@ -4908,6 +4982,22 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       ['tint','Subtle background tint'],
       ['none','None (today\'s plain indent)']
     ], 'setDevExpandGroupingStyle')}
+    <!-- Starred, same "not settled yet" reasoning as the field above —
+         a spot to try the urgent-flag/today-pin pair in besides the
+         current default. 'side' (today's spot, beside the checkbox) was
+         chosen specifically to avoid two things already tried and
+         rejected: sharing the title's own row (threw off the title's
+         centering) and just picking one new spot unilaterally. 'corner'
+         is the explicit swap-with-.categorylabel idea — flag/pin take
+         its top-right spot, the category label moves down to roughly
+         where flag/pin sit today. 'topleft' tries the one corner nothing
+         lives in yet, just under the Back tag, rather than sharing
+         either existing corner. -->
+    ${devField('<span title="Not settled — a few spots to compare against the current default, including swapping places with the category label entirely.">★ Task detail: flag/pin position</span>', dev.taskDetailActionsPosition, [
+      ['side','Beside the checkbox (default)'],
+      ['corner','Top-right corner — swaps with the category label'],
+      ['topleft','Top-left corner, under the Back tag']
+    ], 'setDevTaskDetailActionsPosition')}
 
     ${devSectionHeadHtml('Tab Bar')}
     <label class="${rowClass}">
@@ -5884,7 +5974,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', expandGroupingStyle:'rail' };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', expandGroupingStyle:'rail', taskDetailActionsPosition:'side' };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -6024,6 +6114,7 @@ function normalizeState(){
   if(typeof state.devSettings.developmentMode !== 'boolean') state.devSettings.developmentMode = false;
   if(typeof state.devSettings.categoryLabelStyle !== 'string') state.devSettings.categoryLabelStyle = 'tab';
   if(typeof state.devSettings.expandGroupingStyle !== 'string') state.devSettings.expandGroupingStyle = 'rail';
+  if(typeof state.devSettings.taskDetailActionsPosition !== 'string') state.devSettings.taskDetailActionsPosition = 'side';
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
     // plannedDate (one day, exclusive) migrated to plannedDates (an array)
@@ -6490,6 +6581,17 @@ function fmtDateShort(d){
   const dt = new Date(d + 'T00:00:00');
   const yy = String(dt.getFullYear()).slice(-2);
   return `${dt.getMonth()+1}/${dt.getDate()}/${yy}`;
+}
+
+// Full weekday/month/day/year form for a task's own due date on the full
+// detail page (.datefield.taskdate) — per the explicit ask, "9/2/26" read
+// as too terse for the one date field that page gives a whole boxed row
+// of its own; every other date field in the app (a step's own date,
+// badges) stays on fmtDate()/fmtDateShort()'s compact forms.
+function fmtDateFull(d){
+  if(!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
 }
 
 // Full weekday/month/day form for the masthead's own subheader (distinct
@@ -7897,13 +7999,12 @@ function taskTodayTitle(t){
 // same two buttons twice on one page. The long-press bottom sheet
 // (taskManagementFieldsHtml()) has no header to hold either of those, so
 // it keeps the <select> and the flag/pin exactly as it always has
-// (both params omitted, default falsy). The "remove" button isn't part
-// of this — it's a real per-field action nothing else on the detail page
-// duplicates, so it stays in .expandactions regardless of hideActions;
-// .hideactions on the row is what lets the date field still claim the
-// full row's width even when a canRemoveHere task leaves that button
-// behind as the row's only other occupant (see the .taskdate rule in
-// <style>).
+// (both params omitted, default falsy). hideActions now also drops
+// "Delete Task" from .expandactions — the full detail page renders its
+// own copy in a .footer-row at the bottom instead (see
+// renderTaskDetailPage()'s own comment), matching where a checklist's
+// "Delete list" already sits; the settings sheet keeps it here exactly
+// as before, since it has no footer of its own to move it to.
 function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
   const todayTitle = taskTodayTitle(t);
   return `
@@ -7921,14 +8022,18 @@ function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
              still says what it is without the caption's help; the
              long-press settings sheet (hideActions omitted) keeps both
              exactly as before, since its own date field sits crowded
-             next to the category select and flag/pin buttons. -->
+             next to the category select and flag/pin buttons. Uses
+             fmtDateFull() (not fmtDateShort(), a step's own format) —
+             the one date field the app gives a whole boxed row to reads
+             better spelled all the way out ("Tuesday, September 2,
+             2026") than abbreviated. -->
         ${hideActions ? '' : `<label class="fieldlabel">DUE</label>`}
-        <span class="datefield taskdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateShort(t.dueDate) : (hideActions ? 'Due Date' : 'Date')}</span>
+        <span class="datefield taskdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateFull(t.dueDate) : (hideActions ? 'Due Date' : 'Date')}</span>
         <div class="expandactions">
           ${hideActions ? '' : `
           <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
           <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>`}
-          ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
+          ${canRemoveHere && !hideActions ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
       </div>`;
 }
@@ -8563,7 +8668,17 @@ function renderTaskSettingsSheet(){
 // function to get their own back tag.
 function renderTaskDetailPage(taskId, backOnclick, backLabel){
   const t = state.tasks.find(t=>t.id===taskId);
-  const canRemoveHere = t.category==='misc';
+  // Always true — matches the long-press settings sheet's own "always
+  // true here" rule (see openTaskSettingsSheet()'s comment). Used to be
+  // gated to t.category==='misc', a category id from before categories
+  // became per-user dynamic data (see CATEGORY_PALETTE's own comment) —
+  // 'misc' hasn't been a real category on a fresh account in a long
+  // time, so this was silently hiding Delete Task on every category
+  // except whichever one an old account happened to still have named
+  // that. Deleting a task doesn't touch anything category-specific in
+  // the first place, so there was never a real reason to gate it by
+  // category at all.
+  const canRemoveHere = true;
   const subs = t.subtasks || [];
   // Urgent flag + today-pin live in this header row (right of the big
   // checkbox) rather than inline with the title below, or down in the
@@ -8593,6 +8708,12 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
         <div class="titleactions">${actionsHtml}</div>
       </div>
       ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle', true)}
+      <!-- Moved down here from .expandactions (see taskCoreFieldsRowHtml()'s
+           own comment) and renamed from "Remove" to match the checklist
+           detail page's own "Delete list" — same .footer-row/.remove
+           pairing, same bottom-of-page position, per the explicit ask to
+           keep the two consistent with each other. -->
+      <div class="footer-row"><button class="remove" onclick="deleteTask('${t.id}')">Delete Task</button></div>
     </div>
   `;
 }
@@ -11293,12 +11414,113 @@ function checklistCheckcircleHtml(t, subtle){
 
 function checklistListRowHtml(t){
   return `
-  <li class="task" data-task-id="${t.id}" onclick="openChecklistList('${t.id}')">
+  <li class="task" data-task-id="${t.id}" onclick="checklistRowTap(event,'${t.id}')"
+    oncontextmenu="return handleChecklistContextMenu(event,'${t.id}')"
+    ontouchstart="checklistPressStart(event,'${t.id}')" ontouchmove="checklistPressMove(event)" ontouchend="checklistPressEnd()" ontouchcancel="checklistPressEnd()"
+    onmousedown="checklistPressStart(event,'${t.id}')" onmouseup="checklistPressEnd()" onmouseleave="checklistPressEnd()">
     <div class="row">
       ${checklistCheckcircleHtml(t, true)}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}<span class="listdate">${fmtDate(t.createdAt)}</span></div>
     </div>
   </li>`;
+}
+
+// ---------- a checklist list's own right-click/long-press menu ----------
+// Mirrors the standard task menu (taskContextMenuHtml() etc., in
+// 08-render-core.js) — same shared #ctxMenu, same ctxMenuTaskId/
+// ctxMenuAction/closeCtxMenu plumbing, since a checklist "list" is a
+// plain task object under the hood (see this file's own top comment).
+// The item set itself is trimmed to what actually applies here: no
+// "Toggle urgent"/"Add to today" (neither is ever surfaced anywhere in
+// the checklist UI, so there'd be nothing on screen to confirm the
+// change), and no "Edit details" (a plain click already opens this
+// list's own — and only — detail view, so a menu entry for the same
+// destination would just be a slower duplicate of what tapping the row
+// already does, unlike a standard task's menu, where "Edit details"
+// genuinely reaches a different view than a plain tap's inline preview).
+function checklistContextMenuHtml(t){
+  return `
+    <button onclick="ctxMenuAction(()=>toggleStatus('${t.id}'))">${t.status==='done' ? 'Reopen' : 'Mark complete'}</button>
+    <button onclick="ctxMenuCopyTitle('${t.id}')">Copy title</button>
+    <div class="ctxmenu-sep"></div>
+    <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteChecklistList('${t.id}'))">Delete</button>
+  `;
+}
+function renderChecklistContextMenu(taskId, x, y){
+  const t = state.tasks.find(x2=>x2.id===taskId);
+  if(!t) return;
+  ctxMenuTaskId = taskId;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = checklistContextMenuHtml(t);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+  });
+}
+// Desktop-only, same reasoning as handleTaskContextMenu() (08-render-core.js).
+function handleChecklistContextMenu(e, taskId){
+  if(mobileUiActive()) return true;
+  renderChecklistContextMenu(taskId, e.clientX, e.clientY);
+  return false;
+}
+// Long-press-to-menu on mobile — a smaller, self-contained twin of
+// taskPressStart()/taskPressMove()/taskPressEnd() (08-render-core.js)
+// rather than reusing those directly: that trio branches on
+// taskLongPressMode ('split' opens the settings sheet, 'detail' opens a
+// row-anchored menu) — a choice about how a *standard task's* plain tap
+// should behave that has no checklist equivalent, since a checklist row
+// only ever has the one tap destination (openChecklistList()) regardless
+// of that setting. Always on whenever mobileUiActive(), reusing the same
+// timing constants (TASK_LONG_PRESS_MS/_TOLERANCE_PX) so a checklist
+// list and a standard task feel identical to hold down, just simpler
+// underneath since there's only one thing a long-press here could mean.
+let checklistPressTimer = null;
+let checklistPressRow = null;
+let checklistPressStartX = 0, checklistPressStartY = 0;
+let checklistLongPressFired = false;
+function checklistPressStart(e, taskId){
+  if(!mobileUiActive()) return;
+  checklistLongPressFired = false;
+  const pt = e.touches ? e.touches[0] : e;
+  checklistPressStartX = pt.clientX;
+  checklistPressStartY = pt.clientY;
+  checklistPressRow = e.currentTarget;
+  checklistPressRow.classList.add('pressing');
+  clearTimeout(checklistPressTimer);
+  checklistPressTimer = setTimeout(() => {
+    checklistPressTimer = null;
+    checklistLongPressFired = true;
+    if(checklistPressRow) checklistPressRow.classList.remove('pressing');
+    const r = checklistPressRow.getBoundingClientRect();
+    renderChecklistContextMenu(taskId, r.left, r.bottom + 6);
+  }, TASK_LONG_PRESS_MS);
+}
+function checklistPressMove(e){
+  if(!checklistPressTimer) return;
+  const pt = e.touches ? e.touches[0] : e;
+  const dx = pt.clientX - checklistPressStartX, dy = pt.clientY - checklistPressStartY;
+  if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
+    clearTimeout(checklistPressTimer);
+    checklistPressTimer = null;
+    if(checklistPressRow) checklistPressRow.classList.remove('pressing');
+  }
+}
+function checklistPressEnd(){
+  clearTimeout(checklistPressTimer);
+  checklistPressTimer = null;
+  if(checklistPressRow) checklistPressRow.classList.remove('pressing');
+}
+// Swallows the click a touchend fires right after a long-press already
+// opened the menu — same "was this actually a long-press just now"
+// pattern taskRowTap() (08-render-core.js) uses for the standard row.
+function checklistRowTap(e, taskId){
+  if(checklistLongPressFired){ checklistLongPressFired = false; e.preventDefault(); return; }
+  openChecklistList(taskId);
 }
 
 function renderChecklistDetail(taskId){

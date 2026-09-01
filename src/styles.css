@@ -1110,6 +1110,15 @@
   .empty{ font-family:'Fraunces', serif; font-style:italic; color: var(--ink-soft); text-align:center; padding: 26px 10px; font-size:1rem; }
   .footer-row{ display:flex; justify-content:center; padding: 12px 0 4px; }
   .footer-row button{ background:none; border:none; font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; color: var(--ink-soft); cursor:pointer; letter-spacing:0.05em; }
+  /* .remove already declares color:var(--estate) on its own (see below),
+     but this rule's own type+class selector outranks .remove's
+     class-only one, so a .remove button sitting in a .footer-row (the
+     checklist's own "Delete list", and now the task detail page's
+     "Delete Task") was silently landing on the muted --ink-soft above
+     instead — a real bug, not a deliberate "buttons here are quiet by
+     default" choice, since neither rule was written with the other in
+     mind. */
+  .footer-row .remove{ color: var(--estate); }
   .subwrap{ margin-top:10px; }
   .sublabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin-bottom:6px; }
   .pendinggroup{ margin-bottom:16px; }
@@ -1282,11 +1291,18 @@
      class, since ".task" already correctly said which variant this was
      regardless of what the base class itself was called. */
   .datefield.taskdate{
-    font-size: 0.82rem; padding: 7px 10px;
+    font-size: 0.82rem; padding: 7px 10px; color: var(--ink);
     background: var(--card-bg-dim); border: 1px solid var(--line); border-bottom: 1px solid var(--line);
     border-radius: 6px;
   }
-  .datefield.taskdate.empty{ border-style: solid; }
+  /* .datefield's own base rule (above) sets color:var(--ink-soft) for
+     every state, since a step's own discreet pill is meant to stay muted
+     whether or not it has a value — that's the right call there, but
+     .taskdate inherited it too, so a task's actual due date read as
+     grayed-out/placeholder-ish even once set, indistinguishable at a
+     glance from still waiting on input. Only .empty (no value set) gets
+     the muted color now; a real value reads in normal --ink. */
+  .datefield.taskdate.empty{ border-style: solid; color: var(--ink-soft); }
   .datefieldedit.taskdateedit{
     width: 150px; font-size: 0.82rem; padding: 7px 10px;
     background: var(--card-bg-dim); border: 1px solid var(--input-accent); border-radius: 6px;
@@ -1332,28 +1348,32 @@
      indent alone read as ambiguous on its own. The left border gives that
      cue a visible anchor line rather than just empty space. */
   .daysubnested{ margin-left:34px; padding-left:10px; border-left:2px solid var(--line); }
-  /* Boxed and accent-bordered, not the plain dashed-underline treatment
-     this used to share with a step's own discreet .datefield — adding a
-     step is one of this app's more important actions (arguably more so
-     than the Notes field it used to visually undersell itself next to),
-     so it gets a resting state that reads as its own real control, not
-     an afterthought beneath the step list. Dashed (not solid) at rest is
-     still deliberate: it keeps the field reading as "type here to add
-     one more," the same invitation-style cue .substack's placeholder
-     already leaned on, just upgraded from an underline to a full box. */
+  /* Boxed, not the plain dashed-underline treatment this used to share
+     with a step's own discreet .datefield — adding a step is one of this
+     app's more important actions (arguably more so than the Notes field
+     it used to visually undersell itself next to), so it gets a resting
+     state that reads as its own real control, not an afterthought
+     beneath the step list. Dashed (not solid) at rest is still
+     deliberate: it keeps the field reading as "type here to add one
+     more," the same invitation-style cue .substack's placeholder already
+     leaned on, just upgraded from an underline to a full box.
+     Deliberately NOT accent-colored (border/background/placeholder all
+     went through --input-accent originally) — per the explicit ask,
+     that read as flashy and competed with the rest of the page for
+     attention once it wasn't the only prominent thing on screen. The
+     shape/weight alone (box, dashed border, bold text) still says "real
+     control, press here" without borrowing a color that's supposed to
+     mean something elsewhere on the page. */
   .subadd{
     width:100%; box-sizing:border-box;
-    border:1.5px dashed color-mix(in srgb, var(--input-accent) 55%, var(--line));
-    border-radius:8px; background: color-mix(in srgb, var(--input-accent) 9%, var(--card-bg-dim));
+    border:1.5px dashed var(--line);
+    border-radius:8px; background: var(--card-bg-dim);
     font-family:'IBM Plex Sans',sans-serif; font-size:0.86rem; font-weight:600;
     padding:9px 12px; color:var(--ink); outline:none; margin-top:8px;
-    transition: border-color 150ms ease, box-shadow 150ms ease;
+    transition: border-color 150ms ease;
   }
-  .subadd:focus{
-    border-style:solid; border-color: var(--input-accent);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-accent) 20%, transparent);
-  }
-  .subadd::placeholder{ color: color-mix(in srgb, var(--input-accent) 75%, var(--ink-soft)); opacity:0.85; }
+  .subadd:focus{ border-style:solid; border-color: var(--ink-soft); }
+  .subadd::placeholder{ color: var(--ink-soft); opacity:0.85; }
   /* Reverts .subadd back to its old quiet dashed-underline look — no box,
      no accent border/background — but only inside a task row's own
      inline .expand (the Steps-only quick view every category list shows;
@@ -1861,6 +1881,48 @@
   .taskdetailhead .checkwrap{ transform: scale(2.2); }
   .taskdetailhead .titleactions{ display:flex; gap:6px; flex-shrink:0; }
   .taskdetailhead .titlespacer{ visibility:hidden; pointer-events:none; }
+  /* EXPERIMENTAL — taskDetailActionsPosition dev setting (starred in
+     Settings, see devSettingsFieldsHtml()'s own comment): alternate spots
+     for the real .titleactions (flag/pin) besides 'side', the default
+     above (no override needed for it). Both variants pull the real
+     .titleactions out of .taskdetailhead's flex flow entirely
+     (position:absolute against .stackedpage — the same positioned
+     ancestor .categorylabel and .pagetag already use, even though
+     .titleactions lives one level deeper in the DOM; position:absolute
+     escapes straight to the nearest positioned ancestor regardless of
+     nesting) and hide .titlespacer, which exists only to keep the
+     checkbox centered while a same-weight sibling occupies the row's
+     other side — once .titleactions leaves that flow, .taskdetailhead
+     re-centers on its own remaining child instead. */
+  body[data-taskdetail-actions="corner"] .taskdetailhead,
+  body[data-taskdetail-actions="topleft"] .taskdetailhead{
+    justify-content:center;
+  }
+  body[data-taskdetail-actions="corner"] .taskdetailhead .titlespacer,
+  body[data-taskdetail-actions="topleft"] .taskdetailhead .titlespacer{
+    display:none;
+  }
+  body[data-taskdetail-actions="corner"] .taskdetailhead .titleactions:not(.titlespacer),
+  body[data-taskdetail-actions="topleft"] .taskdetailhead .titleactions:not(.titlespacer){
+    position:absolute; z-index:3;
+  }
+  /* corner: an actual swap with .categorylabel — flag/pin take its exact
+     top-right coordinates, and the label moves down into roughly where
+     flag/pin sat by default, against the same header row the checkbox is
+     in. */
+  body[data-taskdetail-actions="corner"] .taskdetailhead .titleactions:not(.titlespacer){
+    top:14px; right:-6px;
+  }
+  body[data-taskdetail-actions="corner"] .categorylabel{
+    top:82px; right:-6px;
+  }
+  /* topleft: a small cluster just under the Back tag (.pagetag sits at
+     top:14px; left:-6px — see <style>'s own .pagetag rule), the one
+     corner nothing else occupies, rather than sharing either corner
+     already spoken for. */
+  body[data-taskdetail-actions="topleft"] .taskdetailhead .titleactions:not(.titlespacer){
+    top:54px; left:14px;
+  }
   /* A row, not a stack — the date on the left, progress + the "move
      incomplete" button (when there's something to move) on the right.
      That button used to sit on its own full-width row underneath

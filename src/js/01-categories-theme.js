@@ -414,6 +414,11 @@ function applyDevSettings(){
   // rules in <style>; 'none' needs no matching selector since it's just
   // today's plain indent with nothing added.
   document.body.dataset.expandGrouping = d.expandGroupingStyle || 'rail';
+  // EXPERIMENTAL, starred in Settings — a few alternate spots for the
+  // urgent-flag/today-pin pair in the full Task Detail page's header (see
+  // the body[data-taskdetail-actions=…] rules in <style>). 'side' (the
+  // default) needs no matching selector, same as 'none' above.
+  document.body.dataset.taskdetailActions = d.taskDetailActionsPosition || 'side';
   refreshMobileUiActive();
 }
 
@@ -568,6 +573,13 @@ async function setDevCategoryLabelStyle(val){
 async function setDevExpandGroupingStyle(val){
   pushUndo(`Changed dev quick-view steps grouping to "${val}"`);
   state.devSettings.expandGroupingStyle = val;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+async function setDevTaskDetailActionsPosition(val){
+  pushUndo(`Changed dev task detail actions position to "${val}"`);
+  state.devSettings.taskDetailActionsPosition = val;
   applyDevSettings();
   render();
   queueSave();
@@ -789,6 +801,22 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       ['tint','Subtle background tint'],
       ['none','None (today\'s plain indent)']
     ], 'setDevExpandGroupingStyle')}
+    <!-- Starred, same "not settled yet" reasoning as the field above —
+         a spot to try the urgent-flag/today-pin pair in besides the
+         current default. 'side' (today's spot, beside the checkbox) was
+         chosen specifically to avoid two things already tried and
+         rejected: sharing the title's own row (threw off the title's
+         centering) and just picking one new spot unilaterally. 'corner'
+         is the explicit swap-with-.categorylabel idea — flag/pin take
+         its top-right spot, the category label moves down to roughly
+         where flag/pin sit today. 'topleft' tries the one corner nothing
+         lives in yet, just under the Back tag, rather than sharing
+         either existing corner. -->
+    ${devField('<span title="Not settled — a few spots to compare against the current default, including swapping places with the category label entirely.">★ Task detail: flag/pin position</span>', dev.taskDetailActionsPosition, [
+      ['side','Beside the checkbox (default)'],
+      ['corner','Top-right corner — swaps with the category label'],
+      ['topleft','Top-left corner, under the Back tag']
+    ], 'setDevTaskDetailActionsPosition')}
 
     ${devSectionHeadHtml('Tab Bar')}
     <label class="${rowClass}">

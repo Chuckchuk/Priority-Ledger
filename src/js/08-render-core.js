@@ -73,13 +73,12 @@ function taskTodayTitle(t){
 // same two buttons twice on one page. The long-press bottom sheet
 // (taskManagementFieldsHtml()) has no header to hold either of those, so
 // it keeps the <select> and the flag/pin exactly as it always has
-// (both params omitted, default falsy). The "remove" button isn't part
-// of this — it's a real per-field action nothing else on the detail page
-// duplicates, so it stays in .expandactions regardless of hideActions;
-// .hideactions on the row is what lets the date field still claim the
-// full row's width even when a canRemoveHere task leaves that button
-// behind as the row's only other occupant (see the .taskdate rule in
-// <style>).
+// (both params omitted, default falsy). hideActions now also drops
+// "Delete Task" from .expandactions — the full detail page renders its
+// own copy in a .footer-row at the bottom instead (see
+// renderTaskDetailPage()'s own comment), matching where a checklist's
+// "Delete list" already sits; the settings sheet keeps it here exactly
+// as before, since it has no footer of its own to move it to.
 function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
   const todayTitle = taskTodayTitle(t);
   return `
@@ -97,14 +96,18 @@ function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
              still says what it is without the caption's help; the
              long-press settings sheet (hideActions omitted) keeps both
              exactly as before, since its own date field sits crowded
-             next to the category select and flag/pin buttons. -->
+             next to the category select and flag/pin buttons. Uses
+             fmtDateFull() (not fmtDateShort(), a step's own format) —
+             the one date field the app gives a whole boxed row to reads
+             better spelled all the way out ("Tuesday, September 2,
+             2026") than abbreviated. -->
         ${hideActions ? '' : `<label class="fieldlabel">DUE</label>`}
-        <span class="datefield taskdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateShort(t.dueDate) : (hideActions ? 'Due Date' : 'Date')}</span>
+        <span class="datefield taskdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateFull(t.dueDate) : (hideActions ? 'Due Date' : 'Date')}</span>
         <div class="expandactions">
           ${hideActions ? '' : `
           <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
           <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>`}
-          ${canRemoveHere ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
+          ${canRemoveHere && !hideActions ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
       </div>`;
 }
@@ -739,7 +742,17 @@ function renderTaskSettingsSheet(){
 // function to get their own back tag.
 function renderTaskDetailPage(taskId, backOnclick, backLabel){
   const t = state.tasks.find(t=>t.id===taskId);
-  const canRemoveHere = t.category==='misc';
+  // Always true — matches the long-press settings sheet's own "always
+  // true here" rule (see openTaskSettingsSheet()'s comment). Used to be
+  // gated to t.category==='misc', a category id from before categories
+  // became per-user dynamic data (see CATEGORY_PALETTE's own comment) —
+  // 'misc' hasn't been a real category on a fresh account in a long
+  // time, so this was silently hiding Delete Task on every category
+  // except whichever one an old account happened to still have named
+  // that. Deleting a task doesn't touch anything category-specific in
+  // the first place, so there was never a real reason to gate it by
+  // category at all.
+  const canRemoveHere = true;
   const subs = t.subtasks || [];
   // Urgent flag + today-pin live in this header row (right of the big
   // checkbox) rather than inline with the title below, or down in the
@@ -769,6 +782,12 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
         <div class="titleactions">${actionsHtml}</div>
       </div>
       ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle', true)}
+      <!-- Moved down here from .expandactions (see taskCoreFieldsRowHtml()'s
+           own comment) and renamed from "Remove" to match the checklist
+           detail page's own "Delete list" — same .footer-row/.remove
+           pairing, same bottom-of-page position, per the explicit ask to
+           keep the two consistent with each other. -->
+      <div class="footer-row"><button class="remove" onclick="deleteTask('${t.id}')">Delete Task</button></div>
     </div>
   `;
 }

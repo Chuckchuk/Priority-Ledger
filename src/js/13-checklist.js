@@ -211,12 +211,113 @@ function checklistCheckcircleHtml(t, subtle){
 
 function checklistListRowHtml(t){
   return `
-  <li class="task" data-task-id="${t.id}" onclick="openChecklistList('${t.id}')">
+  <li class="task" data-task-id="${t.id}" onclick="checklistRowTap(event,'${t.id}')"
+    oncontextmenu="return handleChecklistContextMenu(event,'${t.id}')"
+    ontouchstart="checklistPressStart(event,'${t.id}')" ontouchmove="checklistPressMove(event)" ontouchend="checklistPressEnd()" ontouchcancel="checklistPressEnd()"
+    onmousedown="checklistPressStart(event,'${t.id}')" onmouseup="checklistPressEnd()" onmouseleave="checklistPressEnd()">
     <div class="row">
       ${checklistCheckcircleHtml(t, true)}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}<span class="listdate">${fmtDate(t.createdAt)}</span></div>
     </div>
   </li>`;
+}
+
+// ---------- a checklist list's own right-click/long-press menu ----------
+// Mirrors the standard task menu (taskContextMenuHtml() etc., in
+// 08-render-core.js) — same shared #ctxMenu, same ctxMenuTaskId/
+// ctxMenuAction/closeCtxMenu plumbing, since a checklist "list" is a
+// plain task object under the hood (see this file's own top comment).
+// The item set itself is trimmed to what actually applies here: no
+// "Toggle urgent"/"Add to today" (neither is ever surfaced anywhere in
+// the checklist UI, so there'd be nothing on screen to confirm the
+// change), and no "Edit details" (a plain click already opens this
+// list's own — and only — detail view, so a menu entry for the same
+// destination would just be a slower duplicate of what tapping the row
+// already does, unlike a standard task's menu, where "Edit details"
+// genuinely reaches a different view than a plain tap's inline preview).
+function checklistContextMenuHtml(t){
+  return `
+    <button onclick="ctxMenuAction(()=>toggleStatus('${t.id}'))">${t.status==='done' ? 'Reopen' : 'Mark complete'}</button>
+    <button onclick="ctxMenuCopyTitle('${t.id}')">Copy title</button>
+    <div class="ctxmenu-sep"></div>
+    <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteChecklistList('${t.id}'))">Delete</button>
+  `;
+}
+function renderChecklistContextMenu(taskId, x, y){
+  const t = state.tasks.find(x2=>x2.id===taskId);
+  if(!t) return;
+  ctxMenuTaskId = taskId;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = checklistContextMenuHtml(t);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+  });
+}
+// Desktop-only, same reasoning as handleTaskContextMenu() (08-render-core.js).
+function handleChecklistContextMenu(e, taskId){
+  if(mobileUiActive()) return true;
+  renderChecklistContextMenu(taskId, e.clientX, e.clientY);
+  return false;
+}
+// Long-press-to-menu on mobile — a smaller, self-contained twin of
+// taskPressStart()/taskPressMove()/taskPressEnd() (08-render-core.js)
+// rather than reusing those directly: that trio branches on
+// taskLongPressMode ('split' opens the settings sheet, 'detail' opens a
+// row-anchored menu) — a choice about how a *standard task's* plain tap
+// should behave that has no checklist equivalent, since a checklist row
+// only ever has the one tap destination (openChecklistList()) regardless
+// of that setting. Always on whenever mobileUiActive(), reusing the same
+// timing constants (TASK_LONG_PRESS_MS/_TOLERANCE_PX) so a checklist
+// list and a standard task feel identical to hold down, just simpler
+// underneath since there's only one thing a long-press here could mean.
+let checklistPressTimer = null;
+let checklistPressRow = null;
+let checklistPressStartX = 0, checklistPressStartY = 0;
+let checklistLongPressFired = false;
+function checklistPressStart(e, taskId){
+  if(!mobileUiActive()) return;
+  checklistLongPressFired = false;
+  const pt = e.touches ? e.touches[0] : e;
+  checklistPressStartX = pt.clientX;
+  checklistPressStartY = pt.clientY;
+  checklistPressRow = e.currentTarget;
+  checklistPressRow.classList.add('pressing');
+  clearTimeout(checklistPressTimer);
+  checklistPressTimer = setTimeout(() => {
+    checklistPressTimer = null;
+    checklistLongPressFired = true;
+    if(checklistPressRow) checklistPressRow.classList.remove('pressing');
+    const r = checklistPressRow.getBoundingClientRect();
+    renderChecklistContextMenu(taskId, r.left, r.bottom + 6);
+  }, TASK_LONG_PRESS_MS);
+}
+function checklistPressMove(e){
+  if(!checklistPressTimer) return;
+  const pt = e.touches ? e.touches[0] : e;
+  const dx = pt.clientX - checklistPressStartX, dy = pt.clientY - checklistPressStartY;
+  if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
+    clearTimeout(checklistPressTimer);
+    checklistPressTimer = null;
+    if(checklistPressRow) checklistPressRow.classList.remove('pressing');
+  }
+}
+function checklistPressEnd(){
+  clearTimeout(checklistPressTimer);
+  checklistPressTimer = null;
+  if(checklistPressRow) checklistPressRow.classList.remove('pressing');
+}
+// Swallows the click a touchend fires right after a long-press already
+// opened the menu — same "was this actually a long-press just now"
+// pattern taskRowTap() (08-render-core.js) uses for the standard row.
+function checklistRowTap(e, taskId){
+  if(checklistLongPressFired){ checklistLongPressFired = false; e.preventDefault(); return; }
+  openChecklistList(taskId);
 }
 
 function renderChecklistDetail(taskId){

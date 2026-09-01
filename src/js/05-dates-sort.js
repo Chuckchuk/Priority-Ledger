@@ -60,6 +60,17 @@ function fmtDateShort(d){
   return `${dt.getMonth()+1}/${dt.getDate()}/${yy}`;
 }
 
+// Full weekday/month/day/year form for a task's own due date on the full
+// detail page (.datefield.taskdate) — per the explicit ask, "9/2/26" read
+// as too terse for the one date field that page gives a whole boxed row
+// of its own; every other date field in the app (a step's own date,
+// badges) stays on fmtDate()/fmtDateShort()'s compact forms.
+function fmtDateFull(d){
+  if(!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+}
+
 // Full weekday/month/day form for the masthead's own subheader (distinct
 // from fmtDate()'s compact "Sep 1" used on task badges) — replaced a
 // rotating decorative tagline the project owner found more filler than
