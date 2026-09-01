@@ -871,6 +871,13 @@ async function setCategoryPaletteSet(id){
   state.categoryPaletteId = id;
   rebuildCategoryPalette();
   rebuildCategoriesIndex();
+  // Category colors alone don't drive any CSS custom property (unlike
+  // Desk & Ledger/UI Colors, which already call applyTheme() from their
+  // own setters) — except pastelModeActive() (01-categories-theme.js),
+  // which pastelInkStyle reads, folds this in too. Re-running applyTheme()
+  // here is what makes ink/line pick up a category-only switch into or
+  // out of Pastel immediately, not just a Desk/UI one.
+  applyTheme();
   render();
   queueSave();
 }

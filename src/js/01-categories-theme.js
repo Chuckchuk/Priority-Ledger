@@ -495,6 +495,27 @@ function shadeHex(hex, percent){
   return '#' + (0x1000000 + r*0x10000 + g*0x100 + b).toString(16).slice(1);
 }
 
+// hex + alpha -> an rgba() string — used by applyThemeObject()'s pastel
+// ink style to turn a computed hex ink color into a translucent line
+// color, same role the hand-written rgba(42,35,24,0.16) plays for the
+// fixed default ink.
+function hexToRgba(hex, alpha){
+  const num = parseInt(hex.replace('#',''), 16);
+  const r = (num >> 16) & 0xFF, g = (num >> 8) & 0xFF, b = num & 0xFF;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// True once any of the three Pastel palette sets (Category Colors, Desk &
+// Ledger, UI Colors) is the active one — see applyThemeObject()'s
+// pastelInkStyle branch, the one place this is read. Deliberately "any of
+// the three," not just Desk & Ledger's own — the project owner's own
+// complaint was about the category tab row (the loudest pastel signal)
+// reading out of place against the rest of the page, not specifically
+// about the paper color.
+function pastelModeActive(){
+  return state.categoryPaletteId === 'pastel' || state.deskPaletteId === 'pastel' || state.uiPaletteId === 'pastel';
+}
+
 // HSV, not HSL, since that's the natural fit for a "ring picks hue,
 // square picks the rest" color wheel (see catWheelPointerDown() in
 // 09-settings.js) — value is what a top-to-bottom square axis naturally
@@ -592,9 +613,39 @@ function applyThemeObject(t){
   // feedback — uses.
   root.setProperty('--input-accent', ui.primary);
   const dark = relLuminance(t.paper) < 0.5;
-  root.setProperty('--ink', dark ? '#F1EAD9' : '#2A2318');
-  root.setProperty('--ink-soft', dark ? 'rgba(241,234,217,0.65)' : '#7A6E58');
-  root.setProperty('--line', dark ? 'rgba(241,234,217,0.18)' : 'rgba(42,35,24,0.16)');
+  // EXPERIMENTAL (Dev Settings → pastelInkStyle) — the flat neutral
+  // ink/line below was picked for the app's original warm-cream paper
+  // and never adapts to what's actually on screen, so once any of the
+  // three Pastel palette sets are in play (category tabs, Desk & Ledger,
+  // or UI Colors — see pastelModeActive() below) the project owner's own
+  // read was that a colorless near-black ink/line reads as "out of
+  // place" against it: heavy and serious next to something meant to feel
+  // soft and playful. Rather than a second flat color (which would only
+  // coincidentally suit whichever pastel paper happens to be active),
+  // this darkens the *actual* paper color in place (shadeHex, same
+  // multiplicative technique --desk-dark already uses) — hue-preserving,
+  // so ink automatically leans toward whatever the current paper's own
+  // tint is instead of a fixed brown. On the plain near-white Classic
+  // paper this lands close to the original default anyway (barely any
+  // hue to preserve); it's the Desk & Ledger Pastel papers specifically
+  // where this visibly ties ink back to the page it's sitting on. Only
+  // font was NOT touched here — see the project owner's own ask and
+  // CLAUDE.md's standing "keep the Fraunces/IBM Plex identity" rule;
+  // swapping type families per-palette would be a much larger, riskier
+  // change (117+ hardcoded font-family declarations across styles.css,
+  // no existing --font-* variable layer to hook into) for a less certain
+  // payoff, so this stayed color-only.
+  const pastelTint = !dark && !!(state.devSettings && state.devSettings.pastelInkStyle) && pastelModeActive();
+  if(pastelTint){
+    const inkHex = shadeHex(t.paper, -0.80);
+    root.setProperty('--ink', inkHex);
+    root.setProperty('--ink-soft', shadeHex(t.paper, -0.52));
+    root.setProperty('--line', hexToRgba(inkHex, 0.16));
+  } else {
+    root.setProperty('--ink', dark ? '#F1EAD9' : '#2A2318');
+    root.setProperty('--ink-soft', dark ? 'rgba(241,234,217,0.65)' : '#7A6E58');
+    root.setProperty('--line', dark ? 'rgba(241,234,217,0.18)' : 'rgba(42,35,24,0.16)');
+  }
 
   const appCard = document.getElementById('appCard');
   if(appCard){
@@ -695,6 +746,11 @@ function applyDevSettings(){
   // default) needs no matching selector, same as 'none' above.
   document.body.dataset.taskdetailActions = d.taskDetailActionsPosition || 'side';
   refreshMobileUiActive();
+  // pastelInkStyle lives in applyThemeObject()'s own ink/line computation,
+  // not a body class/dataset here — re-run it so toggling the checkbox
+  // (or any other dev setting; cheap enough to always redo) takes effect
+  // immediately instead of waiting for the next unrelated theme change.
+  applyTheme();
 }
 
 // True on an actual phone-ish viewport/pointer, or whenever
@@ -988,6 +1044,12 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     </label>`;
 
   const generalBody = `
+    ${devSectionHeadHtml('Pastel Mode')}
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.pastelInkStyle?'checked':''} onchange="toggleDevSetting('pastelInkStyle', this.checked)">
+      Tint text & lines to match, whenever Category Colors, Desk & Ledger, or UI Colors is set to Pastel (color only — font stays as-is)
+    </label>
+
     ${devSectionHeadHtml('Page Tags')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
