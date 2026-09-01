@@ -2299,12 +2299,14 @@
     background: var(--card-bg-dim); color: var(--ink-soft); font-size:0.55rem; line-height:1; cursor:pointer;
   }
   .catmovebtn:disabled{ opacity:0.3; cursor:not-allowed; }
-  /* Right-aligned (was left, flush under .catmove/the color dot — sat
-     right where the reorder arrows and icon live, reading as competing
-     with them rather than its own separate row of info) — now lines up
-     under DELETE instead, on the opposite side from that identity
-     cluster. */
-  .catlocs{ flex-basis:100%; display:flex; justify-content:flex-end; gap:16px; margin-top:2px; }
+  /* Indented to line up with .catedit's own left edge (was flush left
+     under .catmove/the color dot, competing with the reorder arrows and
+     icon; a first pass tried flush-right instead, which the project
+     owner then found sat too far over) — 49px is a measured value (the
+     actual rendered gap between .catidentity's own left edge and
+     .catedit's, in the live app: .catmove's 20px + two 8px .catidentity
+     gaps + .catdotbtn's own rendered width), not eyeballed. */
+  .catlocs{ flex-basis:100%; display:flex; margin-left:49px; gap:16px; margin-top:2px; }
   .catlocchk{
     display:flex; align-items:center; gap:5px; cursor:pointer;
     font-family:'IBM Plex Mono', monospace; font-size:0.64rem; text-transform:uppercase;
