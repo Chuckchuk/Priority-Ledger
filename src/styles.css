@@ -2214,6 +2214,51 @@
     background:none; border:1px dashed var(--ink-soft); border-radius:5px; padding:6px 10px; cursor:pointer; color: var(--ink-soft);
   }
   .templatesavebtn:hover{ color: var(--ink); border-color: var(--ink); }
+  /* Grayed out (not hidden) when the linked template's items already
+     match this list's own — nothing to push, per the explicit ask,
+     rather than leaving an always-enabled button that would just no-op
+     (pushUndo() included) on click. */
+  .templatesavebtn:disabled{ opacity:0.4; cursor:not-allowed; border-style:solid; }
+  .templatesavebtn:disabled:hover{ color: var(--ink-soft); border-color: var(--ink-soft); }
+  /* "Save as Template"'s own inline naming form (checklistSaveTemplateTaskId
+     — see checklistTemplateFooterHtml(), 13-checklist.js) — asks for both
+     the template's own name and this list's new "<Template>: <Name>"
+     half in one step, per the explicit ask, rather than saving straight
+     off the list's current (plain) title. flex-basis:100% on the whole
+     form (same trick .templatecreaterow above uses) since it's replacing
+     a single footer button, not sharing a row with one. */
+  .templatesaveform{ display:flex; flex-direction:column; gap:4px; flex-basis:100%; }
+  .templatesaveformlabel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.04em;
+    color: var(--ink-soft); margin-top:6px;
+  }
+  .templatesaveformhint{ text-transform:none; letter-spacing:normal; opacity:0.75; font-style:italic; }
+  .templatesaveform input{
+    border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.86rem; padding:4px 2px; color:var(--ink); outline:none;
+  }
+  .templatesaveformactions{ display:flex; gap:6px; margin-top:6px; }
+  /* The <Template>: half of a linked list's own title — fixed, not part
+     of the editable input beside it (see checklistTitleFieldHtml(),
+     13-checklist.js) — per the explicit ask to stop that half being
+     freely rewritable, plus "a little bounding box... for visual
+     distinction." Sized down from .bigtitle's own serif display size
+     (this sits right next to a .titleedit.bigtitle input and would
+     otherwise visually compete with it rather than reading as a quiet,
+     fixed label in front of the part that's actually editable). */
+  .templatetitlerow{ display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; }
+  .templatetitleprefix{
+    font-family:'Fraunces', serif; font-style:italic; font-size:1.1rem; color: var(--ink-soft);
+    border:1px solid var(--line); border-radius:6px; padding:4px 10px; white-space:nowrap;
+  }
+  /* input.templatetitlesuffix (a type selector, not just two classes) —
+     .titleedit.bigtitle's own text-align:center/font-size are the exact
+     same (0,2,0) specificity as a plain two-class selector here would
+     be, which would leave this depending on cascade order to win rather
+     than actually outranking it. Learned that lesson the hard way twice
+     already this session (.ctxmenu-danger, .datefieldedit.taskdateedit)
+     — not repeating it a third time. */
+  .templatetitlerow input.templatetitlesuffix{ flex:1; min-width:120px; width:auto; text-align:left; }
   .catmove{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
   .catmovebtn{
     width:20px; height:15px; padding:0; border:1px solid var(--line); border-radius:3px;
@@ -3911,8 +3956,17 @@
   }
   .ctxmenu button:hover{ background: var(--card-bg-dim); }
   .ctxmenu-sep{ height:1px; background:var(--line); margin:4px 2px; }
-  .ctxmenu-danger{ color: var(--estate); }
-  .ctxmenu-danger:hover{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
+  /* Glitch fix: .ctxmenu-danger's own color:var(--estate) was silently
+     losing to .ctxmenu button's color:var(--ink) above — same class-count
+     +1-type-selector specificity trap found twice elsewhere this session
+     (.footer-row button vs .remove, .fabaddsheet input[type=text] vs
+     .datefieldedit.taskdateedit). Every "danger" menu item app-wide —
+     Delete task, Delete day, Delete list, Mark as Cancelled — has been
+     rendering in the plain ink color instead of red this whole time.
+     .ctxmenu button.ctxmenu-danger (two classes + the type selector)
+     outranks .ctxmenu button regardless of source order. */
+  .ctxmenu button.ctxmenu-danger{ color: var(--estate); }
+  .ctxmenu button.ctxmenu-danger:hover{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
   /* A non-interactive heading row inside #ctxMenu — "Move to" (the
      category menu, categoryMoveMenuHtml() in 08-render-core.js) is the
      one menu here that isn't just a flat list of actions, so it gets a

@@ -214,11 +214,15 @@ function taskSubtasksHtml(t){
           const subTodayTitle = subPlannedToday ? 'Remove from today’s list'
             : subOtherPlanned ? `Also planned on ${subOtherPlanned} other day${subOtherPlanned===1?'':'s'} — tap to add today too`
             : 'Add to today’s list';
-          // Menu triggers only while there's something the menu could
-          // offer — see subtaskContextMenuHtml()'s own comment.
-          const subMenuAttrs = !s.done ? ` oncontextmenu="return handleSubtaskContextMenu(event,'${t.id}','${s.id}')"
+          // Always wired up now — a done/cancelled step still has Reopen
+          // to offer (see subtaskContextMenuHtml()'s own comment for why
+          // this used to be conditional on !s.done, and why that was
+          // wrong: Reopen is exactly the thing a done step needs a menu
+          // for, since there's no dedicated button for it the way a
+          // standard task's own checkbox click already handles reopening).
+          const subMenuAttrs = ` oncontextmenu="return handleSubtaskContextMenu(event,'${t.id}','${s.id}')"
             ontouchstart="subtaskPressStart(event,'${t.id}','${s.id}')" ontouchmove="subtaskPressMove(event)" ontouchend="subtaskPressEnd()" ontouchcancel="subtaskPressEnd()"
-            onmousedown="subtaskPressStart(event,'${t.id}','${s.id}')" onmouseup="subtaskPressEnd()" onmouseleave="subtaskPressEnd()"` : '';
+            onmousedown="subtaskPressStart(event,'${t.id}','${s.id}')" onmouseup="subtaskPressEnd()" onmouseleave="subtaskPressEnd()"`;
           return `
           <div class="subrow" data-sub-id="${s.id}">
             <span class="draghandle sub" onpointerdown="subHandlePointerDown(event,'${t.id}','${s.id}')" title="Drag to reorder">⠿</span>
@@ -591,11 +595,17 @@ function openTaskContextMenuForRow(taskId, rowEl){
 // second long-press system to the same row risked the two fighting over
 // the same touch. .subtext already owns tap-to-edit, so a menu trigger
 // living there too is one more reason to press-and-hold text specifically,
-// not a new place entirely. Only wired up while the step isn't done yet
-// (!s.done) — an already-done/cancelled step has nothing this menu could
-// offer (reopening is the checkbox's job, deleting already has its own ×).
+// not a new place entirely. Always wired up regardless of s.done now —
+// Reopen (mirroring a standard task's own Mark complete/Reopen menu
+// item, per the explicit ask for parity) is exactly what a done/
+// cancelled step needs a menu for, even though the checkbox already
+// does the same toggle directly; Mark as Cancelled only makes sense
+// while the step isn't done yet.
 function subtaskContextMenuHtml(t, s){
-  return `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markSubtaskCancelled('${t.id}','${s.id}'))">Mark as Cancelled</button>`;
+  return `
+    <button onclick="ctxMenuAction(()=>toggleSubtask('${t.id}','${s.id}'))">${s.done ? 'Reopen' : 'Mark Complete'}</button>
+    ${!s.done ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markSubtaskCancelled('${t.id}','${s.id}'))">Mark as Cancelled</button>` : ''}
+  `;
 }
 function renderSubtaskContextMenu(taskId, subId, x, y){
   const t = state.tasks.find(x2=>x2.id===taskId);
@@ -668,6 +678,47 @@ function subtaskPressEnd(){
 function subtextTap(e, el, taskId, subId){
   if(subtaskLongPressFired){ subtaskLongPressFired = false; e.preventDefault(); return; }
   startEditSubtask(el, taskId, subId);
+}
+
+// ---------- the full detail page's own big checkbox: long-press-to-menu ----------
+// Own small state, same shape as subtaskPressStart() etc. above — not
+// reused directly since it's anchoring a different element (the detail
+// page's big .check, not a .subtext) for a different taskId shape (no
+// subId to thread through).
+let taskDetailCheckPressTimer = null;
+let taskDetailCheckPressEl = null;
+let taskDetailCheckPressStartX = 0, taskDetailCheckPressStartY = 0;
+let taskDetailCheckLongPressFired = false;
+function taskDetailCheckPressStart(e, taskId){
+  if(!mobileUiActive()) return;
+  taskDetailCheckLongPressFired = false;
+  const pt = e.touches ? e.touches[0] : e;
+  taskDetailCheckPressStartX = pt.clientX;
+  taskDetailCheckPressStartY = pt.clientY;
+  taskDetailCheckPressEl = e.currentTarget;
+  clearTimeout(taskDetailCheckPressTimer);
+  taskDetailCheckPressTimer = setTimeout(() => {
+    taskDetailCheckPressTimer = null;
+    taskDetailCheckLongPressFired = true;
+    openTaskContextMenuForRow(taskId, taskDetailCheckPressEl);
+  }, TASK_LONG_PRESS_MS);
+}
+function taskDetailCheckPressMove(e){
+  if(!taskDetailCheckPressTimer) return;
+  const pt = e.touches ? e.touches[0] : e;
+  const dx = pt.clientX - taskDetailCheckPressStartX, dy = pt.clientY - taskDetailCheckPressStartY;
+  if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
+    clearTimeout(taskDetailCheckPressTimer);
+    taskDetailCheckPressTimer = null;
+  }
+}
+function taskDetailCheckPressEnd(){
+  clearTimeout(taskDetailCheckPressTimer);
+  taskDetailCheckPressTimer = null;
+}
+function taskDetailCheckTap(e, taskId){
+  if(taskDetailCheckLongPressFired){ taskDetailCheckLongPressFired = false; e.preventDefault(); return; }
+  toggleStatus(taskId);
 }
 // Shared by the task menu above, the day menu below, and the category
 // "Move to" menu further down — only one #ctxMenu exists, so only one of
@@ -950,7 +1001,20 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
       <div class="taskdetailhead">
         <div class="titleactions titlespacer" aria-hidden="true">${actionsHtml}</div>
         <div class="checkwrap">
-          <div class="check ${t.status==='done'?'done':''}${t.cancelled?' cancelled':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
+          <!-- Right-click/long-press here reuses the exact same task
+               context menu the row-list version opens — per the explicit
+               ask for a way to reach Mark as Cancelled from the detail
+               page itself, not just a list row. includeEdit:false (see
+               openTaskContextMenuForRow()/handleTaskContextMenu(), both
+               08-render-core.js) since "Edit details" would just point
+               back at this same page. taskDetailCheckTap() swallows the
+               plain click a touchend fires right after a long-press
+               already opened the menu, same pattern as subtextTap(). -->
+          <div class="check ${t.status==='done'?'done':''}${t.cancelled?' cancelled':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}"
+            onclick="taskDetailCheckTap(event,'${t.id}')"
+            oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"
+            ontouchstart="taskDetailCheckPressStart(event,'${t.id}')" ontouchmove="taskDetailCheckPressMove(event)" ontouchend="taskDetailCheckPressEnd()" ontouchcancel="taskDetailCheckPressEnd()"
+            onmousedown="taskDetailCheckPressStart(event,'${t.id}')" onmouseup="taskDetailCheckPressEnd()" onmouseleave="taskDetailCheckPressEnd()"></div>
           ${subProgressHtml(subs)}
         </div>
         <div class="titleactions">${actionsHtml}</div>

@@ -2246,6 +2246,51 @@
     background:none; border:1px dashed var(--ink-soft); border-radius:5px; padding:6px 10px; cursor:pointer; color: var(--ink-soft);
   }
   .templatesavebtn:hover{ color: var(--ink); border-color: var(--ink); }
+  /* Grayed out (not hidden) when the linked template's items already
+     match this list's own — nothing to push, per the explicit ask,
+     rather than leaving an always-enabled button that would just no-op
+     (pushUndo() included) on click. */
+  .templatesavebtn:disabled{ opacity:0.4; cursor:not-allowed; border-style:solid; }
+  .templatesavebtn:disabled:hover{ color: var(--ink-soft); border-color: var(--ink-soft); }
+  /* "Save as Template"'s own inline naming form (checklistSaveTemplateTaskId
+     — see checklistTemplateFooterHtml(), 13-checklist.js) — asks for both
+     the template's own name and this list's new "<Template>: <Name>"
+     half in one step, per the explicit ask, rather than saving straight
+     off the list's current (plain) title. flex-basis:100% on the whole
+     form (same trick .templatecreaterow above uses) since it's replacing
+     a single footer button, not sharing a row with one. */
+  .templatesaveform{ display:flex; flex-direction:column; gap:4px; flex-basis:100%; }
+  .templatesaveformlabel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.04em;
+    color: var(--ink-soft); margin-top:6px;
+  }
+  .templatesaveformhint{ text-transform:none; letter-spacing:normal; opacity:0.75; font-style:italic; }
+  .templatesaveform input{
+    border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.86rem; padding:4px 2px; color:var(--ink); outline:none;
+  }
+  .templatesaveformactions{ display:flex; gap:6px; margin-top:6px; }
+  /* The <Template>: half of a linked list's own title — fixed, not part
+     of the editable input beside it (see checklistTitleFieldHtml(),
+     13-checklist.js) — per the explicit ask to stop that half being
+     freely rewritable, plus "a little bounding box... for visual
+     distinction." Sized down from .bigtitle's own serif display size
+     (this sits right next to a .titleedit.bigtitle input and would
+     otherwise visually compete with it rather than reading as a quiet,
+     fixed label in front of the part that's actually editable). */
+  .templatetitlerow{ display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; }
+  .templatetitleprefix{
+    font-family:'Fraunces', serif; font-style:italic; font-size:1.1rem; color: var(--ink-soft);
+    border:1px solid var(--line); border-radius:6px; padding:4px 10px; white-space:nowrap;
+  }
+  /* input.templatetitlesuffix (a type selector, not just two classes) —
+     .titleedit.bigtitle's own text-align:center/font-size are the exact
+     same (0,2,0) specificity as a plain two-class selector here would
+     be, which would leave this depending on cascade order to win rather
+     than actually outranking it. Learned that lesson the hard way twice
+     already this session (.ctxmenu-danger, .datefieldedit.taskdateedit)
+     — not repeating it a third time. */
+  .templatetitlerow input.templatetitlesuffix{ flex:1; min-width:120px; width:auto; text-align:left; }
   .catmove{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
   .catmovebtn{
     width:20px; height:15px; padding:0; border:1px solid var(--line); border-radius:3px;
@@ -3943,8 +3988,17 @@
   }
   .ctxmenu button:hover{ background: var(--card-bg-dim); }
   .ctxmenu-sep{ height:1px; background:var(--line); margin:4px 2px; }
-  .ctxmenu-danger{ color: var(--estate); }
-  .ctxmenu-danger:hover{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
+  /* Glitch fix: .ctxmenu-danger's own color:var(--estate) was silently
+     losing to .ctxmenu button's color:var(--ink) above — same class-count
+     +1-type-selector specificity trap found twice elsewhere this session
+     (.footer-row button vs .remove, .fabaddsheet input[type=text] vs
+     .datefieldedit.taskdateedit). Every "danger" menu item app-wide —
+     Delete task, Delete day, Delete list, Mark as Cancelled — has been
+     rendering in the plain ink color instead of red this whole time.
+     .ctxmenu button.ctxmenu-danger (two classes + the type selector)
+     outranks .ctxmenu button regardless of source order. */
+  .ctxmenu button.ctxmenu-danger{ color: var(--estate); }
+  .ctxmenu button.ctxmenu-danger:hover{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
   /* A non-interactive heading row inside #ctxMenu — "Move to" (the
      category menu, categoryMoveMenuHtml() in 08-render-core.js) is the
      one menu here that isn't just a flat list of actions, so it gets a
@@ -5749,6 +5803,14 @@ let checklistTemplatesOpen = false; // showing the Templates view for the active
 // view — null when none is. Only one at a time, same "one thing open"
 // idiom as selectedListId/checklistPendingOpen above.
 let checklistTemplateCreateId = null;
+// Which list's own "Save as Template" naming step (startSaveListAsTemplate(),
+// 13-checklist.js) is expanded inline in its detail page's footer — null
+// when none is. A separate flag from checklistTemplateCreateId above:
+// that one names a *template* being turned into a new list, this one
+// names the *list* being turned into a template — inverse directions,
+// never open at the same time in practice, but distinct enough concepts
+// to keep as two names rather than one overloaded id.
+let checklistSaveTemplateTaskId = null;
 // Which tasks' inline .expand rows are open — render() rebuilds every row's
 // markup from scratch on every mutation (see taskRowHtml), which would
 // otherwise silently collapse every *other* expanded task back to closed
@@ -6271,7 +6333,12 @@ function defaultTasks(){
     subtasks: [], plannedDates: [], timeframe:'', priority:0, completedAt:'', createdAt: todayStr(),
     ...extra
   });
-  const list = mk('Packing list', 'lists');
+  // Titled "<Template>: <Name>" from the start, and linked to a template
+  // (seeded alongside it — see defaultState() below) rather than a plain
+  // "Packing list" — per the explicit ask: a bare-titled example list
+  // would demonstrate the wrong convention for a feature whose whole
+  // point is that every real list ends up "<Template>: <Name>" shaped.
+  const list = mk('Packing list: Madrid Trip', 'lists', { templateId: newId('tpl') });
   list.subtasks = [
     { id:newId('sub'), text:'Passport', done:false, dueDate:'', plannedDates:[] },
     { id:newId('sub'), text:'Phone charger', done:false, dueDate:'', plannedDates:[] },
@@ -6299,10 +6366,23 @@ function defaultTasks(){
 }
 
 function defaultState(){
+  const tasks = defaultTasks();
+  // The example "Packing list: Madrid Trip" list (defaultTasks() above)
+  // is seeded already linked to a templateId — build the matching
+  // template entry from its own items here, so a fresh account's
+  // Templates view isn't empty either. Keeps the id-generation for that
+  // link in the one place (defaultTasks()) rather than duplicating it.
+  const list = tasks.find(t => t.category === 'lists' && t.templateId);
+  const checklistTemplates = list ? [{
+    id: list.templateId,
+    name: 'Packing list',
+    items: list.subtasks.map(s => s.text),
+    createdAt: todayStr()
+  }] : [];
   return {
     location: 'home',
     days: [],
-    tasks: defaultTasks(),
+    tasks,
     categories: defaultCategories(),
     locations: defaultLocations(),
     locationEnabled: true,
@@ -6310,7 +6390,7 @@ function defaultState(){
     advancedTaskFields: true,
     devSettings: defaultDevSettings(),
     trash: [],
-    checklistTemplates: []
+    checklistTemplates
   };
 }
 
@@ -8452,11 +8532,15 @@ function taskSubtasksHtml(t){
           const subTodayTitle = subPlannedToday ? 'Remove from today’s list'
             : subOtherPlanned ? `Also planned on ${subOtherPlanned} other day${subOtherPlanned===1?'':'s'} — tap to add today too`
             : 'Add to today’s list';
-          // Menu triggers only while there's something the menu could
-          // offer — see subtaskContextMenuHtml()'s own comment.
-          const subMenuAttrs = !s.done ? ` oncontextmenu="return handleSubtaskContextMenu(event,'${t.id}','${s.id}')"
+          // Always wired up now — a done/cancelled step still has Reopen
+          // to offer (see subtaskContextMenuHtml()'s own comment for why
+          // this used to be conditional on !s.done, and why that was
+          // wrong: Reopen is exactly the thing a done step needs a menu
+          // for, since there's no dedicated button for it the way a
+          // standard task's own checkbox click already handles reopening).
+          const subMenuAttrs = ` oncontextmenu="return handleSubtaskContextMenu(event,'${t.id}','${s.id}')"
             ontouchstart="subtaskPressStart(event,'${t.id}','${s.id}')" ontouchmove="subtaskPressMove(event)" ontouchend="subtaskPressEnd()" ontouchcancel="subtaskPressEnd()"
-            onmousedown="subtaskPressStart(event,'${t.id}','${s.id}')" onmouseup="subtaskPressEnd()" onmouseleave="subtaskPressEnd()"` : '';
+            onmousedown="subtaskPressStart(event,'${t.id}','${s.id}')" onmouseup="subtaskPressEnd()" onmouseleave="subtaskPressEnd()"`;
           return `
           <div class="subrow" data-sub-id="${s.id}">
             <span class="draghandle sub" onpointerdown="subHandlePointerDown(event,'${t.id}','${s.id}')" title="Drag to reorder">⠿</span>
@@ -8829,11 +8913,17 @@ function openTaskContextMenuForRow(taskId, rowEl){
 // second long-press system to the same row risked the two fighting over
 // the same touch. .subtext already owns tap-to-edit, so a menu trigger
 // living there too is one more reason to press-and-hold text specifically,
-// not a new place entirely. Only wired up while the step isn't done yet
-// (!s.done) — an already-done/cancelled step has nothing this menu could
-// offer (reopening is the checkbox's job, deleting already has its own ×).
+// not a new place entirely. Always wired up regardless of s.done now —
+// Reopen (mirroring a standard task's own Mark complete/Reopen menu
+// item, per the explicit ask for parity) is exactly what a done/
+// cancelled step needs a menu for, even though the checkbox already
+// does the same toggle directly; Mark as Cancelled only makes sense
+// while the step isn't done yet.
 function subtaskContextMenuHtml(t, s){
-  return `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markSubtaskCancelled('${t.id}','${s.id}'))">Mark as Cancelled</button>`;
+  return `
+    <button onclick="ctxMenuAction(()=>toggleSubtask('${t.id}','${s.id}'))">${s.done ? 'Reopen' : 'Mark Complete'}</button>
+    ${!s.done ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markSubtaskCancelled('${t.id}','${s.id}'))">Mark as Cancelled</button>` : ''}
+  `;
 }
 function renderSubtaskContextMenu(taskId, subId, x, y){
   const t = state.tasks.find(x2=>x2.id===taskId);
@@ -8906,6 +8996,47 @@ function subtaskPressEnd(){
 function subtextTap(e, el, taskId, subId){
   if(subtaskLongPressFired){ subtaskLongPressFired = false; e.preventDefault(); return; }
   startEditSubtask(el, taskId, subId);
+}
+
+// ---------- the full detail page's own big checkbox: long-press-to-menu ----------
+// Own small state, same shape as subtaskPressStart() etc. above — not
+// reused directly since it's anchoring a different element (the detail
+// page's big .check, not a .subtext) for a different taskId shape (no
+// subId to thread through).
+let taskDetailCheckPressTimer = null;
+let taskDetailCheckPressEl = null;
+let taskDetailCheckPressStartX = 0, taskDetailCheckPressStartY = 0;
+let taskDetailCheckLongPressFired = false;
+function taskDetailCheckPressStart(e, taskId){
+  if(!mobileUiActive()) return;
+  taskDetailCheckLongPressFired = false;
+  const pt = e.touches ? e.touches[0] : e;
+  taskDetailCheckPressStartX = pt.clientX;
+  taskDetailCheckPressStartY = pt.clientY;
+  taskDetailCheckPressEl = e.currentTarget;
+  clearTimeout(taskDetailCheckPressTimer);
+  taskDetailCheckPressTimer = setTimeout(() => {
+    taskDetailCheckPressTimer = null;
+    taskDetailCheckLongPressFired = true;
+    openTaskContextMenuForRow(taskId, taskDetailCheckPressEl);
+  }, TASK_LONG_PRESS_MS);
+}
+function taskDetailCheckPressMove(e){
+  if(!taskDetailCheckPressTimer) return;
+  const pt = e.touches ? e.touches[0] : e;
+  const dx = pt.clientX - taskDetailCheckPressStartX, dy = pt.clientY - taskDetailCheckPressStartY;
+  if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
+    clearTimeout(taskDetailCheckPressTimer);
+    taskDetailCheckPressTimer = null;
+  }
+}
+function taskDetailCheckPressEnd(){
+  clearTimeout(taskDetailCheckPressTimer);
+  taskDetailCheckPressTimer = null;
+}
+function taskDetailCheckTap(e, taskId){
+  if(taskDetailCheckLongPressFired){ taskDetailCheckLongPressFired = false; e.preventDefault(); return; }
+  toggleStatus(taskId);
 }
 // Shared by the task menu above, the day menu below, and the category
 // "Move to" menu further down — only one #ctxMenu exists, so only one of
@@ -9188,7 +9319,20 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
       <div class="taskdetailhead">
         <div class="titleactions titlespacer" aria-hidden="true">${actionsHtml}</div>
         <div class="checkwrap">
-          <div class="check ${t.status==='done'?'done':''}${t.cancelled?' cancelled':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
+          <!-- Right-click/long-press here reuses the exact same task
+               context menu the row-list version opens — per the explicit
+               ask for a way to reach Mark as Cancelled from the detail
+               page itself, not just a list row. includeEdit:false (see
+               openTaskContextMenuForRow()/handleTaskContextMenu(), both
+               08-render-core.js) since "Edit details" would just point
+               back at this same page. taskDetailCheckTap() swallows the
+               plain click a touchend fires right after a long-press
+               already opened the menu, same pattern as subtextTap(). -->
+          <div class="check ${t.status==='done'?'done':''}${t.cancelled?' cancelled':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}"
+            onclick="taskDetailCheckTap(event,'${t.id}')"
+            oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"
+            ontouchstart="taskDetailCheckPressStart(event,'${t.id}')" ontouchmove="taskDetailCheckPressMove(event)" ontouchend="taskDetailCheckPressEnd()" ontouchcancel="taskDetailCheckPressEnd()"
+            onmousedown="taskDetailCheckPressStart(event,'${t.id}')" onmouseup="taskDetailCheckPressEnd()" onmouseleave="taskDetailCheckPressEnd()"></div>
           ${subProgressHtml(subs)}
         </div>
         <div class="titleactions">${actionsHtml}</div>
@@ -11827,7 +11971,7 @@ function renderChecklistOverview(categoryId){
          the feature exists in the first place — the empty state inside
          explains where "Save as Template" lives. -->
     <div class="checklisttemplateslink">
-      <button onclick="openChecklistTemplates('${categoryId}')">📄 Templates${templateCount ? ` (${templateCount})` : ''}</button>
+      <button onclick="openChecklistTemplates('${categoryId}')">Templates${templateCount ? ` (${templateCount})` : ''}</button>
     </div>
     <ul class="tasks">
       ${visible.length ? visible.map(t=>checklistListRowHtml(t)).join('') : `<div class="empty">${cat ? `No lists in ${escapeHtml(cat.label)} yet.` : 'No lists yet.'} Add one above.</div>`}
@@ -12088,6 +12232,48 @@ function checklistRowTap(e, taskId){
   openChecklistList(taskId);
 }
 
+// The <Template>: <Name> title on a list linked to a still-existing
+// template splits into a fixed, boxed "<Template>:" label (see
+// .templatetitleprefix in <style> for the "little bounding box," per the
+// explicit ask) plus a plain input for just the editable <Name> half —
+// per the explicit ask to stop the whole "<Template>: <Name>" string
+// being freely rewritable, which could silently break the naming
+// convention (or drift the list away from the template it's actually
+// linked to) with a single careless edit. Falls back to the plain,
+// fully-editable title field for a list with no template link, or one
+// whose title has since been hand-edited away from starting with
+// "<Template>: " (nothing stops that at the character level; this only
+// renders the split UI when the title still visibly matches).
+function checklistTitleFieldHtml(t){
+  const tpl = t.templateId ? (state.checklistTemplates||[]).find(tp=>tp.id===t.templateId) : null;
+  const prefix = tpl ? `${tpl.name}: ` : null;
+  if(prefix && t.title.startsWith(prefix)){
+    const suffix = t.title.slice(prefix.length);
+    return `
+      <div class="templatetitlerow">
+        <span class="templatetitleprefix">${escapeHtml(tpl.name)}:</span>
+        <input type="text" class="titleedit bigtitle templatetitlesuffix" value="${escapeHtml(suffix)}"
+          onblur="updateTemplatedTitle('${t.id}', this.value)"
+          onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+      </div>`;
+  }
+  return `<input type="text" class="titleedit bigtitle" value="${escapeHtml(t.title)}"
+    onblur="updateTitle('${t.id}', this.value)"
+    onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">`;
+}
+// suffixVal empty falls back to "New List" — same reasoning as
+// confirmSaveListAsTemplate()/confirmCreateFromTemplate() below: an
+// empty <Name> half would otherwise save as "<Template>: " with nothing
+// after the colon, which reads as broken rather than intentional.
+async function updateTemplatedTitle(id, suffixVal){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  const tpl = t.templateId ? (state.checklistTemplates||[]).find(tp=>tp.id===t.templateId) : null;
+  if(!tpl) return updateTitle(id, suffixVal);
+  const suffix = suffixVal.trim() || 'New List';
+  await updateTitle(id, `${tpl.name}: ${suffix}`);
+}
+
 function renderChecklistDetail(taskId){
   const t = state.tasks.find(t=>t.id===taskId);
   const cat = CATEGORIES[t.category];
@@ -12103,9 +12289,7 @@ function renderChecklistDetail(taskId){
       <div class="checklistsharewrap">${shareButtonHtml(t.id)}</div>
       <div class="checklistheader">${checklistCheckcircleHtml(t, false)}</div>
       ${t.sharedImport ? `<div class="sharedbadge inline">Shared</div>` : ''}
-      <input type="text" class="titleedit bigtitle" value="${escapeHtml(t.title)}"
-        onblur="updateTitle('${t.id}', this.value)"
-        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+      ${checklistTitleFieldHtml(t)}
       <div class="taskmeta checklistmeta">Created ${fmtDate(t.createdAt)}</div>
       <div class="subwrap">
         ${subs.map(s=>`
@@ -12125,18 +12309,9 @@ function renderChecklistDetail(taskId){
           onkeydown="if(event.key==='Enter'){ const v=this.value; this.value=''; addSubtask('${t.id}', v); }"
           onblur="addSubtask('${t.id}', this.value)">
       </div>
-      <!-- linkedTemplate guards against a stale t.templateId pointing at
-           a template that's since been deleted — falls back to "Save as
-           Template" (which re-links it to a fresh one) rather than
-           offering "Update" on something that no longer exists. -->
       <div class="footer-row">
-        ${(()=>{
-          const linkedTemplate = t.templateId ? (state.checklistTemplates||[]).find(tpl=>tpl.id===t.templateId) : null;
-          return linkedTemplate
-            ? `<button class="templatesavebtn" onclick="updateTemplateFromList('${t.id}')" title="Overwrite &quot;${escapeHtml(linkedTemplate.name)}&quot; with this list's current items">Update Template</button>`
-            : `<button class="templatesavebtn" onclick="saveListAsTemplate('${t.id}')" title="Save this list's items as a reusable template">Save as Template</button>`;
-        })()}
-        <button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button>
+        ${checklistTemplateFooterHtml(t)}
+        ${checklistSaveTemplateTaskId === t.id ? '' : `<button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button>`}
       </div>
     </div>
   `;
@@ -12246,14 +12421,40 @@ function closeChecklistTemplates(){
   checklistTemplateCreateId = null;
   render();
 }
-async function saveListAsTemplate(taskId){
+// Expands an inline naming form in the list's own footer (checklistSaveTemplateTaskId
+// — see renderChecklistDetail()'s own comment) rather than saving
+// straight off the list's current title, per the explicit ask: without
+// this, the list you actually built the template from kept its plain
+// original title forever, reading as some kind of permanent "master"
+// list rather than an ordinary instance — indistinguishable, at a
+// glance in the overview, from a mistake or a leftover. Asking for both
+// names up front and renaming *this* list to "<Template>: <Name>" in
+// the same action is what keeps every list you ever see in the overview
+// in the same "<Template>: <Name>" shape once it's linked to a template,
+// with no special-cased exception for the original.
+function startSaveListAsTemplate(taskId){
+  checklistSaveTemplateTaskId = taskId;
+  render();
+  document.getElementById('templateSaveNameInput')?.focus();
+}
+function cancelSaveListAsTemplate(){
+  checklistSaveTemplateTaskId = null;
+  render();
+}
+async function confirmSaveListAsTemplate(taskId){
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
-  pushUndo(`Saved "${t.title}" as a template`);
+  const nameInput = document.getElementById('templateSaveNameInput');
+  const specificInput = document.getElementById('templateSaveSpecificInput');
+  const templateName = (nameInput ? nameInput.value.trim() : '') || t.title;
+  const specific = (specificInput ? specificInput.value.trim() : '') || 'New List';
+  pushUndo(`Saved "${templateName}" as a template`);
   if(!Array.isArray(state.checklistTemplates)) state.checklistTemplates = [];
-  const tpl = { id: newId('tpl'), name: t.title, items: (t.subtasks||[]).map(s=>s.text), createdAt: todayStr() };
+  const tpl = { id: newId('tpl'), name: templateName, items: (t.subtasks||[]).map(s=>s.text), createdAt: todayStr() };
   state.checklistTemplates.push(tpl);
   t.templateId = tpl.id;
+  t.title = `${templateName}: ${specific}`;
+  checklistSaveTemplateTaskId = null;
   render();
   queueSave();
 }
@@ -12266,6 +12467,36 @@ async function updateTemplateFromList(taskId){
   tpl.items = (t.subtasks||[]).map(s=>s.text);
   render();
   queueSave();
+}
+// The one footer control that changes shape three ways: the inline
+// "Save as Template" naming form while checklistSaveTemplateTaskId
+// points at this list, a disabled "Update Template" once its linked
+// template's items already match its own (nothing to push), or an
+// enabled one otherwise. linkedTemplate guards against a stale
+// t.templateId pointing at a template that's since been deleted —
+// falls back to "Save as Template" (which re-links it to a fresh one)
+// rather than offering "Update" on something that no longer exists.
+function checklistTemplateFooterHtml(t){
+  if(checklistSaveTemplateTaskId === t.id){
+    return `
+      <div class="templatesaveform">
+        <label class="templatesaveformlabel">Template name</label>
+        <input type="text" id="templateSaveNameInput" value="${escapeHtml(t.title)}">
+        <label class="templatesaveformlabel">This list's own name <span class="templatesaveformhint">e.g. "Packing List: Madrid Trip"</span></label>
+        <input type="text" id="templateSaveSpecificInput" placeholder="New List">
+        <div class="templatesaveformactions">
+          <button class="templatecreateconfirm" onclick="confirmSaveListAsTemplate('${t.id}')">Save</button>
+          <button class="templatecreatecancel" onclick="cancelSaveListAsTemplate()">Cancel</button>
+        </div>
+      </div>`;
+  }
+  const linkedTemplate = t.templateId ? (state.checklistTemplates||[]).find(tpl=>tpl.id===t.templateId) : null;
+  if(linkedTemplate){
+    const itemsChanged = JSON.stringify((t.subtasks||[]).map(s=>s.text)) !== JSON.stringify(linkedTemplate.items);
+    return `<button class="templatesavebtn" ${itemsChanged?'':'disabled'} onclick="updateTemplateFromList('${t.id}')"
+      title="${itemsChanged ? `Overwrite &quot;${escapeHtml(linkedTemplate.name)}&quot; with this list's current items` : 'No changes to update'}">Update Template</button>`;
+  }
+  return `<button class="templatesavebtn" onclick="startSaveListAsTemplate('${t.id}')" title="Save this list's items as a reusable template">Save as Template</button>`;
 }
 async function deleteChecklistTemplate(id){
   const idx = (state.checklistTemplates||[]).findIndex(tp=>tp.id===id);
@@ -12333,7 +12564,7 @@ function renderChecklistTemplates(categoryId){
           ${checklistTemplateCreateId === tpl.id ? `
             <div class="templatecreaterow">
               <span class="templatenameprefix">${escapeHtml(tpl.name)}: </span>
-              <input type="text" id="templateNameInput" placeholder="e.g. Madrid Trip"
+              <input type="text" id="templateNameInput" placeholder="New List"
                 onkeydown="if(event.key==='Enter'){ confirmCreateFromTemplate('${tpl.id}','${categoryId}'); } else if(event.key==='Escape'){ cancelCreateFromTemplate(); }">
               <button class="templatecreateconfirm" onclick="confirmCreateFromTemplate('${tpl.id}','${categoryId}')">Create</button>
               <button class="templatecreatecancel" onclick="cancelCreateFromTemplate()">Cancel</button>
@@ -14173,6 +14404,7 @@ document.addEventListener('keydown', (e) => {
     if(claudeView){ closeClaudeView(); return; }
     if(settingsOpen){ toggleSettings(); return; }
     if(checklistPendingOpen){ closeChecklistPending(); return; }
+    if(checklistTemplatesOpen){ closeChecklistTemplates(); return; }
     if(selectedListId){ closeChecklistList(); return; }
     if(genericTaskDetailId){ closeGenericTaskDetail(); return; }
     if(sharedItemsOpen){ closeSharedItems(); return; }

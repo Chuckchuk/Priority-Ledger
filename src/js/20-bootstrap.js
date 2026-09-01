@@ -57,6 +57,7 @@ document.addEventListener('keydown', (e) => {
     if(claudeView){ closeClaudeView(); return; }
     if(settingsOpen){ toggleSettings(); return; }
     if(checklistPendingOpen){ closeChecklistPending(); return; }
+    if(checklistTemplatesOpen){ closeChecklistTemplates(); return; }
     if(selectedListId){ closeChecklistList(); return; }
     if(genericTaskDetailId){ closeGenericTaskDetail(); return; }
     if(sharedItemsOpen){ closeSharedItems(); return; }

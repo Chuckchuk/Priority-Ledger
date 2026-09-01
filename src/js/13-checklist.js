@@ -73,7 +73,7 @@ function renderChecklistOverview(categoryId){
          the feature exists in the first place — the empty state inside
          explains where "Save as Template" lives. -->
     <div class="checklisttemplateslink">
-      <button onclick="openChecklistTemplates('${categoryId}')">📄 Templates${templateCount ? ` (${templateCount})` : ''}</button>
+      <button onclick="openChecklistTemplates('${categoryId}')">Templates${templateCount ? ` (${templateCount})` : ''}</button>
     </div>
     <ul class="tasks">
       ${visible.length ? visible.map(t=>checklistListRowHtml(t)).join('') : `<div class="empty">${cat ? `No lists in ${escapeHtml(cat.label)} yet.` : 'No lists yet.'} Add one above.</div>`}
@@ -334,6 +334,48 @@ function checklistRowTap(e, taskId){
   openChecklistList(taskId);
 }
 
+// The <Template>: <Name> title on a list linked to a still-existing
+// template splits into a fixed, boxed "<Template>:" label (see
+// .templatetitleprefix in <style> for the "little bounding box," per the
+// explicit ask) plus a plain input for just the editable <Name> half —
+// per the explicit ask to stop the whole "<Template>: <Name>" string
+// being freely rewritable, which could silently break the naming
+// convention (or drift the list away from the template it's actually
+// linked to) with a single careless edit. Falls back to the plain,
+// fully-editable title field for a list with no template link, or one
+// whose title has since been hand-edited away from starting with
+// "<Template>: " (nothing stops that at the character level; this only
+// renders the split UI when the title still visibly matches).
+function checklistTitleFieldHtml(t){
+  const tpl = t.templateId ? (state.checklistTemplates||[]).find(tp=>tp.id===t.templateId) : null;
+  const prefix = tpl ? `${tpl.name}: ` : null;
+  if(prefix && t.title.startsWith(prefix)){
+    const suffix = t.title.slice(prefix.length);
+    return `
+      <div class="templatetitlerow">
+        <span class="templatetitleprefix">${escapeHtml(tpl.name)}:</span>
+        <input type="text" class="titleedit bigtitle templatetitlesuffix" value="${escapeHtml(suffix)}"
+          onblur="updateTemplatedTitle('${t.id}', this.value)"
+          onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+      </div>`;
+  }
+  return `<input type="text" class="titleedit bigtitle" value="${escapeHtml(t.title)}"
+    onblur="updateTitle('${t.id}', this.value)"
+    onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">`;
+}
+// suffixVal empty falls back to "New List" — same reasoning as
+// confirmSaveListAsTemplate()/confirmCreateFromTemplate() below: an
+// empty <Name> half would otherwise save as "<Template>: " with nothing
+// after the colon, which reads as broken rather than intentional.
+async function updateTemplatedTitle(id, suffixVal){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  const tpl = t.templateId ? (state.checklistTemplates||[]).find(tp=>tp.id===t.templateId) : null;
+  if(!tpl) return updateTitle(id, suffixVal);
+  const suffix = suffixVal.trim() || 'New List';
+  await updateTitle(id, `${tpl.name}: ${suffix}`);
+}
+
 function renderChecklistDetail(taskId){
   const t = state.tasks.find(t=>t.id===taskId);
   const cat = CATEGORIES[t.category];
@@ -349,9 +391,7 @@ function renderChecklistDetail(taskId){
       <div class="checklistsharewrap">${shareButtonHtml(t.id)}</div>
       <div class="checklistheader">${checklistCheckcircleHtml(t, false)}</div>
       ${t.sharedImport ? `<div class="sharedbadge inline">Shared</div>` : ''}
-      <input type="text" class="titleedit bigtitle" value="${escapeHtml(t.title)}"
-        onblur="updateTitle('${t.id}', this.value)"
-        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+      ${checklistTitleFieldHtml(t)}
       <div class="taskmeta checklistmeta">Created ${fmtDate(t.createdAt)}</div>
       <div class="subwrap">
         ${subs.map(s=>`
@@ -371,18 +411,9 @@ function renderChecklistDetail(taskId){
           onkeydown="if(event.key==='Enter'){ const v=this.value; this.value=''; addSubtask('${t.id}', v); }"
           onblur="addSubtask('${t.id}', this.value)">
       </div>
-      <!-- linkedTemplate guards against a stale t.templateId pointing at
-           a template that's since been deleted — falls back to "Save as
-           Template" (which re-links it to a fresh one) rather than
-           offering "Update" on something that no longer exists. -->
       <div class="footer-row">
-        ${(()=>{
-          const linkedTemplate = t.templateId ? (state.checklistTemplates||[]).find(tpl=>tpl.id===t.templateId) : null;
-          return linkedTemplate
-            ? `<button class="templatesavebtn" onclick="updateTemplateFromList('${t.id}')" title="Overwrite &quot;${escapeHtml(linkedTemplate.name)}&quot; with this list's current items">Update Template</button>`
-            : `<button class="templatesavebtn" onclick="saveListAsTemplate('${t.id}')" title="Save this list's items as a reusable template">Save as Template</button>`;
-        })()}
-        <button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button>
+        ${checklistTemplateFooterHtml(t)}
+        ${checklistSaveTemplateTaskId === t.id ? '' : `<button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button>`}
       </div>
     </div>
   `;
@@ -492,14 +523,40 @@ function closeChecklistTemplates(){
   checklistTemplateCreateId = null;
   render();
 }
-async function saveListAsTemplate(taskId){
+// Expands an inline naming form in the list's own footer (checklistSaveTemplateTaskId
+// — see renderChecklistDetail()'s own comment) rather than saving
+// straight off the list's current title, per the explicit ask: without
+// this, the list you actually built the template from kept its plain
+// original title forever, reading as some kind of permanent "master"
+// list rather than an ordinary instance — indistinguishable, at a
+// glance in the overview, from a mistake or a leftover. Asking for both
+// names up front and renaming *this* list to "<Template>: <Name>" in
+// the same action is what keeps every list you ever see in the overview
+// in the same "<Template>: <Name>" shape once it's linked to a template,
+// with no special-cased exception for the original.
+function startSaveListAsTemplate(taskId){
+  checklistSaveTemplateTaskId = taskId;
+  render();
+  document.getElementById('templateSaveNameInput')?.focus();
+}
+function cancelSaveListAsTemplate(){
+  checklistSaveTemplateTaskId = null;
+  render();
+}
+async function confirmSaveListAsTemplate(taskId){
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
-  pushUndo(`Saved "${t.title}" as a template`);
+  const nameInput = document.getElementById('templateSaveNameInput');
+  const specificInput = document.getElementById('templateSaveSpecificInput');
+  const templateName = (nameInput ? nameInput.value.trim() : '') || t.title;
+  const specific = (specificInput ? specificInput.value.trim() : '') || 'New List';
+  pushUndo(`Saved "${templateName}" as a template`);
   if(!Array.isArray(state.checklistTemplates)) state.checklistTemplates = [];
-  const tpl = { id: newId('tpl'), name: t.title, items: (t.subtasks||[]).map(s=>s.text), createdAt: todayStr() };
+  const tpl = { id: newId('tpl'), name: templateName, items: (t.subtasks||[]).map(s=>s.text), createdAt: todayStr() };
   state.checklistTemplates.push(tpl);
   t.templateId = tpl.id;
+  t.title = `${templateName}: ${specific}`;
+  checklistSaveTemplateTaskId = null;
   render();
   queueSave();
 }
@@ -512,6 +569,36 @@ async function updateTemplateFromList(taskId){
   tpl.items = (t.subtasks||[]).map(s=>s.text);
   render();
   queueSave();
+}
+// The one footer control that changes shape three ways: the inline
+// "Save as Template" naming form while checklistSaveTemplateTaskId
+// points at this list, a disabled "Update Template" once its linked
+// template's items already match its own (nothing to push), or an
+// enabled one otherwise. linkedTemplate guards against a stale
+// t.templateId pointing at a template that's since been deleted —
+// falls back to "Save as Template" (which re-links it to a fresh one)
+// rather than offering "Update" on something that no longer exists.
+function checklistTemplateFooterHtml(t){
+  if(checklistSaveTemplateTaskId === t.id){
+    return `
+      <div class="templatesaveform">
+        <label class="templatesaveformlabel">Template name</label>
+        <input type="text" id="templateSaveNameInput" value="${escapeHtml(t.title)}">
+        <label class="templatesaveformlabel">This list's own name <span class="templatesaveformhint">e.g. "Packing List: Madrid Trip"</span></label>
+        <input type="text" id="templateSaveSpecificInput" placeholder="New List">
+        <div class="templatesaveformactions">
+          <button class="templatecreateconfirm" onclick="confirmSaveListAsTemplate('${t.id}')">Save</button>
+          <button class="templatecreatecancel" onclick="cancelSaveListAsTemplate()">Cancel</button>
+        </div>
+      </div>`;
+  }
+  const linkedTemplate = t.templateId ? (state.checklistTemplates||[]).find(tpl=>tpl.id===t.templateId) : null;
+  if(linkedTemplate){
+    const itemsChanged = JSON.stringify((t.subtasks||[]).map(s=>s.text)) !== JSON.stringify(linkedTemplate.items);
+    return `<button class="templatesavebtn" ${itemsChanged?'':'disabled'} onclick="updateTemplateFromList('${t.id}')"
+      title="${itemsChanged ? `Overwrite &quot;${escapeHtml(linkedTemplate.name)}&quot; with this list's current items` : 'No changes to update'}">Update Template</button>`;
+  }
+  return `<button class="templatesavebtn" onclick="startSaveListAsTemplate('${t.id}')" title="Save this list's items as a reusable template">Save as Template</button>`;
 }
 async function deleteChecklistTemplate(id){
   const idx = (state.checklistTemplates||[]).findIndex(tp=>tp.id===id);
@@ -579,7 +666,7 @@ function renderChecklistTemplates(categoryId){
           ${checklistTemplateCreateId === tpl.id ? `
             <div class="templatecreaterow">
               <span class="templatenameprefix">${escapeHtml(tpl.name)}: </span>
-              <input type="text" id="templateNameInput" placeholder="e.g. Madrid Trip"
+              <input type="text" id="templateNameInput" placeholder="New List"
                 onkeydown="if(event.key==='Enter'){ confirmCreateFromTemplate('${tpl.id}','${categoryId}'); } else if(event.key==='Escape'){ cancelCreateFromTemplate(); }">
               <button class="templatecreateconfirm" onclick="confirmCreateFromTemplate('${tpl.id}','${categoryId}')">Create</button>
               <button class="templatecreatecancel" onclick="cancelCreateFromTemplate()">Cancel</button>

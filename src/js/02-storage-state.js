@@ -74,6 +74,14 @@ let checklistTemplatesOpen = false; // showing the Templates view for the active
 // view — null when none is. Only one at a time, same "one thing open"
 // idiom as selectedListId/checklistPendingOpen above.
 let checklistTemplateCreateId = null;
+// Which list's own "Save as Template" naming step (startSaveListAsTemplate(),
+// 13-checklist.js) is expanded inline in its detail page's footer — null
+// when none is. A separate flag from checklistTemplateCreateId above:
+// that one names a *template* being turned into a new list, this one
+// names the *list* being turned into a template — inverse directions,
+// never open at the same time in practice, but distinct enough concepts
+// to keep as two names rather than one overloaded id.
+let checklistSaveTemplateTaskId = null;
 // Which tasks' inline .expand rows are open — render() rebuilds every row's
 // markup from scratch on every mutation (see taskRowHtml), which would
 // otherwise silently collapse every *other* expanded task back to closed
@@ -596,7 +604,12 @@ function defaultTasks(){
     subtasks: [], plannedDates: [], timeframe:'', priority:0, completedAt:'', createdAt: todayStr(),
     ...extra
   });
-  const list = mk('Packing list', 'lists');
+  // Titled "<Template>: <Name>" from the start, and linked to a template
+  // (seeded alongside it — see defaultState() below) rather than a plain
+  // "Packing list" — per the explicit ask: a bare-titled example list
+  // would demonstrate the wrong convention for a feature whose whole
+  // point is that every real list ends up "<Template>: <Name>" shaped.
+  const list = mk('Packing list: Madrid Trip', 'lists', { templateId: newId('tpl') });
   list.subtasks = [
     { id:newId('sub'), text:'Passport', done:false, dueDate:'', plannedDates:[] },
     { id:newId('sub'), text:'Phone charger', done:false, dueDate:'', plannedDates:[] },
@@ -624,10 +637,23 @@ function defaultTasks(){
 }
 
 function defaultState(){
+  const tasks = defaultTasks();
+  // The example "Packing list: Madrid Trip" list (defaultTasks() above)
+  // is seeded already linked to a templateId — build the matching
+  // template entry from its own items here, so a fresh account's
+  // Templates view isn't empty either. Keeps the id-generation for that
+  // link in the one place (defaultTasks()) rather than duplicating it.
+  const list = tasks.find(t => t.category === 'lists' && t.templateId);
+  const checklistTemplates = list ? [{
+    id: list.templateId,
+    name: 'Packing list',
+    items: list.subtasks.map(s => s.text),
+    createdAt: todayStr()
+  }] : [];
   return {
     location: 'home',
     days: [],
-    tasks: defaultTasks(),
+    tasks,
     categories: defaultCategories(),
     locations: defaultLocations(),
     locationEnabled: true,
@@ -635,7 +661,7 @@ function defaultState(){
     advancedTaskFields: true,
     devSettings: defaultDevSettings(),
     trash: [],
-    checklistTemplates: []
+    checklistTemplates
   };
 }
 
