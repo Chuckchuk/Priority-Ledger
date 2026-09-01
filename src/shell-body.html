@@ -114,6 +114,11 @@
            the real .tab.active element itself never successfully could. -->
       <div class="tabconnector" id="tabConnector"></div>
       <div id="categoryView">
+        <!-- "Shared N" compact tag (renderList(), 08-render-core.js) —
+             only ever filled in on the All tab. .pagetag.compact is
+             position:absolute against #appCard so this empty div costs
+             no layout space of its own when there's nothing to show. -->
+        <div id="sharedTagSlot"></div>
         <!-- Mobile UI Lab (quickAddMobileStyle) — the trigger is a fixed,
              sticky bottom button whenever mobileui-active (see .quickaddtrigger
              in <style>); the setting only picks what tapping it opens
@@ -166,6 +171,10 @@
            button, the desktop right-click menu, or (in taskLongPressMode
            'detail') a plain tap — instead of just from within Daily. -->
       <div id="genericTaskDetailView" style="display:none;"></div>
+      <!-- The "Shared N" compact tag's own drilldown (openSharedItems(),
+           19-sharing.js) — same top-tier overlay pattern as
+           #genericTaskDetailView just above. -->
+      <div id="sharedItemsView" style="display:none;"></div>
     </div>
     </div>
   </div>
