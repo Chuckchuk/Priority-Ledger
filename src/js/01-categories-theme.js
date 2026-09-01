@@ -305,7 +305,7 @@ function applyThemeObject(t){
   root.setProperty('--primary-light', ui.primaryLight);
   root.setProperty('--secondary', ui.secondary);
   root.setProperty('--secondary-light', ui.secondaryLight);
-  // Text-input accent (--input-accent, read by .notesfield/.subdateedit &
+  // Text-input accent (--input-accent, read by .notesfield/.datefieldedit &
   // co. in <style>) — just --primary itself now, not a computed
   // complementary color off the Ledger/paper hue. A true complement can
   // land anywhere on the color wheel depending on what paper color
@@ -1051,7 +1051,7 @@ const DEV_ELEMENT_NAME_RULES = [
   { sel: '.subcheck.circle' },
   { sel: '.subcheck' },
   { sel: '.subtext' },
-  { sel: '.subdate' },
+  { sel: '.datefield' },
   { sel: '.subadd' },
   { sel: '.subdel' },
   { sel: '.quickadd' },

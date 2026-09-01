@@ -9,7 +9,7 @@
     --paper:#F1EAD9;
     --card-bg:#F1EAD9;
     --card-bg-dim:#E7DDC5;
-    /* Text-input accent (.notesfield/.subdateedit & co. in <style>) — the
+    /* Text-input accent (.notesfield/.datefieldedit & co. in <style>) — the
        classic preset's own --primary value here, same as that var's own
        fallback below; applyThemeObject() (01-categories-theme.js) keeps
        the two in sync at runtime so this always matches whatever UI
@@ -1091,7 +1091,7 @@
   .subrow.listdone{ opacity:0.5; }
   .subrow.listdone .subtext{ text-decoration: line-through; }
   /* display:contents (same trick as .expandactions above it) — invisible
-     to layout by default, so .subdate/the pin button/.subdel stay direct
+     to layout by default, so .datefield/the pin button/.subdel stay direct
      participants of .subrow's own single-line flex row exactly as if
      this wrapper weren't there. Only becomes a real element on mobile
      (see body.mobileui-active .subrowactions below), where a longer
@@ -1103,7 +1103,7 @@
      against that full new height was pulling the drag handle and
      checkbox down off the first line of text instead of staying level
      with it ("inline with the subtask text," per the explicit ask —
-     those two specifically should never move, only .subdate/the pin
+     those two specifically should never move, only .datefield/the pin
      button/.subdel drop to their own row below). */
   body.mobileui-active .subrow{ flex-wrap:wrap; align-items:flex-start; }
   /* flex-basis 0 (the "1" in the flex:1 shorthand), NOT auto — flex-wrap
@@ -1217,16 +1217,23 @@
      control living in two places, not two different ones. */
   .rowpin.on{ background: var(--primary); color:white; border-color: var(--primary); }
   .rowexpand:hover{ border-color: var(--ink); color: var(--ink); }
-  /* A step's own optional date — discreet by design, per the ask: a
-     small muted pill rather than a full date input. Empty state gets a
-     dashed underline (echoing .subadd's own placeholder-as-invitation
-     look) so it still reads as clickable even with no value to show. */
-  .subdate{
+  /* The shared date-pill field — a step's own optional date AND (via the
+     .taskdate modifier just below) a task's own due date both render
+     through this one base class now. Named .datefield rather than
+     .subdate (its old name) since it stopped being subtask-exclusive the
+     moment the task-detail page grew its own boxed .taskdate variant —
+     the old name was actively misleading by then, not just imprecise.
+     Un-modified (a step's own date) stays discreet by design, per the
+     original ask: a small muted pill rather than a full date input.
+     Empty state gets a dashed underline (echoing .subadd's own
+     placeholder-as-invitation look) so it still reads as clickable even
+     with no value to show. */
+  .datefield{
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--ink-soft);
     cursor:pointer; flex-shrink:0; padding:3px 2px; border-bottom:1px dashed transparent;
   }
-  .subdate.empty{ opacity:0.65; border-bottom-color: var(--ink-soft); }
-  .subdateedit{
+  .datefield.empty{ opacity:0.65; border-bottom-color: var(--ink-soft); }
+  .datefieldedit{
     width:120px; border:none; border-bottom:1.5px solid var(--ink-soft); background:transparent;
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; padding:3px 2px; color:var(--ink); outline:none; flex-shrink:0;
   }
@@ -1236,17 +1243,29 @@
      categoryLabelHtml()'s own comment) and reads as one of that row's
      more prominent controls rather than something to underplay.
      .taskdateedit (set by startEditTaskDueDate(), 08-render-core.js) is
-     the equivalent bump for the swapped-in text input while editing. */
-  .subdate.taskdate{
+     the equivalent bump for the swapped-in text input while editing —
+     kept as its own modifier name rather than renamed alongside the base
+     class, since ".task" already correctly said which variant this was
+     regardless of what the base class itself was called. */
+  .datefield.taskdate{
     font-size: 0.82rem; padding: 7px 10px;
     background: var(--card-bg-dim); border: 1px solid var(--line); border-bottom: 1px solid var(--line);
     border-radius: 6px;
   }
-  .subdate.taskdate.empty{ border-style: solid; }
-  .subdateedit.taskdateedit{
+  .datefield.taskdate.empty{ border-style: solid; }
+  .datefieldedit.taskdateedit{
     width: 150px; font-size: 0.82rem; padding: 7px 10px;
     background: var(--card-bg-dim); border: 1px solid var(--input-accent); border-radius: 6px;
   }
+  /* Glitch fix: on the full detail page, .datefield.taskdate itself
+     claims the whole row (.expand-row.hideactions .taskdate below), but
+     the swapped-in edit <input> only ever carried .taskdateedit's own
+     fixed 150px width above — clicking a full-row-wide date field to
+     edit it visibly snapped down to a small ~150px box mid-click. This
+     re-widens the input to match, scoped to the same .hideactions row
+     the display-mode rule below is scoped to, so the long-press settings
+     sheet's own narrower, shared-row date field is untouched. */
+  .expand-row.hideactions .taskdateedit{ width:100%; box-sizing:border-box; }
   /* A step planned onto a day, shown "TASK > step" (see daySubtaskRowHtml)
      — the task half stays muted so the step itself reads as the subject. */
   .daysubparent{ color: var(--ink-soft); }
@@ -1266,7 +1285,7 @@
      cue a visible anchor line rather than just empty space. */
   .daysubnested{ margin-left:34px; padding-left:10px; border-left:2px solid var(--line); }
   /* Boxed and accent-bordered, not the plain dashed-underline treatment
-     this used to share with a step's own discreet .subdate — adding a
+     this used to share with a step's own discreet .datefield — adding a
      step is one of this app's more important actions (arguably more so
      than the Notes field it used to visually undersell itself next to),
      so it gets a resting state that reads as its own real control, not
@@ -2809,7 +2828,7 @@
     flex-direction:column; align-items:stretch; gap:8px;
   }
   body.mobileui-active[data-taskdetail-mobile="stacked"] .expand-row .catselect,
-  body.mobileui-active[data-taskdetail-mobile="stacked"] .expand-row .subdate{
+  body.mobileui-active[data-taskdetail-mobile="stacked"] .expand-row .datefield{
     width:100%;
   }
   body.mobileui-active[data-taskdetail-mobile="stacked"] .expandactions{
@@ -2826,7 +2845,7 @@
   }
   body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row .fieldlabel{ display:none; }
   body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row .catselect,
-  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row .subdate{
+  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row .datefield{
     width:100%;
   }
   body.mobileui-active[data-taskdetail-mobile="grouped"] .expandactions{

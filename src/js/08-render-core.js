@@ -88,8 +88,18 @@ function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
         <select class="catselect" onchange="updateCategory('${t.id}', this.value)">
           ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${t.category===k?'selected':''}>${v.label}</option>`).join('')}
         </select>`}
-        <label class="fieldlabel">DUE</label>
-        <span class="subdate taskdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateShort(t.dueDate) : 'Date'}</span>
+        <!-- The "DUE" caption is only dropped on the full detail page
+             (hideActions) — it's the one context where the date field
+             already claims its own full row (see the .taskdate rule in
+             <style>) and had nothing else nearby it could be confused
+             with, so the label was pure unused space. The empty-state
+             placeholder swaps to "Due Date" there instead, so the field
+             still says what it is without the caption's help; the
+             long-press settings sheet (hideActions omitted) keeps both
+             exactly as before, since its own date field sits crowded
+             next to the category select and flag/pin buttons. -->
+        ${hideActions ? '' : `<label class="fieldlabel">DUE</label>`}
+        <span class="datefield taskdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateShort(t.dueDate) : (hideActions ? 'Due Date' : 'Date')}</span>
         <div class="expandactions">
           ${hideActions ? '' : `
           <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
@@ -103,7 +113,7 @@ function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
 // (15-subtask-edit.js) — natural-language parsing (today, tmrw, 9/1,
 // tue…) via parseNaturalDate() instead of a native <input type=date>,
 // per the explicit ask to make a task's own due date behave (and look —
-// see .subdate/.subdateedit in <style>) like a step's already does,
+// see .datefield/.datefieldedit in <style>) like a step's already does,
 // rather than the native picker's largely unstyleable white/square
 // chrome. An empty input clears the date; unparseable text just reverts
 // rather than guessing wrong.
@@ -112,7 +122,7 @@ function startEditTaskDueDate(el, taskId){
   if(!t) return;
   const input = document.createElement('input');
   input.type = 'text';
-  input.className = 'subdateedit taskdateedit';
+  input.className = 'datefieldedit taskdateedit';
   input.value = t.dueDate ? fmtDateShort(t.dueDate) : '';
   input.placeholder = 'today, tmrw, 9/1, tue…';
   el.replaceWith(input);
@@ -193,7 +203,7 @@ function taskSubtasksHtml(t){
             <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
             <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <div class="subrowactions">
-              <div class="subdate ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
+              <div class="datefield ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
               <button class="flagbtn daybtn ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
               <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
             </div>

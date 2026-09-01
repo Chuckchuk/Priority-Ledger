@@ -37,7 +37,7 @@ function startEditSubtaskDate(el, taskId, subId){
   if(!s) return;
   const input = document.createElement('input');
   input.type = 'text';
-  input.className = 'subdateedit';
+  input.className = 'datefieldedit';
   input.value = s.dueDate ? fmtDateShort(s.dueDate) : '';
   input.placeholder = 'today, tmrw, 9/1, tue…';
   el.replaceWith(input);
