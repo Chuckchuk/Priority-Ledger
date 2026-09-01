@@ -8287,10 +8287,19 @@ function categoryMoveMenuHtml(t){
 // also tears down genericTaskDetailId (see its own comment), which would
 // slam the task detail page you just moved *from* shut; this only needs
 // to swap which tab is waiting underneath for whenever you do back out.
+// Order matters here: activeTab must be updated BEFORE updateCategory()
+// runs, not after. updateCategory() calls render() synchronously (it's
+// declared async but never actually awaits anything, so it runs to
+// completion immediately) — setting activeTab afterward left that
+// render() painting the OLD tab as active, with nothing to repaint it a
+// second time until some unrelated future render happened to run, by
+// which point THIS move's activeTab change would finally show up
+// alongside whatever the NEXT move had just done to state — the exact
+// "one move behind" glitch this order fixes.
 function moveTaskCategoryFollowingTab(taskId, newCat){
   const shouldFollow = activeTab !== 'all' && activeTab !== 'daily';
-  updateCategory(taskId, newCat);
   if(shouldFollow) activeTab = newCat;
+  updateCategory(taskId, newCat);
 }
 function renderCategoryMoveMenu(taskId, x, y){
   const t = state.tasks.find(x2=>x2.id===taskId);
