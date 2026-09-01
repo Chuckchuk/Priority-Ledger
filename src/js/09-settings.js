@@ -465,17 +465,10 @@ function categoryPickerHtml(c){
     return `
     <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}"><span${glyphStyle}>${CATEGORY_ICON_SVG[id] || CATEGORY_ICON_GLYPHS[id]}</span></button>`;
   }).join('');
-  // Which whole 12-color set is active — a global choice (see
-  // setCategoryPaletteSet() below), just exposed from inside this one
-  // category's own popover rather than from Appearance, since this is
-  // the only place a category's color ever gets picked from anyway.
-  const paletteTabsHtml = `<div class="palettetabs">${Object.values(CATEGORY_PALETTE_SETS).map(set=>
-    `<button class="palettetab ${state.categoryPaletteId===set.id?'active':''}" onclick="setCategoryPaletteSet('${set.id}')">${set.label}</button>`
-  ).join('')}</div>`;
   return `
     <div class="catpicker">
       <button class="catpickerclose" onclick="toggleCategoryPicker('${c.id}')" title="Close">×</button>
-      ${paletteTabsHtml}
+      ${paletteTabsHtml(CATEGORY_PALETTE_SETS, state.categoryPaletteId, 'setCategoryPaletteSet')}
       <div class="catpickerlabel">Color</div>
       <div class="catswatchrow">
         ${swatches}${customSwatches}
@@ -878,6 +871,68 @@ async function setCategoryPaletteSet(id){
   state.categoryPaletteId = id;
   rebuildCategoryPalette();
   rebuildCategoriesIndex();
+  render();
+  queueSave();
+}
+
+// Shared tab-bar markup for switching which whole preset set is active —
+// used by categoryPickerHtml() (CATEGORY_PALETTE_SETS), deskPaperPickerHtml()
+// (DESK_PAPER_PRESET_SETS), and uiColorPickerHtml() (UI_COLOR_PRESET_SETS).
+// Renders nothing at all when there's only one set to choose from (UI
+// Colors today, until a second set exists there) rather than showing a
+// single tab with nothing to switch to.
+function paletteTabsHtml(sets, activeId, switchFn){
+  const entries = Object.values(sets);
+  if(entries.length < 2) return '';
+  return `<div class="palettetabs">${entries.map(set=>
+    `<button class="palettetab ${activeId===set.id?'active':''}" onclick="${switchFn}('${set.id}')">${set.label}</button>`
+  ).join('')}</div>`;
+}
+
+// Switches which of DESK_PAPER_PRESET_SETS is active — a global choice,
+// isolated from the UI Colors and Category Colors palette switches (each
+// has its own state.*PaletteId, see defaultState() in 02-storage-state.js).
+// Unlike setCategoryPaletteSet(), there's only ever one "current" thing to
+// re-map (state.theme.bg/paper itself, not N categories) — if it currently
+// matches a preset in the outgoing set exactly, the matching same-index
+// preset in the new set is applied; otherwise (a custom bg/paper, or a
+// saved custom template — deskPaperPresetActive() can't match either
+// against the built-in array) it's left alone, same "custom stays fixed"
+// rule the category version follows.
+async function setDeskPaletteSet(id){
+  const newSet = DESK_PAPER_PRESET_SETS[id];
+  if(!newSet || state.deskPaletteId === id) return;
+  const oldPresets = DESK_PAPER_PRESETS; // still the outgoing set at this point
+  const idx = oldPresets.findIndex(deskPaperPresetActive);
+  pushUndo(`Changed desk & ledger palette to "${newSet.label}"`);
+  state.deskPaletteId = id;
+  rebuildDeskPaperPresets();
+  if(idx !== -1 && DESK_PAPER_PRESETS[idx]){
+    state.theme.bg = DESK_PAPER_PRESETS[idx].bg;
+    state.theme.paper = DESK_PAPER_PRESETS[idx].paper;
+  }
+  applyTheme();
+  render();
+  queueSave();
+}
+
+// Same idea as setDeskPaletteSet(), for UI_COLOR_PRESET_SETS — except the
+// "currently active preset" is a stored id (state.theme.uiPreset), not a
+// value match, so the re-map looks up that id's index in the outgoing set
+// rather than comparing colors. 'custom' is never in the array, so it
+// naturally falls through to "leave it alone."
+async function setUiPaletteSet(id){
+  const newSet = UI_COLOR_PRESET_SETS[id];
+  if(!newSet || state.uiPaletteId === id) return;
+  const oldPresets = UI_COLOR_PRESETS; // still the outgoing set at this point
+  const idx = oldPresets.findIndex(p=>p.id===state.theme.uiPreset);
+  pushUndo(`Changed UI colors palette to "${newSet.label}"`);
+  state.uiPaletteId = id;
+  rebuildUiColorPresets();
+  if(idx !== -1 && UI_COLOR_PRESETS[idx]){
+    state.theme.uiPreset = UI_COLOR_PRESETS[idx].id;
+  }
+  applyTheme();
   render();
   queueSave();
 }
@@ -1307,6 +1362,7 @@ function deskPaperPickerHtml(){
   return `
     <div class="catpicker uicolorpicker">
       <button class="catpickerclose" onclick="toggleDeskPaperPicker()" title="Close">×</button>
+      ${paletteTabsHtml(DESK_PAPER_PRESET_SETS, state.deskPaletteId, 'setDeskPaletteSet')}
       <div class="catpickerlabel">Desk & Ledger</div>
       <div class="uipresetgrid">${options}${customSaved}${customTile}</div>
     </div>`;
@@ -1438,6 +1494,7 @@ function uiColorPickerHtml(){
   return `
     <div class="catpicker uicolorpicker">
       <button class="catpickerclose" onclick="toggleUiColorPicker()" title="Close">×</button>
+      ${paletteTabsHtml(UI_COLOR_PRESET_SETS, state.uiPaletteId, 'setUiPaletteSet')}
       <div class="catpickerlabel">UI Colors</div>
       <div class="uipresetgrid">${options}${customSaved}${customTile}</div>
     </div>`;

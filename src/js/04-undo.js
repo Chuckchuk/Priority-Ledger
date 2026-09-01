@@ -38,6 +38,8 @@ function refreshUndoButtons(){
 function afterStateRestore(){
   rebuildCategoriesIndex();
   rebuildCategoryPalette();
+  rebuildDeskPaperPresets();
+  rebuildUiColorPresets();
   applyTheme();
   applyDevSettings();
   if(!visibleTabs().includes(activeTab)) activeTab = 'all';

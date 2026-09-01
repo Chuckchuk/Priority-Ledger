@@ -255,21 +255,43 @@ function defaultTheme(){
 // now Copper) rather than a free color — that's deliberate, so re-sort
 // against Primary's hue only when adding another entry, per the standing
 // rule in CLAUDE.md.
-const UI_COLOR_PRESETS = [
-  { id:'burgundy',  label:'Burgundy & Brass',  primary:'#7A2E35', primaryLight:'#A53E48', secondary:'#A9782F', secondaryLight:'#C99A4E' },
-  { id:'rust',      label:'Brass & Rust',     primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#9C4530', secondaryLight:'#C3563C' },
-  { id:'classic',   label:'Full Brass',       primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
-  { id:'forest',    label:'Forest & Brass',   primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#A9782F', secondaryLight:'#C99A4E' },
-  { id:'forestrust', label:'Forest & Rust',    primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#9C4530', secondaryLight:'#C3563C' },
-  { id:'slate',     label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
-  // Copper (#B87333, the standard web/real-world copper reference hex)
-  // as a third "metal" Secondary alongside Brass/Rust, per the project
-  // owner's own ask — paired with Slate (an existing Primary, not a new
-  // one) for a cool-blue-against-warm-copper contrast, and grouped here
-  // with the rest of the slate-primary family rather than off on its own.
-  { id:'copper',    label:'Slate & Copper',   primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#B87333', secondaryLight:'#F89B45' },
-  { id:'charcoal',  label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' }
-];
+// Wrapped in a sets map (mirrors CATEGORY_PALETTE_SETS/DESK_PAPER_PRESET_SETS
+// below) so the UI Colors picker can offer palette-switching tabs the same
+// way Category Colors and Desk & Ledger do — see setUiPaletteSet() in
+// 09-settings.js. Only 'classic' exists today (nothing has been asked to
+// split off yet), so the tab bar stays hidden until a second set is added
+// (paletteTabsHtml() only renders when there's more than one to choose
+// between) — the map shape is just here so adding one later doesn't need
+// a data-shape migration.
+const UI_COLOR_PRESET_SETS = {
+  classic: {
+    id: 'classic', label: 'Classic',
+    presets: [
+      { id:'burgundy',  label:'Burgundy & Brass',  primary:'#7A2E35', primaryLight:'#A53E48', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+      { id:'rust',      label:'Brass & Rust',     primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#9C4530', secondaryLight:'#C3563C' },
+      { id:'classic',   label:'Full Brass',       primary:'#A9782F', primaryLight:'#C99A4E', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+      { id:'forest',    label:'Forest & Brass',   primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#A9782F', secondaryLight:'#C99A4E' },
+      { id:'forestrust', label:'Forest & Rust',    primary:'#3C5A45', primaryLight:'#4B7056', secondary:'#9C4530', secondaryLight:'#C3563C' },
+      { id:'slate',     label:'Slate & Rust',     primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#9C4530', secondaryLight:'#C3563C' },
+      // Copper (#B87333, the standard web/real-world copper reference hex)
+      // as a third "metal" Secondary alongside Brass/Rust, per the project
+      // owner's own ask — paired with Slate (an existing Primary, not a
+      // new one) for a cool-blue-against-warm-copper contrast, and grouped
+      // here with the rest of the slate-primary family rather than off on
+      // its own.
+      { id:'copper',    label:'Slate & Copper',   primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#B87333', secondaryLight:'#F89B45' },
+      { id:'charcoal',  label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' }
+    ]
+  }
+};
+// Reassignable pointer into the active set's presets — every call site
+// still reads it as a flat array (`UI_COLOR_PRESETS.find(...)` etc.), it
+// just can't assume it's static any more. Rebuilt by rebuildUiColorPresets()
+// in normalizeState()/afterStateRestore(), same idiom as CATEGORY_PALETTE.
+let UI_COLOR_PRESETS = UI_COLOR_PRESET_SETS.classic.presets;
+function rebuildUiColorPresets(){
+  UI_COLOR_PRESETS = (UI_COLOR_PRESET_SETS[state.uiPaletteId] || UI_COLOR_PRESET_SETS.classic).presets;
+}
 // 'custom' isn't in UI_COLOR_PRESETS (it's user data, not a fixed
 // preset) — state.theme.customUi carries its own label/primary/
 // primaryLight/secondary/secondaryLight the same shape as a real preset
@@ -286,64 +308,96 @@ function uiColorPreset(id){
 // separate "which preset is active" field to store or migrate, and no
 // reason there should be: once picked, bg/paper are exactly as free to
 // keep customizing as if they'd been dragged to by hand.
-// 'classic' reproduces the app's original literal bg/paper hexes.
-// Ordered by Ledger (paper) color, from classic's own pale cream out to
-// navy's much more saturated golden parchment at the far end — plum
-// first since its paper is the grayest/least-saturated of the bunch (a
-// small step further from classic than classic is from itself), then
-// charcoal and oak (both close, pale near-white creams), then maroon's
-// slightly pinker blush, ending on the two genuinely parchment-toned
-// papers (navy, then espresso, its own paper picked to sit right next to
-// navy's) — a real gradient rather than the add-order the set used to
-// just accumulate in. Bg is the tiebreaker where paper alone doesn't
-// clearly separate two entries (not needed below — every paper here is
-// distinct enough on its own that no two entries actually tied).
-// Ordered by Ledger (paper) color — see the standing rule on this in
-// CLAUDE.md's "Conventions": any time a preset color is added to *any*
-// of these palette arrays (Desk & Ledger, UI Colors, category colors),
-// re-sort the whole array by its own organizing rule again immediately,
-// don't just append. classic anchors the pale end; the two most
-// saturated/golden entries (barrel, teal) — added later, further along
-// the same "increasingly warm/saturated" direction navy's own parchment
-// already established — anchor the far end.
-const DESK_PAPER_PRESETS = [
-  // "Forest & Bone" — a real name in line with every other entry here
-  // (was just "Classic"), for the app's own original literal bg/paper
-  // hexes. id stays 'classic' (nothing keys off the label text).
-  { id:'classic',  label:'Forest & Bone',       bg:'#28362E', paper:'#F1EAD9' },
-  // Kept the original moody near-black espresso-brown desk (the project
-  // owner's own favorite part of the old "Espresso & Parchment") but
-  // re-paired: parchment's own gold turned out not to suit it as well as
-  // hoped, so it pairs with a plain warm cream instead — "Cream" also
-  // just reads as the other half of "Espresso," coffee-and-cream. This
-  // is NOT the same paper as Navy & Parchment's own.
-  { id:'espresso', label:'Espresso & Cream',   bg:'#241812', paper:'#F0E6D6' },
-  { id:'plum',     label:'Plum & Linen',       bg:'#3B2A44', paper:'#EDE6DC' },
-  { id:'charcoal', label:'Charcoal & Birch',   bg:'#26241F', paper:'#F2ECE0' },
-  { id:'oak',      label:'Oak & Ivory',        bg:'#3D2B1F', paper:'#F5EFE0' },
-  // Deep oxblood/maroon desk, paired with a paper that leans slightly
-  // warm-blush rather than the plain creams above — echoes the bg's own
-  // warmth (same "contrast, not match" idea Navy & Parchment's cool bg /
-  // warm gold-cream paper already follows) without literally matching it.
-  // "Vellum" (real bookbinding parchment, not just a color name) rather
-  // than "Blush" per the project owner's own ask for a less feminine-
-  // reading second word.
-  { id:'maroon',   label:'Maroon & Vellum',    bg:'#4B1D23', paper:'#F2E1D9' },
-  // A genuinely different, more amber/caramel ledger than Navy's own
-  // parchment (not a re-use — see the project owner's own ask that this
-  // NOT be "exactly the same as Navy & Parchment"), paired with a warm
-  // near-black oak-barrel brown — the "whisky" vibe the project owner
-  // asked to try: not a literal whisky-colored swatch, but the mood of
-  // one (dark aged wood, warm low amber light on the page), same way
-  // Maroon & Vellum's own pairing is about a mood, not a literal match.
-  { id:'barrel',   label:'Barrel & Amber',     bg:'#2E1D12', paper:'#E3C79A' },
-  { id:'navy',     label:'Navy & Parchment',   bg:'#1F2937', paper:'#EFDDB0' },
-  // A different desk again (the project owner's own ask — not espresso
-  // a second time) paired with the most saturated, golden "parchment
-  // family" ledger of the set — deep teal against warm honey-gold is a
-  // classic library/banker's-lamp pairing.
-  { id:'teal',     label:'Teal & Honey',       bg:'#1C3D42', paper:'#E6C888' }
-];
+// Split into two sets, same shape/reasoning as CATEGORY_PALETTE_SETS/
+// UI_COLOR_PRESET_SETS — a palette-tabs bar in the picker (see
+// deskPaperPickerHtml() in 09-settings.js) switches between them, and
+// setDeskPaletteSet() there re-maps state.theme.bg/paper to the same
+// index in the new set IF they currently match a preset in the outgoing
+// one; a custom bg/paper (or a saved custom template) never matches by
+// definition, so it's untouched by a palette switch, same "custom stays
+// fixed" rule the category version follows.
+// 'classic' keeps the original warm/saturated spread — 'classic' itself
+// reproduces the app's original literal bg/paper hexes, ordered by Ledger
+// (paper) color from its own pale cream out to teal's much more
+// saturated golden honey at the far end (plum next — its paper is the
+// grayest/least-saturated of the bunch — then maroon's blush, then
+// barrel and navy's two genuinely parchment/amber-toned papers, per the
+// standing re-sort-on-change rule in CLAUDE.md's "Conventions").
+// 'greyscale' pulls out the three moodiest, least-saturated near-neutral
+// pairs (Espresso & Cream, Charcoal & Birch, and Oak & Ivory) into their
+// own set — same "browns count as greyscale too" idea
+// CATEGORY_PALETTE_SETS.greyscale already established for category
+// colors. Oak & Ivory specifically: its own bg (#3D2B1F) and Barrel &
+// Amber's (#2E1D12) are close enough in raw hue that Classic didn't need
+// both, and Barrel's much more saturated amber-gold paper gives Classic
+// more personality/color-pop than Oak's near-white ivory paper would —
+// so Barrel & Amber stays as Classic's one "brownish" entry (per the
+// project owner's own ask to keep at least one there) while Oak & Ivory,
+// the plainer/more sterile of the two pairings, joins Greyscale instead.
+const DESK_PAPER_PRESET_SETS = {
+  classic: {
+    id: 'classic', label: 'Classic',
+    presets: [
+      // "Forest & Bone" — a real name in line with every other entry here
+      // (was just "Classic"), for the app's own original literal bg/paper
+      // hexes. id stays 'classic' (nothing keys off the label text).
+      { id:'classic',  label:'Forest & Bone',       bg:'#28362E', paper:'#F1EAD9' },
+      { id:'plum',     label:'Plum & Linen',       bg:'#3B2A44', paper:'#EDE6DC' },
+      // Deep oxblood/maroon desk, paired with a paper that leans slightly
+      // warm-blush rather than the plain creams above — echoes the bg's
+      // own warmth (same "contrast, not match" idea Navy & Parchment's
+      // cool bg / warm gold-cream paper already follows) without
+      // literally matching it. "Vellum" (real bookbinding parchment, not
+      // just a color name) rather than "Blush" per the project owner's
+      // own ask for a less feminine-reading second word. Values updated
+      // to match the project owner's own hand-tuned "Whiskey" custom
+      // preset (#4B1F1D/#F2DBC4) — close enough to the original hexes to
+      // be visually indistinguishable, so this is a straight merge rather
+      // than a new look; the label stays "Maroon & Vellum" since that
+      // name still fits (the project owner's own read: "kind of like
+      // Wine") and nothing about the mood actually changed.
+      { id:'maroon',   label:'Maroon & Vellum',    bg:'#4B1F1D', paper:'#F2DBC4' },
+      // A genuinely different, more amber/caramel ledger than Navy's own
+      // parchment (not a re-use — see the project owner's own ask that
+      // this NOT be "exactly the same as Navy & Parchment"), paired with
+      // a warm near-black oak-barrel brown — the "whisky" vibe the
+      // project owner asked to try: not a literal whisky-colored swatch,
+      // but the mood of one (dark aged wood, warm low amber light on the
+      // page), same way Maroon & Vellum's own pairing is about a mood,
+      // not a literal match.
+      { id:'barrel',   label:'Barrel & Amber',     bg:'#2E1D12', paper:'#E3C79A' },
+      { id:'navy',     label:'Navy & Parchment',   bg:'#1F2937', paper:'#EFDDB0' },
+      // A different desk again (the project owner's own ask — not
+      // espresso a second time) paired with the most saturated, golden
+      // "parchment family" ledger of the set — deep teal against warm
+      // honey-gold is a classic library/banker's-lamp pairing.
+      { id:'teal',     label:'Teal & Honey',       bg:'#1C3D42', paper:'#E6C888' }
+    ]
+  },
+  greyscale: {
+    id: 'greyscale', label: 'Greyscale',
+    presets: [
+      // Kept the original moody near-black espresso-brown desk (the
+      // project owner's own favorite part of the old "Espresso &
+      // Parchment") but re-paired: parchment's own gold turned out not to
+      // suit it as well as hoped, so it pairs with a plain warm cream
+      // instead — "Cream" also just reads as the other half of
+      // "Espresso," coffee-and-cream. This is NOT the same paper as Navy
+      // & Parchment's own.
+      { id:'espresso', label:'Espresso & Cream',   bg:'#241812', paper:'#F0E6D6' },
+      { id:'charcoal', label:'Charcoal & Birch',   bg:'#26241F', paper:'#F2ECE0' },
+      { id:'oak',      label:'Oak & Ivory',        bg:'#3D2B1F', paper:'#F5EFE0' }
+    ]
+  }
+};
+// Reassignable pointer into the active set's presets, same idiom as
+// CATEGORY_PALETTE/UI_COLOR_PRESETS — every call site still reads it as a
+// flat array. Rebuilt by rebuildDeskPaperPresets() in
+// normalizeState()/afterStateRestore().
+let DESK_PAPER_PRESETS = DESK_PAPER_PRESET_SETS.classic.presets;
+function rebuildDeskPaperPresets(){
+  DESK_PAPER_PRESETS = (DESK_PAPER_PRESET_SETS[state.deskPaletteId] || DESK_PAPER_PRESET_SETS.classic).presets;
+}
 
 function clamp255(n){ return Math.max(0, Math.min(255, n)); }
 

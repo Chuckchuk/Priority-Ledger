@@ -685,7 +685,12 @@ function defaultState(){
     // Which of CATEGORY_PALETTE_SETS (01-categories-theme.js) is active —
     // 'classic' is the original set, so that's the default for both a
     // brand-new account and rebuildCategoryPalette()'s own fallback.
-    categoryPaletteId: 'classic'
+    categoryPaletteId: 'classic',
+    // Same idea, one each for the Desk & Ledger and UI Colors pickers —
+    // kept as two separate fields (not reusing categoryPaletteId) since
+    // switching one is explicitly NOT meant to affect the other two.
+    deskPaletteId: 'classic',
+    uiPaletteId: 'classic'
   };
 }
 
@@ -720,6 +725,14 @@ function normalizeState(){
   if(!Array.isArray(state.customUiPresets)) state.customUiPresets = [];
   if(!Array.isArray(state.customCategoryColors)) state.customCategoryColors = [];
   if(typeof state.categoryPaletteId !== 'string' || !CATEGORY_PALETTE_SETS[state.categoryPaletteId]) state.categoryPaletteId = 'classic';
+  if(typeof state.deskPaletteId !== 'string' || !DESK_PAPER_PRESET_SETS[state.deskPaletteId]) state.deskPaletteId = 'classic';
+  if(typeof state.uiPaletteId !== 'string' || !UI_COLOR_PRESET_SETS[state.uiPaletteId]) state.uiPaletteId = 'classic';
+  // Rebuild both pointers before anything below (e.g. the theme.uiPreset
+  // validation just past this) reads UI_COLOR_PRESETS/DESK_PAPER_PRESETS —
+  // they need to reflect this account's own deskPaletteId/uiPaletteId, not
+  // whatever a previous account left them pointing at.
+  rebuildDeskPaperPresets();
+  rebuildUiColorPresets();
   // Accounts saved before tabs became editable won't have a categories
   // array yet — seed it with the same set they've always seen so nothing
   // about their existing tasks' categories changes. Same idea for
