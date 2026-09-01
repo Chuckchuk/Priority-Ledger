@@ -258,11 +258,21 @@ function defaultTheme(){
 // Wrapped in a sets map (mirrors CATEGORY_PALETTE_SETS/DESK_PAPER_PRESET_SETS
 // below) so the UI Colors picker can offer palette-switching tabs the same
 // way Category Colors and Desk & Ledger do — see setUiPaletteSet() in
-// 09-settings.js. Only 'classic' exists today (nothing has been asked to
-// split off yet), so the tab bar stays hidden until a second set is added
-// (paletteTabsHtml() only renders when there's more than one to choose
-// between) — the map shape is just here so adding one later doesn't need
-// a data-shape migration.
+// 09-settings.js.
+// 'greyscale': five neutral Primary/Secondary pairs, same "browns count as
+// greyscale too" idea as the Desk & Ledger and Category Colors greyscale
+// sets — ranges from a true near-black neutral (Onyx & Ash) through a
+// cool grey-blue (Steel & Bone) to two warm near-black browns (Umber &
+// Pewter, Espresso & Taupe), ordered coolest/most-neutral to warmest.
+// 'pastel': five Primary/Secondary pairs pulled from the same hue
+// families as CATEGORY_PALETTE_SETS.pastel and DESK_PAPER_PRESET_SETS.pastel
+// (rose, mint/sage, periwinkle, lavender/lilac, peach, coral, butter,
+// orchid, sky) so picking Pastel across all three menus reads as one
+// coordinated look — each pair itself is a warm/cool contrast (e.g. Rose
+// primary against Sage secondary) rather than two colors from the same
+// family, so the two accent colors stay visually distinct against a
+// pastel paper instead of blending together. Ordered by Primary's own
+// hue, same rule as 'classic', starting near red like Burgundy does there.
 const UI_COLOR_PRESET_SETS = {
   classic: {
     id: 'classic', label: 'Classic',
@@ -281,6 +291,26 @@ const UI_COLOR_PRESET_SETS = {
       // its own.
       { id:'copper',    label:'Slate & Copper',   primary:'#3E4A6B', primaryLight:'#4E5C86', secondary:'#B87333', secondaryLight:'#F89B45' },
       { id:'charcoal',  label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' }
+    ]
+  },
+  greyscale: {
+    id: 'greyscale', label: 'Greyscale',
+    presets: [
+      { id:'onyx',          label:'Onyx & Ash',        primary:'#1C1C1C', primaryLight:'#333333', secondary:'#9C9992', secondaryLight:'#B8B4AC' },
+      { id:'graphite',      label:'Graphite & Silver', primary:'#3A3A3A', primaryLight:'#525252', secondary:'#ADADAD', secondaryLight:'#C9C9C9' },
+      { id:'steel',         label:'Steel & Bone',      primary:'#4A4E52', primaryLight:'#60656A', secondary:'#D8D3C4', secondaryLight:'#EAE6DA' },
+      { id:'umber',         label:'Umber & Pewter',    primary:'#2E2B28', primaryLight:'#453F37', secondary:'#8C8578', secondaryLight:'#A8A192' },
+      { id:'espressotaupe', label:'Espresso & Taupe',  primary:'#2B1F18', primaryLight:'#43332A', secondary:'#A08D78', secondaryLight:'#BFAE9B' }
+    ]
+  },
+  pastel: {
+    id: 'pastel', label: 'Pastel',
+    presets: [
+      { id:'rosesage',        label:'Rose & Sage',        primary:'#C97B84', primaryLight:'#DDA0A7', secondary:'#8FAE83', secondaryLight:'#AECB9F' },
+      { id:'mintcoral',       label:'Mint & Coral',       primary:'#5FAE9A', primaryLight:'#82C4B2', secondary:'#E58572', secondaryLight:'#EFA795' },
+      { id:'periwinklepeach', label:'Periwinkle & Peach', primary:'#7C88C4', primaryLight:'#9CA6D6', secondary:'#E2A671', secondaryLight:'#EFC08F' },
+      { id:'lavenderbutter',  label:'Lavender & Butter',  primary:'#9B85C4', primaryLight:'#B7A4D8', secondary:'#D9C367', secondaryLight:'#E8D98C' },
+      { id:'orchidsky',       label:'Orchid & Sky',       primary:'#C48BB0', primaryLight:'#D6A9C6', secondary:'#7EB2D6', secondaryLight:'#A0C8E2' }
     ]
   }
 };
@@ -323,17 +353,35 @@ function uiColorPreset(id){
 // grayest/least-saturated of the bunch — then maroon's blush, then
 // barrel and navy's two genuinely parchment/amber-toned papers, per the
 // standing re-sort-on-change rule in CLAUDE.md's "Conventions").
-// 'greyscale' pulls out the three moodiest, least-saturated near-neutral
-// pairs (Espresso & Cream, Charcoal & Birch, and Oak & Ivory) into their
-// own set — same "browns count as greyscale too" idea
+// 'greyscale' pulls the moodiest, least-saturated near-neutral pairs into
+// their own set — same "browns count as greyscale too" idea
 // CATEGORY_PALETTE_SETS.greyscale already established for category
-// colors. Oak & Ivory specifically: its own bg (#3D2B1F) and Barrel &
-// Amber's (#2E1D12) are close enough in raw hue that Classic didn't need
-// both, and Barrel's much more saturated amber-gold paper gives Classic
-// more personality/color-pop than Oak's near-white ivory paper would —
-// so Barrel & Amber stays as Classic's one "brownish" entry (per the
-// project owner's own ask to keep at least one there) while Oak & Ivory,
-// the plainer/more sterile of the two pairings, joins Greyscale instead.
+// colors, plus three further-out additions (Graphite & Frost, Ink &
+// Snow, Driftwood & Fog — see their own comments below) added for real
+// range: the original three all sat in a fairly narrow near-black-brown
+// band, so the new ones stretch it toward a true cool neutral, the
+// starkest possible black/white contrast, and — the one genuine outlier
+// — a properly *mid*-toned grey desk rather than another near-black.
+// Sorted by paper saturation (max-min channel spread), coolest/most
+// neutral to warmest/most brown, same ordering rule as Classic's own
+// paper-color sort. Oak & Ivory specifically stays here rather than
+// Classic: its own bg (#3D2B1F) and Barrel & Amber's (#2E1D12) are close
+// enough in raw hue that Classic didn't need both, and Barrel's much
+// more saturated amber-gold paper gives Classic more personality/
+// color-pop than Oak's near-white ivory paper would — so Barrel & Amber
+// stays as Classic's one "brownish" entry (per the project owner's own
+// ask to keep at least one there) while Oak & Ivory, the plainer/more
+// sterile of the two pairings, joins Greyscale instead.
+// 'pastel' is a genuine style departure from the near-black-desk look
+// every Classic/Greyscale entry shares — a soft dusty mid-tone desk
+// (rather than another near-black) under a very pale, barely-tinted
+// paper, still keeping enough desk/paper contrast to read as a ledger
+// rather than a flat wash. Six hues sweep the wheel in the same
+// direction/order CATEGORY_PALETTE_SETS.pastel's own 12 colors do (warm
+// coral/terracotta round through yellow-green, teal, blue, purple, and
+// back to pink) specifically so picking Pastel here and Pastel for
+// Category Colors reads as one coordinated look rather than two
+// unrelated pastel sets that happen to share a name.
 const DESK_PAPER_PRESET_SETS = {
   classic: {
     id: 'classic', label: 'Classic',
@@ -343,27 +391,29 @@ const DESK_PAPER_PRESET_SETS = {
       // hexes. id stays 'classic' (nothing keys off the label text).
       { id:'classic',  label:'Forest & Bone',       bg:'#28362E', paper:'#F1EAD9' },
       { id:'plum',     label:'Plum & Linen',       bg:'#3B2A44', paper:'#EDE6DC' },
-      // Deep oxblood/maroon desk, paired with a paper that leans slightly
+      // Deep oxblood desk, paired with a paper that leans slightly
       // warm-blush rather than the plain creams above — echoes the bg's
       // own warmth (same "contrast, not match" idea Navy & Parchment's
       // cool bg / warm gold-cream paper already follows) without
       // literally matching it. "Vellum" (real bookbinding parchment, not
       // just a color name) rather than "Blush" per the project owner's
-      // own ask for a less feminine-reading second word. Values updated
-      // to match the project owner's own hand-tuned "Whiskey" custom
-      // preset (#4B1F1D/#F2DBC4) — close enough to the original hexes to
-      // be visually indistinguishable, so this is a straight merge rather
-      // than a new look; the label stays "Maroon & Vellum" since that
-      // name still fits (the project owner's own read: "kind of like
-      // Wine") and nothing about the mood actually changed.
-      { id:'maroon',   label:'Maroon & Vellum',    bg:'#4B1F1D', paper:'#F2DBC4' },
+      // own ask for a less feminine-reading second word. Values match
+      // the project owner's own hand-tuned "Whiskey" custom preset
+      // (#4B1F1D/#F2DBC4) — close enough to the original "Maroon &
+      // Vellum" hexes to be visually indistinguishable, so this was a
+      // straight merge rather than a new look. Renamed from "Maroon &
+      // Vellum" to "Whiskey & Vellum" per the project owner's own ask for
+      // something that reads masculine — "Whiskey" is literally their
+      // own name for this color (their custom preset), and fits the
+      // oxblood-and-warm-cream mood better than a fruit/flower word would.
+      { id:'maroon',   label:'Whiskey & Vellum',    bg:'#4B1F1D', paper:'#F2DBC4' },
       // A genuinely different, more amber/caramel ledger than Navy's own
       // parchment (not a re-use — see the project owner's own ask that
       // this NOT be "exactly the same as Navy & Parchment"), paired with
       // a warm near-black oak-barrel brown — the "whisky" vibe the
       // project owner asked to try: not a literal whisky-colored swatch,
       // but the mood of one (dark aged wood, warm low amber light on the
-      // page), same way Maroon & Vellum's own pairing is about a mood,
+      // page), same way Whiskey & Vellum's own pairing is about a mood,
       // not a literal match.
       { id:'barrel',   label:'Barrel & Amber',     bg:'#2E1D12', paper:'#E3C79A' },
       { id:'navy',     label:'Navy & Parchment',   bg:'#1F2937', paper:'#EFDDB0' },
@@ -377,6 +427,22 @@ const DESK_PAPER_PRESET_SETS = {
   greyscale: {
     id: 'greyscale', label: 'Greyscale',
     presets: [
+      // A true cool near-neutral — barely a hint of blue-grey rather than
+      // the warm browns everywhere else in this set — for a colder,
+      // more clinical-ledger mood than Charcoal & Birch's own warmer take.
+      { id:'graphitefrost', label:'Graphite & Frost', bg:'#2E3033', paper:'#E7E9EA' },
+      // The starkest possible pairing in the whole app: as close to true
+      // black and true white as the ledger aesthetic can take without
+      // looking like a plain document instead of a ledger — the
+      // "extreme" end of this set, deliberately.
+      { id:'inksnow',  label:'Ink & Snow',         bg:'#121212', paper:'#FAFAF7' },
+      // The one genuine outlier here: every other Desk & Ledger entry
+      // (in every set) uses a near-black desk under a light paper —
+      // Driftwood is a real *mid*-toned warm grey desk instead, closer in
+      // lightness to its own paper than to any other entry's bg. Still
+      // reads as a desk under a ledger (paper stays meaningfully lighter),
+      // just a lighter, sun-bleached-wood mood rather than a moody one.
+      { id:'driftwood', label:'Driftwood & Fog',    bg:'#6B6558', paper:'#ECE9E2' },
       // Kept the original moody near-black espresso-brown desk (the
       // project owner's own favorite part of the old "Espresso &
       // Parchment") but re-paired: parchment's own gold turned out not to
@@ -387,6 +453,17 @@ const DESK_PAPER_PRESET_SETS = {
       { id:'espresso', label:'Espresso & Cream',   bg:'#241812', paper:'#F0E6D6' },
       { id:'charcoal', label:'Charcoal & Birch',   bg:'#26241F', paper:'#F2ECE0' },
       { id:'oak',      label:'Oak & Ivory',        bg:'#3D2B1F', paper:'#F5EFE0' }
+    ]
+  },
+  pastel: {
+    id: 'pastel', label: 'Pastel',
+    presets: [
+      { id:'terracotta',        label:'Terracotta & Sand',     bg:'#A16A4C', paper:'#F6E4C9' },
+      { id:'sagecustard',       label:'Sage & Custard',        bg:'#6C7A5E', paper:'#F1ECD4' },
+      { id:'seafoam',           label:'Seafoam & Mist',        bg:'#4F8177', paper:'#E2F0EA' },
+      { id:'periwinklepowder',  label:'Periwinkle & Powder',   bg:'#5E6B93', paper:'#E7ECF6' },
+      { id:'lilaccloud',        label:'Lilac & Cloud',         bg:'#7C6690', paper:'#F0E7F2' },
+      { id:'dustyrose',         label:'Dusty Rose & Petal',    bg:'#8C5B67', paper:'#F7E3DE' }
     ]
   }
 };
