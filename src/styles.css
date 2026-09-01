@@ -602,6 +602,17 @@
   }
   .check.done{ background: var(--ink); border-color: var(--ink); }
   .check.done::after{ content:'✓'; color: var(--card-bg); font-size:12px; }
+  /* Cancelled reuses .done's own box-check plumbing entirely (see
+     markTaskCancelled(), 16-task-crud.js — t.status is 'done' either
+     way, t.cancelled only changes how this paints) — the 3-class
+     selector beats .check.done's 2-class one regardless of source
+     order, rather than depending on which rule happens to come later in
+     the file. --estate is this app's one fixed danger/attention color
+     (already .badge.overdue, a step's own cancelled text below, etc.),
+     not a themed one, so a cancelled mark reads the same red on every
+     Ledger color a user picks. */
+  .check.done.cancelled{ background: var(--estate); border-color: var(--estate); }
+  .check.done.cancelled::after{ content:'✕'; }
   /* Hover feedback — subtle here (a master-view row's own .check, plus
      the same rule reused by anything that doesn't more specifically
      match below) since a whole list of these sits close together; a
@@ -1214,6 +1225,9 @@
   .subcheck::before{ content:''; position:absolute; top:-7px; right:-9px; bottom:-7px; left:-3px; }
   .subcheck.done{ background: var(--ink); border-color: var(--ink); }
   .subcheck.done::after{ content:'✓'; color: var(--card-bg); font-size:9px; }
+  /* Same reasoning as .check.done.cancelled above, one size down. */
+  .subcheck.done.cancelled{ background: var(--estate); border-color: var(--estate); }
+  .subcheck.done.cancelled::after{ content:'✕'; }
   /* Checklist items only (not a standard task's subtasks, which stay
      square to match its own square .check) — round to match .checkcircle,
      the checklist category's own circular checkbox language. */
@@ -1226,6 +1240,10 @@
      vertical space per wrapped step. */
   .subtext{ flex:1; font-size:0.84rem; line-height:1.35; }
   .subtext.done{ text-decoration:line-through; color: var(--ink-soft); }
+  /* Red strike-through, not the plain muted one above — per the explicit
+     ask, cancelled needs to visually read as a distinct outcome from a
+     genuinely finished step, not just another shade of "done." */
+  .subtext.done.cancelled{ text-decoration-color: var(--estate); color: var(--estate); }
   .subdel{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
   /* .movetmrw ("move to tomorrow") / .dayremove ("remove from this day")
      — the pair of small action buttons on a Daily row. Given a real
@@ -2136,6 +2154,62 @@
      it invisible to layout otherwise, same trick as .expandactions
      above, so this changes nothing by default. */
   .catdeletewrap{ display:contents; }
+  /* ---- Recently Deleted (trashSectionHtml(), 09-settings.js) ---- */
+  .trashempty{ font-family:'Fraunces', serif; font-style:italic; color: var(--ink-soft); text-align:center; padding: 14px 10px; font-size:0.92rem; }
+  .trashnote{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--ink-soft); padding:2px 2px 10px; }
+  .trashrow{ display:flex; align-items:center; gap:8px; padding:10px 2px; border-bottom:1px dashed var(--line); flex-wrap:wrap; }
+  .trashrowmain{ display:flex; align-items:center; gap:8px; flex:1; min-width:0; flex-wrap:wrap; }
+  .trashtitle{ font-family:'IBM Plex Sans', sans-serif; font-size:0.9rem; color:var(--ink); }
+  .trashmeta{ font-family:'IBM Plex Mono', monospace; font-size:0.6rem; color: var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em; }
+  .trashactions{ display:flex; gap:6px; flex-shrink:0; }
+  .trashactions button{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
+    background:none; border:1px solid var(--line); border-radius:5px; padding:5px 8px; cursor:pointer; color: var(--ink-soft);
+  }
+  .trashactions .trashforget{ border-color: var(--estate); color: var(--estate); }
+
+  /* ---- Checklist templates (13-checklist.js) ---- */
+  .checklisttemplateslink{ margin: -8px 0 14px; }
+  .checklisttemplateslink button{
+    background:none; border:none; padding:2px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; letter-spacing:0.04em; text-transform:uppercase;
+    color: var(--ink-soft);
+  }
+  .checklisttemplateslink button:hover{ color: var(--ink); }
+  .templaterow{ display:flex; align-items:center; gap:8px; padding:10px 2px; border-bottom:1px dashed var(--line); flex-wrap:wrap; }
+  .templaterowmain{ display:flex; align-items:baseline; gap:8px; flex:1; min-width:0; flex-wrap:wrap; }
+  .templatename{ font-family:'IBM Plex Sans', sans-serif; font-size:0.9rem; color:var(--ink); }
+  .templatemeta{ font-family:'IBM Plex Mono', monospace; font-size:0.6rem; color: var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em; }
+  .templaterowactions{ display:flex; gap:6px; flex-shrink:0; }
+  .templaterowactions button, .templatecreateconfirm, .templatecreatecancel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
+    background:none; border:1px solid var(--line); border-radius:5px; padding:5px 8px; cursor:pointer; color: var(--ink-soft);
+  }
+  .templaterowactions .templatedelete{ border-color: var(--estate); color: var(--estate); }
+  .templatecreateconfirm{ border-color: var(--primary); color: var(--primary); }
+  /* The naming step: a non-editable "<Template Name>: " label glued
+     directly in front of a plain input, reading as one continuous line
+     ("Packing list: |Madrid Trip") — per the explicit ask to show the
+     grayed-out template name/colon ahead of whatever's typed. A real
+     label+input pair rather than one input with ghost placeholder text
+     behind it: the latter needs the overlay to track the input's exact
+     font metrics pixel-for-pixel to stay aligned as you type, which is
+     exactly the kind of fragile visual hack this codebase avoids when a
+     plain two-element layout does the same job more robustly. */
+  .templatecreaterow{ display:flex; align-items:center; gap:6px; flex-basis:100%; margin-top:6px; }
+  .templatenameprefix{ font-family:'IBM Plex Sans', sans-serif; font-size:0.86rem; color: var(--ink-soft); white-space:nowrap; }
+  .templatecreaterow input{
+    flex:1; min-width:80px; border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.86rem; padding:4px 2px; color:var(--ink); outline:none;
+  }
+  /* Same visual language as .resetthemebtn — a small dashed-outline
+     secondary action, distinct from .remove's red "Delete list" right
+     next to it in the same footer row. */
+  .templatesavebtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.05em;
+    background:none; border:1px dashed var(--ink-soft); border-radius:5px; padding:6px 10px; cursor:pointer; color: var(--ink-soft);
+  }
+  .templatesavebtn:hover{ color: var(--ink); border-color: var(--ink); }
   .catmove{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
   .catmovebtn{
     width:20px; height:15px; padding:0; border:1px solid var(--line); border-radius:3px;

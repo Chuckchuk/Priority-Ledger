@@ -634,6 +634,17 @@
   }
   .check.done{ background: var(--ink); border-color: var(--ink); }
   .check.done::after{ content:'✓'; color: var(--card-bg); font-size:12px; }
+  /* Cancelled reuses .done's own box-check plumbing entirely (see
+     markTaskCancelled(), 16-task-crud.js — t.status is 'done' either
+     way, t.cancelled only changes how this paints) — the 3-class
+     selector beats .check.done's 2-class one regardless of source
+     order, rather than depending on which rule happens to come later in
+     the file. --estate is this app's one fixed danger/attention color
+     (already .badge.overdue, a step's own cancelled text below, etc.),
+     not a themed one, so a cancelled mark reads the same red on every
+     Ledger color a user picks. */
+  .check.done.cancelled{ background: var(--estate); border-color: var(--estate); }
+  .check.done.cancelled::after{ content:'✕'; }
   /* Hover feedback — subtle here (a master-view row's own .check, plus
      the same rule reused by anything that doesn't more specifically
      match below) since a whole list of these sits close together; a
@@ -1246,6 +1257,9 @@
   .subcheck::before{ content:''; position:absolute; top:-7px; right:-9px; bottom:-7px; left:-3px; }
   .subcheck.done{ background: var(--ink); border-color: var(--ink); }
   .subcheck.done::after{ content:'✓'; color: var(--card-bg); font-size:9px; }
+  /* Same reasoning as .check.done.cancelled above, one size down. */
+  .subcheck.done.cancelled{ background: var(--estate); border-color: var(--estate); }
+  .subcheck.done.cancelled::after{ content:'✕'; }
   /* Checklist items only (not a standard task's subtasks, which stay
      square to match its own square .check) — round to match .checkcircle,
      the checklist category's own circular checkbox language. */
@@ -1258,6 +1272,10 @@
      vertical space per wrapped step. */
   .subtext{ flex:1; font-size:0.84rem; line-height:1.35; }
   .subtext.done{ text-decoration:line-through; color: var(--ink-soft); }
+  /* Red strike-through, not the plain muted one above — per the explicit
+     ask, cancelled needs to visually read as a distinct outcome from a
+     genuinely finished step, not just another shade of "done." */
+  .subtext.done.cancelled{ text-decoration-color: var(--estate); color: var(--estate); }
   .subdel{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
   /* .movetmrw ("move to tomorrow") / .dayremove ("remove from this day")
      — the pair of small action buttons on a Daily row. Given a real
@@ -2168,6 +2186,62 @@
      it invisible to layout otherwise, same trick as .expandactions
      above, so this changes nothing by default. */
   .catdeletewrap{ display:contents; }
+  /* ---- Recently Deleted (trashSectionHtml(), 09-settings.js) ---- */
+  .trashempty{ font-family:'Fraunces', serif; font-style:italic; color: var(--ink-soft); text-align:center; padding: 14px 10px; font-size:0.92rem; }
+  .trashnote{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--ink-soft); padding:2px 2px 10px; }
+  .trashrow{ display:flex; align-items:center; gap:8px; padding:10px 2px; border-bottom:1px dashed var(--line); flex-wrap:wrap; }
+  .trashrowmain{ display:flex; align-items:center; gap:8px; flex:1; min-width:0; flex-wrap:wrap; }
+  .trashtitle{ font-family:'IBM Plex Sans', sans-serif; font-size:0.9rem; color:var(--ink); }
+  .trashmeta{ font-family:'IBM Plex Mono', monospace; font-size:0.6rem; color: var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em; }
+  .trashactions{ display:flex; gap:6px; flex-shrink:0; }
+  .trashactions button{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
+    background:none; border:1px solid var(--line); border-radius:5px; padding:5px 8px; cursor:pointer; color: var(--ink-soft);
+  }
+  .trashactions .trashforget{ border-color: var(--estate); color: var(--estate); }
+
+  /* ---- Checklist templates (13-checklist.js) ---- */
+  .checklisttemplateslink{ margin: -8px 0 14px; }
+  .checklisttemplateslink button{
+    background:none; border:none; padding:2px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; letter-spacing:0.04em; text-transform:uppercase;
+    color: var(--ink-soft);
+  }
+  .checklisttemplateslink button:hover{ color: var(--ink); }
+  .templaterow{ display:flex; align-items:center; gap:8px; padding:10px 2px; border-bottom:1px dashed var(--line); flex-wrap:wrap; }
+  .templaterowmain{ display:flex; align-items:baseline; gap:8px; flex:1; min-width:0; flex-wrap:wrap; }
+  .templatename{ font-family:'IBM Plex Sans', sans-serif; font-size:0.9rem; color:var(--ink); }
+  .templatemeta{ font-family:'IBM Plex Mono', monospace; font-size:0.6rem; color: var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em; }
+  .templaterowactions{ display:flex; gap:6px; flex-shrink:0; }
+  .templaterowactions button, .templatecreateconfirm, .templatecreatecancel{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
+    background:none; border:1px solid var(--line); border-radius:5px; padding:5px 8px; cursor:pointer; color: var(--ink-soft);
+  }
+  .templaterowactions .templatedelete{ border-color: var(--estate); color: var(--estate); }
+  .templatecreateconfirm{ border-color: var(--primary); color: var(--primary); }
+  /* The naming step: a non-editable "<Template Name>: " label glued
+     directly in front of a plain input, reading as one continuous line
+     ("Packing list: |Madrid Trip") — per the explicit ask to show the
+     grayed-out template name/colon ahead of whatever's typed. A real
+     label+input pair rather than one input with ghost placeholder text
+     behind it: the latter needs the overlay to track the input's exact
+     font metrics pixel-for-pixel to stay aligned as you type, which is
+     exactly the kind of fragile visual hack this codebase avoids when a
+     plain two-element layout does the same job more robustly. */
+  .templatecreaterow{ display:flex; align-items:center; gap:6px; flex-basis:100%; margin-top:6px; }
+  .templatenameprefix{ font-family:'IBM Plex Sans', sans-serif; font-size:0.86rem; color: var(--ink-soft); white-space:nowrap; }
+  .templatecreaterow input{
+    flex:1; min-width:80px; border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.86rem; padding:4px 2px; color:var(--ink); outline:none;
+  }
+  /* Same visual language as .resetthemebtn — a small dashed-outline
+     secondary action, distinct from .remove's red "Delete list" right
+     next to it in the same footer row. */
+  .templatesavebtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.05em;
+    background:none; border:1px dashed var(--ink-soft); border-radius:5px; padding:6px 10px; cursor:pointer; color: var(--ink-soft);
+  }
+  .templatesavebtn:hover{ color: var(--ink); border-color: var(--ink); }
   .catmove{ display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
   .catmovebtn{
     width:20px; height:15px; padding:0; border:1px solid var(--line); border-radius:3px;
@@ -5645,6 +5719,12 @@ let selectedListId = null; // id of the checklist "list" (a task) currently dril
 // unrelated later visit to the same checklist list.
 let checklistReturnDay = null;
 let checklistPendingOpen = false; // showing the "all pending items" view for the active checklist category
+let checklistTemplatesOpen = false; // showing the Templates view for the active checklist category
+// Which template's own "New List" naming step (see startCreateFromTemplate(),
+// 13-checklist.js) is currently expanded inline within the Templates
+// view — null when none is. Only one at a time, same "one thing open"
+// idiom as selectedListId/checklistPendingOpen above.
+let checklistTemplateCreateId = null;
 // Which tasks' inline .expand rows are open — render() rebuilds every row's
 // markup from scratch on every mutation (see taskRowHtml), which would
 // otherwise silently collapse every *other* expanded task back to closed
@@ -6179,7 +6259,15 @@ function defaultTasks(){
     // what that combination actually looks like (the overlap tab bar's
     // "!" flag included) without needing a due date to explain why.
     mk("Call the client back — they're waiting", 'work', { priority:3, timeframe:'short' }),
-    mk("Reply to that email you've been putting off", 'work'),
+    // One step cancelled (not just done) — a fresh account otherwise has
+    // no way to discover that steps/tasks can be marked cancelled at all
+    // (it's a right-click/long-press menu item, not a button — see
+    // markSubtaskCancelled(), 16-task-crud.js), per the explicit ask to
+    // demonstrate it up front.
+    mk("Reply to that email you've been putting off", 'work', { subtasks: [
+      { id:newId('sub'), text:'Draft a reply', done:false, dueDate:'', plannedDates:[] },
+      { id:newId('sub'), text:'Follow up about the old proposal', done:true, cancelled:true, dueDate:'', plannedDates:[] }
+    ] }),
     mk('Fix the squeaky door', 'household'),
     mk('Book a dentist appointment', 'personal'),
     list
@@ -6196,12 +6284,39 @@ function defaultState(){
     locationEnabled: true,
     theme: defaultTheme(),
     advancedTaskFields: true,
-    devSettings: defaultDevSettings()
+    devSettings: defaultDevSettings(),
+    trash: [],
+    checklistTemplates: []
   };
+}
+
+// How long a deleted task or checklist list sticks around in
+// state.trash (Settings → Recently Deleted) before purgeOldTrash()
+// removes it for good — per the explicit ask, prompted by losing a task
+// with no way to get it back. A full timestamp (not just a date string,
+// the way most of this app's other dates work) since "about 2 days"
+// means a real ~48-hour window, not "however much of today plus today
+// minus 2" a date-only comparison would give.
+const TRASH_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
+// Called on every load (see normalizeState()) and every time the
+// Recently Deleted section itself renders (trashSectionHtml(),
+// 09-settings.js) — cheap enough to just always re-check rather than
+// scheduling a timer, and the second call site is what keeps a
+// long-running session (app left open across the 2-day mark) accurate
+// without needing a reload to notice.
+function purgeOldTrash(){
+  if(!Array.isArray(state.trash)){ state.trash = []; return; }
+  const cutoff = Date.now() - TRASH_RETENTION_MS;
+  const before = state.trash.length;
+  state.trash = state.trash.filter(entry => new Date(entry.deletedAt).getTime() > cutoff);
+  if(state.trash.length !== before) queueSave();
 }
 
 function normalizeState(){
   if(!Array.isArray(state.days)) state.days = [];
+  if(!Array.isArray(state.trash)) state.trash = [];
+  purgeOldTrash();
+  if(!Array.isArray(state.checklistTemplates)) state.checklistTemplates = [];
   // Accounts saved before tabs became editable won't have a categories
   // array yet — seed it with the same set they've always seen so nothing
   // about their existing tasks' categories changes. Same idea for
@@ -8313,11 +8428,16 @@ function taskSubtasksHtml(t){
           const subTodayTitle = subPlannedToday ? 'Remove from today’s list'
             : subOtherPlanned ? `Also planned on ${subOtherPlanned} other day${subOtherPlanned===1?'':'s'} — tap to add today too`
             : 'Add to today’s list';
+          // Menu triggers only while there's something the menu could
+          // offer — see subtaskContextMenuHtml()'s own comment.
+          const subMenuAttrs = !s.done ? ` oncontextmenu="return handleSubtaskContextMenu(event,'${t.id}','${s.id}')"
+            ontouchstart="subtaskPressStart(event,'${t.id}','${s.id}')" ontouchmove="subtaskPressMove(event)" ontouchend="subtaskPressEnd()" ontouchcancel="subtaskPressEnd()"
+            onmousedown="subtaskPressStart(event,'${t.id}','${s.id}')" onmouseup="subtaskPressEnd()" onmouseleave="subtaskPressEnd()"` : '';
           return `
           <div class="subrow" data-sub-id="${s.id}">
             <span class="draghandle sub" onpointerdown="subHandlePointerDown(event,'${t.id}','${s.id}')" title="Drag to reorder">⠿</span>
-            <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
-            <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
+            <div class="subcheck ${s.done?'done':''}${s.cancelled?' cancelled':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
+            <div class="subtext ${s.done?'done':''}${s.cancelled?' cancelled':''}"${subMenuAttrs} onclick="subtextTap(event,this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <div class="subrowactions">
               <div class="datefield ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
               <button class="flagbtn daybtn ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
@@ -8492,7 +8612,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
     <div class="row"${pressAttrs}${ctxMenuAttr}${noteHoverAttrs} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
-        <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, true)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
+        <div class="check ${t.status==='done'?'done':''}${t.cancelled?' cancelled':''}${checkGuideClass(t, subs, true)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
         ${subProgressHtml(subs)}
       </div>
       ${dotHtml}
@@ -8625,6 +8745,7 @@ function taskContextMenuHtml(t, includeEdit){
   const plannedToday = (t.plannedDates||[]).includes(todayStr());
   return `
     <button onclick="ctxMenuAction(()=>toggleStatus('${t.id}'))">${t.status==='done' ? 'Reopen' : 'Mark complete'}</button>
+    ${t.status!=='done' ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markTaskCancelled('${t.id}'))">Mark as Cancelled</button>` : ''}
     <button onclick="ctxMenuAction(()=>toggleUrgent('${t.id}'))">${t.urgent ? 'Unmark urgent' : 'Mark urgent'}</button>
     <button onclick="ctxMenuAction(()=>toggleTaskToday('${t.id}'))">${plannedToday ? 'Remove from today' : 'Add to today'}</button>
     ${includeEdit ? `<button onclick="ctxMenuAction(()=>openGenericTaskDetail('${t.id}'))">Edit details</button>` : ''}
@@ -8664,6 +8785,97 @@ function openTaskContextMenu(taskId, x, y){
 function openTaskContextMenuForRow(taskId, rowEl){
   const r = rowEl.getBoundingClientRect();
   renderTaskContextMenu(taskId, r.left, r.bottom + 6, false);
+}
+
+// ---------- a step's own right-click/long-press menu ----------
+// Steps had no context menu at all before this — the one thing worth
+// putting in it (Mark as Cancelled, per the explicit ask) doesn't fit
+// anywhere else: there's no dedicated button for it by design, and it's
+// not a natural fit for the inline checkbox/date/pin/delete controls
+// already crammed into a .subrow. Scoped to .subtext specifically (not
+// the whole .subrow) rather than reusing taskPressStart()'s whole-row
+// approach — .subrow already has its own onpointerdown on .draghandle.sub
+// for reorder-dragging (see subHandlePointerDown(), 07-drag.js); wiring a
+// second long-press system to the same row risked the two fighting over
+// the same touch. .subtext already owns tap-to-edit, so a menu trigger
+// living there too is one more reason to press-and-hold text specifically,
+// not a new place entirely. Only wired up while the step isn't done yet
+// (!s.done) — an already-done/cancelled step has nothing this menu could
+// offer (reopening is the checkbox's job, deleting already has its own ×).
+function subtaskContextMenuHtml(t, s){
+  return `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markSubtaskCancelled('${t.id}','${s.id}'))">Mark as Cancelled</button>`;
+}
+function renderSubtaskContextMenu(taskId, subId, x, y){
+  const t = state.tasks.find(x2=>x2.id===taskId);
+  const s = t && (t.subtasks||[]).find(x2=>x2.id===subId);
+  if(!t || !s) return;
+  // Reuses ctxMenuTaskId (not a dedicated flag) — every consumer of that
+  // var only ever treats it as "is a task-flavored #ctxMenu open right
+  // now" for the outside-click/scroll/Esc dismissal logic, never reads
+  // it expecting it to name the exact task the menu's content describes,
+  // so a step's menu sharing it with its parent task's own is harmless.
+  ctxMenuTaskId = taskId;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = subtaskContextMenuHtml(t, s);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+  });
+}
+function handleSubtaskContextMenu(e, taskId, subId){
+  if(mobileUiActive()) return true;
+  renderSubtaskContextMenu(taskId, subId, e.clientX, e.clientY);
+  return false;
+}
+// Mobile long-press twin, same shape as checklistPressStart() etc.
+// (13-checklist.js) — its own small state rather than reusing
+// taskPressStart()'s (which branches on taskLongPressMode, a choice
+// about a *row's* tap behavior that has no meaning for one step's text).
+let subtaskPressTimer = null;
+let subtaskPressRow = null;
+let subtaskPressStartX = 0, subtaskPressStartY = 0;
+let subtaskLongPressFired = false;
+function subtaskPressStart(e, taskId, subId){
+  if(!mobileUiActive()) return;
+  subtaskLongPressFired = false;
+  const pt = e.touches ? e.touches[0] : e;
+  subtaskPressStartX = pt.clientX;
+  subtaskPressStartY = pt.clientY;
+  subtaskPressRow = e.currentTarget;
+  clearTimeout(subtaskPressTimer);
+  subtaskPressTimer = setTimeout(() => {
+    subtaskPressTimer = null;
+    subtaskLongPressFired = true;
+    const r = subtaskPressRow.getBoundingClientRect();
+    renderSubtaskContextMenu(taskId, subId, r.left, r.bottom + 6);
+  }, TASK_LONG_PRESS_MS);
+}
+function subtaskPressMove(e){
+  if(!subtaskPressTimer) return;
+  const pt = e.touches ? e.touches[0] : e;
+  const dx = pt.clientX - subtaskPressStartX, dy = pt.clientY - subtaskPressStartY;
+  if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
+    clearTimeout(subtaskPressTimer);
+    subtaskPressTimer = null;
+  }
+}
+function subtaskPressEnd(){
+  clearTimeout(subtaskPressTimer);
+  subtaskPressTimer = null;
+}
+// Swallows the click a touchend fires right after a long-press already
+// opened the menu — same pattern taskRowTap()/checklistRowTap() use.
+// startEditSubtask (15-subtask-edit.js) is .subtext's normal tap action
+// (swap to an inline edit field); this is now the attribute that reaches
+// it instead of calling it directly.
+function subtextTap(e, el, taskId, subId){
+  if(subtaskLongPressFired){ subtaskLongPressFired = false; e.preventDefault(); return; }
+  startEditSubtask(el, taskId, subId);
 }
 // Shared by the task menu above, the day menu below, and the category
 // "Move to" menu further down — only one #ctxMenu exists, so only one of
@@ -8946,7 +9158,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
       <div class="taskdetailhead">
         <div class="titleactions titlespacer" aria-hidden="true">${actionsHtml}</div>
         <div class="checkwrap">
-          <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
+          <div class="check ${t.status==='done'?'done':''}${t.cancelled?' cancelled':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
           ${subProgressHtml(subs)}
         </div>
         <div class="titleactions">${actionsHtml}</div>
@@ -9504,6 +9716,8 @@ function renderSettings(){
     <button class="resetthemebtn" onclick="openClaudeView('digest')">Open Claude-readable view</button>
   `;
 
+  const trashSection = trashSectionHtml();
+
   // EXPERIMENTAL — see defaultDevSettings() in 02-storage-state.js. Its
   // own section here (collapsed by default — 'dev' starts in
   // settingsCollapsedSections, see that var's comment) AND in the
@@ -9535,6 +9749,7 @@ function renderSettings(){
       ${settingsSectionHtml('locations', 'Locations', locationSection)}
       ${settingsSectionHtml('taskFields', 'Task Fields', taskFieldsSection)}
       ${settingsSectionHtml('appearance', 'Appearance', appearanceSection)}
+      ${settingsSectionHtml('trash', 'Recently Deleted', trashSection)}
       ${settingsSectionHtml('claude', 'Claude Access', claudeSection)}
       ${settingsSectionHtml('dev', 'Dev Settings', devSection)}
     </div>
@@ -9565,6 +9780,39 @@ function toggleSettingsSection(key){
   if(settingsCollapsedSections.has(key)) settingsCollapsedSections.delete(key);
   else settingsCollapsedSections.add(key);
   render();
+}
+
+// ---------- Recently Deleted (state.trash) ----------
+// purgeOldTrash() (02-storage-state.js) runs here too, not just at
+// load — so a session left open past the 2-day mark still shows an
+// accurate list the next time this section is actually looked at,
+// rather than only catching up on the next full reload.
+function trashSectionHtml(){
+  purgeOldTrash();
+  const trash = state.trash || [];
+  if(!trash.length){
+    return `<div class="trashempty">Nothing here — deleted tasks and lists stick around for about 2 days before they're gone for good.</div>`;
+  }
+  return `
+    <div class="trashnote">Deleted tasks and lists stay here for about 2 days, then they're gone for good.</div>
+    ${trash.map(entry=>{
+      const t = entry.task;
+      const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
+      const kind = cat.type === 'checklist' ? 'List' : 'Task';
+      return `
+      <div class="trashrow">
+        <div class="trashrowmain">
+          ${categoryDotHtml(cat, 'cdot')}
+          <span class="trashtitle">${escapeHtml(t.title)}</span>
+          <span class="trashmeta">${kind} · deleted ${fmtDate(entry.deletedAt.slice(0,10))}</span>
+        </div>
+        <div class="trashactions">
+          <button onclick="restoreFromTrash('${t.id}')">Restore</button>
+          <button class="trashforget" onclick="permanentlyDeleteFromTrash('${t.id}')">Delete Forever</button>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
 }
 
 async function renameCategory(id, val){
@@ -11470,6 +11718,8 @@ function renderChecklist(){
   }
   if(checklistPendingOpen){
     el.innerHTML = renderChecklistPending(activeTab);
+  } else if(checklistTemplatesOpen){
+    el.innerHTML = renderChecklistTemplates(activeTab);
   } else if(selectedListId){
     el.innerHTML = renderChecklistDetail(selectedListId);
   } else {
@@ -11501,12 +11751,24 @@ function renderChecklistOverview(categoryId){
   const visible = lists.filter(t => showDone || t.status!=='done' || completingTaskIds.has(t.id));
   const doneCount = lists.filter(t=>t.status==='done').length;
   const pendingTotal = lists.reduce((sum,t)=>sum+checklistPendingItems(t).length, 0);
+  const templateCount = (state.checklistTemplates||[]).length;
   return `
     ${pendingTotal ? pageTagHtml(`openChecklistPending('${categoryId}')`, `Pending ${pendingTotal}`, true) : ''}
     <div class="quickadd">
       <input type="text" id="checklistQuickInput" placeholder="Name a new list…"
         onkeydown="if(event.key==='Enter') addChecklistList('${categoryId}')">
       <button class="addbtn" onclick="addChecklistList('${categoryId}')">+</button>
+    </div>
+    <!-- A plain inline link rather than a second .pagetag.compact —
+         .pagetag.compact's own top-right corner spot is already spoken
+         for by the Pending tag above (both share the exact same CSS
+         position, so a second one there would sit right on top of it —
+         see .pagetag.compact's own top:2px rule in <style>). Always
+         shown, even at 0 templates, since it's also how you'd discover
+         the feature exists in the first place — the empty state inside
+         explains where "Save as Template" lives. -->
+    <div class="checklisttemplateslink">
+      <button onclick="openChecklistTemplates('${categoryId}')">📄 Templates${templateCount ? ` (${templateCount})` : ''}</button>
     </div>
     <ul class="tasks">
       ${visible.length ? visible.map(t=>checklistListRowHtml(t)).join('') : `<div class="empty">${cat ? `No lists in ${escapeHtml(cat.label)} yet.` : 'No lists yet.'} Add one above.</div>`}
@@ -11803,7 +12065,19 @@ function renderChecklistDetail(taskId){
           onkeydown="if(event.key==='Enter'){ const v=this.value; this.value=''; addSubtask('${t.id}', v); }"
           onblur="addSubtask('${t.id}', this.value)">
       </div>
-      <div class="footer-row"><button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button></div>
+      <!-- linkedTemplate guards against a stale t.templateId pointing at
+           a template that's since been deleted — falls back to "Save as
+           Template" (which re-links it to a fresh one) rather than
+           offering "Update" on something that no longer exists. -->
+      <div class="footer-row">
+        ${(()=>{
+          const linkedTemplate = t.templateId ? (state.checklistTemplates||[]).find(tpl=>tpl.id===t.templateId) : null;
+          return linkedTemplate
+            ? `<button class="templatesavebtn" onclick="updateTemplateFromList('${t.id}')" title="Overwrite &quot;${escapeHtml(linkedTemplate.name)}&quot; with this list's current items">Update Template</button>`
+            : `<button class="templatesavebtn" onclick="saveListAsTemplate('${t.id}')" title="Save this list's items as a reusable template">Save as Template</button>`;
+        })()}
+        <button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button>
+      </div>
     </div>
   `;
 }
@@ -11882,12 +12156,138 @@ async function addChecklistList(categoryId){
 }
 
 async function deleteChecklistList(id){
-  const t = state.tasks.find(t=>t.id===id);
-  pushUndo(`Deleted list "${t ? t.title : ''}"`);
-  state.tasks = state.tasks.filter(t=>t.id!==id);
+  const idx = state.tasks.findIndex(t=>t.id===id);
+  if(idx === -1) return;
+  const t = state.tasks[idx];
+  pushUndo(`Deleted list "${t.title}"`);
+  state.tasks.splice(idx, 1);
+  moveTaskToTrash(t);
   selectedListId = null;
   render();
   queueSave();
+}
+
+// ---------- Checklist templates ----------
+// A template (state.checklistTemplates: {id, name, items:[text,...],
+// createdAt}) is born from a real list, not authored blank — there's no
+// separate "new template" editor. "Save as Template" (renderChecklistDetail(),
+// its own comment) copies the list's current items (text only — none of
+// their done/date state, since a template is always a fresh starting
+// point) into a new entry, and links the list back to it via t.templateId
+// so the SAME list offers "Update Template" from then on instead of
+// spawning a fresh duplicate every time it's saved again.
+function openChecklistTemplates(categoryId){
+  checklistTemplatesOpen = true;
+  checklistTemplateCreateId = null;
+  render();
+}
+function closeChecklistTemplates(){
+  checklistTemplatesOpen = false;
+  checklistTemplateCreateId = null;
+  render();
+}
+async function saveListAsTemplate(taskId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  pushUndo(`Saved "${t.title}" as a template`);
+  if(!Array.isArray(state.checklistTemplates)) state.checklistTemplates = [];
+  const tpl = { id: newId('tpl'), name: t.title, items: (t.subtasks||[]).map(s=>s.text), createdAt: todayStr() };
+  state.checklistTemplates.push(tpl);
+  t.templateId = tpl.id;
+  render();
+  queueSave();
+}
+async function updateTemplateFromList(taskId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t || !t.templateId) return;
+  const tpl = (state.checklistTemplates||[]).find(tp=>tp.id===t.templateId);
+  if(!tpl) return;
+  pushUndo(`Updated template "${tpl.name}" from "${t.title}"`);
+  tpl.items = (t.subtasks||[]).map(s=>s.text);
+  render();
+  queueSave();
+}
+async function deleteChecklistTemplate(id){
+  const idx = (state.checklistTemplates||[]).findIndex(tp=>tp.id===id);
+  if(idx === -1) return;
+  pushUndo(`Deleted template "${state.checklistTemplates[idx].name}"`);
+  state.checklistTemplates.splice(idx, 1);
+  if(checklistTemplateCreateId === id) checklistTemplateCreateId = null;
+  render();
+  queueSave();
+}
+// Expands the naming step inline within that template's own row
+// (checklistTemplateCreateId — see renderChecklistTemplates() below)
+// rather than a separate page, same "confirm inline" idiom as a
+// category's own delete confirmation in Settings.
+function startCreateFromTemplate(templateId){
+  checklistTemplateCreateId = templateId;
+  render();
+  // render() just rebuilt the input from scratch — same refocus-after-
+  // render idiom as .subadd/#checklistQuickInput.
+  document.getElementById('templateNameInput')?.focus();
+}
+function cancelCreateFromTemplate(){
+  checklistTemplateCreateId = null;
+  render();
+}
+// Builds "<Template Name>: <specific>" per the explicit ask (the grayed
+// prefix shown alongside the input, see .templatenameprefix in <style>,
+// is the same string this reads back off the template — the two can
+// never drift apart since neither is hand-typed twice). Opens the new
+// list immediately afterward rather than leaving you on the Templates
+// view, since that's the obvious next thing you'd want.
+async function confirmCreateFromTemplate(templateId, categoryId){
+  const tpl = (state.checklistTemplates||[]).find(tp=>tp.id===templateId);
+  if(!tpl) return;
+  const input = document.getElementById('templateNameInput');
+  const specific = input ? input.value.trim() : '';
+  if(!specific) return;
+  const title = `${tpl.name}: ${specific}`;
+  pushUndo(`Created "${title}" from template`);
+  const newTask = {
+    id: newId('task'), title, category: categoryId, status:'open', urgent:false, dueDate:'',
+    notes:'', plannedDates:[], timeframe:'', priority:0, completedAt:'', createdAt: todayStr(), templateId: tpl.id,
+    subtasks: tpl.items.map(text => ({ id:newId('sub'), text, done:false, dueDate:'', plannedDates:[] }))
+  };
+  state.tasks.unshift(newTask);
+  checklistTemplatesOpen = false;
+  checklistTemplateCreateId = null;
+  selectedListId = newTask.id;
+  render();
+  queueSave();
+}
+function renderChecklistTemplates(categoryId){
+  const cat = CATEGORIES[categoryId];
+  const templates = state.checklistTemplates || [];
+  return `
+    <div class="stackedpage">
+      ${pageTagHtml('closeChecklistTemplates()', cat ? cat.label : 'Lists')}
+      <div class="daylistlabel">Templates</div>
+      ${templates.length ? templates.map(tpl => `
+        <div class="templaterow">
+          <div class="templaterowmain">
+            <span class="templatename">${escapeHtml(tpl.name)}</span>
+            <span class="templatemeta">${tpl.items.length} item${tpl.items.length===1?'':'s'}</span>
+          </div>
+          ${checklistTemplateCreateId === tpl.id ? `
+            <div class="templatecreaterow">
+              <span class="templatenameprefix">${escapeHtml(tpl.name)}: </span>
+              <input type="text" id="templateNameInput" placeholder="e.g. Madrid Trip"
+                onkeydown="if(event.key==='Enter'){ confirmCreateFromTemplate('${tpl.id}','${categoryId}'); } else if(event.key==='Escape'){ cancelCreateFromTemplate(); }">
+              <button class="templatecreateconfirm" onclick="confirmCreateFromTemplate('${tpl.id}','${categoryId}')">Create</button>
+              <button class="templatecreatecancel" onclick="cancelCreateFromTemplate()">Cancel</button>
+            </div>
+          ` : `
+            <div class="templaterowactions">
+              <button onclick="startCreateFromTemplate('${tpl.id}')">New List</button>
+              <button class="templatedelete" onclick="deleteChecklistTemplate('${tpl.id}')">Delete</button>
+            </div>
+          `}
+        </div>
+      `).join('') : `<div class="empty">No templates yet. Open any list and tap "Save as Template" to create one from its current items.</div>`}
+    </div>
+  `;
 }
 
 async function addDayTask(dateStr){
@@ -12279,6 +12679,11 @@ async function toggleStatus(id){
   pushUndo(willBeDone ? `Completed "${t.title}"` : `Reopened "${t.title}"`);
   t.status = willBeDone ? 'done' : 'open';
   t.completedAt = willBeDone ? todayStr() : '';
+  // Reopening a cancelled task (this checkbox is its only way back to
+  // open) clears the flag too — "open and still marked cancelled" isn't
+  // a real state, and t.cancelled only ever means anything alongside
+  // status==='done' anyway (see markTaskCancelled() below).
+  if(!willBeDone) t.cancelled = false;
   celebrateCheckTaskId = willBeDone ? id : null;
   // Completing a task lingers in place for a beat — see scheduleTaskLeave()
   // below — so there's actually time to see the celebration play before
@@ -12296,6 +12701,30 @@ async function toggleStatus(id){
   celebrateCheckTaskId = null;
   queueSave();
   if(willLinger) scheduleTaskLeave(id);
+}
+
+// Reached only from the right-click/long-press menu (taskContextMenuHtml(),
+// 08-render-core.js) — deliberately no dedicated button anywhere else,
+// per the explicit ask. Functionally identical to completing a task
+// (status:'done', same completingTaskIds linger + scheduleTaskLeave(),
+// same sort/sub-total/Show-Completed treatment — everything that reads
+// status==='done' can't tell the difference), with t.cancelled the one
+// extra bit that only ever changes how it's *drawn* (checkGuideClass()/
+// an X instead of a check, red strike-through — see taskRowHtml()'s own
+// comment). No celebration burst (celebrateCheckTaskId stays untouched)
+// — that's this app's one deliberate "you did it" moment, and cancelling
+// something isn't that.
+async function markTaskCancelled(id){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  pushUndo(`Marked "${t.title}" cancelled`);
+  t.status = 'done';
+  t.cancelled = true;
+  t.completedAt = todayStr();
+  completingTaskIds.add(id);
+  render();
+  queueSave();
+  scheduleTaskLeave(id);
 }
 
 // How long the just-checked row lingers, fully visible (checkmark,
@@ -12489,6 +12918,29 @@ async function toggleSubtask(taskId, subId){
   if(!s) return;
   pushUndo(s.done ? `Unchecked step in "${t.title}"` : `Checked step in "${t.title}"`);
   s.done = !s.done;
+  // Same reasoning as toggleStatus()'s own reopen case — unchecking a
+  // cancelled step is its only way back to not-done, so it stops being
+  // "cancelled" at the same time rather than leaving that flag orphaned.
+  if(!s.done) s.cancelled = false;
+  render();
+  reopen(taskId);
+  queueSave();
+}
+// Reached only from a step's own right-click/long-press menu
+// (subtaskContextMenuHtml() etc., 08-render-core.js) — same "identical
+// functionality to complete, different only in how it's drawn" idea as
+// markTaskCancelled() above, just one level down: s.done is what every
+// existing consumer (subProgressHtml()'s pip fill, checkGuideClass()'s
+// "all steps done" check, etc.) already reads, so setting it true here
+// is all the functional side needs; s.cancelled only changes rendering.
+async function markSubtaskCancelled(taskId, subId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  const s = (t.subtasks||[]).find(s=>s.id===subId);
+  if(!s) return;
+  pushUndo(`Marked a step in "${t.title}" cancelled`);
+  s.done = true;
+  s.cancelled = true;
   render();
   reopen(taskId);
   queueSave();
@@ -12513,10 +12965,46 @@ async function updateNotes(id, val){
   queueSave();
 }
 
+// Shared by deleteTask() and deleteChecklistList() (13-checklist.js) — a
+// checklist "list" is a plain task object under the hood, so both kinds
+// of delete land in the same state.trash array (see purgeOldTrash(),
+// 02-storage-state.js) and Recently Deleted (trashSectionHtml(),
+// 09-settings.js) doesn't need to know or care which one it's looking
+// at. Called *after* the item has already been spliced out of
+// state.tasks by the caller — this only handles archiving it.
+function moveTaskToTrash(t){
+  if(!Array.isArray(state.trash)) state.trash = [];
+  state.trash.unshift({ task: t, deletedAt: new Date().toISOString() });
+}
 async function deleteTask(id){
-  const t = state.tasks.find(t=>t.id===id);
-  pushUndo(`Deleted "${t ? t.title : 'task'}"`);
-  state.tasks = state.tasks.filter(t=>t.id!==id);
+  const idx = state.tasks.findIndex(t=>t.id===id);
+  if(idx === -1) return;
+  const t = state.tasks[idx];
+  pushUndo(`Deleted "${t.title}"`);
+  state.tasks.splice(idx, 1);
+  moveTaskToTrash(t);
+  render();
+  queueSave();
+}
+// Restore/permanent-delete both live here rather than 09-settings.js
+// (where Recently Deleted actually renders) — same reasoning as every
+// other *action* function in this app sitting apart from the render
+// function that calls it.
+async function restoreFromTrash(id){
+  const idx = (state.trash||[]).findIndex(e=>e.task.id===id);
+  if(idx === -1) return;
+  const entry = state.trash[idx];
+  pushUndo(`Restored "${entry.task.title}"`);
+  state.trash.splice(idx, 1);
+  state.tasks.push(entry.task);
+  render();
+  queueSave();
+}
+async function permanentlyDeleteFromTrash(id){
+  const idx = (state.trash||[]).findIndex(e=>e.task.id===id);
+  if(idx === -1) return;
+  pushUndo(`Permanently deleted "${state.trash[idx].task.title}"`);
+  state.trash.splice(idx, 1);
   render();
   queueSave();
 }

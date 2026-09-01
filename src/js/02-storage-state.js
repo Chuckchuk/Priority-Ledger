@@ -68,6 +68,12 @@ let selectedListId = null; // id of the checklist "list" (a task) currently dril
 // unrelated later visit to the same checklist list.
 let checklistReturnDay = null;
 let checklistPendingOpen = false; // showing the "all pending items" view for the active checklist category
+let checklistTemplatesOpen = false; // showing the Templates view for the active checklist category
+// Which template's own "New List" naming step (see startCreateFromTemplate(),
+// 13-checklist.js) is currently expanded inline within the Templates
+// view — null when none is. Only one at a time, same "one thing open"
+// idiom as selectedListId/checklistPendingOpen above.
+let checklistTemplateCreateId = null;
 // Which tasks' inline .expand rows are open — render() rebuilds every row's
 // markup from scratch on every mutation (see taskRowHtml), which would
 // otherwise silently collapse every *other* expanded task back to closed
@@ -602,7 +608,15 @@ function defaultTasks(){
     // what that combination actually looks like (the overlap tab bar's
     // "!" flag included) without needing a due date to explain why.
     mk("Call the client back — they're waiting", 'work', { priority:3, timeframe:'short' }),
-    mk("Reply to that email you've been putting off", 'work'),
+    // One step cancelled (not just done) — a fresh account otherwise has
+    // no way to discover that steps/tasks can be marked cancelled at all
+    // (it's a right-click/long-press menu item, not a button — see
+    // markSubtaskCancelled(), 16-task-crud.js), per the explicit ask to
+    // demonstrate it up front.
+    mk("Reply to that email you've been putting off", 'work', { subtasks: [
+      { id:newId('sub'), text:'Draft a reply', done:false, dueDate:'', plannedDates:[] },
+      { id:newId('sub'), text:'Follow up about the old proposal', done:true, cancelled:true, dueDate:'', plannedDates:[] }
+    ] }),
     mk('Fix the squeaky door', 'household'),
     mk('Book a dentist appointment', 'personal'),
     list
@@ -619,12 +633,39 @@ function defaultState(){
     locationEnabled: true,
     theme: defaultTheme(),
     advancedTaskFields: true,
-    devSettings: defaultDevSettings()
+    devSettings: defaultDevSettings(),
+    trash: [],
+    checklistTemplates: []
   };
+}
+
+// How long a deleted task or checklist list sticks around in
+// state.trash (Settings → Recently Deleted) before purgeOldTrash()
+// removes it for good — per the explicit ask, prompted by losing a task
+// with no way to get it back. A full timestamp (not just a date string,
+// the way most of this app's other dates work) since "about 2 days"
+// means a real ~48-hour window, not "however much of today plus today
+// minus 2" a date-only comparison would give.
+const TRASH_RETENTION_MS = 2 * 24 * 60 * 60 * 1000;
+// Called on every load (see normalizeState()) and every time the
+// Recently Deleted section itself renders (trashSectionHtml(),
+// 09-settings.js) — cheap enough to just always re-check rather than
+// scheduling a timer, and the second call site is what keeps a
+// long-running session (app left open across the 2-day mark) accurate
+// without needing a reload to notice.
+function purgeOldTrash(){
+  if(!Array.isArray(state.trash)){ state.trash = []; return; }
+  const cutoff = Date.now() - TRASH_RETENTION_MS;
+  const before = state.trash.length;
+  state.trash = state.trash.filter(entry => new Date(entry.deletedAt).getTime() > cutoff);
+  if(state.trash.length !== before) queueSave();
 }
 
 function normalizeState(){
   if(!Array.isArray(state.days)) state.days = [];
+  if(!Array.isArray(state.trash)) state.trash = [];
+  purgeOldTrash();
+  if(!Array.isArray(state.checklistTemplates)) state.checklistTemplates = [];
   // Accounts saved before tabs became editable won't have a categories
   // array yet — seed it with the same set they've always seen so nothing
   // about their existing tasks' categories changes. Same idea for

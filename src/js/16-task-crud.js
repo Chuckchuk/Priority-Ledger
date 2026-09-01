@@ -104,6 +104,11 @@ async function toggleStatus(id){
   pushUndo(willBeDone ? `Completed "${t.title}"` : `Reopened "${t.title}"`);
   t.status = willBeDone ? 'done' : 'open';
   t.completedAt = willBeDone ? todayStr() : '';
+  // Reopening a cancelled task (this checkbox is its only way back to
+  // open) clears the flag too — "open and still marked cancelled" isn't
+  // a real state, and t.cancelled only ever means anything alongside
+  // status==='done' anyway (see markTaskCancelled() below).
+  if(!willBeDone) t.cancelled = false;
   celebrateCheckTaskId = willBeDone ? id : null;
   // Completing a task lingers in place for a beat — see scheduleTaskLeave()
   // below — so there's actually time to see the celebration play before
@@ -121,6 +126,30 @@ async function toggleStatus(id){
   celebrateCheckTaskId = null;
   queueSave();
   if(willLinger) scheduleTaskLeave(id);
+}
+
+// Reached only from the right-click/long-press menu (taskContextMenuHtml(),
+// 08-render-core.js) — deliberately no dedicated button anywhere else,
+// per the explicit ask. Functionally identical to completing a task
+// (status:'done', same completingTaskIds linger + scheduleTaskLeave(),
+// same sort/sub-total/Show-Completed treatment — everything that reads
+// status==='done' can't tell the difference), with t.cancelled the one
+// extra bit that only ever changes how it's *drawn* (checkGuideClass()/
+// an X instead of a check, red strike-through — see taskRowHtml()'s own
+// comment). No celebration burst (celebrateCheckTaskId stays untouched)
+// — that's this app's one deliberate "you did it" moment, and cancelling
+// something isn't that.
+async function markTaskCancelled(id){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t) return;
+  pushUndo(`Marked "${t.title}" cancelled`);
+  t.status = 'done';
+  t.cancelled = true;
+  t.completedAt = todayStr();
+  completingTaskIds.add(id);
+  render();
+  queueSave();
+  scheduleTaskLeave(id);
 }
 
 // How long the just-checked row lingers, fully visible (checkmark,
@@ -314,6 +343,29 @@ async function toggleSubtask(taskId, subId){
   if(!s) return;
   pushUndo(s.done ? `Unchecked step in "${t.title}"` : `Checked step in "${t.title}"`);
   s.done = !s.done;
+  // Same reasoning as toggleStatus()'s own reopen case — unchecking a
+  // cancelled step is its only way back to not-done, so it stops being
+  // "cancelled" at the same time rather than leaving that flag orphaned.
+  if(!s.done) s.cancelled = false;
+  render();
+  reopen(taskId);
+  queueSave();
+}
+// Reached only from a step's own right-click/long-press menu
+// (subtaskContextMenuHtml() etc., 08-render-core.js) — same "identical
+// functionality to complete, different only in how it's drawn" idea as
+// markTaskCancelled() above, just one level down: s.done is what every
+// existing consumer (subProgressHtml()'s pip fill, checkGuideClass()'s
+// "all steps done" check, etc.) already reads, so setting it true here
+// is all the functional side needs; s.cancelled only changes rendering.
+async function markSubtaskCancelled(taskId, subId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  const s = (t.subtasks||[]).find(s=>s.id===subId);
+  if(!s) return;
+  pushUndo(`Marked a step in "${t.title}" cancelled`);
+  s.done = true;
+  s.cancelled = true;
   render();
   reopen(taskId);
   queueSave();
@@ -338,10 +390,46 @@ async function updateNotes(id, val){
   queueSave();
 }
 
+// Shared by deleteTask() and deleteChecklistList() (13-checklist.js) — a
+// checklist "list" is a plain task object under the hood, so both kinds
+// of delete land in the same state.trash array (see purgeOldTrash(),
+// 02-storage-state.js) and Recently Deleted (trashSectionHtml(),
+// 09-settings.js) doesn't need to know or care which one it's looking
+// at. Called *after* the item has already been spliced out of
+// state.tasks by the caller — this only handles archiving it.
+function moveTaskToTrash(t){
+  if(!Array.isArray(state.trash)) state.trash = [];
+  state.trash.unshift({ task: t, deletedAt: new Date().toISOString() });
+}
 async function deleteTask(id){
-  const t = state.tasks.find(t=>t.id===id);
-  pushUndo(`Deleted "${t ? t.title : 'task'}"`);
-  state.tasks = state.tasks.filter(t=>t.id!==id);
+  const idx = state.tasks.findIndex(t=>t.id===id);
+  if(idx === -1) return;
+  const t = state.tasks[idx];
+  pushUndo(`Deleted "${t.title}"`);
+  state.tasks.splice(idx, 1);
+  moveTaskToTrash(t);
+  render();
+  queueSave();
+}
+// Restore/permanent-delete both live here rather than 09-settings.js
+// (where Recently Deleted actually renders) — same reasoning as every
+// other *action* function in this app sitting apart from the render
+// function that calls it.
+async function restoreFromTrash(id){
+  const idx = (state.trash||[]).findIndex(e=>e.task.id===id);
+  if(idx === -1) return;
+  const entry = state.trash[idx];
+  pushUndo(`Restored "${entry.task.title}"`);
+  state.trash.splice(idx, 1);
+  state.tasks.push(entry.task);
+  render();
+  queueSave();
+}
+async function permanentlyDeleteFromTrash(id){
+  const idx = (state.trash||[]).findIndex(e=>e.task.id===id);
+  if(idx === -1) return;
+  pushUndo(`Permanently deleted "${state.trash[idx].task.title}"`);
+  state.trash.splice(idx, 1);
   render();
   queueSave();
 }

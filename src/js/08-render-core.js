@@ -214,11 +214,16 @@ function taskSubtasksHtml(t){
           const subTodayTitle = subPlannedToday ? 'Remove from today’s list'
             : subOtherPlanned ? `Also planned on ${subOtherPlanned} other day${subOtherPlanned===1?'':'s'} — tap to add today too`
             : 'Add to today’s list';
+          // Menu triggers only while there's something the menu could
+          // offer — see subtaskContextMenuHtml()'s own comment.
+          const subMenuAttrs = !s.done ? ` oncontextmenu="return handleSubtaskContextMenu(event,'${t.id}','${s.id}')"
+            ontouchstart="subtaskPressStart(event,'${t.id}','${s.id}')" ontouchmove="subtaskPressMove(event)" ontouchend="subtaskPressEnd()" ontouchcancel="subtaskPressEnd()"
+            onmousedown="subtaskPressStart(event,'${t.id}','${s.id}')" onmouseup="subtaskPressEnd()" onmouseleave="subtaskPressEnd()"` : '';
           return `
           <div class="subrow" data-sub-id="${s.id}">
             <span class="draghandle sub" onpointerdown="subHandlePointerDown(event,'${t.id}','${s.id}')" title="Drag to reorder">⠿</span>
-            <div class="subcheck ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
-            <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
+            <div class="subcheck ${s.done?'done':''}${s.cancelled?' cancelled':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
+            <div class="subtext ${s.done?'done':''}${s.cancelled?' cancelled':''}"${subMenuAttrs} onclick="subtextTap(event,this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <div class="subrowactions">
               <div class="datefield ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
               <button class="flagbtn daybtn ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
@@ -393,7 +398,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
     <div class="row"${pressAttrs}${ctxMenuAttr}${noteHoverAttrs} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
-        <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, true)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
+        <div class="check ${t.status==='done'?'done':''}${t.cancelled?' cancelled':''}${checkGuideClass(t, subs, true)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
         ${subProgressHtml(subs)}
       </div>
       ${dotHtml}
@@ -526,6 +531,7 @@ function taskContextMenuHtml(t, includeEdit){
   const plannedToday = (t.plannedDates||[]).includes(todayStr());
   return `
     <button onclick="ctxMenuAction(()=>toggleStatus('${t.id}'))">${t.status==='done' ? 'Reopen' : 'Mark complete'}</button>
+    ${t.status!=='done' ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markTaskCancelled('${t.id}'))">Mark as Cancelled</button>` : ''}
     <button onclick="ctxMenuAction(()=>toggleUrgent('${t.id}'))">${t.urgent ? 'Unmark urgent' : 'Mark urgent'}</button>
     <button onclick="ctxMenuAction(()=>toggleTaskToday('${t.id}'))">${plannedToday ? 'Remove from today' : 'Add to today'}</button>
     ${includeEdit ? `<button onclick="ctxMenuAction(()=>openGenericTaskDetail('${t.id}'))">Edit details</button>` : ''}
@@ -565,6 +571,97 @@ function openTaskContextMenu(taskId, x, y){
 function openTaskContextMenuForRow(taskId, rowEl){
   const r = rowEl.getBoundingClientRect();
   renderTaskContextMenu(taskId, r.left, r.bottom + 6, false);
+}
+
+// ---------- a step's own right-click/long-press menu ----------
+// Steps had no context menu at all before this — the one thing worth
+// putting in it (Mark as Cancelled, per the explicit ask) doesn't fit
+// anywhere else: there's no dedicated button for it by design, and it's
+// not a natural fit for the inline checkbox/date/pin/delete controls
+// already crammed into a .subrow. Scoped to .subtext specifically (not
+// the whole .subrow) rather than reusing taskPressStart()'s whole-row
+// approach — .subrow already has its own onpointerdown on .draghandle.sub
+// for reorder-dragging (see subHandlePointerDown(), 07-drag.js); wiring a
+// second long-press system to the same row risked the two fighting over
+// the same touch. .subtext already owns tap-to-edit, so a menu trigger
+// living there too is one more reason to press-and-hold text specifically,
+// not a new place entirely. Only wired up while the step isn't done yet
+// (!s.done) — an already-done/cancelled step has nothing this menu could
+// offer (reopening is the checkbox's job, deleting already has its own ×).
+function subtaskContextMenuHtml(t, s){
+  return `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markSubtaskCancelled('${t.id}','${s.id}'))">Mark as Cancelled</button>`;
+}
+function renderSubtaskContextMenu(taskId, subId, x, y){
+  const t = state.tasks.find(x2=>x2.id===taskId);
+  const s = t && (t.subtasks||[]).find(x2=>x2.id===subId);
+  if(!t || !s) return;
+  // Reuses ctxMenuTaskId (not a dedicated flag) — every consumer of that
+  // var only ever treats it as "is a task-flavored #ctxMenu open right
+  // now" for the outside-click/scroll/Esc dismissal logic, never reads
+  // it expecting it to name the exact task the menu's content describes,
+  // so a step's menu sharing it with its parent task's own is harmless.
+  ctxMenuTaskId = taskId;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = subtaskContextMenuHtml(t, s);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+  });
+}
+function handleSubtaskContextMenu(e, taskId, subId){
+  if(mobileUiActive()) return true;
+  renderSubtaskContextMenu(taskId, subId, e.clientX, e.clientY);
+  return false;
+}
+// Mobile long-press twin, same shape as checklistPressStart() etc.
+// (13-checklist.js) — its own small state rather than reusing
+// taskPressStart()'s (which branches on taskLongPressMode, a choice
+// about a *row's* tap behavior that has no meaning for one step's text).
+let subtaskPressTimer = null;
+let subtaskPressRow = null;
+let subtaskPressStartX = 0, subtaskPressStartY = 0;
+let subtaskLongPressFired = false;
+function subtaskPressStart(e, taskId, subId){
+  if(!mobileUiActive()) return;
+  subtaskLongPressFired = false;
+  const pt = e.touches ? e.touches[0] : e;
+  subtaskPressStartX = pt.clientX;
+  subtaskPressStartY = pt.clientY;
+  subtaskPressRow = e.currentTarget;
+  clearTimeout(subtaskPressTimer);
+  subtaskPressTimer = setTimeout(() => {
+    subtaskPressTimer = null;
+    subtaskLongPressFired = true;
+    const r = subtaskPressRow.getBoundingClientRect();
+    renderSubtaskContextMenu(taskId, subId, r.left, r.bottom + 6);
+  }, TASK_LONG_PRESS_MS);
+}
+function subtaskPressMove(e){
+  if(!subtaskPressTimer) return;
+  const pt = e.touches ? e.touches[0] : e;
+  const dx = pt.clientX - subtaskPressStartX, dy = pt.clientY - subtaskPressStartY;
+  if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
+    clearTimeout(subtaskPressTimer);
+    subtaskPressTimer = null;
+  }
+}
+function subtaskPressEnd(){
+  clearTimeout(subtaskPressTimer);
+  subtaskPressTimer = null;
+}
+// Swallows the click a touchend fires right after a long-press already
+// opened the menu — same pattern taskRowTap()/checklistRowTap() use.
+// startEditSubtask (15-subtask-edit.js) is .subtext's normal tap action
+// (swap to an inline edit field); this is now the attribute that reaches
+// it instead of calling it directly.
+function subtextTap(e, el, taskId, subId){
+  if(subtaskLongPressFired){ subtaskLongPressFired = false; e.preventDefault(); return; }
+  startEditSubtask(el, taskId, subId);
 }
 // Shared by the task menu above, the day menu below, and the category
 // "Move to" menu further down — only one #ctxMenu exists, so only one of
@@ -847,7 +944,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
       <div class="taskdetailhead">
         <div class="titleactions titlespacer" aria-hidden="true">${actionsHtml}</div>
         <div class="checkwrap">
-          <div class="check ${t.status==='done'?'done':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
+          <div class="check ${t.status==='done'?'done':''}${t.cancelled?' cancelled':''}${checkGuideClass(t, subs, false)}${checkCelebrateClass(t)}" onclick="toggleStatus('${t.id}')"></div>
           ${subProgressHtml(subs)}
         </div>
         <div class="titleactions">${actionsHtml}</div>

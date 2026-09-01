@@ -207,6 +207,8 @@ function renderSettings(){
     <button class="resetthemebtn" onclick="openClaudeView('digest')">Open Claude-readable view</button>
   `;
 
+  const trashSection = trashSectionHtml();
+
   // EXPERIMENTAL — see defaultDevSettings() in 02-storage-state.js. Its
   // own section here (collapsed by default — 'dev' starts in
   // settingsCollapsedSections, see that var's comment) AND in the
@@ -238,6 +240,7 @@ function renderSettings(){
       ${settingsSectionHtml('locations', 'Locations', locationSection)}
       ${settingsSectionHtml('taskFields', 'Task Fields', taskFieldsSection)}
       ${settingsSectionHtml('appearance', 'Appearance', appearanceSection)}
+      ${settingsSectionHtml('trash', 'Recently Deleted', trashSection)}
       ${settingsSectionHtml('claude', 'Claude Access', claudeSection)}
       ${settingsSectionHtml('dev', 'Dev Settings', devSection)}
     </div>
@@ -268,6 +271,39 @@ function toggleSettingsSection(key){
   if(settingsCollapsedSections.has(key)) settingsCollapsedSections.delete(key);
   else settingsCollapsedSections.add(key);
   render();
+}
+
+// ---------- Recently Deleted (state.trash) ----------
+// purgeOldTrash() (02-storage-state.js) runs here too, not just at
+// load — so a session left open past the 2-day mark still shows an
+// accurate list the next time this section is actually looked at,
+// rather than only catching up on the next full reload.
+function trashSectionHtml(){
+  purgeOldTrash();
+  const trash = state.trash || [];
+  if(!trash.length){
+    return `<div class="trashempty">Nothing here — deleted tasks and lists stick around for about 2 days before they're gone for good.</div>`;
+  }
+  return `
+    <div class="trashnote">Deleted tasks and lists stay here for about 2 days, then they're gone for good.</div>
+    ${trash.map(entry=>{
+      const t = entry.task;
+      const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
+      const kind = cat.type === 'checklist' ? 'List' : 'Task';
+      return `
+      <div class="trashrow">
+        <div class="trashrowmain">
+          ${categoryDotHtml(cat, 'cdot')}
+          <span class="trashtitle">${escapeHtml(t.title)}</span>
+          <span class="trashmeta">${kind} · deleted ${fmtDate(entry.deletedAt.slice(0,10))}</span>
+        </div>
+        <div class="trashactions">
+          <button onclick="restoreFromTrash('${t.id}')">Restore</button>
+          <button class="trashforget" onclick="permanentlyDeleteFromTrash('${t.id}')">Delete Forever</button>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
 }
 
 async function renameCategory(id, val){

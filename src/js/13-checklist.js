@@ -23,6 +23,8 @@ function renderChecklist(){
   }
   if(checklistPendingOpen){
     el.innerHTML = renderChecklistPending(activeTab);
+  } else if(checklistTemplatesOpen){
+    el.innerHTML = renderChecklistTemplates(activeTab);
   } else if(selectedListId){
     el.innerHTML = renderChecklistDetail(selectedListId);
   } else {
@@ -54,12 +56,24 @@ function renderChecklistOverview(categoryId){
   const visible = lists.filter(t => showDone || t.status!=='done' || completingTaskIds.has(t.id));
   const doneCount = lists.filter(t=>t.status==='done').length;
   const pendingTotal = lists.reduce((sum,t)=>sum+checklistPendingItems(t).length, 0);
+  const templateCount = (state.checklistTemplates||[]).length;
   return `
     ${pendingTotal ? pageTagHtml(`openChecklistPending('${categoryId}')`, `Pending ${pendingTotal}`, true) : ''}
     <div class="quickadd">
       <input type="text" id="checklistQuickInput" placeholder="Name a new list…"
         onkeydown="if(event.key==='Enter') addChecklistList('${categoryId}')">
       <button class="addbtn" onclick="addChecklistList('${categoryId}')">+</button>
+    </div>
+    <!-- A plain inline link rather than a second .pagetag.compact —
+         .pagetag.compact's own top-right corner spot is already spoken
+         for by the Pending tag above (both share the exact same CSS
+         position, so a second one there would sit right on top of it —
+         see .pagetag.compact's own top:2px rule in <style>). Always
+         shown, even at 0 templates, since it's also how you'd discover
+         the feature exists in the first place — the empty state inside
+         explains where "Save as Template" lives. -->
+    <div class="checklisttemplateslink">
+      <button onclick="openChecklistTemplates('${categoryId}')">📄 Templates${templateCount ? ` (${templateCount})` : ''}</button>
     </div>
     <ul class="tasks">
       ${visible.length ? visible.map(t=>checklistListRowHtml(t)).join('') : `<div class="empty">${cat ? `No lists in ${escapeHtml(cat.label)} yet.` : 'No lists yet.'} Add one above.</div>`}
@@ -356,7 +370,19 @@ function renderChecklistDetail(taskId){
           onkeydown="if(event.key==='Enter'){ const v=this.value; this.value=''; addSubtask('${t.id}', v); }"
           onblur="addSubtask('${t.id}', this.value)">
       </div>
-      <div class="footer-row"><button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button></div>
+      <!-- linkedTemplate guards against a stale t.templateId pointing at
+           a template that's since been deleted — falls back to "Save as
+           Template" (which re-links it to a fresh one) rather than
+           offering "Update" on something that no longer exists. -->
+      <div class="footer-row">
+        ${(()=>{
+          const linkedTemplate = t.templateId ? (state.checklistTemplates||[]).find(tpl=>tpl.id===t.templateId) : null;
+          return linkedTemplate
+            ? `<button class="templatesavebtn" onclick="updateTemplateFromList('${t.id}')" title="Overwrite &quot;${escapeHtml(linkedTemplate.name)}&quot; with this list's current items">Update Template</button>`
+            : `<button class="templatesavebtn" onclick="saveListAsTemplate('${t.id}')" title="Save this list's items as a reusable template">Save as Template</button>`;
+        })()}
+        <button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button>
+      </div>
     </div>
   `;
 }
@@ -435,11 +461,137 @@ async function addChecklistList(categoryId){
 }
 
 async function deleteChecklistList(id){
-  const t = state.tasks.find(t=>t.id===id);
-  pushUndo(`Deleted list "${t ? t.title : ''}"`);
-  state.tasks = state.tasks.filter(t=>t.id!==id);
+  const idx = state.tasks.findIndex(t=>t.id===id);
+  if(idx === -1) return;
+  const t = state.tasks[idx];
+  pushUndo(`Deleted list "${t.title}"`);
+  state.tasks.splice(idx, 1);
+  moveTaskToTrash(t);
   selectedListId = null;
   render();
   queueSave();
+}
+
+// ---------- Checklist templates ----------
+// A template (state.checklistTemplates: {id, name, items:[text,...],
+// createdAt}) is born from a real list, not authored blank — there's no
+// separate "new template" editor. "Save as Template" (renderChecklistDetail(),
+// its own comment) copies the list's current items (text only — none of
+// their done/date state, since a template is always a fresh starting
+// point) into a new entry, and links the list back to it via t.templateId
+// so the SAME list offers "Update Template" from then on instead of
+// spawning a fresh duplicate every time it's saved again.
+function openChecklistTemplates(categoryId){
+  checklistTemplatesOpen = true;
+  checklistTemplateCreateId = null;
+  render();
+}
+function closeChecklistTemplates(){
+  checklistTemplatesOpen = false;
+  checklistTemplateCreateId = null;
+  render();
+}
+async function saveListAsTemplate(taskId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  pushUndo(`Saved "${t.title}" as a template`);
+  if(!Array.isArray(state.checklistTemplates)) state.checklistTemplates = [];
+  const tpl = { id: newId('tpl'), name: t.title, items: (t.subtasks||[]).map(s=>s.text), createdAt: todayStr() };
+  state.checklistTemplates.push(tpl);
+  t.templateId = tpl.id;
+  render();
+  queueSave();
+}
+async function updateTemplateFromList(taskId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t || !t.templateId) return;
+  const tpl = (state.checklistTemplates||[]).find(tp=>tp.id===t.templateId);
+  if(!tpl) return;
+  pushUndo(`Updated template "${tpl.name}" from "${t.title}"`);
+  tpl.items = (t.subtasks||[]).map(s=>s.text);
+  render();
+  queueSave();
+}
+async function deleteChecklistTemplate(id){
+  const idx = (state.checklistTemplates||[]).findIndex(tp=>tp.id===id);
+  if(idx === -1) return;
+  pushUndo(`Deleted template "${state.checklistTemplates[idx].name}"`);
+  state.checklistTemplates.splice(idx, 1);
+  if(checklistTemplateCreateId === id) checklistTemplateCreateId = null;
+  render();
+  queueSave();
+}
+// Expands the naming step inline within that template's own row
+// (checklistTemplateCreateId — see renderChecklistTemplates() below)
+// rather than a separate page, same "confirm inline" idiom as a
+// category's own delete confirmation in Settings.
+function startCreateFromTemplate(templateId){
+  checklistTemplateCreateId = templateId;
+  render();
+  // render() just rebuilt the input from scratch — same refocus-after-
+  // render idiom as .subadd/#checklistQuickInput.
+  document.getElementById('templateNameInput')?.focus();
+}
+function cancelCreateFromTemplate(){
+  checklistTemplateCreateId = null;
+  render();
+}
+// Builds "<Template Name>: <specific>" per the explicit ask (the grayed
+// prefix shown alongside the input, see .templatenameprefix in <style>,
+// is the same string this reads back off the template — the two can
+// never drift apart since neither is hand-typed twice). Opens the new
+// list immediately afterward rather than leaving you on the Templates
+// view, since that's the obvious next thing you'd want.
+async function confirmCreateFromTemplate(templateId, categoryId){
+  const tpl = (state.checklistTemplates||[]).find(tp=>tp.id===templateId);
+  if(!tpl) return;
+  const input = document.getElementById('templateNameInput');
+  const specific = input ? input.value.trim() : '';
+  if(!specific) return;
+  const title = `${tpl.name}: ${specific}`;
+  pushUndo(`Created "${title}" from template`);
+  const newTask = {
+    id: newId('task'), title, category: categoryId, status:'open', urgent:false, dueDate:'',
+    notes:'', plannedDates:[], timeframe:'', priority:0, completedAt:'', createdAt: todayStr(), templateId: tpl.id,
+    subtasks: tpl.items.map(text => ({ id:newId('sub'), text, done:false, dueDate:'', plannedDates:[] }))
+  };
+  state.tasks.unshift(newTask);
+  checklistTemplatesOpen = false;
+  checklistTemplateCreateId = null;
+  selectedListId = newTask.id;
+  render();
+  queueSave();
+}
+function renderChecklistTemplates(categoryId){
+  const cat = CATEGORIES[categoryId];
+  const templates = state.checklistTemplates || [];
+  return `
+    <div class="stackedpage">
+      ${pageTagHtml('closeChecklistTemplates()', cat ? cat.label : 'Lists')}
+      <div class="daylistlabel">Templates</div>
+      ${templates.length ? templates.map(tpl => `
+        <div class="templaterow">
+          <div class="templaterowmain">
+            <span class="templatename">${escapeHtml(tpl.name)}</span>
+            <span class="templatemeta">${tpl.items.length} item${tpl.items.length===1?'':'s'}</span>
+          </div>
+          ${checklistTemplateCreateId === tpl.id ? `
+            <div class="templatecreaterow">
+              <span class="templatenameprefix">${escapeHtml(tpl.name)}: </span>
+              <input type="text" id="templateNameInput" placeholder="e.g. Madrid Trip"
+                onkeydown="if(event.key==='Enter'){ confirmCreateFromTemplate('${tpl.id}','${categoryId}'); } else if(event.key==='Escape'){ cancelCreateFromTemplate(); }">
+              <button class="templatecreateconfirm" onclick="confirmCreateFromTemplate('${tpl.id}','${categoryId}')">Create</button>
+              <button class="templatecreatecancel" onclick="cancelCreateFromTemplate()">Cancel</button>
+            </div>
+          ` : `
+            <div class="templaterowactions">
+              <button onclick="startCreateFromTemplate('${tpl.id}')">New List</button>
+              <button class="templatedelete" onclick="deleteChecklistTemplate('${tpl.id}')">Delete</button>
+            </div>
+          `}
+        </div>
+      `).join('') : `<div class="empty">No templates yet. Open any list and tap "Save as Template" to create one from its current items.</div>`}
+    </div>
+  `;
 }
 
