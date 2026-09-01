@@ -930,6 +930,10 @@
   .badge.priority-low{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
   .badge.priority-medium{ background: var(--primary); color:white; }
   .badge.priority-high{ background: var(--estate); color:white; }
+  /* Same accent color as .sharedbadge (the standalone share page's own
+     pill) — a shared-imported task/list reads as the same color wherever
+     it shows up, row badge or detail-page marker alike. */
+  .badge.shared{ background: var(--primary); color:white; }
   .expand{ margin: 10px 0 2px 28px; display:none; }
   .expand.open{ display:block; }
   /* EXPERIMENTAL — see devSettingsFieldsHtml()'s "★ Quick-view steps
@@ -3900,6 +3904,17 @@
     padding:6px 16px 6px 12px; border-radius:9px 0 0 9px;
     background: var(--primary); color:white;
     box-shadow: 0 3px 8px rgba(0,0,0,0.18);
+  }
+  /* Used on the real task/checklist detail pages (renderTaskDetailPage(),
+     renderChecklistDetail()) instead of the corner position above — that
+     corner's already claimed there (.categorylabel on a task, the Share
+     button on a checklist), so this drops the absolute positioning
+     entirely and sits centered in the normal flow instead, right above
+     the title. Same pill, same color, just a different placement for a
+     different context. */
+  .sharedbadge.inline{
+    position:static; display:block; width:fit-content; margin: 0 auto 8px;
+    border-radius:9px;
   }
 
   /* ---- Custom dropdown (customSelectHtml(), 09-settings.js) ----

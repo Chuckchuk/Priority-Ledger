@@ -447,9 +447,52 @@ function confirmShareImport(categoryId){
     id: newId('task'), title: d.title, category: categoryId, status: d.status === 'done' ? 'done' : 'open',
     urgent: false, dueDate: d.dueDate || '', notes: d.notes || '',
     subtasks: (d.subtasks || []).map(s => ({ id: newId('sub'), text: s.text, done: !!s.done, dueDate: '', plannedDates: [] })),
-    plannedDates: [], timeframe: '', priority: 0, completedAt: '', createdAt: todayStr()
+    plannedDates: [], timeframe: '', priority: 0, completedAt: '', createdAt: todayStr(),
+    // Permanent provenance marker, not just an import-time flag — see the
+    // "Shared" badge (taskRowHtml()/checklistListRowHtml(), the inline
+    // .sharedbadge on renderTaskDetailPage()/renderChecklistDetail()) and
+    // the "Shared N" compact tag on the All tab (renderSharedItemsPage()
+    // below), both of which key off this field indefinitely so it stays
+    // findable long after the import itself.
+    sharedImport: true
   });
   closeShareImportDialog();
   render();
   queueSave();
+}
+
+// ---------- "Shared" tracking (badges + the All-tab compact tag) ----------
+function sharedImportedTasks(){
+  return state.tasks.filter(t => t.sharedImport);
+}
+
+// Renders whichever row style matches the item's own category type — a
+// shared-imported checklist still lists like a checklist, a shared task
+// still lists like a task, same as everywhere else in the app.
+function sharedItemRowHtml(t){
+  const cat = CATEGORIES[t.category];
+  return (cat && cat.type === 'checklist') ? checklistListRowHtml(t) : taskRowHtml(t, true, false);
+}
+
+let sharedItemsOpen = false;
+function openSharedItems(){ sharedItemsOpen = true; render(); }
+function closeSharedItems(){ sharedItemsOpen = false; render(); }
+
+// Reached via the compact "Shared N" tag on the All tab (see renderList()
+// in 08-render-core.js) — a filtered cross-category view, not a peer of
+// All the way Daily/Calendar are peers of each other, so it gets a real
+// .stackedpage + full back tag rather than the Daily/Calendar exception
+// (same reasoning as the checklist "Pending" view, the closest existing
+// precedent for a compact tag opening a drilldown rather than a
+// symmetric peer view).
+function renderSharedItemsPage(){
+  const items = sortTasks(sharedImportedTasks());
+  return `
+    <div class="stackedpage">
+      ${pageTagHtml('closeSharedItems()', 'All')}
+      <div class="shareimport-heading">Shared with you</div>
+      <ul class="tasks">
+        ${items.length ? items.map(sharedItemRowHtml).join('') : '<div class="empty">Nothing shared yet.</div>'}
+      </ul>
+    </div>`;
 }

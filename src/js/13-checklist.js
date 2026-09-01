@@ -217,7 +217,7 @@ function checklistListRowHtml(t){
     onmousedown="checklistPressStart(event,'${t.id}')" onmouseup="checklistPressEnd()" onmouseleave="checklistPressEnd()">
     <div class="row">
       ${checklistCheckcircleHtml(t, true)}
-      <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}<span class="listdate">${fmtDate(t.createdAt)}</span></div>
+      <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.sharedImport ? ' <span class="badge shared">Shared</span>' : ''}<span class="listdate">${fmtDate(t.createdAt)}</span></div>
     </div>
   </li>`;
 }
@@ -334,6 +334,7 @@ function renderChecklistDetail(taskId){
       ${pageTagHtml('closeChecklistList()', backLabel)}
       <div class="checklistsharewrap">${shareButtonHtml(t.id)}</div>
       <div class="checklistheader">${checklistCheckcircleHtml(t, false)}</div>
+      ${t.sharedImport ? `<div class="sharedbadge inline">Shared</div>` : ''}
       <input type="text" class="titleedit bigtitle" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">

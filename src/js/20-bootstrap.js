@@ -59,6 +59,7 @@ document.addEventListener('keydown', (e) => {
     if(checklistPendingOpen){ closeChecklistPending(); return; }
     if(selectedListId){ closeChecklistList(); return; }
     if(genericTaskDetailId){ closeGenericTaskDetail(); return; }
+    if(sharedItemsOpen){ closeSharedItems(); return; }
     if(taskDetailId){ closeTaskDetail(); return; }
     if(selectedDay){ closeDay(); return; }
     if(dailyCalendarOpen){ closeDailyCalendar(); return; }
@@ -323,7 +324,7 @@ function unwrapStackedPage(html){
 // here must never break the actual swipe.
 function swipeBackPreviewHtml(card){
   const containerId = card.parentElement && card.parentElement.id;
-  if(containerId === 'settingsView' || containerId === 'genericTaskDetailView'){
+  if(containerId === 'settingsView' || containerId === 'genericTaskDetailView' || containerId === 'sharedItemsView'){
     return currentTabBodyHtml();
   }
   if(containerId === 'dailyView'){

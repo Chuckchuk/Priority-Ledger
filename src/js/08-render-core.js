@@ -333,6 +333,12 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   if(state.advancedTaskFields && t.timeframe){
     timeframeBadge = `<span class="badge timeframe">${TIMEFRAME_LABELS[t.timeframe]}</span>`;
   }
+  // Permanent provenance marker for a task imported via a share link —
+  // see confirmShareImport() (19-sharing.js) for where sharedImport gets
+  // set. Not gated on advancedTaskFields — unlike priority/timeframe,
+  // this isn't a triage field someone opted into, it's just a fact about
+  // where the task came from.
+  const sharedBadge = t.sharedImport ? `<span class="badge shared">Shared</span>` : '';
   const dotHtml = showDot ? categoryDotHtml(cat, 'cdot') : '';
   const subs = t.subtasks || [];
   // Drag-to-reorder is only meaningful in 'default' sort mode — every
@@ -393,7 +399,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
       ${dotHtml}
       <div class="titlewrap">
         <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.urgent && t.status!=='done' ? ' ⚑' : ''}</div>
-        <div class="meta">${priorityBadge}${timeframeBadge}${badge}</div>
+        <div class="meta">${priorityBadge}${timeframeBadge}${sharedBadge}${badge}</div>
       </div>
       ${inDaily ? `
         <button class="movetmrw" ${onTomorrow?'disabled':''} onclick="event.stopPropagation(); moveTaskToTomorrow('${t.id}','${dayDate}')" title="${onTomorrow ? 'Already planned for tomorrow' : 'Also plan for tomorrow'}">→</button>
@@ -782,6 +788,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
         </div>
         <div class="titleactions">${actionsHtml}</div>
       </div>
+      ${t.sharedImport ? `<div class="sharedbadge inline">Shared</div>` : ''}
       ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle', true)}
       <!-- Moved down here from .expandactions (see taskCoreFieldsRowHtml()'s
            own comment) and renamed from "Remove" to match the checklist
@@ -891,6 +898,15 @@ function renderList(){
   const btn = document.getElementById('showDoneBtn');
   btn.textContent = showDone ? `Hide completed (${doneCount})` : `Show completed (${doneCount})`;
   btn.style.display = doneCount>0 ? '' : 'none';
+
+  // Scoped to All specifically (not every tab) — a shared-imported item
+  // could be filed under any category, so All is the one place "find
+  // everything anyone's shared with me" actually means something; see
+  // openSharedItems() (19-sharing.js).
+  const sharedCount = activeTab === 'all' ? sharedImportedTasks().length : 0;
+  document.getElementById('sharedTagSlot').innerHTML = sharedCount
+    ? pageTagHtml('openSharedItems()', `Shared ${sharedCount}`, true)
+    : '';
 }
 
 function escapeHtml(s){
@@ -976,6 +992,25 @@ function render(){
   }
   gtdView.style.display = 'none';
   gtdView.innerHTML = '';
+  const shdView = document.getElementById('sharedItemsView');
+  if(sharedItemsOpen){
+    catView.style.display = 'none';
+    dayView.style.display = 'none';
+    chkView.style.display = 'none';
+    setView.style.display = 'none';
+    cldView.style.display = 'none';
+    shdView.style.display = '';
+    shdView.innerHTML = renderSharedItemsPage();
+    document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
+    dayView.innerHTML = '';
+    chkView.innerHTML = '';
+    setView.innerHTML = '';
+    cldView.innerHTML = '';
+    applyDevElementNames();
+    return;
+  }
+  shdView.style.display = 'none';
+  shdView.innerHTML = '';
   if(claudeView){
     catView.style.display = 'none';
     dayView.style.display = 'none';
