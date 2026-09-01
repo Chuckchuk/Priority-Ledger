@@ -454,7 +454,7 @@ function categoryPickerHtml(c){
     const scale = CATEGORY_ICON_SCALE[id] || 1;
     const glyphStyle = scale !== 1 ? ` style="display:inline-block;transform:scale(${scale})"` : '';
     return `
-    <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}"><span${glyphStyle}>${CATEGORY_ICON_GLYPHS[id]}</span></button>`;
+    <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}"><span${glyphStyle}>${CATEGORY_ICON_SVG[id] || CATEGORY_ICON_GLYPHS[id]}</span></button>`;
   }).join('');
   return `
     <div class="catpicker">

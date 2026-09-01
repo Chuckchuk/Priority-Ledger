@@ -4640,6 +4640,21 @@ function defaultCategories(){
 // visual-size correction now.
 const CATEGORY_ICON_ORDER = ['dot','star','flag','house','diamond','square','hexagon','check','triangle','cross'];
 const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⬟', diamond:'◆', square:'■', hexagon:'⬢', check:'✓', triangle:'▲', cross:'✚' };
+// SVG override for icons a plain Unicode glyph can't represent well —
+// today just 'house': the pentagon glyph above (⬟) read as too close to
+// a plain hexagon rather than an actual house silhouette, per the
+// project owner's own callout, and there's no reliable filled "square +
+// triangle roof" text-presentation character to swap in instead (real
+// house pictographs are emoji-only, which ignores `color:` styling —
+// see CATEGORY_ICON_GLYPHS' own comment on why that's a hard rule here).
+// fill="currentColor" is what lets this still pick up a category's own
+// hex the exact same way every glyph-based icon does via its wrapping
+// span's own `color:`. A plain house pentagon (wall corners + a centered
+// roof peak) in a 24×24 box, confirmed by eye in the running app rather
+// than assumed correct from the coordinates alone.
+const CATEGORY_ICON_SVG = {
+  house: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,2 21,10 21,21 3,21 3,10" fill="currentColor"/></svg>'
+};
 // Per-glyph visual-size correction, applied as a CSS transform:scale()
 // (not font-size — that would compose wrongly with each call site's own
 // differently-sized base class, .dot/.cdot/.caticonbtn/etc., since an
@@ -4654,7 +4669,7 @@ const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⬟', d
 // rather than guessing proportions by eye (see the project owner's own
 // past feedback on authoring visual geometry blind). 1 means "already
 // matches, no correction needed."
-const CATEGORY_ICON_SCALE = { dot:1.47, star:1, flag:1.37, house:0.82, diamond:1.48, square:1.62, hexagon:1.12, check:1.58, triangle:0.95, cross:1.06 };
+const CATEGORY_ICON_SCALE = { dot:1.47, star:1, flag:1.37, house:0.85, diamond:1.48, square:1.62, hexagon:1.12, check:1.58, triangle:0.95, cross:1.06 };
 // Single shared renderer for every place a category's marker shows up
 // (task rows, the task detail page, the tab bar, the day-tree picker, the
 // Settings row) — same reasoning as taskRowHtml being the one place a
@@ -4664,10 +4679,10 @@ const CATEGORY_ICON_SCALE = { dot:1.47, star:1, flag:1.37, house:0.82, diamond:1
 // rendering is unified here.
 function categoryDotHtml(c, cls){
   const icon = c.icon || 'dot';
-  const glyph = CATEGORY_ICON_GLYPHS[icon] || CATEGORY_ICON_GLYPHS.dot;
+  const inner = CATEGORY_ICON_SVG[icon] || CATEGORY_ICON_GLYPHS[icon] || CATEGORY_ICON_GLYPHS.dot;
   const scale = CATEGORY_ICON_SCALE[icon] || 1;
   const scaleStyle = scale !== 1 ? `display:inline-block;transform:scale(${scale});` : '';
-  return `<span class="${cls}" style="color:${c.hex};${scaleStyle}">${glyph}</span>`;
+  return `<span class="${cls}" style="color:${c.hex};${scaleStyle}">${inner}</span>`;
 }
 
 let CATEGORIES = {};
@@ -4916,10 +4931,15 @@ function relLuminance(hex){
 function applyThemeObject(t){
   const root = document.documentElement.style;
   root.setProperty('--desk', t.bg);
-  // -0.30 multiplicatively on the classic desk green reproduces the
-  // original hand-picked --desk-dark almost exactly — this is "the same
-  // gradient it always had," not a new, more intense one.
-  const deskDark = t.gradient ? shadeHex(t.bg, -0.30) : t.bg;
+  // -0.30 multiplicatively on the classic desk green used to reproduce
+  // the original hand-picked --desk-dark almost exactly, back when this
+  // constant was chosen mostly sight-unseen — the gradient it fed was
+  // centered off the top of the viewport (see body's own comment in
+  // <style>) and barely showed at all in practice. Once that positioning
+  // bug was fixed and the gradient actually became visible, -0.30 read
+  // as heavy rather than atmospheric; -0.20 is the project owner's own
+  // call once they could actually see it.
+  const deskDark = t.gradient ? shadeHex(t.bg, -0.20) : t.bg;
   root.setProperty('--desk-dark', deskDark);
   // Keeps the <meta name="theme-color"> tag (shell-head.html) — and, via
   // html's own `background: var(--desk-dark)` rule in <style>, the strip
@@ -9555,7 +9575,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
 function categoryLabelHtml(t){
   const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const textColor = relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9';
-  const glyph = CATEGORY_ICON_GLYPHS[cat.icon] || CATEGORY_ICON_GLYPHS.dot;
+  const glyph = CATEGORY_ICON_SVG[cat.icon] || CATEGORY_ICON_GLYPHS[cat.icon] || CATEGORY_ICON_GLYPHS.dot;
   const tape = state.devSettings && state.devSettings.categoryLabelStyle === 'tape';
   return `<button class="categorylabel${tape ? ' categorylabel-tape' : ''}" style="--catlabel-hex:${cat.hex}; --catlabel-text:${textColor}" onclick="event.stopPropagation(); openCategoryMoveMenu(this,'${t.id}')" title="Move to another category">${glyph} ${escapeHtml(cat.label)}</button>`;
 }
@@ -10346,7 +10366,7 @@ function categoryPickerHtml(c){
     const scale = CATEGORY_ICON_SCALE[id] || 1;
     const glyphStyle = scale !== 1 ? ` style="display:inline-block;transform:scale(${scale})"` : '';
     return `
-    <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}"><span${glyphStyle}>${CATEGORY_ICON_GLYPHS[id]}</span></button>`;
+    <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}"><span${glyphStyle}>${CATEGORY_ICON_SVG[id] || CATEGORY_ICON_GLYPHS[id]}</span></button>`;
   }).join('');
   return `
     <div class="catpicker">
