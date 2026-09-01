@@ -407,6 +407,13 @@ function applyDevSettings(){
   // defaultDevSettings()) — read directly by fieldPickerHtml() in
   // 08-render-core.js as plain state, and by <style> for the atmax pulse.
   document.body.dataset.fieldpickerStyle = d.fieldPickerStyle || 'default';
+  // EXPERIMENTAL, starred in Settings as a decision still pending (see
+  // devSettingsFieldsHtml()'s own comment) — how a task row's inline
+  // quick-view steps (.expand.open, taskSubtasksHtml()) visually tie back
+  // to the task they belong to. Read by the body[data-expand-grouping=…]
+  // rules in <style>; 'none' needs no matching selector since it's just
+  // today's plain indent with nothing added.
+  document.body.dataset.expandGrouping = d.expandGroupingStyle || 'rail';
   refreshMobileUiActive();
 }
 
@@ -555,6 +562,13 @@ async function setDevCheckGuideAnimationStyle(val){
 async function setDevCategoryLabelStyle(val){
   pushUndo(`Changed dev category label style to "${val}"`);
   state.devSettings.categoryLabelStyle = val;
+  render();
+  queueSave();
+}
+async function setDevExpandGroupingStyle(val){
+  pushUndo(`Changed dev quick-view steps grouping to "${val}"`);
+  state.devSettings.expandGroupingStyle = val;
+  applyDevSettings();
   render();
   queueSave();
 }
@@ -759,6 +773,22 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       ['tab','Colored tab (default)'],
       ['tape','Washi tape']
     ], 'setDevCategoryLabelStyle')}
+    <!-- Starred the same way the Timeframe/Priority picker field above is
+         — a real, live option to compare against "none," not a settled
+         choice yet. Ties a task row's own inline .expand steps (Steps
+         only, quick-view — see taskSubtasksHtml()'s own comment) back to
+         the task they belong to once a few rows are open at once and a
+         couple of steps have wrapped to multiple lines each; without
+         either the parent task reads as "lost" a few lines down. Left
+         border is the more contained of the two (a thin rail down the
+         steps, same idiom Daily's own nested sub-rows already use);
+         background tint groups the whole block more strongly but is the
+         louder change of the two. -->
+    ${devField('<span title="Comparing against doing nothing here — decide which (if either) actually solves the \'parent task gets lost\' problem once there\'s more real usage to judge it against.">★ Quick-view steps grouping</span>', dev.expandGroupingStyle, [
+      ['rail','Left border rail (default)'],
+      ['tint','Subtle background tint'],
+      ['none','None (today\'s plain indent)']
+    ], 'setDevExpandGroupingStyle')}
 
     ${devSectionHeadHtml('Tab Bar')}
     <label class="${rowClass}">

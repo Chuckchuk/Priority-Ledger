@@ -932,6 +932,25 @@
   .badge.priority-high{ background: var(--estate); color:white; }
   .expand{ margin: 10px 0 2px 28px; display:none; }
   .expand.open{ display:block; }
+  /* EXPERIMENTAL — see devSettingsFieldsHtml()'s "★ Quick-view steps
+     grouping" comment (01-categories-theme.js): a decision still pending,
+     not a settled default. Both variants answer the same question —
+     does a task's own inline .expand steps visually tie back to the row
+     above it once several tasks are open at once and a step or two has
+     wrapped across multiple lines, so the "whose steps am I looking at"
+     thread doesn't go cold a few lines down. 'none' is today's plain
+     28px indent from .expand above with nothing added, so it needs no
+     rule here. rail: a thin border down the steps, same idiom Daily's
+     own nested sub-rows (.daysubnested) already use — the more contained
+     of the two. tint: a soft background card around the whole block —
+     groups it more strongly, but is the louder change. */
+  body[data-expand-grouping="rail"] .expand.open{
+    padding-left:10px; border-left:2px solid var(--line);
+  }
+  body[data-expand-grouping="tint"] .expand.open{
+    padding:8px 10px 2px; margin-left:18px; border-radius:8px;
+    background: var(--card-bg-dim);
+  }
   /* Notes: bigger (min-height went from 52px, which read as "suddenly
      tiny" next to everything else on the page, to a real writing area)
      and recolored off --input-accent (--primary itself, see
@@ -1156,7 +1175,13 @@
      square to match its own square .check) — round to match .checkcircle,
      the checklist category's own circular checkbox language. */
   .subcheck.circle{ border-radius:50%; }
-  .subtext{ flex:1; font-size:0.84rem; }
+  /* line-height tightened from the browser default ("normal", ~1.5 for
+     IBM Plex Sans) — only matters once a step's text actually wraps to
+     multiple lines, where the looser default let a couple of long steps
+     visually outweigh the (bigger, but single-line) task title above
+     them by sheer area. 1.35 still reads comfortably, just claims less
+     vertical space per wrapped step. */
+  .subtext{ flex:1; font-size:0.84rem; line-height:1.35; }
   .subtext.done{ text-decoration:line-through; color: var(--ink-soft); }
   .subdel{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
   /* .movetmrw ("move to tomorrow") / .dayremove ("remove from this day")
@@ -1262,6 +1287,22 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-accent) 20%, transparent);
   }
   .subadd::placeholder{ color: color-mix(in srgb, var(--input-accent) 75%, var(--ink-soft)); opacity:0.85; }
+  /* Reverts .subadd back to its old quiet dashed-underline look — no box,
+     no accent border/background — but only inside a task row's own
+     inline .expand (the Steps-only quick view every category list shows;
+     see taskSubtasksHtml()'s own comment). The boxed, more prominent
+     treatment above was built for the full Task Detail page, where "add
+     a step" is one of only a few controls on the page and deserves the
+     weight; sitting inside a list of several already-expanded tasks that
+     same box read as one loud element too many, competing with the
+     actual steps for attention instead of sitting quietly beneath them,
+     per the explicit ask. */
+  .expand .subadd{
+    border:none; border-bottom:1px dashed var(--line); border-radius:0;
+    background:transparent; font-weight:400; padding:6px 2px; margin-top:2px;
+  }
+  .expand .subadd:focus{ border-style:none; border-bottom-style:dashed; border-bottom-color: var(--ink-soft); box-shadow:none; }
+  .expand .subadd::placeholder{ color: var(--ink-soft); opacity:0.7; }
   .badge.subcount{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }
   .savestatus{
     text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.62rem;
