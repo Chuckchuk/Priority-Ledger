@@ -791,9 +791,16 @@ function showNoteHoverTip(rowEl, notes){
   if(!tip) return;
   tip.textContent = notes;
   tip.classList.add('open');
-  const r = rowEl.getBoundingClientRect();
+  // Left-aligned to the title text itself, not the row's own left edge
+  // (the drag handle/checkbox/category dot all sit further left) — per
+  // the explicit ask, the tip reads more clearly as "about this text"
+  // lined up with where the title actually starts rather than the
+  // row's leftmost, mostly-decorative edge. Falls back to the row's own
+  // rect if .title somehow isn't found.
+  const titleEl = rowEl.querySelector('.title');
+  const r = (titleEl || rowEl).getBoundingClientRect();
   tip.style.left = r.left + 'px';
-  tip.style.top = (r.bottom + 6) + 'px';
+  tip.style.top = (rowEl.getBoundingClientRect().bottom + 6) + 'px';
   // Same post-layout nudge-back-onscreen pass renderTaskContextMenu() and
   // renderCategoryMoveMenu() already use — the tip's own width/height
   // aren't knowable until the browser has actually laid it out with real
