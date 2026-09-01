@@ -760,6 +760,18 @@ document.addEventListener('click', (e) => {
   if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) && !e.target.closest('#ctxMenu')) closeCtxMenu();
 });
 document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) closeCtxMenu(); }, { capture:true, passive:true });
+// The note hover tip (08-render-core.js) has no per-instance id to check
+// the way #ctxMenu's ctxMenuTaskId/etc. do — noteHoverEnd() is always
+// safe to call regardless of whether anything's actually showing, so a
+// scroll just clears it unconditionally rather than needing its own
+// tracked "is this open" flag. A render() rebuilding a row's own DOM
+// (toggling its expand, moving it after a status change, etc.) already
+// drops that row's mouseenter/mouseleave listeners for free by replacing
+// the element, but wouldn't otherwise dismiss an already-open tip left
+// pointing at the old one — the click that triggers most such renders
+// lands here too.
+document.addEventListener('click', () => noteHoverEnd());
+document.addEventListener('scroll', () => noteHoverEnd(), { capture:true, passive:true });
 // Same "click away to dismiss" as #ctxMenu above, for the share menu
 // (19-sharing.js). shareButtonHtml()'s own onclick already stops
 // propagation, so this only ever fires for a genuine outside click.

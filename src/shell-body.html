@@ -238,6 +238,15 @@
        listeners in 19-bootstrap.js instead. -->
   <div class="ctxmenu" id="ctxMenu"></div>
 
+  <!-- Hover-preview of a task's own Notes, shown from the inline quick
+       view (a category tab's row list) after a short hold — see
+       noteHoverStart() in 08-render-core.js. Same position:fixed/no-scrim
+       idiom as #ctxMenu just above, styled off the same .ctxmenu visual
+       language (see .notehovertip in <style>) since this is also a small
+       floating popup anchored to a row, just non-interactive text instead
+       of buttons. -->
+  <div class="notehovertip" id="noteHoverTip"></div>
+
   <!-- Share menu (openShareMenu(), 19-sharing.js) — same anchored-popover
        idiom as #ctxMenu above (position:fixed, placed by JS at the
        clicked button's rect) but richer content (a link field, not just
