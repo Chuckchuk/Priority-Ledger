@@ -755,7 +755,8 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
   // .titleactions.titlespacer in <style>).
   const actionsHtml = `
     <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-    <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>`;
+    <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>
+    ${shareButtonHtml(t.id)}`;
   return `
     <div class="stackedpage">
       ${pageTagHtml(backOnclick, backLabel)}

@@ -231,6 +231,7 @@ function renderChecklistDetail(taskId){
   return `
     <div class="stackedpage">
       ${pageTagHtml('closeChecklistList()', backLabel)}
+      <div class="checklistsharewrap">${shareButtonHtml(t.id)}</div>
       <div class="checklistheader">${checklistCheckcircleHtml(t, false)}</div>
       <input type="text" class="titleedit bigtitle" value="${escapeHtml(t.title)}"
         onblur="updateTitle('${t.id}', this.value)"

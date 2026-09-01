@@ -298,6 +298,9 @@ function signOut(){
   dailyCalendarOpen = false;
   dayReturnToCalendar = false;
   pendingDeleteCategoryId = null;
+  closeShareMenu();
+  shareImportId = null;
+  shareImportData = null;
   closeAllSettingsPopovers();
   undoStack = [];
   redoStack = [];
@@ -355,5 +358,14 @@ async function enterApp(){
   // that's already signed in here.
   const claudeParam = new URLSearchParams(location.search).get('claude');
   if(claudeParam) openClaudeView(claudeParam);
+  // A ?share=<id> link opened with a session available (either already
+  // signed in, or just signed in from the standalone share page's own
+  // CTA — see showShareAuthPrompt(), 19-sharing.js) shows the "add this
+  // to a category" import dialog once the real app is up.
+  if(pendingShareId){
+    const shareId = pendingShareId;
+    pendingShareId = null;
+    openShareImportDialog(shareId);
+  }
 }
 
