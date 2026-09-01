@@ -37,6 +37,7 @@ function refreshUndoButtons(){
 // (e.g. you're viewing a day that undo just un-created).
 function afterStateRestore(){
   rebuildCategoriesIndex();
+  rebuildCategoryPalette();
   applyTheme();
   applyDevSettings();
   if(!visibleTabs().includes(activeTab)) activeTab = 'all';

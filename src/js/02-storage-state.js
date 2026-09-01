@@ -681,7 +681,11 @@ function defaultState(){
     // 09-settings.js for where these are written.
     customDeskPresets: [],
     customUiPresets: [],
-    customCategoryColors: []
+    customCategoryColors: [],
+    // Which of CATEGORY_PALETTE_SETS (01-categories-theme.js) is active —
+    // 'classic' is the original set, so that's the default for both a
+    // brand-new account and rebuildCategoryPalette()'s own fallback.
+    categoryPaletteId: 'classic'
   };
 }
 
@@ -715,6 +719,7 @@ function normalizeState(){
   if(!Array.isArray(state.customDeskPresets)) state.customDeskPresets = [];
   if(!Array.isArray(state.customUiPresets)) state.customUiPresets = [];
   if(!Array.isArray(state.customCategoryColors)) state.customCategoryColors = [];
+  if(typeof state.categoryPaletteId !== 'string' || !CATEGORY_PALETTE_SETS[state.categoryPaletteId]) state.categoryPaletteId = 'classic';
   // Accounts saved before tabs became editable won't have a categories
   // array yet — seed it with the same set they've always seen so nothing
   // about their existing tasks' categories changes. Same idea for
@@ -845,6 +850,7 @@ function normalizeState(){
     if(typeof t.timeframeManual !== 'boolean') t.timeframeManual = !!t.timeframe;
   });
   rebuildCategoriesIndex();
+  rebuildCategoryPalette();
 }
 
 async function loadState(){

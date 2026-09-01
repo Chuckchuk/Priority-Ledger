@@ -2402,6 +2402,17 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.58rem; letter-spacing:0.06em; text-transform:uppercase;
     color: var(--ink-soft); margin:0 0 6px;
   }
+  /* Which CATEGORY_PALETTE_SETS entry is active (categoryPickerHtml(),
+     09-settings.js) — same small-tab idiom as .dualcolortabs, own class
+     since this isn't a 2-tab "which field" picker, it's an n-way "which
+     whole set" one. margin-top clears .catpickerclose ("×") the same
+     reason .dualcolortabs needs it — see that rule's own comment. */
+  .palettetabs{ display:flex; gap:4px; margin:18px 0 10px; }
+  .palettetab{
+    flex:1; min-width:0; font-family:'IBM Plex Mono', monospace; font-size:0.54rem; text-transform:uppercase; letter-spacing:0.01em;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:5px 2px; cursor:pointer; color:var(--ink-soft);
+  }
+  .palettetab.active{ background: var(--primary); border-color: var(--primary); color:white; }
   .catswatchrow{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
   .catswatch{
     width:20px; height:20px; border-radius:50%; border:2px solid transparent; padding:0; cursor:pointer;
@@ -4578,20 +4589,56 @@
 // plain id-keyed object (via rebuildCategoriesIndex) so the many existing
 // `CATEGORIES[key]` / `Object.entries(CATEGORIES)` call sites didn't need
 // to change when categories became dynamic.
-// Ordered by hue (warm red through to the cool blues/purples) rather
-// than the order each one happened to get added in, same organizing
-// idea as UI_COLOR_PRESETS/DESK_PAPER_PRESETS above — a category's own
-// swatch picker (categoryPickerHtml(), 09-settings.js) reads straight
-// off this array, so this is what actually determines its on-screen
-// order. Sage sits with the greens despite being much less saturated
-// than its neighbors (a deliberate "muted" option, not a hue-sort
-// mistake). defaultCategories() below picks its 4 seed colors by literal
-// hex rather than by position in this array specifically so reordering
-// this for browsing can never silently change what a brand-new account's
-// first few tabs look like; addCategory() (09-settings.js) picks the
-// first color here not already in use by an existing tab, also
-// independent of array position, for the same reason.
-const CATEGORY_PALETTE = ['#9C4530','#6B4226','#A9782F','#8C7A1E','#3C5A45','#5B6560','#2F6B5E','#2C5C7A','#3E4A6B','#7A4B6B','#B5677A','#7A2E35'];
+// Three whole 12-color sets to choose between (Settings → a category's
+// own color popover — see its own little tab row in categoryPickerHtml(),
+// 09-settings.js), not just one fixed palette — 'classic' is the original
+// set (unchanged), 'greyscale' and 'pastel' are two entirely different
+// moods. Each set is ordered by hue the same way 'classic' always was
+// (see its own comment below) — sage/stone-type "muted" entries sit with
+// their nearest real hue family rather than being pulled out as their
+// own category. Switching which set is active (setCategoryPaletteSet(),
+// 09-settings.js) remaps every category currently showing a color from
+// the *old* active set to the same slot index in the new one — see that
+// function's own comment for why a plain by-value swap (not a stored
+// index) is what actually implements that.
+const CATEGORY_PALETTE_SETS = {
+  classic: {
+    id: 'classic', label: 'Classic',
+    colors: ['#9C4530','#6B4226','#A9782F','#8C7A1E','#3C5A45','#5B6560','#2F6B5E','#2C5C7A','#3E4A6B','#7A4B6B','#B5677A','#7A2E35']
+  },
+  // "Moody whites/blacks/grays/browns... sterile" per the project
+  // owner's own brief — a plain lightness ramp of neutral grays (near-
+  // black to pale silver) followed by a parallel ramp of warm-neutral
+  // browns/taupes (dark espresso to sandy greige), ending on one true
+  // off-white so there's a "lightest" entry to match 'classic' having
+  // brass as its brightest. Deliberately NOT colorful at all — that's
+  // what makes it read as its own distinct mood, not a desaturated
+  // version of 'classic'.
+  greyscale: {
+    id: 'greyscale', label: 'Greyscale',
+    colors: ['#1F1F1F','#3A3A3A','#545454','#6E6E6E','#8A8A8A','#A8A8A8','#C4C4C4','#4A3F38','#6B5D4F','#8C7B68','#A79A85','#D6D0C4']
+  },
+  // A full hue sweep at pastel lightness/saturation (soft coral through
+  // peach, yellow, green, mint, blue, lavender, to rose) — same "spread
+  // around the wheel" idea 'classic' itself follows, just at a
+  // uniformly lighter, softer value across every entry instead of the
+  // mixed mid-to-dark tones 'classic'/'greyscale' both use.
+  pastel: {
+    id: 'pastel', label: 'Pastel',
+    colors: ['#E8998D','#F0B27A','#F0DC82','#C9DB8C','#A8D8A8','#9EDBC8','#93C9D0','#97BEE0','#A3AEE0','#C3A8E0','#E0A8CC','#E8AEB7']
+  }
+};
+// The currently-active set's own colors — a `let`, not a `const`, same
+// "rebuilt on load/mutation, plain array everywhere else reads it"
+// pattern CATEGORIES itself already uses (see rebuildCategoriesIndex()
+// below): every existing `CATEGORY_PALETTE.map()`/`.find()`/`.some()`
+// call site throughout the app keeps working unchanged, since this is
+// still just a plain array of hex strings at read time — only which
+// array it happens to point at changes.
+let CATEGORY_PALETTE = CATEGORY_PALETTE_SETS.classic.colors;
+function rebuildCategoryPalette(){
+  CATEGORY_PALETTE = (CATEGORY_PALETTE_SETS[state.categoryPaletteId] || CATEGORY_PALETTE_SETS.classic).colors;
+}
 // Used only when a task's category tab has been deleted — the task itself
 // is never touched, it just has nothing to look itself up as, and this
 // keeps that rendering path from breaking.
@@ -6586,7 +6633,11 @@ function defaultState(){
     // 09-settings.js for where these are written.
     customDeskPresets: [],
     customUiPresets: [],
-    customCategoryColors: []
+    customCategoryColors: [],
+    // Which of CATEGORY_PALETTE_SETS (01-categories-theme.js) is active —
+    // 'classic' is the original set, so that's the default for both a
+    // brand-new account and rebuildCategoryPalette()'s own fallback.
+    categoryPaletteId: 'classic'
   };
 }
 
@@ -6620,6 +6671,7 @@ function normalizeState(){
   if(!Array.isArray(state.customDeskPresets)) state.customDeskPresets = [];
   if(!Array.isArray(state.customUiPresets)) state.customUiPresets = [];
   if(!Array.isArray(state.customCategoryColors)) state.customCategoryColors = [];
+  if(typeof state.categoryPaletteId !== 'string' || !CATEGORY_PALETTE_SETS[state.categoryPaletteId]) state.categoryPaletteId = 'classic';
   // Accounts saved before tabs became editable won't have a categories
   // array yet — seed it with the same set they've always seen so nothing
   // about their existing tasks' categories changes. Same idea for
@@ -6750,6 +6802,7 @@ function normalizeState(){
     if(typeof t.timeframeManual !== 'boolean') t.timeframeManual = !!t.timeframe;
   });
   rebuildCategoriesIndex();
+  rebuildCategoryPalette();
 }
 
 async function loadState(){
@@ -6981,6 +7034,7 @@ function refreshUndoButtons(){
 // (e.g. you're viewing a day that undo just un-created).
 function afterStateRestore(){
   rebuildCategoriesIndex();
+  rebuildCategoryPalette();
   applyTheme();
   applyDevSettings();
   if(!visibleTabs().includes(activeTab)) activeTab = 'all';
@@ -10396,9 +10450,17 @@ function categoryPickerHtml(c){
     return `
     <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}"><span${glyphStyle}>${CATEGORY_ICON_SVG[id] || CATEGORY_ICON_GLYPHS[id]}</span></button>`;
   }).join('');
+  // Which whole 12-color set is active — a global choice (see
+  // setCategoryPaletteSet() below), just exposed from inside this one
+  // category's own popover rather than from Appearance, since this is
+  // the only place a category's color ever gets picked from anyway.
+  const paletteTabsHtml = `<div class="palettetabs">${Object.values(CATEGORY_PALETTE_SETS).map(set=>
+    `<button class="palettetab ${state.categoryPaletteId===set.id?'active':''}" onclick="setCategoryPaletteSet('${set.id}')">${set.label}</button>`
+  ).join('')}</div>`;
   return `
     <div class="catpicker">
       <button class="catpickerclose" onclick="toggleCategoryPicker('${c.id}')" title="Close">×</button>
+      ${paletteTabsHtml}
       <div class="catpickerlabel">Color</div>
       <div class="catswatchrow">
         ${swatches}${customSwatches}
@@ -10767,6 +10829,39 @@ async function setCategoryColor(id, hex){
   if(!c || c.hex.toLowerCase()===hex.toLowerCase()) return;
   pushUndo(`Changed "${c.label}" color`);
   c.hex = hex;
+  rebuildCategoriesIndex();
+  render();
+  queueSave();
+}
+
+// Switches which of CATEGORY_PALETTE_SETS is active (01-categories-
+// theme.js) — a global choice, not per-category — and remaps every
+// category currently showing one of the *old* set's 12 colors to
+// whichever color sits at that same slot index in the new set. A
+// category not currently showing one of the old set's colors — a custom
+// wheel pick, or one of state.customCategoryColors' own saved swatches —
+// is left alone, per the project owner's own explicit rule.
+//   This only works as a plain by-*value* lookup (oldColors.indexOf(...))
+// specifically because a category never stores *which slot* it was
+// picked from, only the literal hex — the simplest option that doesn't
+// touch the category data shape at all, and every other part of the app
+// that reads c.hex directly keeps working completely unchanged. The
+// trade-off: if two categories' current colors happened to collide with
+// the same old-set value by coincidence (they normally can't — setColor
+// always writes one of the 12 literal palette hexes, or a custom one —
+// so the only way in is manually editing state), both would still remap
+// together correctly, since the lookup is per-category, not shared.
+async function setCategoryPaletteSet(id){
+  const newSet = CATEGORY_PALETTE_SETS[id];
+  if(!newSet || state.categoryPaletteId === id) return;
+  const oldColors = CATEGORY_PALETTE; // still the outgoing set at this point
+  pushUndo(`Changed category colors to "${newSet.label}"`);
+  state.categories.forEach(c=>{
+    const idx = oldColors.findIndex(hex=>hex.toLowerCase()===c.hex.toLowerCase());
+    if(idx !== -1) c.hex = newSet.colors[idx];
+  });
+  state.categoryPaletteId = id;
+  rebuildCategoryPalette();
   rebuildCategoriesIndex();
   render();
   queueSave();

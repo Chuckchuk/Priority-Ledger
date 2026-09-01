@@ -465,9 +465,17 @@ function categoryPickerHtml(c){
     return `
     <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}"><span${glyphStyle}>${CATEGORY_ICON_SVG[id] || CATEGORY_ICON_GLYPHS[id]}</span></button>`;
   }).join('');
+  // Which whole 12-color set is active — a global choice (see
+  // setCategoryPaletteSet() below), just exposed from inside this one
+  // category's own popover rather than from Appearance, since this is
+  // the only place a category's color ever gets picked from anyway.
+  const paletteTabsHtml = `<div class="palettetabs">${Object.values(CATEGORY_PALETTE_SETS).map(set=>
+    `<button class="palettetab ${state.categoryPaletteId===set.id?'active':''}" onclick="setCategoryPaletteSet('${set.id}')">${set.label}</button>`
+  ).join('')}</div>`;
   return `
     <div class="catpicker">
       <button class="catpickerclose" onclick="toggleCategoryPicker('${c.id}')" title="Close">×</button>
+      ${paletteTabsHtml}
       <div class="catpickerlabel">Color</div>
       <div class="catswatchrow">
         ${swatches}${customSwatches}
@@ -836,6 +844,39 @@ async function setCategoryColor(id, hex){
   if(!c || c.hex.toLowerCase()===hex.toLowerCase()) return;
   pushUndo(`Changed "${c.label}" color`);
   c.hex = hex;
+  rebuildCategoriesIndex();
+  render();
+  queueSave();
+}
+
+// Switches which of CATEGORY_PALETTE_SETS is active (01-categories-
+// theme.js) — a global choice, not per-category — and remaps every
+// category currently showing one of the *old* set's 12 colors to
+// whichever color sits at that same slot index in the new set. A
+// category not currently showing one of the old set's colors — a custom
+// wheel pick, or one of state.customCategoryColors' own saved swatches —
+// is left alone, per the project owner's own explicit rule.
+//   This only works as a plain by-*value* lookup (oldColors.indexOf(...))
+// specifically because a category never stores *which slot* it was
+// picked from, only the literal hex — the simplest option that doesn't
+// touch the category data shape at all, and every other part of the app
+// that reads c.hex directly keeps working completely unchanged. The
+// trade-off: if two categories' current colors happened to collide with
+// the same old-set value by coincidence (they normally can't — setColor
+// always writes one of the 12 literal palette hexes, or a custom one —
+// so the only way in is manually editing state), both would still remap
+// together correctly, since the lookup is per-category, not shared.
+async function setCategoryPaletteSet(id){
+  const newSet = CATEGORY_PALETTE_SETS[id];
+  if(!newSet || state.categoryPaletteId === id) return;
+  const oldColors = CATEGORY_PALETTE; // still the outgoing set at this point
+  pushUndo(`Changed category colors to "${newSet.label}"`);
+  state.categories.forEach(c=>{
+    const idx = oldColors.findIndex(hex=>hex.toLowerCase()===c.hex.toLowerCase());
+    if(idx !== -1) c.hex = newSet.colors[idx];
+  });
+  state.categoryPaletteId = id;
+  rebuildCategoryPalette();
   rebuildCategoriesIndex();
   render();
   queueSave();

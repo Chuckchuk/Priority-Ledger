@@ -2370,6 +2370,17 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.58rem; letter-spacing:0.06em; text-transform:uppercase;
     color: var(--ink-soft); margin:0 0 6px;
   }
+  /* Which CATEGORY_PALETTE_SETS entry is active (categoryPickerHtml(),
+     09-settings.js) — same small-tab idiom as .dualcolortabs, own class
+     since this isn't a 2-tab "which field" picker, it's an n-way "which
+     whole set" one. margin-top clears .catpickerclose ("×") the same
+     reason .dualcolortabs needs it — see that rule's own comment. */
+  .palettetabs{ display:flex; gap:4px; margin:18px 0 10px; }
+  .palettetab{
+    flex:1; min-width:0; font-family:'IBM Plex Mono', monospace; font-size:0.54rem; text-transform:uppercase; letter-spacing:0.01em;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:5px 2px; cursor:pointer; color:var(--ink-soft);
+  }
+  .palettetab.active{ background: var(--primary); border-color: var(--primary); color:white; }
   .catswatchrow{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
   .catswatch{
     width:20px; height:20px; border-radius:50%; border:2px solid transparent; padding:0; cursor:pointer;

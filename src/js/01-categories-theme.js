@@ -4,20 +4,56 @@
 // plain id-keyed object (via rebuildCategoriesIndex) so the many existing
 // `CATEGORIES[key]` / `Object.entries(CATEGORIES)` call sites didn't need
 // to change when categories became dynamic.
-// Ordered by hue (warm red through to the cool blues/purples) rather
-// than the order each one happened to get added in, same organizing
-// idea as UI_COLOR_PRESETS/DESK_PAPER_PRESETS above — a category's own
-// swatch picker (categoryPickerHtml(), 09-settings.js) reads straight
-// off this array, so this is what actually determines its on-screen
-// order. Sage sits with the greens despite being much less saturated
-// than its neighbors (a deliberate "muted" option, not a hue-sort
-// mistake). defaultCategories() below picks its 4 seed colors by literal
-// hex rather than by position in this array specifically so reordering
-// this for browsing can never silently change what a brand-new account's
-// first few tabs look like; addCategory() (09-settings.js) picks the
-// first color here not already in use by an existing tab, also
-// independent of array position, for the same reason.
-const CATEGORY_PALETTE = ['#9C4530','#6B4226','#A9782F','#8C7A1E','#3C5A45','#5B6560','#2F6B5E','#2C5C7A','#3E4A6B','#7A4B6B','#B5677A','#7A2E35'];
+// Three whole 12-color sets to choose between (Settings → a category's
+// own color popover — see its own little tab row in categoryPickerHtml(),
+// 09-settings.js), not just one fixed palette — 'classic' is the original
+// set (unchanged), 'greyscale' and 'pastel' are two entirely different
+// moods. Each set is ordered by hue the same way 'classic' always was
+// (see its own comment below) — sage/stone-type "muted" entries sit with
+// their nearest real hue family rather than being pulled out as their
+// own category. Switching which set is active (setCategoryPaletteSet(),
+// 09-settings.js) remaps every category currently showing a color from
+// the *old* active set to the same slot index in the new one — see that
+// function's own comment for why a plain by-value swap (not a stored
+// index) is what actually implements that.
+const CATEGORY_PALETTE_SETS = {
+  classic: {
+    id: 'classic', label: 'Classic',
+    colors: ['#9C4530','#6B4226','#A9782F','#8C7A1E','#3C5A45','#5B6560','#2F6B5E','#2C5C7A','#3E4A6B','#7A4B6B','#B5677A','#7A2E35']
+  },
+  // "Moody whites/blacks/grays/browns... sterile" per the project
+  // owner's own brief — a plain lightness ramp of neutral grays (near-
+  // black to pale silver) followed by a parallel ramp of warm-neutral
+  // browns/taupes (dark espresso to sandy greige), ending on one true
+  // off-white so there's a "lightest" entry to match 'classic' having
+  // brass as its brightest. Deliberately NOT colorful at all — that's
+  // what makes it read as its own distinct mood, not a desaturated
+  // version of 'classic'.
+  greyscale: {
+    id: 'greyscale', label: 'Greyscale',
+    colors: ['#1F1F1F','#3A3A3A','#545454','#6E6E6E','#8A8A8A','#A8A8A8','#C4C4C4','#4A3F38','#6B5D4F','#8C7B68','#A79A85','#D6D0C4']
+  },
+  // A full hue sweep at pastel lightness/saturation (soft coral through
+  // peach, yellow, green, mint, blue, lavender, to rose) — same "spread
+  // around the wheel" idea 'classic' itself follows, just at a
+  // uniformly lighter, softer value across every entry instead of the
+  // mixed mid-to-dark tones 'classic'/'greyscale' both use.
+  pastel: {
+    id: 'pastel', label: 'Pastel',
+    colors: ['#E8998D','#F0B27A','#F0DC82','#C9DB8C','#A8D8A8','#9EDBC8','#93C9D0','#97BEE0','#A3AEE0','#C3A8E0','#E0A8CC','#E8AEB7']
+  }
+};
+// The currently-active set's own colors — a `let`, not a `const`, same
+// "rebuilt on load/mutation, plain array everywhere else reads it"
+// pattern CATEGORIES itself already uses (see rebuildCategoriesIndex()
+// below): every existing `CATEGORY_PALETTE.map()`/`.find()`/`.some()`
+// call site throughout the app keeps working unchanged, since this is
+// still just a plain array of hex strings at read time — only which
+// array it happens to point at changes.
+let CATEGORY_PALETTE = CATEGORY_PALETTE_SETS.classic.colors;
+function rebuildCategoryPalette(){
+  CATEGORY_PALETTE = (CATEGORY_PALETTE_SETS[state.categoryPaletteId] || CATEGORY_PALETTE_SETS.classic).colors;
+}
 // Used only when a task's category tab has been deleted — the task itself
 // is never touched, it just has nothing to look itself up as, and this
 // keeps that rendering path from breaking.
