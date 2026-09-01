@@ -2299,7 +2299,12 @@
     background: var(--card-bg-dim); color: var(--ink-soft); font-size:0.55rem; line-height:1; cursor:pointer;
   }
   .catmovebtn:disabled{ opacity:0.3; cursor:not-allowed; }
-  .catlocs{ flex-basis:100%; display:flex; gap:16px; margin-top:2px; }
+  /* Right-aligned (was left, flush under .catmove/the color dot — sat
+     right where the reorder arrows and icon live, reading as competing
+     with them rather than its own separate row of info) — now lines up
+     under DELETE instead, on the opposite side from that identity
+     cluster. */
+  .catlocs{ flex-basis:100%; display:flex; justify-content:flex-end; gap:16px; margin-top:2px; }
   .catlocchk{
     display:flex; align-items:center; gap:5px; cursor:pointer;
     font-family:'IBM Plex Mono', monospace; font-size:0.64rem; text-transform:uppercase;

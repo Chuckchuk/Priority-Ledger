@@ -8,13 +8,15 @@
 // at all) rather than running it through the same map() as the real
 // animated styles below — there's no "off" animation to loop, the point
 // is showing exactly what an ordinary, un-nudged checkbox looks like.
+// 'sparkle' relabeled "Shimmer" (was "Sparkles") per the project owner's
+// own ask — internal value unchanged, only the displayed name.
 const CHECK_GUIDE_STYLE_OPTIONS = [
   ['none', 'Off — no nudge', `<span class="check" aria-hidden="true"></span>`],
   ...[
     ['radialping', 'Radial ping'],
-    ['wiggle', 'Wiggle'],
-    ['sparkle', 'Sparkles'],
-    ['glow', 'Warm pulsing glow']
+    ['glow', 'Warm pulsing glow'],
+    ['sparkle', 'Shimmer'],
+    ['wiggle', 'Wiggle']
   ].map(([v, label]) => [v, label, `<span class="check guide-check guide-${v} guide-preview" aria-hidden="true"></span>`])
 ];
 
