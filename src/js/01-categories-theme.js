@@ -320,6 +320,7 @@ const DESK_PAPER_PRESETS = [
   { id:'espresso', label:'Espresso & Cream',   bg:'#241812', paper:'#F0E6D6' },
   { id:'plum',     label:'Plum & Linen',       bg:'#3B2A44', paper:'#EDE6DC' },
   { id:'charcoal', label:'Charcoal & Birch',   bg:'#26241F', paper:'#F2ECE0' },
+  { id:'oak',      label:'Oak & Ivory',        bg:'#3D2B1F', paper:'#F5EFE0' },
   // Deep oxblood/maroon desk, paired with a paper that leans slightly
   // warm-blush rather than the plain creams above — echoes the bg's own
   // warmth (same "contrast, not match" idea Navy & Parchment's cool bg /
@@ -328,7 +329,6 @@ const DESK_PAPER_PRESETS = [
   // than "Blush" per the project owner's own ask for a less feminine-
   // reading second word.
   { id:'maroon',   label:'Maroon & Vellum',    bg:'#4B1D23', paper:'#F2E1D9' },
-  { id:'oak',      label:'Oak & Ivory',        bg:'#3D2B1F', paper:'#F5EFE0' },
   { id:'navy',     label:'Navy & Parchment',   bg:'#1F2937', paper:'#EFDDB0' },
   // A genuinely different, more amber/caramel ledger than Navy's own
   // parchment (not a re-use — see the project owner's own ask that this
