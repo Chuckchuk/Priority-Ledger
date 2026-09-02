@@ -188,7 +188,12 @@ function daysBetween(a, b){ return Math.round((new Date(b) - new Date(a)) / 8640
 // spec-guaranteed stable — that's what keeps 'default' mode a pure
 // reflection of array order with only the done/open split imposed on it.
 let sortMode = 'default';
-const SORT_MODE_LABELS = { default:'My Order', mixed:'Mixed', timeframe:'Timeframe', newest:'Newest First', timestamp:'Oldest First', priority:'Priority', category:'Category' };
+// 'flagged' slots in right after 'default' — reordering-only, same as
+// every other mode (see the big comment above), just keyed on t.urgent
+// instead of a date/timeframe/category field. Distinct from flaggedOnly
+// below: this only ever REORDERS (flagged tasks float to the top, nothing
+// is ever hidden), consistent with every other sort mode here.
+const SORT_MODE_LABELS = { default:'My Order', flagged:'Flagged First', mixed:'Mixed', timeframe:'Timeframe', newest:'Newest First', timestamp:'Oldest First', priority:'Priority', category:'Category' };
 const TIMEFRAME_ORDER = { urgent:0, today:1, short:2, medium:3, long:4, '':5 };
 
 function setSortMode(val){
@@ -199,6 +204,7 @@ function setSortMode(val){
 function applySortMode(list){
   const doneLast = (a,b) => isDoneForSort(a) !== isDoneForSort(b) ? (isDoneForSort(a)?1:-1) : 0;
   switch(sortMode){
+    case 'flagged': return list.slice().sort((a,b)=> doneLast(a,b) || (a.urgent!==b.urgent ? (a.urgent?-1:1) : 0));
     case 'mixed': return sortTasks(list);
     case 'timeframe': return list.slice().sort((a,b)=> doneLast(a,b) || (TIMEFRAME_ORDER[a.timeframe||''] - TIMEFRAME_ORDER[b.timeframe||'']));
     case 'timestamp': return list.slice().sort((a,b)=> doneLast(a,b) || (new Date(a.createdAt) - new Date(b.createdAt)));
@@ -217,9 +223,56 @@ function applySortMode(list){
 // detail). Inside a single category tab every visible task already shares
 // that one category, so sorting "by category" is a silent no-op — omit
 // the option there rather than offer a sort that does nothing.
-function sortModeOptionsHtml(includeCategory){
+// Renders as buttons for the #ctxMenu-based sort popover (see
+// openSortMenu()/renderSortMenu(), 08-render-core.js) rather than
+// <option> tags — the "custom menu, not a native <select>" the project
+// owner asked for, matching the "Move to" category menu's own look
+// (categoryMoveMenuHtml()). The current mode gets a leading ✓ rather than
+// a CSS-only highlight, since a menu of plain-text buttons has no other
+// obvious place to show "this one's already selected." 'flagged' is the
+// one option with its own leading glyph (⚑, matching the flag button
+// itself) regardless of current/not-current, called out per the project
+// owner's own ask to mark it visually.
+function sortMenuButtonsHtml(includeCategory){
   return Object.entries(SORT_MODE_LABELS)
     .filter(([k])=> includeCategory || k !== 'category')
-    .map(([k,label])=>`<option value="${k}" ${sortMode===k?'selected':''}>${label}</option>`).join('');
+    .map(([k,label])=>{
+      const mark = sortMode===k ? '✓ ' : '';
+      const flag = k==='flagged' ? '⚑ ' : '';
+      return `<button class="${sortMode===k?'current':''}" onclick="ctxMenuAction(()=>setSortMode('${k}'))">${mark}${flag}${label}</button>`;
+    }).join('');
+}
+
+// A pure FILTER (hides non-flagged tasks entirely), deliberately separate
+// from the 'flagged' sort mode above rather than folded into it — the two
+// answer different questions ("what order" vs. "what's even shown") and
+// composing them (any sort mode, optionally flagged-only on top) is more
+// useful than forcing a choice between "flagged floated to the top" and
+// "flagged and nothing else," which a single mixed option could only ever
+// offer one of at a time. Its own toggle button lives next to the sort
+// button rather than inside the sort menu for the same reason: it isn't a
+// sort option, so it doesn't belong in a menu of mutually-exclusive ones.
+let flaggedOnly = false;
+function toggleFlaggedOnly(){
+  flaggedOnly = !flaggedOnly;
+  render();
+}
+
+// The whole "SORT [button ▾] [flag toggle]" row — one shared definition
+// (matching shareButtonHtml()'s own "one place, not per-call-site copies"
+// reasoning, 19-sharing.js) so renderList()'s category/All-tab list and
+// renderDayDetail()'s own day list (08-render-core.js/12-daily-tree.js —
+// the two places a flat task list has its own sort control at all; the
+// "add existing task to this day" tree picker doesn't sort linearly, so
+// it never had one) can't drift apart. The sort button's own label always
+// leads with ⚑ when 'flagged' is the active mode, same as the menu's own
+// leading glyph for that option.
+function sortControlHtml(includeCategory){
+  const label = (sortMode==='flagged' ? '⚑ ' : '') + (SORT_MODE_LABELS[sortMode] || SORT_MODE_LABELS.default);
+  return `
+    <label class="fieldlabel">SORT</label>
+    <button class="sortbtn" onclick="event.stopPropagation(); openSortMenu(this, ${includeCategory})">${label} <span class="sortcaret">▾</span></button>
+    <button class="flagfilterbtn ${flaggedOnly?'on':''}" onclick="toggleFlaggedOnly()" title="${flaggedOnly ? 'Show all tasks' : 'Show flagged tasks only'}">⚑</button>
+  `;
 }
 

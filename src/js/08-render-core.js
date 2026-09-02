@@ -131,7 +131,7 @@ function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
         <span class="datefield taskdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateFull(t.dueDate) : (hideActions ? 'Due Date' : 'Date')}</span>
         <div class="expandactions">
           ${hideActions ? '' : `
-          <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
+          <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle flag">⚑</button>
           <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">${DAYPIN_ICON_SVG}</button>`}
           ${canRemoveHere && !hideActions ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
@@ -747,16 +747,17 @@ function taskDetailCheckTap(e, taskId){
   if(taskDetailCheckLongPressFired){ taskDetailCheckLongPressFired = false; e.preventDefault(); return; }
   toggleStatus(taskId);
 }
-// Shared by the task menu above, the day menu below, and the category
-// "Move to" menu further down — only one #ctxMenu exists, so only one of
-// ctxMenuTaskId/ctxMenuDayStr/ctxMenuMoveTaskId is ever non-null at a
-// time; closing always clears all three regardless of which one's
-// actually set, rather than needing a caller to know which kind of menu
-// is currently open.
+// Shared by the task menu above, the day menu below, the category
+// "Move to" menu further down, and the Sort menu (renderSortMenu() below)
+// — only one #ctxMenu exists, so only one of ctxMenuTaskId/ctxMenuDayStr/
+// ctxMenuMoveTaskId/ctxMenuSortOpen is ever set at a time; closing always
+// clears all four regardless of which one's actually set, rather than
+// needing a caller to know which kind of menu is currently open.
 function closeCtxMenu(){
   ctxMenuTaskId = null;
   ctxMenuDayStr = null;
   ctxMenuMoveTaskId = null;
+  ctxMenuSortOpen = false;
   document.getElementById('ctxMenu').classList.remove('open');
 }
 // Every menu item (task or day) routes through this — closes the menu
@@ -965,6 +966,33 @@ function openCategoryMoveMenu(el, taskId){
   renderCategoryMoveMenu(taskId, r.right, r.bottom + 6);
 }
 
+// Sort menu — same #ctxMenu popup, same anchored-under-the-trigger idiom
+// as openCategoryMoveMenu() just above (the Sort button is exactly the
+// same kind of small fixed corner target the category label is), replacing
+// the plain native <select> renderList()/renderDayDetail() used to render
+// (see sortMenuButtonsHtml(), 05-dates-sort.js) with the same kind of
+// custom popover every other "pick one of a few things" control in this
+// app already uses.
+let ctxMenuSortOpen = false;
+function renderSortMenu(x, y, includeCategory){
+  ctxMenuSortOpen = true;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = `<div class="ctxmenu-label">Sort by</div>${sortMenuButtonsHtml(includeCategory)}`;
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+  });
+}
+function openSortMenu(el, includeCategory){
+  const r = el.getBoundingClientRect();
+  renderSortMenu(r.left, r.bottom + 6, includeCategory);
+}
+
 // The long-press settings sheet itself — everything taskManagementFieldsHtml()
 // covers (title/category/due/urgent/pin/timeframe/priority/notes/meta),
 // rendered into the always-in-DOM #taskSettingsSheet (shell-body.html)
@@ -1035,7 +1063,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
   // needed the way a flex-based "both real items on one side" layout
   // would have required.
   const leftActionsHtml = `
-    <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
+    <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle flag">⚑</button>
     <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">${DAYPIN_ICON_SVG}</button>`;
   return `
     <div class="stackedpage">
@@ -1147,25 +1175,30 @@ function categoryMatchingTasks(){
   });
 }
 function categoryVisibleTasks(){
-  return applySortMode(categoryMatchingTasks()).filter(t => showDone || t.status!=='done' || completingTaskIds.has(t.id));
+  return applySortMode(categoryMatchingTasks())
+    .filter(t => showDone || t.status!=='done' || completingTaskIds.has(t.id))
+    .filter(t => !flaggedOnly || t.urgent);
 }
 
 // Just the <ul class="tasks"> markup (or the empty-state div) — pure,
 // same reason as categoryVisibleTasks() above.
 function categoryListHtml(){
   const visible = categoryVisibleTasks();
-  return visible.length===0
-    ? `<div class="empty">${EMPTY_MSG[activeTab] || 'Nothing here yet.'}</div>`
-    : visible.map(t=>taskRowHtml(t, activeTab==='all', false)).join('') + dropEndHtml(visible);
+  if(visible.length===0){
+    // Same reasoning as renderDayDetail()'s own emptyMsg (12-daily-tree.js):
+    // flaggedOnly hiding everything needs its own message, not the tab's
+    // normal empty-state copy, or it reads as "this tab has nothing in it"
+    // rather than "the flagged-only filter has nothing to show right now."
+    const msg = flaggedOnly ? 'No flagged tasks here.' : (EMPTY_MSG[activeTab] || 'Nothing here yet.');
+    return `<div class="empty">${msg}</div>`;
+  }
+  return visible.map(t=>taskRowHtml(t, activeTab==='all', false)).join('') + dropEndHtml(visible);
 }
 
 function renderList(){
   const doneCount = categoryMatchingTasks().filter(t=>t.status==='done').length;
 
-  document.getElementById('sortRow').innerHTML = `
-    <label class="fieldlabel">SORT</label>
-    <select onchange="setSortMode(this.value)">${sortModeOptionsHtml(activeTab==='all')}</select>
-  `;
+  document.getElementById('sortRow').innerHTML = sortControlHtml(activeTab==='all');
 
   document.getElementById('taskList').innerHTML = categoryListHtml();
 

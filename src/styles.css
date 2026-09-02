@@ -628,10 +628,31 @@
     color: var(--ink); font-size:1.1rem; cursor:pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
   }
   .sortrow{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
-  .sortrow select{
+  /* .sortbtn replaces the old plain <select> — a custom #ctxMenu popover
+     (openSortMenu()/renderSortMenu(), 08-render-core.js) triggered from a
+     button instead, matching every other "pick one of a few things"
+     control in this app (the category "Move to" menu, the share menu).
+     Same visual language the old <select> used (mono/uppercase/boxed) so
+     this reads as a straightforward swap, not a new element entirely. */
+  .sortbtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
-    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px 8px; color:var(--ink);
+    display:flex; align-items:center; gap:4px; cursor:pointer;
   }
+  .sortbtn:hover{ border-color: var(--primary); }
+  .sortcaret{ font-size:0.6rem; opacity:0.7; }
+  /* The flagged-only FILTER toggle, next to (not inside) the sort button —
+     see flaggedOnly's own comment in 05-dates-sort.js for why it's a
+     separate control rather than a sort-menu option. Same .flagbtn box
+     language the task detail header's flag/pin/share buttons use, so it
+     reads as "a flag-related toggle" at a glance rather than a new one-off
+     control shape. */
+  .flagfilterbtn{
+    width:30px; height:30px; flex-shrink:0; padding:0;
+    border:1px solid var(--line); background:var(--card-bg-dim); border-radius:6px;
+    cursor:pointer; font-size:0.84rem; color: var(--ink-soft);
+  }
+  .flagfilterbtn.on{ background: var(--estate); color:white; border-color: var(--estate); }
   ul.tasks{ list-style:none; margin:0; padding:0; }
   li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
   li.task.dragging{ opacity:0.4; }

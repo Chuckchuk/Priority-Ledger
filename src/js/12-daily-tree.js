@@ -195,7 +195,7 @@ function dayChecklistRowHtml(t, dateStr){
 
 function renderDayDetail(dateStr){
   const allTasks = standardTasksForDay(dateStr);
-  const sorted = applySortMode(allTasks);
+  const sorted = applySortMode(allTasks).filter(t => !flaggedOnly || t.urgent);
   const subItems = subDailyItemsForDay(dateStr);
   const checklistItems = checklistDailyItemsForDay(dateStr);
   const { total, done } = dayItemsSummary(dateStr);
@@ -249,7 +249,15 @@ function renderDayDetail(dateStr){
   // Only claim "nothing planned" when the day is truly empty across all
   // three kinds of item — a day with only a checklist planned (no tasks,
   // no steps) shouldn't say nothing's planned right above that checklist.
-  const emptyMsg = total ? '' : `<div class="empty">Nothing planned for this day yet.</div>`;
+  // flaggedOnly needs its own message rather than falling through to that
+  // same "nothing planned" one — `total` (dayItemsSummary(), unfiltered)
+  // can still be >0 while the flagged-only filter above has hidden every
+  // task/step, which would otherwise read as a bug (day claims items,
+  // shows none, says nothing's planned) rather than the filter doing
+  // exactly what it was asked to.
+  const emptyMsg = !total ? `<div class="empty">Nothing planned for this day yet.</div>`
+    : (flaggedOnly && mainCount===0 && checklistItems.length===0) ? `<div class="empty">No flagged items on this day.</div>`
+    : '';
   const checklistsBlock = checklistItems.length ? `
     <div class="daylistlabel">Checklists</div>
     <ul class="tasks">${checklistItems.map(t=>dayChecklistRowHtml(t, dateStr)).join('')}</ul>
@@ -279,10 +287,7 @@ function renderDayDetail(dateStr){
         <button class="addbtn" onclick="addDayTask('${dateStr}')">+</button>
       </div>
       ${renderAddToDayPicker(dateStr)}
-      <div class="sortrow">
-        <label class="fieldlabel">SORT</label>
-        <select onchange="setSortMode(this.value)">${sortModeOptionsHtml(true)}</select>
-      </div>
+      <div class="sortrow">${sortControlHtml(true)}</div>
       ${emptyMsg}
       ${mainListHtml}
       ${checklistsBlock}

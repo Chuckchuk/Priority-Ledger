@@ -74,7 +74,15 @@
 <div class="shell" id="appShell" style="display:none;">
   <div class="masthead">
     <button class="settingsbtn" id="settingsBtn" onclick="toggleSettings()" title="Settings">⚙</button>
-    <button class="dailyshortcut" id="dailyShortcutBtn" onclick="goToDailyToday()" title="Today">▤</button>
+    <!-- A calendar-with-a-marked-day glyph, not the old ▤ (a plain
+         document/list icon with no "today"/date meaning at all) — per the
+         project owner's own callout that the old icon didn't actually
+         communicate "jump to today." fill="none"/stroke="currentColor" for
+         the calendar body/header (so it picks up .dailyshortcut's own
+         color, including the white .on state, the same way every other
+         icon in the header row does) plus one small solid currentColor dot
+         standing in for "today" marked on the grid. -->
+    <button class="dailyshortcut" id="dailyShortcutBtn" onclick="goToDailyToday()" title="Today"><svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><circle cx="12" cy="15" r="2" fill="currentColor" stroke="none"/></svg></button>
     <h1>The Ledger</h1>
     <button class="locbadge" id="locBadge" onclick="toggleLocation()"></button>
     <button class="signoutbtn2" id="signOutBtn" onclick="signOut()" title="Sign out" style="display:none;">Sign out</button>

@@ -660,10 +660,31 @@
     color: var(--ink); font-size:1.1rem; cursor:pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
   }
   .sortrow{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
-  .sortrow select{
+  /* .sortbtn replaces the old plain <select> — a custom #ctxMenu popover
+     (openSortMenu()/renderSortMenu(), 08-render-core.js) triggered from a
+     button instead, matching every other "pick one of a few things"
+     control in this app (the category "Move to" menu, the share menu).
+     Same visual language the old <select> used (mono/uppercase/boxed) so
+     this reads as a straightforward swap, not a new element entirely. */
+  .sortbtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
-    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px 8px; color:var(--ink);
+    display:flex; align-items:center; gap:4px; cursor:pointer;
   }
+  .sortbtn:hover{ border-color: var(--primary); }
+  .sortcaret{ font-size:0.6rem; opacity:0.7; }
+  /* The flagged-only FILTER toggle, next to (not inside) the sort button —
+     see flaggedOnly's own comment in 05-dates-sort.js for why it's a
+     separate control rather than a sort-menu option. Same .flagbtn box
+     language the task detail header's flag/pin/share buttons use, so it
+     reads as "a flag-related toggle" at a glance rather than a new one-off
+     control shape. */
+  .flagfilterbtn{
+    width:30px; height:30px; flex-shrink:0; padding:0;
+    border:1px solid var(--line); background:var(--card-bg-dim); border-radius:6px;
+    cursor:pointer; font-size:0.84rem; color: var(--ink-soft);
+  }
+  .flagfilterbtn.on{ background: var(--estate); color:white; border-color: var(--estate); }
   ul.tasks{ list-style:none; margin:0; padding:0; }
   li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
   li.task.dragging{ opacity:0.4; }
@@ -4723,7 +4744,15 @@
 <div class="shell" id="appShell" style="display:none;">
   <div class="masthead">
     <button class="settingsbtn" id="settingsBtn" onclick="toggleSettings()" title="Settings">⚙</button>
-    <button class="dailyshortcut" id="dailyShortcutBtn" onclick="goToDailyToday()" title="Today">▤</button>
+    <!-- A calendar-with-a-marked-day glyph, not the old ▤ (a plain
+         document/list icon with no "today"/date meaning at all) — per the
+         project owner's own callout that the old icon didn't actually
+         communicate "jump to today." fill="none"/stroke="currentColor" for
+         the calendar body/header (so it picks up .dailyshortcut's own
+         color, including the white .on state, the same way every other
+         icon in the header row does) plus one small solid currentColor dot
+         standing in for "today" marked on the grid. -->
+    <button class="dailyshortcut" id="dailyShortcutBtn" onclick="goToDailyToday()" title="Today"><svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><circle cx="12" cy="15" r="2" fill="currentColor" stroke="none"/></svg></button>
     <h1>The Ledger</h1>
     <button class="locbadge" id="locBadge" onclick="toggleLocation()"></button>
     <button class="signoutbtn2" id="signOutBtn" onclick="signOut()" title="Sign out" style="display:none;">Sign out</button>
@@ -7943,7 +7972,12 @@ function daysBetween(a, b){ return Math.round((new Date(b) - new Date(a)) / 8640
 // spec-guaranteed stable — that's what keeps 'default' mode a pure
 // reflection of array order with only the done/open split imposed on it.
 let sortMode = 'default';
-const SORT_MODE_LABELS = { default:'My Order', mixed:'Mixed', timeframe:'Timeframe', newest:'Newest First', timestamp:'Oldest First', priority:'Priority', category:'Category' };
+// 'flagged' slots in right after 'default' — reordering-only, same as
+// every other mode (see the big comment above), just keyed on t.urgent
+// instead of a date/timeframe/category field. Distinct from flaggedOnly
+// below: this only ever REORDERS (flagged tasks float to the top, nothing
+// is ever hidden), consistent with every other sort mode here.
+const SORT_MODE_LABELS = { default:'My Order', flagged:'Flagged First', mixed:'Mixed', timeframe:'Timeframe', newest:'Newest First', timestamp:'Oldest First', priority:'Priority', category:'Category' };
 const TIMEFRAME_ORDER = { urgent:0, today:1, short:2, medium:3, long:4, '':5 };
 
 function setSortMode(val){
@@ -7954,6 +7988,7 @@ function setSortMode(val){
 function applySortMode(list){
   const doneLast = (a,b) => isDoneForSort(a) !== isDoneForSort(b) ? (isDoneForSort(a)?1:-1) : 0;
   switch(sortMode){
+    case 'flagged': return list.slice().sort((a,b)=> doneLast(a,b) || (a.urgent!==b.urgent ? (a.urgent?-1:1) : 0));
     case 'mixed': return sortTasks(list);
     case 'timeframe': return list.slice().sort((a,b)=> doneLast(a,b) || (TIMEFRAME_ORDER[a.timeframe||''] - TIMEFRAME_ORDER[b.timeframe||'']));
     case 'timestamp': return list.slice().sort((a,b)=> doneLast(a,b) || (new Date(a.createdAt) - new Date(b.createdAt)));
@@ -7972,10 +8007,57 @@ function applySortMode(list){
 // detail). Inside a single category tab every visible task already shares
 // that one category, so sorting "by category" is a silent no-op — omit
 // the option there rather than offer a sort that does nothing.
-function sortModeOptionsHtml(includeCategory){
+// Renders as buttons for the #ctxMenu-based sort popover (see
+// openSortMenu()/renderSortMenu(), 08-render-core.js) rather than
+// <option> tags — the "custom menu, not a native <select>" the project
+// owner asked for, matching the "Move to" category menu's own look
+// (categoryMoveMenuHtml()). The current mode gets a leading ✓ rather than
+// a CSS-only highlight, since a menu of plain-text buttons has no other
+// obvious place to show "this one's already selected." 'flagged' is the
+// one option with its own leading glyph (⚑, matching the flag button
+// itself) regardless of current/not-current, called out per the project
+// owner's own ask to mark it visually.
+function sortMenuButtonsHtml(includeCategory){
   return Object.entries(SORT_MODE_LABELS)
     .filter(([k])=> includeCategory || k !== 'category')
-    .map(([k,label])=>`<option value="${k}" ${sortMode===k?'selected':''}>${label}</option>`).join('');
+    .map(([k,label])=>{
+      const mark = sortMode===k ? '✓ ' : '';
+      const flag = k==='flagged' ? '⚑ ' : '';
+      return `<button class="${sortMode===k?'current':''}" onclick="ctxMenuAction(()=>setSortMode('${k}'))">${mark}${flag}${label}</button>`;
+    }).join('');
+}
+
+// A pure FILTER (hides non-flagged tasks entirely), deliberately separate
+// from the 'flagged' sort mode above rather than folded into it — the two
+// answer different questions ("what order" vs. "what's even shown") and
+// composing them (any sort mode, optionally flagged-only on top) is more
+// useful than forcing a choice between "flagged floated to the top" and
+// "flagged and nothing else," which a single mixed option could only ever
+// offer one of at a time. Its own toggle button lives next to the sort
+// button rather than inside the sort menu for the same reason: it isn't a
+// sort option, so it doesn't belong in a menu of mutually-exclusive ones.
+let flaggedOnly = false;
+function toggleFlaggedOnly(){
+  flaggedOnly = !flaggedOnly;
+  render();
+}
+
+// The whole "SORT [button ▾] [flag toggle]" row — one shared definition
+// (matching shareButtonHtml()'s own "one place, not per-call-site copies"
+// reasoning, 19-sharing.js) so renderList()'s category/All-tab list and
+// renderDayDetail()'s own day list (08-render-core.js/12-daily-tree.js —
+// the two places a flat task list has its own sort control at all; the
+// "add existing task to this day" tree picker doesn't sort linearly, so
+// it never had one) can't drift apart. The sort button's own label always
+// leads with ⚑ when 'flagged' is the active mode, same as the menu's own
+// leading glyph for that option.
+function sortControlHtml(includeCategory){
+  const label = (sortMode==='flagged' ? '⚑ ' : '') + (SORT_MODE_LABELS[sortMode] || SORT_MODE_LABELS.default);
+  return `
+    <label class="fieldlabel">SORT</label>
+    <button class="sortbtn" onclick="event.stopPropagation(); openSortMenu(this, ${includeCategory})">${label} <span class="sortcaret">▾</span></button>
+    <button class="flagfilterbtn ${flaggedOnly?'on':''}" onclick="toggleFlaggedOnly()" title="${flaggedOnly ? 'Show all tasks' : 'Show flagged tasks only'}">⚑</button>
+  `;
 }
 
 function visibleTabs(){
@@ -9318,7 +9400,7 @@ function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
         <span class="datefield taskdate ${t.dueDate?'':'empty'}" onclick="startEditTaskDueDate(this,'${t.id}')">${t.dueDate ? fmtDateFull(t.dueDate) : (hideActions ? 'Due Date' : 'Date')}</span>
         <div class="expandactions">
           ${hideActions ? '' : `
-          <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
+          <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle flag">⚑</button>
           <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">${DAYPIN_ICON_SVG}</button>`}
           ${canRemoveHere && !hideActions ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
@@ -9934,16 +10016,17 @@ function taskDetailCheckTap(e, taskId){
   if(taskDetailCheckLongPressFired){ taskDetailCheckLongPressFired = false; e.preventDefault(); return; }
   toggleStatus(taskId);
 }
-// Shared by the task menu above, the day menu below, and the category
-// "Move to" menu further down — only one #ctxMenu exists, so only one of
-// ctxMenuTaskId/ctxMenuDayStr/ctxMenuMoveTaskId is ever non-null at a
-// time; closing always clears all three regardless of which one's
-// actually set, rather than needing a caller to know which kind of menu
-// is currently open.
+// Shared by the task menu above, the day menu below, the category
+// "Move to" menu further down, and the Sort menu (renderSortMenu() below)
+// — only one #ctxMenu exists, so only one of ctxMenuTaskId/ctxMenuDayStr/
+// ctxMenuMoveTaskId/ctxMenuSortOpen is ever set at a time; closing always
+// clears all four regardless of which one's actually set, rather than
+// needing a caller to know which kind of menu is currently open.
 function closeCtxMenu(){
   ctxMenuTaskId = null;
   ctxMenuDayStr = null;
   ctxMenuMoveTaskId = null;
+  ctxMenuSortOpen = false;
   document.getElementById('ctxMenu').classList.remove('open');
 }
 // Every menu item (task or day) routes through this — closes the menu
@@ -10152,6 +10235,33 @@ function openCategoryMoveMenu(el, taskId){
   renderCategoryMoveMenu(taskId, r.right, r.bottom + 6);
 }
 
+// Sort menu — same #ctxMenu popup, same anchored-under-the-trigger idiom
+// as openCategoryMoveMenu() just above (the Sort button is exactly the
+// same kind of small fixed corner target the category label is), replacing
+// the plain native <select> renderList()/renderDayDetail() used to render
+// (see sortMenuButtonsHtml(), 05-dates-sort.js) with the same kind of
+// custom popover every other "pick one of a few things" control in this
+// app already uses.
+let ctxMenuSortOpen = false;
+function renderSortMenu(x, y, includeCategory){
+  ctxMenuSortOpen = true;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = `<div class="ctxmenu-label">Sort by</div>${sortMenuButtonsHtml(includeCategory)}`;
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+  });
+}
+function openSortMenu(el, includeCategory){
+  const r = el.getBoundingClientRect();
+  renderSortMenu(r.left, r.bottom + 6, includeCategory);
+}
+
 // The long-press settings sheet itself — everything taskManagementFieldsHtml()
 // covers (title/category/due/urgent/pin/timeframe/priority/notes/meta),
 // rendered into the always-in-DOM #taskSettingsSheet (shell-body.html)
@@ -10222,7 +10332,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
   // needed the way a flex-based "both real items on one side" layout
   // would have required.
   const leftActionsHtml = `
-    <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
+    <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle flag">⚑</button>
     <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">${DAYPIN_ICON_SVG}</button>`;
   return `
     <div class="stackedpage">
@@ -10334,25 +10444,30 @@ function categoryMatchingTasks(){
   });
 }
 function categoryVisibleTasks(){
-  return applySortMode(categoryMatchingTasks()).filter(t => showDone || t.status!=='done' || completingTaskIds.has(t.id));
+  return applySortMode(categoryMatchingTasks())
+    .filter(t => showDone || t.status!=='done' || completingTaskIds.has(t.id))
+    .filter(t => !flaggedOnly || t.urgent);
 }
 
 // Just the <ul class="tasks"> markup (or the empty-state div) — pure,
 // same reason as categoryVisibleTasks() above.
 function categoryListHtml(){
   const visible = categoryVisibleTasks();
-  return visible.length===0
-    ? `<div class="empty">${EMPTY_MSG[activeTab] || 'Nothing here yet.'}</div>`
-    : visible.map(t=>taskRowHtml(t, activeTab==='all', false)).join('') + dropEndHtml(visible);
+  if(visible.length===0){
+    // Same reasoning as renderDayDetail()'s own emptyMsg (12-daily-tree.js):
+    // flaggedOnly hiding everything needs its own message, not the tab's
+    // normal empty-state copy, or it reads as "this tab has nothing in it"
+    // rather than "the flagged-only filter has nothing to show right now."
+    const msg = flaggedOnly ? 'No flagged tasks here.' : (EMPTY_MSG[activeTab] || 'Nothing here yet.');
+    return `<div class="empty">${msg}</div>`;
+  }
+  return visible.map(t=>taskRowHtml(t, activeTab==='all', false)).join('') + dropEndHtml(visible);
 }
 
 function renderList(){
   const doneCount = categoryMatchingTasks().filter(t=>t.status==='done').length;
 
-  document.getElementById('sortRow').innerHTML = `
-    <label class="fieldlabel">SORT</label>
-    <select onchange="setSortMode(this.value)">${sortModeOptionsHtml(activeTab==='all')}</select>
-  `;
+  document.getElementById('sortRow').innerHTML = sortControlHtml(activeTab==='all');
 
   document.getElementById('taskList').innerHTML = categoryListHtml();
 
@@ -13134,7 +13249,7 @@ function dayChecklistRowHtml(t, dateStr){
 
 function renderDayDetail(dateStr){
   const allTasks = standardTasksForDay(dateStr);
-  const sorted = applySortMode(allTasks);
+  const sorted = applySortMode(allTasks).filter(t => !flaggedOnly || t.urgent);
   const subItems = subDailyItemsForDay(dateStr);
   const checklistItems = checklistDailyItemsForDay(dateStr);
   const { total, done } = dayItemsSummary(dateStr);
@@ -13188,7 +13303,15 @@ function renderDayDetail(dateStr){
   // Only claim "nothing planned" when the day is truly empty across all
   // three kinds of item — a day with only a checklist planned (no tasks,
   // no steps) shouldn't say nothing's planned right above that checklist.
-  const emptyMsg = total ? '' : `<div class="empty">Nothing planned for this day yet.</div>`;
+  // flaggedOnly needs its own message rather than falling through to that
+  // same "nothing planned" one — `total` (dayItemsSummary(), unfiltered)
+  // can still be >0 while the flagged-only filter above has hidden every
+  // task/step, which would otherwise read as a bug (day claims items,
+  // shows none, says nothing's planned) rather than the filter doing
+  // exactly what it was asked to.
+  const emptyMsg = !total ? `<div class="empty">Nothing planned for this day yet.</div>`
+    : (flaggedOnly && mainCount===0 && checklistItems.length===0) ? `<div class="empty">No flagged items on this day.</div>`
+    : '';
   const checklistsBlock = checklistItems.length ? `
     <div class="daylistlabel">Checklists</div>
     <ul class="tasks">${checklistItems.map(t=>dayChecklistRowHtml(t, dateStr)).join('')}</ul>
@@ -13218,10 +13341,7 @@ function renderDayDetail(dateStr){
         <button class="addbtn" onclick="addDayTask('${dateStr}')">+</button>
       </div>
       ${renderAddToDayPicker(dateStr)}
-      <div class="sortrow">
-        <label class="fieldlabel">SORT</label>
-        <select onchange="setSortMode(this.value)">${sortModeOptionsHtml(true)}</select>
-      </div>
+      <div class="sortrow">${sortControlHtml(true)}</div>
       ${emptyMsg}
       ${mainListHtml}
       ${checklistsBlock}
@@ -16464,9 +16584,9 @@ document.addEventListener('contextmenu', (e) => {
 // closes it via ctxMenuAction()) doesn't also trip this a second time
 // pointlessly.
 document.addEventListener('click', (e) => {
-  if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) && !e.target.closest('#ctxMenu')) closeCtxMenu();
+  if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen) && !e.target.closest('#ctxMenu')) closeCtxMenu();
 });
-document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId) closeCtxMenu(); }, { capture:true, passive:true });
+document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen) closeCtxMenu(); }, { capture:true, passive:true });
 // The note hover tip (08-render-core.js) has no per-instance id to check
 // the way #ctxMenu's ctxMenuTaskId/etc. do — noteHoverEnd() is always
 // safe to call regardless of whether anything's actually showing, so a
