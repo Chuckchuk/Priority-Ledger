@@ -1441,28 +1441,30 @@
      genuinely finished step, not just another shade of "done." */
   .subtext.done.cancelled{ text-decoration-color: var(--estate); color: var(--estate); }
   .subdel{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
-  /* .movetmrw ("move to tomorrow") / .dayremove ("remove from this day")
-     — the pair of small action buttons on a Daily row. Given a real
-     border/box (unlike the plain-text .subdel used for step/item delete
-     elsewhere) specifically so the arrow and × read as two distinct
-     tappable buttons sitting side by side, not stray punctuation next to
-     the row. .movetmrw goes further and gets a disabled state — once
-     tomorrow's date is already in the item's plannedDates (see
+  /* .movenext ("move to whatever's next" — today if the day you're
+     looking at has already passed, tomorrow otherwise; see
+     moveForwardTarget(), 14-task-actions.js) / .dayremove ("remove from
+     this day") — the pair of small action buttons on a Daily row. Given a
+     real border/box (unlike the plain-text .subdel used for step/item
+     delete elsewhere) specifically so the arrow and × read as two
+     distinct tappable buttons sitting side by side, not stray punctuation
+     next to the row. .movenext goes further and gets a disabled state —
+     once its target date is already in the item's plannedDates (see
      taskRowHtml/daySubtaskRowHtml), re-adding it would be a no-op, so the
      button fades out and stops accepting clicks rather than sitting there
      implying there's still something to do. */
-  .movetmrw, .dayremove, .rowpin, .rowexpand, .rowflag{
+  .movenext, .dayremove, .rowpin, .rowexpand, .rowflag{
     display:flex; align-items:center; justify-content:center;
     width:30px; height:30px; flex-shrink:0; padding:0; line-height:1;
     font-size:0.84rem; cursor:pointer; border-radius:6px;
     background:none; border:1px solid var(--line); color: var(--ink-soft);
   }
-  .movetmrw:hover{ border-color: var(--primary); color: var(--primary); }
+  .movenext:hover{ border-color: var(--primary); color: var(--primary); }
   .dayremove:hover{ border-color: var(--estate); color: var(--estate); }
-  .movetmrw:disabled{ opacity:0.35; cursor:default; }
-  .movetmrw:disabled:hover{ border-color: var(--line); color: var(--ink-soft); }
+  .movenext:disabled{ opacity:0.35; cursor:default; }
+  .movenext:disabled:hover{ border-color: var(--line); color: var(--ink-soft); }
   /* .rowpin ("add to today") / .rowexpand ("open full task page") — the
-     master-view row's own always-visible counterparts to .movetmrw/
+     master-view row's own always-visible counterparts to .movenext/
      .dayremove above, shown outside Daily instead of those two. Both used
      to be reachable only by opening a task's edit fields first (the
      now-Steps-only inline quick view no longer has them, and there's
@@ -6516,7 +6518,7 @@ const DEV_ELEMENT_NAME_RULES = [
   { sel: '.substack' },
   { sel: '.subpip' },
   { sel: '.rowpin' },
-  { sel: '.movetmrw' },
+  { sel: '.movenext' },
   { sel: '.dayremove' },
   { sel: '.draghandle' },
   { sel: '.title' },
@@ -9969,7 +9971,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // noteHoverStart()'s own comment further down for the delay/desktop-
   // only reasoning.
   const noteHoverAttrs = t.notes ? ` onmouseenter="noteHoverStart(event,'${t.id}')" onmouseleave="noteHoverEnd()"` : '';
-  const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
+  const onMoveTarget = inDaily && (t.plannedDates||[]).includes(moveForwardTarget(dayDate));
   return `
   <li class="task" data-task-id="${t.id}">
     <div class="row"${pressAttrs}${ctxMenuAttr}${noteHoverAttrs} onclick="${rowClick}">
@@ -9984,7 +9986,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
         <div class="meta">${priorityBadge}${timeframeBadge}${sharedBadge}${badge}</div>
       </div>
       ${inDaily ? `
-        <button class="movetmrw" ${onTomorrow?'disabled':''} onclick="event.stopPropagation(); moveTaskToTomorrow('${t.id}','${dayDate}')" title="${onTomorrow ? 'Already planned for tomorrow' : 'Also plan for tomorrow'}">→</button>
+        <button class="movenext" ${onMoveTarget?'disabled':''} onclick="event.stopPropagation(); moveTaskForward('${t.id}','${dayDate}')" title="${onMoveTarget ? (dayDate<todayStr()?'Already planned for today':'Already planned for tomorrow') : (dayDate<todayStr()?'Also plan for today':'Also plan for tomorrow')}">→</button>
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
       ` : `
         <button class="rowflag ${t.urgent?'on':''}" onclick="event.stopPropagation(); toggleUrgent('${t.id}')" title="Toggle flag">⚑</button>
@@ -13589,8 +13591,7 @@ function renderAddToDayPicker(dateStr){
 // with the prefix, same as before, since there's no parent row nearby to
 // read it as nested under.
 function daySubtaskRowHtml(task, sub, dateStr, nested){
-  const nextDate = addDaysToDateStr(dateStr, 1);
-  const onTomorrow = (sub.plannedDates||[]).includes(nextDate);
+  const onMoveTarget = (sub.plannedDates||[]).includes(moveForwardTarget(dateStr));
   // Matches the invisible-when-not-draggable spacer taskRowHtml reserves
   // for its own .draghandle, so an orphan step's checkbox lines up under
   // a whole task's — see the .checkwrap.daysub / .draghandle comment in
@@ -13615,7 +13616,7 @@ function daySubtaskRowHtml(task, sub, dateStr, nested){
         <div class="subcheck ${sub.done?'done':''}" onclick="toggleSubtask('${task.id}','${sub.id}')"></div>
       </div>
       <div class="title ${sub.done?'done':''}">${label}</div>
-      <button class="movetmrw" ${onTomorrow?'disabled':''} onclick="event.stopPropagation(); moveSubtaskToTomorrow('${task.id}','${sub.id}','${dateStr}')" title="${onTomorrow ? 'Already planned for tomorrow' : 'Also plan for tomorrow'}">→</button>
+      <button class="movenext" ${onMoveTarget?'disabled':''} onclick="event.stopPropagation(); moveSubtaskForward('${task.id}','${sub.id}','${dateStr}')" title="${onMoveTarget ? (dateStr<todayStr()?'Already planned for today':'Already planned for tomorrow') : (dateStr<todayStr()?'Also plan for today':'Also plan for tomorrow')}">→</button>
       <button class="dayremove" onclick="event.stopPropagation(); unplanSubtaskFromDay('${task.id}','${sub.id}','${dateStr}')" title="Remove from this day">×</button>
     </div>
   </li>`;
@@ -14495,36 +14496,53 @@ async function unplanSubtaskFromDay(taskId, subId, dateStr){
   queueSave();
 }
 
-// Same copy-forward semantics as moveIncompleteToTomorrow, one item at a
-// time — keeps the item on the day it started on and additionally plans
-// it onto tomorrow, rather than pulling it off today (that's a different
-// action the project owner didn't want here). Idempotent: a no-op once
-// tomorrow's date is already in plannedDates, so the button can safely be
-// left enabled without risking a duplicate — see the taskRowHtml/
-// daySubtaskRowHtml render sites for where it's disabled once already added.
-async function moveTaskToTomorrow(taskId, dateStr){
+// Where "forward" actually points — tomorrow relative to whatever day
+// you're looking at, *unless* that day has already passed, in which case
+// forward means today. The button this backs (.movenext, see
+// taskRowHtml/daySubtaskRowHtml) is meant to cover two related but
+// distinct asks: "I probably won't get to this today, push it to
+// tomorrow" (dateStr is today or later — stays relative to the day
+// you're on) and "I didn't get to this back then, I want to do it now"
+// (dateStr is in the past — there's no reason to land it on some other
+// past/near-past day one after the one you're viewing; today is the
+// actionable target). Shared by moveTaskForward()/moveSubtaskForward()
+// and their render sites' own "already there" disabled-state check, so
+// the target can't drift between the two.
+function moveForwardTarget(dateStr){
+  return dateStr < todayStr() ? todayStr() : addDaysToDateStr(dateStr, 1);
+}
+
+// Same copy-forward semantics as moveIncompleteToTomorrow — keeps the
+// item on the day it started on and additionally plans it onto
+// moveForwardTarget()'s target, rather than pulling it off the original
+// day (that's a different action the project owner didn't want here).
+// Idempotent: a no-op once the target date is already in plannedDates, so
+// the button can safely be left enabled without risking a duplicate — see
+// the taskRowHtml/daySubtaskRowHtml render sites for where it's disabled
+// once already added.
+async function moveTaskForward(taskId, dateStr){
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
-  const nextDate = addDaysToDateStr(dateStr, 1);
+  const target = moveForwardTarget(dateStr);
   if(!t.plannedDates) t.plannedDates = [];
-  if(t.plannedDates.includes(nextDate)) return;
-  pushUndo(`Also planned "${t.title}" for ${fmtDate(nextDate)}`);
-  t.plannedDates.push(nextDate);
-  await ensureDay(nextDate);
+  if(t.plannedDates.includes(target)) return;
+  pushUndo(`Also planned "${t.title}" for ${fmtDate(target)}`);
+  t.plannedDates.push(target);
+  await ensureDay(target);
   render();
   queueSave();
 }
 
-async function moveSubtaskToTomorrow(taskId, subId, dateStr){
+async function moveSubtaskForward(taskId, subId, dateStr){
   const t = state.tasks.find(t=>t.id===taskId);
   const s = t && (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
-  const nextDate = addDaysToDateStr(dateStr, 1);
+  const target = moveForwardTarget(dateStr);
   if(!s.plannedDates) s.plannedDates = [];
-  if(s.plannedDates.includes(nextDate)) return;
-  pushUndo(`Also planned step "${s.text}" for ${fmtDate(nextDate)}`);
-  s.plannedDates.push(nextDate);
-  await ensureDay(nextDate);
+  if(s.plannedDates.includes(target)) return;
+  pushUndo(`Also planned step "${s.text}" for ${fmtDate(target)}`);
+  s.plannedDates.push(target);
+  await ensureDay(target);
   render();
   queueSave();
 }

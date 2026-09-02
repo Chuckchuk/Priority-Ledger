@@ -73,36 +73,53 @@ async function unplanSubtaskFromDay(taskId, subId, dateStr){
   queueSave();
 }
 
-// Same copy-forward semantics as moveIncompleteToTomorrow, one item at a
-// time — keeps the item on the day it started on and additionally plans
-// it onto tomorrow, rather than pulling it off today (that's a different
-// action the project owner didn't want here). Idempotent: a no-op once
-// tomorrow's date is already in plannedDates, so the button can safely be
-// left enabled without risking a duplicate — see the taskRowHtml/
-// daySubtaskRowHtml render sites for where it's disabled once already added.
-async function moveTaskToTomorrow(taskId, dateStr){
+// Where "forward" actually points — tomorrow relative to whatever day
+// you're looking at, *unless* that day has already passed, in which case
+// forward means today. The button this backs (.movenext, see
+// taskRowHtml/daySubtaskRowHtml) is meant to cover two related but
+// distinct asks: "I probably won't get to this today, push it to
+// tomorrow" (dateStr is today or later — stays relative to the day
+// you're on) and "I didn't get to this back then, I want to do it now"
+// (dateStr is in the past — there's no reason to land it on some other
+// past/near-past day one after the one you're viewing; today is the
+// actionable target). Shared by moveTaskForward()/moveSubtaskForward()
+// and their render sites' own "already there" disabled-state check, so
+// the target can't drift between the two.
+function moveForwardTarget(dateStr){
+  return dateStr < todayStr() ? todayStr() : addDaysToDateStr(dateStr, 1);
+}
+
+// Same copy-forward semantics as moveIncompleteToTomorrow — keeps the
+// item on the day it started on and additionally plans it onto
+// moveForwardTarget()'s target, rather than pulling it off the original
+// day (that's a different action the project owner didn't want here).
+// Idempotent: a no-op once the target date is already in plannedDates, so
+// the button can safely be left enabled without risking a duplicate — see
+// the taskRowHtml/daySubtaskRowHtml render sites for where it's disabled
+// once already added.
+async function moveTaskForward(taskId, dateStr){
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
-  const nextDate = addDaysToDateStr(dateStr, 1);
+  const target = moveForwardTarget(dateStr);
   if(!t.plannedDates) t.plannedDates = [];
-  if(t.plannedDates.includes(nextDate)) return;
-  pushUndo(`Also planned "${t.title}" for ${fmtDate(nextDate)}`);
-  t.plannedDates.push(nextDate);
-  await ensureDay(nextDate);
+  if(t.plannedDates.includes(target)) return;
+  pushUndo(`Also planned "${t.title}" for ${fmtDate(target)}`);
+  t.plannedDates.push(target);
+  await ensureDay(target);
   render();
   queueSave();
 }
 
-async function moveSubtaskToTomorrow(taskId, subId, dateStr){
+async function moveSubtaskForward(taskId, subId, dateStr){
   const t = state.tasks.find(t=>t.id===taskId);
   const s = t && (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
-  const nextDate = addDaysToDateStr(dateStr, 1);
+  const target = moveForwardTarget(dateStr);
   if(!s.plannedDates) s.plannedDates = [];
-  if(s.plannedDates.includes(nextDate)) return;
-  pushUndo(`Also planned step "${s.text}" for ${fmtDate(nextDate)}`);
-  s.plannedDates.push(nextDate);
-  await ensureDay(nextDate);
+  if(s.plannedDates.includes(target)) return;
+  pushUndo(`Also planned step "${s.text}" for ${fmtDate(target)}`);
+  s.plannedDates.push(target);
+  await ensureDay(target);
   render();
   queueSave();
 }

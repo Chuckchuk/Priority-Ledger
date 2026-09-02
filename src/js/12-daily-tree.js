@@ -150,8 +150,7 @@ function renderAddToDayPicker(dateStr){
 // with the prefix, same as before, since there's no parent row nearby to
 // read it as nested under.
 function daySubtaskRowHtml(task, sub, dateStr, nested){
-  const nextDate = addDaysToDateStr(dateStr, 1);
-  const onTomorrow = (sub.plannedDates||[]).includes(nextDate);
+  const onMoveTarget = (sub.plannedDates||[]).includes(moveForwardTarget(dateStr));
   // Matches the invisible-when-not-draggable spacer taskRowHtml reserves
   // for its own .draghandle, so an orphan step's checkbox lines up under
   // a whole task's — see the .checkwrap.daysub / .draghandle comment in
@@ -176,7 +175,7 @@ function daySubtaskRowHtml(task, sub, dateStr, nested){
         <div class="subcheck ${sub.done?'done':''}" onclick="toggleSubtask('${task.id}','${sub.id}')"></div>
       </div>
       <div class="title ${sub.done?'done':''}">${label}</div>
-      <button class="movetmrw" ${onTomorrow?'disabled':''} onclick="event.stopPropagation(); moveSubtaskToTomorrow('${task.id}','${sub.id}','${dateStr}')" title="${onTomorrow ? 'Already planned for tomorrow' : 'Also plan for tomorrow'}">→</button>
+      <button class="movenext" ${onMoveTarget?'disabled':''} onclick="event.stopPropagation(); moveSubtaskForward('${task.id}','${sub.id}','${dateStr}')" title="${onMoveTarget ? (dateStr<todayStr()?'Already planned for today':'Already planned for tomorrow') : (dateStr<todayStr()?'Also plan for today':'Also plan for tomorrow')}">→</button>
       <button class="dayremove" onclick="event.stopPropagation(); unplanSubtaskFromDay('${task.id}','${sub.id}','${dateStr}')" title="Remove from this day">×</button>
     </div>
   </li>`;

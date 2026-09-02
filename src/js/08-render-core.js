@@ -496,7 +496,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // noteHoverStart()'s own comment further down for the delay/desktop-
   // only reasoning.
   const noteHoverAttrs = t.notes ? ` onmouseenter="noteHoverStart(event,'${t.id}')" onmouseleave="noteHoverEnd()"` : '';
-  const onTomorrow = inDaily && (t.plannedDates||[]).includes(addDaysToDateStr(dayDate, 1));
+  const onMoveTarget = inDaily && (t.plannedDates||[]).includes(moveForwardTarget(dayDate));
   return `
   <li class="task" data-task-id="${t.id}">
     <div class="row"${pressAttrs}${ctxMenuAttr}${noteHoverAttrs} onclick="${rowClick}">
@@ -511,7 +511,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
         <div class="meta">${priorityBadge}${timeframeBadge}${sharedBadge}${badge}</div>
       </div>
       ${inDaily ? `
-        <button class="movetmrw" ${onTomorrow?'disabled':''} onclick="event.stopPropagation(); moveTaskToTomorrow('${t.id}','${dayDate}')" title="${onTomorrow ? 'Already planned for tomorrow' : 'Also plan for tomorrow'}">→</button>
+        <button class="movenext" ${onMoveTarget?'disabled':''} onclick="event.stopPropagation(); moveTaskForward('${t.id}','${dayDate}')" title="${onMoveTarget ? (dayDate<todayStr()?'Already planned for today':'Already planned for tomorrow') : (dayDate<todayStr()?'Also plan for today':'Also plan for tomorrow')}">→</button>
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
       ` : `
         <button class="rowflag ${t.urgent?'on':''}" onclick="event.stopPropagation(); toggleUrgent('${t.id}')" title="Toggle flag">⚑</button>

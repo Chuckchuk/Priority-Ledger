@@ -1409,28 +1409,30 @@
      genuinely finished step, not just another shade of "done." */
   .subtext.done.cancelled{ text-decoration-color: var(--estate); color: var(--estate); }
   .subdel{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
-  /* .movetmrw ("move to tomorrow") / .dayremove ("remove from this day")
-     — the pair of small action buttons on a Daily row. Given a real
-     border/box (unlike the plain-text .subdel used for step/item delete
-     elsewhere) specifically so the arrow and × read as two distinct
-     tappable buttons sitting side by side, not stray punctuation next to
-     the row. .movetmrw goes further and gets a disabled state — once
-     tomorrow's date is already in the item's plannedDates (see
+  /* .movenext ("move to whatever's next" — today if the day you're
+     looking at has already passed, tomorrow otherwise; see
+     moveForwardTarget(), 14-task-actions.js) / .dayremove ("remove from
+     this day") — the pair of small action buttons on a Daily row. Given a
+     real border/box (unlike the plain-text .subdel used for step/item
+     delete elsewhere) specifically so the arrow and × read as two
+     distinct tappable buttons sitting side by side, not stray punctuation
+     next to the row. .movenext goes further and gets a disabled state —
+     once its target date is already in the item's plannedDates (see
      taskRowHtml/daySubtaskRowHtml), re-adding it would be a no-op, so the
      button fades out and stops accepting clicks rather than sitting there
      implying there's still something to do. */
-  .movetmrw, .dayremove, .rowpin, .rowexpand, .rowflag{
+  .movenext, .dayremove, .rowpin, .rowexpand, .rowflag{
     display:flex; align-items:center; justify-content:center;
     width:30px; height:30px; flex-shrink:0; padding:0; line-height:1;
     font-size:0.84rem; cursor:pointer; border-radius:6px;
     background:none; border:1px solid var(--line); color: var(--ink-soft);
   }
-  .movetmrw:hover{ border-color: var(--primary); color: var(--primary); }
+  .movenext:hover{ border-color: var(--primary); color: var(--primary); }
   .dayremove:hover{ border-color: var(--estate); color: var(--estate); }
-  .movetmrw:disabled{ opacity:0.35; cursor:default; }
-  .movetmrw:disabled:hover{ border-color: var(--line); color: var(--ink-soft); }
+  .movenext:disabled{ opacity:0.35; cursor:default; }
+  .movenext:disabled:hover{ border-color: var(--line); color: var(--ink-soft); }
   /* .rowpin ("add to today") / .rowexpand ("open full task page") — the
-     master-view row's own always-visible counterparts to .movetmrw/
+     master-view row's own always-visible counterparts to .movenext/
      .dayremove above, shown outside Daily instead of those two. Both used
      to be reachable only by opening a task's edit fields first (the
      now-Steps-only inline quick view no longer has them, and there's

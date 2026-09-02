@@ -1468,7 +1468,7 @@ const DEV_ELEMENT_NAME_RULES = [
   { sel: '.substack' },
   { sel: '.subpip' },
   { sel: '.rowpin' },
-  { sel: '.movetmrw' },
+  { sel: '.movenext' },
   { sel: '.dayremove' },
   { sel: '.draghandle' },
   { sel: '.title' },
