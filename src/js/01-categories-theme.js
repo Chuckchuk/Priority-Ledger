@@ -620,26 +620,41 @@ function applyThemeObject(t){
   // or UI Colors — see pastelModeActive() below) the project owner's own
   // read was that a colorless near-black ink/line reads as "out of
   // place" against it: heavy and serious next to something meant to feel
-  // soft and playful. Rather than a second flat color (which would only
-  // coincidentally suit whichever pastel paper happens to be active),
-  // this darkens the *actual* paper color in place (shadeHex, same
-  // multiplicative technique --desk-dark already uses) — hue-preserving,
-  // so ink automatically leans toward whatever the current paper's own
-  // tint is instead of a fixed brown. On the plain near-white Classic
-  // paper this lands close to the original default anyway (barely any
-  // hue to preserve); it's the Desk & Ledger Pastel papers specifically
-  // where this visibly ties ink back to the page it's sitting on. Only
-  // font was NOT touched here — see the project owner's own ask and
-  // CLAUDE.md's standing "keep the Fraunces/IBM Plex identity" rule;
-  // swapping type families per-palette would be a much larger, riskier
-  // change (117+ hardcoded font-family declarations across styles.css,
-  // no existing --font-* variable layer to hook into) for a less certain
-  // payoff, so this stayed color-only.
+  // soft and playful.
+  // First attempt here darkened the *actual* paper color in place via
+  // shadeHex (the same multiplicative technique --desk-dark uses) —
+  // hue-preserving in theory, but shadeHex scales r/g/b by one constant
+  // factor, which leaves HSV saturation completely UNCHANGED and only
+  // drops value. A pastel paper's saturation is already low by design
+  // (that's what makes it read as soft/pale in the first place — every
+  // DESK_PAPER_PRESET_SETS.pastel paper sits under 20% saturation), so
+  // preserving that same low saturation at a much darker value produced
+  // an ink that was, in practice, nearly indistinguishable near-grey
+  // regardless of which pastel paper was active — "doesn't seem to be
+  // working" was a completely fair read of that result, not a
+  // misunderstanding. Converts to HSV instead and explicitly BOOSTS
+  // saturation (every pastel paper's hue survives the trip; a 0.20
+  // floor plus 2.5x the paper's own saturation, capped at 0.55, is what
+  // actually makes the six Pastel desk papers land as six visibly
+  // different dark hues — burnt-orange, olive, deep teal, navy, plum,
+  // maroon — instead of one shared charcoal) at a fixed low value
+  // (0.20 for ink, 0.46 for the softer secondary tone) for contrast.
+  // On the plain near-white Classic paper this still lands close to the
+  // original default (a warm dark brown, since Classic's own paper hue
+  // is warm) rather than identical to it — a smaller but real shift,
+  // same as before. Only font was NOT touched here — see the project
+  // owner's own ask and CLAUDE.md's standing "keep the Fraunces/IBM Plex
+  // identity" rule; swapping type families per-palette would be a much
+  // larger, riskier change (117+ hardcoded font-family declarations
+  // across styles.css, no existing --font-* variable layer to hook
+  // into) for a less certain payoff, so this stayed color-only.
   const pastelTint = !dark && !!(state.devSettings && state.devSettings.pastelInkStyle) && pastelModeActive();
   if(pastelTint){
-    const inkHex = shadeHex(t.paper, -0.80);
+    const paperHsv = hexToHsv(t.paper);
+    const tintSat = Math.min(0.20 + paperHsv.s * 2.5, 0.55);
+    const inkHex = hsvToHex(paperHsv.h, tintSat, 0.20);
     root.setProperty('--ink', inkHex);
-    root.setProperty('--ink-soft', shadeHex(t.paper, -0.52));
+    root.setProperty('--ink-soft', hsvToHex(paperHsv.h, tintSat, 0.46));
     root.setProperty('--line', hexToRgba(inkHex, 0.16));
   } else {
     root.setProperty('--ink', dark ? '#F1EAD9' : '#2A2318');

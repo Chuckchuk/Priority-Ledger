@@ -127,7 +127,18 @@ function renderSettings(){
         ${uiColorPickerOpen ? uiColorPickerHtml() : ''}
       </span>
       <span class="uicolorlabel clickable" onclick="toggleUiColorPicker()">UI Colors — ${escapeHtml(activeUiPreset.label)}</span>
-      ${state.theme.uiPreset==='custom' ? `<button class="uicolorquicklink" onclick="openDualColorCustomDirect('ui')" title="Edit your custom colors">✎</button>` : ''}
+      <!-- stopPropagation matters here: this button sits outside .uicolorwrap
+           (it's a sibling, not nested inside it), and the global "click
+           outside the wheel confirms/closes it" listener (20-bootstrap.js)
+           treats anything outside .uicolorwrap as an outside click. Without
+           this, the very click that opens the wheel (setting
+           dualColorCustomOpen=true) also bubbles to that listener, which
+           immediately sees dualColorCustomOpen already true and a target
+           outside .uicolorwrap, and confirms/closes it right back — the
+           wheel never actually stays open. Same reasoning as the ✎/× pair
+           on a saved template's own tile (customPresetTileHtml() below),
+           which already stops propagation for the same kind of reason. -->
+      ${state.theme.uiPreset==='custom' ? `<button class="uicolorquicklink" onclick="event.stopPropagation(); openDualColorCustomDirect('ui')" title="Edit your custom colors">✎</button>` : ''}
     </div>
   `;
 
@@ -141,7 +152,9 @@ function renderSettings(){
         ${deskPaperPickerOpen ? deskPaperPickerHtml() : ''}
       </span>
       <span class="uicolorlabel clickable" onclick="toggleDeskPaperPicker()">Desk & Ledger — ${escapeHtml(activeDeskPaperPresetLabel())}</span>
-      ${activeDeskPaperPresetLabel()==='Custom' ? `<button class="uicolorquicklink" onclick="openDualColorCustomDirect('desk')" title="Edit your custom colors">✎</button>` : ''}
+      <!-- See the matching comment on UI Colors' own quicklink above —
+           same outside-.uicolorwrap/outside-click-confirm bug, same fix. -->
+      ${activeDeskPaperPresetLabel()==='Custom' ? `<button class="uicolorquicklink" onclick="event.stopPropagation(); openDualColorCustomDirect('desk')" title="Edit your custom colors">✎</button>` : ''}
     </div>
   `;
 
