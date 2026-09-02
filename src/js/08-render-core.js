@@ -1345,7 +1345,7 @@ function switchTab(key){
   captureOverlapTabFlip(key);
   checklistReturnDay = null;
   claudeView = null;
-  settingsOpen = false;
+  setSettingsOpen(false);
   // A tab switch mid-add should close the quick-add sheet rather than
   // leave it floating over whatever you just navigated to — the FAB
   // modal (openFabAdd()) is deliberately NOT reset here, since its whole

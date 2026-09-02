@@ -104,7 +104,20 @@ let expandedTaskIds = new Set();
 // state, same as expandedTaskIds; never persisted.
 let completingTaskIds = new Set();
 let expandedMonths = new Set();
+// Persisted like ledger-last-tab/ledger-daily-view — a per-device UI
+// preference, not ledger data, restored in enterApp() (17-auth-ui.js) so
+// refreshing mid-Settings doesn't unceremoniously dump you back to the
+// task list. setSettingsOpen() is the only place that should ever write
+// to this — every settingsOpen = ... assignment elsewhere (toggleSettings()
+// in 09-settings.js, switchTab() in 08-render-core.js, openClaudeView()/
+// closeClaudeView() in 10-claudeview.js, signOut() in 17-auth-ui.js) goes
+// through it instead of touching the variable directly, so localStorage
+// can never drift stale relative to what's actually on screen.
 let settingsOpen = false;
+function setSettingsOpen(val){
+  settingsOpen = val;
+  try { localStorage.setItem('ledger-settings-open', val ? '1' : '0'); } catch(e){}
+}
 // Pure UI chrome for the floating dev panel (see renderDevPanel()/
 // toggleDevPanel() in 01-categories-theme.js) — deliberately NOT reset by
 // switchTab()/toggleSettings()/Esc the way settingsOpen/claudeView are.
@@ -217,7 +230,25 @@ let customSelectOpenKey = null;
 // collapsed itself back shut after every change made inside it. Tracking
 // "which sections are collapsed" here, outside the DOM, is what survives
 // that rebuild.
-let settingsCollapsedSections = new Set(['dev', 'dev-desktop', 'dev-mobile']);
+//   Persisted to plain localStorage (like ledger-last-tab/ledger-settings-
+// open) — a per-device UI preference, not ledger data — so it survives a
+// page refresh too, not just a same-session render(). Before this, every
+// reload silently reset every section back to the hardcoded default below
+// regardless of what you'd actually left open/closed, which is exactly
+// the "Desktop/Mobile always come back collapsed, General always comes
+// back open" bug the project owner reported. toggleSettingsSection()
+// (09-settings.js) is the only place that mutates this Set, and it calls
+// persistSettingsCollapsedSections() right after every mutation.
+let settingsCollapsedSections = (() => {
+  try {
+    const raw = localStorage.getItem('ledger-settings-collapsed');
+    if(raw !== null) return new Set(JSON.parse(raw));
+  } catch(e){}
+  return new Set(['dev', 'dev-desktop', 'dev-mobile']);
+})();
+function persistSettingsCollapsedSections(){
+  try { localStorage.setItem('ledger-settings-collapsed', JSON.stringify([...settingsCollapsedSections])); } catch(e){}
+}
 // Set only while a pointer drag on the hue ring or the SV square is in
 // progress — {type:'hue'|'sv', rect}. See catWheelCancelDrag() for why
 // this (and the document-level listeners it implies) must be torn down

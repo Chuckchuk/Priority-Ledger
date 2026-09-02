@@ -302,7 +302,7 @@ function signOut(){
   appEntered = false;
   stopAutoRefresh();
   localOnlyMode = false;
-  settingsOpen = false;
+  setSettingsOpen(false);
   claudeView = null;
   selectedListId = null;
   checklistPendingOpen = false;
@@ -358,6 +358,11 @@ async function enterApp(){
   // this device) by falling back to whatever activeTab already is ('all').
   const lastTab = localStorage.getItem('ledger-last-tab');
   if(lastTab && visibleTabs().includes(lastTab)) activeTab = lastTab;
+  // Restore whether Settings was open too, same reasoning as lastTab
+  // above — refreshing mid-Settings used to always dump you back to the
+  // task list. Direct assignment (not setSettingsOpen()) since there's
+  // nothing new to persist here, just reading back what's already there.
+  if(localStorage.getItem('ledger-settings-open') === '1') settingsOpen = true;
   applyTheme();
   applyDevSettings();
   render();

@@ -23,7 +23,7 @@ const CHECK_GUIDE_STYLE_OPTIONS = [
 // ---------- Manage tabs ----------
 
 function toggleSettings(){
-  settingsOpen = !settingsOpen;
+  setSettingsOpen(!settingsOpen);
   if(settingsOpen){
     claudeView = null;
     // genericTaskDetailId is checked ahead of settingsOpen in render() (it
@@ -312,6 +312,7 @@ function settingsSectionHtml(key, title, bodyHtml, extraClass){
 function toggleSettingsSection(key){
   if(settingsCollapsedSections.has(key)) settingsCollapsedSections.delete(key);
   else settingsCollapsedSections.add(key);
+  persistSettingsCollapsedSections();
   render();
 }
 

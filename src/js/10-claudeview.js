@@ -7,7 +7,7 @@
 
 function openClaudeView(mode){
   claudeView = mode === 'full' ? 'full' : 'digest';
-  settingsOpen = false;
+  setSettingsOpen(false);
   pendingDeleteCategoryId = null;
   closeAllSettingsPopovers();
   render();
@@ -20,7 +20,7 @@ function openClaudeView(mode){
 // rather than whatever category tab happened to be active underneath.
 function closeClaudeView(){
   claudeView = null;
-  settingsOpen = true;
+  setSettingsOpen(true);
   render();
 }
 
