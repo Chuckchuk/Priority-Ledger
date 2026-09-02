@@ -566,16 +566,81 @@ function dayItemHtml(dateStr){
     </div>`;
 }
 
-// A step or a whole checklist is a candidate to add to a day the same
-// way a whole task is: not done, and — if due-dated — due today,
-// overdue, or due within 3 days (a dateless task/step stays eligible
-// unconditionally). Scoped to one category at a time since both picker
-// styles browse category-first.
-function dayCandidateTasks(dateStr, categoryId){
+// A task is a candidate to manually add to a day as long as it's simply
+// not done — a due date, near or far, no longer restricts what shows up
+// here (it used to require due-today/overdue/within-3-days, which meant a
+// task due further out just silently didn't appear in the tree at all,
+// with no way to plan it onto an earlier day on purpose). The due-date
+// window still matters for *automatic* planning — see
+// sweepDueSoonPlanning() below — this is only about what a manual "Add to
+// this day" pick offers. Scoped to one category at a time since both
+// picker styles browse category-first.
+function dayCandidateTasks(categoryId){
   return state.tasks.filter(t=>
-    t.category===categoryId && t.status!=='done' && !isChecklistCategory(t.category) &&
-    (!t.dueDate || isDueWithinDays(t.dueDate, 3))
+    t.category===categoryId && t.status!=='done' && !isChecklistCategory(t.category)
   );
+}
+
+// Catches a due date up with today's own date moving forward — without
+// this, updateDueDate()/updateSubtaskDueDate()'s auto-plan-onto-the-due-
+// day only ever fires the instant a due date is *typed*. A date set days
+// or weeks ahead of time, when it was still outside isDueWithinDays' 3-
+// day/overdue window, would sit there forever with nothing re-checking it
+// as the calendar actually caught up to it — the exact case the project
+// owner reported (a step dated for "today" a few days after being set,
+// never auto-planned since nobody touched that field again in between).
+// Called once at login/reload (enterApp(), 17-auth-ui.js) and again
+// whenever the calendar date itself has changed since the last run (see
+// the visibilitychange listener in 20-bootstrap.js) — gated on
+// lastDueSweepDate so it's a no-op on every other tick, since nothing new
+// could have entered the window without today's own date moving.
+//
+// Purely additive and idempotent, same guarantees as the edit-time
+// version: a due date already in plannedDates is skipped, and a task/step
+// that's already done or cancelled is never swept in — a step finished
+// before its due day ever arrived isn't "coming up" anymore, it's just
+// done, so there's nothing left to plan for. But once a still-open item
+// *has* been swept onto a day, completing it afterward never pulls it
+// back off — same one-way rule the edit-time version follows — so a step
+// you finished ahead of an approaching deadline still shows as
+// accomplished on the day it was due, not silently removed for having
+// been checked off "too early."
+//
+// Deliberately not pushUndo()'d — this runs on its own, not in response
+// to a single user gesture, so there's no one action for Cmd+Z to
+// sensibly hand back; the mutation itself (plannedDates/state.days) still
+// gets queueSave()'d and rendered like any other change.
+let lastDueSweepDate = null;
+async function sweepDueSoonPlanning(){
+  const today = todayStr();
+  if(lastDueSweepDate === today) return;
+  lastDueSweepDate = today;
+  const newDays = new Set();
+  let changed = false;
+  state.tasks.forEach(t=>{
+    if(isChecklistCategory(t.category)) return;
+    if(t.status!=='done' && !t.cancelled && t.dueDate && isDueWithinDays(t.dueDate, 3)){
+      if(!t.plannedDates) t.plannedDates = [];
+      if(!t.plannedDates.includes(t.dueDate)){
+        t.plannedDates.push(t.dueDate);
+        newDays.add(t.dueDate);
+        changed = true;
+      }
+    }
+    (t.subtasks||[]).forEach(s=>{
+      if(s.done || s.cancelled || !s.dueDate || !isDueWithinDays(s.dueDate, 3)) return;
+      if(!s.plannedDates) s.plannedDates = [];
+      if(!s.plannedDates.includes(s.dueDate)){
+        s.plannedDates.push(s.dueDate);
+        newDays.add(s.dueDate);
+        changed = true;
+      }
+    });
+  });
+  if(!changed) return;
+  for(const d of newDays) await ensureDay(d);
+  render();
+  queueSave();
 }
 
 function toggleDayAdd(){

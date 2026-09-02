@@ -219,12 +219,15 @@ async function toggleUrgent(id){
 }
 
 // Setting a due date within isDueWithinDays' 3-day/overdue window also
-// plans the task onto that due date's daily — same window the "Add to
-// this day" tree already uses to decide what's eligible to pull in, just
-// applied automatically instead of waiting for a manual tree add.
-// ensureDay() creates that day if it doesn't exist yet. One-way, same as
-// updateTimeframe's "today" plan: pushing the due date back out past the
-// window later doesn't retroactively unplan it.
+// plans the task onto that due date's daily, the moment the date is
+// typed — the same window sweepDueSoonPlanning() (11-daily-core.js) later
+// re-checks on its own as today's date moves forward, catching a due
+// date that was too far out to qualify here but has since drifted into
+// the window with nobody touching this field again. ensureDay() creates
+// that day if it doesn't exist yet. One-way, same as updateTimeframe's
+// "today" plan: pushing the due date back out past the window later
+// doesn't retroactively unplan it. Skipped entirely for an already-done
+// (or cancelled) task — there's no "coming up" left to plan for.
 //
 // One-shot, same idiom as celebrateCheckTaskId just below — which task's
 // Timeframe field (see taskAdvancedFieldsRowHtml(), 08-render-core.js)
@@ -245,7 +248,7 @@ async function updateDueDate(id, val){
   if(val === t.dueDate) return;
   pushUndo(`Changed due date for "${t.title}"`);
   t.dueDate = val;
-  if(val && isDueWithinDays(val, 3)){
+  if(val && isDueWithinDays(val, 3) && t.status!=='done' && !t.cancelled){
     if(!t.plannedDates) t.plannedDates = [];
     if(!t.plannedDates.includes(val)){
       t.plannedDates.push(val);

@@ -365,6 +365,11 @@ async function enterApp(){
   if(localStorage.getItem('ledger-settings-open') === '1') settingsOpen = true;
   applyTheme();
   applyDevSettings();
+  // Catches up any due date that's drifted into the auto-plan window
+  // since the last time the app was opened — see its own comment
+  // (11-daily-core.js). Awaited before the first render so anything it
+  // plans shows up immediately instead of needing a second render pass.
+  await sweepDueSoonPlanning();
   render();
   appEntered = true;
   startAutoRefresh();

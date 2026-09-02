@@ -62,14 +62,15 @@ function startEditSubtaskDate(el, taskId, subId){
 }
 
 // Same auto-plan-onto-its-due-day behavior as updateDueDate — see the
-// comment there.
+// comment there, including sweepDueSoonPlanning() catching up a date
+// that drifts into the window later on its own.
 async function updateSubtaskDueDate(taskId, subId, dueDate){
   const t = state.tasks.find(t=>t.id===taskId);
   const s = t && (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
   pushUndo(dueDate ? `Dated step "${s.text}"` : `Cleared date for step "${s.text}"`);
   s.dueDate = dueDate;
-  if(dueDate && isDueWithinDays(dueDate, 3)){
+  if(dueDate && isDueWithinDays(dueDate, 3) && !s.done && !s.cancelled){
     if(!s.plannedDates) s.plannedDates = [];
     if(!s.plannedDates.includes(dueDate)){
       s.plannedDates.push(dueDate);

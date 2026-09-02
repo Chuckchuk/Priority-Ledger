@@ -838,6 +838,16 @@ function maybeRefreshSession(){
 setInterval(maybeRefreshSession, SESSION_PROACTIVE_REFRESH_MS);
 document.addEventListener('visibilitychange', () => { if(!document.hidden) maybeRefreshSession(); });
 
+// Catches a due date drifting into sweepDueSoonPlanning()'s auto-plan
+// window (11-daily-core.js) while the app was simply left open/
+// backgrounded across a day boundary, rather than only re-checking on the
+// next full reload — that function's own lastDueSweepDate guard already
+// makes repeat calls here free on every tab-refocus that isn't actually a
+// new day. appEntered guards against running before enterApp() has
+// loaded any state to sweep in the first place, same reasoning
+// refreshFromServer() (03-sync-save.js) guards on it too.
+document.addEventListener('visibilitychange', () => { if(!document.hidden && appEntered) sweepDueSoonPlanning(); });
+
 // Supabase rotates the refresh token on every use, so one tab/window
 // refreshing invalidates whatever refresh_token any other open tab of
 // the same browser is still holding in memory. ensureFreshSession() only

@@ -96,7 +96,7 @@ function renderAddToDayPicker(dateStr){
   const taskCatsHtml = standardCategoryEntries().map(([k,v])=>{
     const key = 'cat:'+k;
     const open = dayTreeExpanded.has(key);
-    const tasks = dayCandidateTasks(dateStr, k);
+    const tasks = dayCandidateTasks(k);
     return `
       <div class="daytreenode">
         <button class="daytreelabel daytreecat" onclick="toggleDayTreeNode('${key}')">
