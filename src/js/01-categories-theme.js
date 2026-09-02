@@ -305,9 +305,20 @@ const UI_COLOR_PRESET_SETS = {
   },
   pastel: {
     id: 'pastel', label: 'Pastel',
+    // defaultId (see setUiPaletteSet(), 09-settings.js) is what a switch
+    // to this set falls back to when the outgoing UI preset doesn't map
+    // to any slot here (a custom pick, most commonly) — Mint & Coral per
+    // the project owner's own ask, rather than leaving a custom pair in
+    // place under a "Pastel" label that doesn't actually show anything
+    // pastel.
+    defaultId: 'mintcoral',
+    // Mint & Coral leads the array — same "default means top of the
+    // list" convention as Seafoam & Mist above (see
+    // DESK_PAPER_PRESET_SETS.pastel's own comment), a deliberate
+    // exception to the pure hue-sweep order otherwise used here.
     presets: [
-      { id:'rosesage',        label:'Rose & Sage',        primary:'#C97B84', primaryLight:'#DDA0A7', secondary:'#8FAE83', secondaryLight:'#AECB9F' },
       { id:'mintcoral',       label:'Mint & Coral',       primary:'#5FAE9A', primaryLight:'#82C4B2', secondary:'#E58572', secondaryLight:'#EFA795' },
+      { id:'rosesage',        label:'Rose & Sage',        primary:'#C97B84', primaryLight:'#DDA0A7', secondary:'#8FAE83', secondaryLight:'#AECB9F' },
       { id:'periwinklepeach', label:'Periwinkle & Peach', primary:'#7C88C4', primaryLight:'#9CA6D6', secondary:'#E2A671', secondaryLight:'#EFC08F' },
       { id:'lavenderbutter',  label:'Lavender & Butter',  primary:'#9B85C4', primaryLight:'#B7A4D8', secondary:'#D9C367', secondaryLight:'#E8D98C' },
       { id:'orchidsky',       label:'Orchid & Sky',       primary:'#C48BB0', primaryLight:'#D6A9C6', secondary:'#7EB2D6', secondaryLight:'#A0C8E2' }
@@ -457,10 +468,23 @@ const DESK_PAPER_PRESET_SETS = {
   },
   pastel: {
     id: 'pastel', label: 'Pastel',
+    // defaultId (see setDeskPaletteSet(), 09-settings.js) is what a
+    // switch to this set falls back to when the outgoing bg/paper don't
+    // match any slot here (a custom pick, most commonly) — Seafoam &
+    // Mist per the project owner's own ask, rather than leaving a custom
+    // desk/paper in place under a "Pastel" label that doesn't actually
+    // show anything pastel.
+    defaultId: 'seafoam',
+    // Seafoam & Mist leads the array (per the project owner's own
+    // clarification: "default" means "top of the list," same convention
+    // UI_COLOR_PRESET_SETS.classic's own comment already uses for 'rust')
+    // rather than sitting mid-sweep where the hue-sort alone would put
+    // it — a deliberate exception to the pure hue-sweep ordering the rest
+    // of this array follows.
     presets: [
+      { id:'seafoam',           label:'Seafoam & Mist',        bg:'#4F8177', paper:'#E2F0EA' },
       { id:'terracotta',        label:'Terracotta & Sand',     bg:'#A16A4C', paper:'#F6E4C9' },
       { id:'sagecustard',       label:'Sage & Custard',        bg:'#6C7A5E', paper:'#F1ECD4' },
-      { id:'seafoam',           label:'Seafoam & Mist',        bg:'#4F8177', paper:'#E2F0EA' },
       { id:'periwinklepowder',  label:'Periwinkle & Powder',   bg:'#5E6B93', paper:'#E7ECF6' },
       { id:'lilaccloud',        label:'Lilac & Cloud',         bg:'#7C6690', paper:'#F0E7F2' },
       { id:'dustyrose',         label:'Dusty Rose & Petal',    bg:'#8C5B67', paper:'#F7E3DE' }

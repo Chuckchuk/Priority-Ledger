@@ -194,7 +194,7 @@ function renderSettings(){
         <div class="inkfromuirow">
           <label class="catlocchk" title="Especially good for Pastel palettes — keeps text and lines from blending into soft colors. Works with any color scheme.">
             <input type="checkbox" ${state.theme.inkFromUi?'checked':''} onchange="toggleInkFromUi(this.checked)">
-            Text & lines match UI Color (Good for Pastel)
+            Text & lines match UI Color <span style="color:${state.theme.inkFromUiSource==='secondary' ? activeUiPreset.secondary : activeUiPreset.primary}">(Good for Pastel)</span>
           </label>
           ${state.theme.inkFromUi ? `
           <div class="inksrctabs">
@@ -944,6 +944,14 @@ async function setDeskPaletteSet(id){
   if(idx !== -1 && DESK_PAPER_PRESETS[idx]){
     state.theme.bg = DESK_PAPER_PRESETS[idx].bg;
     state.theme.paper = DESK_PAPER_PRESETS[idx].paper;
+  } else if(newSet.defaultId){
+    // No same-index preset to carry over (most commonly: bg/paper was a
+    // custom pick) — land on this set's own designated default (see the
+    // set's own defaultId comment in 01-categories-theme.js) instead of
+    // silently leaving the old custom colors in place under the new
+    // palette's label.
+    const def = DESK_PAPER_PRESETS.find(p=>p.id===newSet.defaultId);
+    if(def){ state.theme.bg = def.bg; state.theme.paper = def.paper; }
   }
   applyTheme();
   render();
@@ -954,7 +962,7 @@ async function setDeskPaletteSet(id){
 // "currently active preset" is a stored id (state.theme.uiPreset), not a
 // value match, so the re-map looks up that id's index in the outgoing set
 // rather than comparing colors. 'custom' is never in the array, so it
-// naturally falls through to "leave it alone."
+// naturally falls through to the defaultId branch below.
 async function setUiPaletteSet(id){
   const newSet = UI_COLOR_PRESET_SETS[id];
   if(!newSet || state.uiPaletteId === id) return;
@@ -965,6 +973,9 @@ async function setUiPaletteSet(id){
   rebuildUiColorPresets();
   if(idx !== -1 && UI_COLOR_PRESETS[idx]){
     state.theme.uiPreset = UI_COLOR_PRESETS[idx].id;
+  } else if(newSet.defaultId && UI_COLOR_PRESETS.some(p=>p.id===newSet.defaultId)){
+    // Same reasoning as setDeskPaletteSet()'s own defaultId fallback above.
+    state.theme.uiPreset = newSet.defaultId;
   }
   applyTheme();
   render();
