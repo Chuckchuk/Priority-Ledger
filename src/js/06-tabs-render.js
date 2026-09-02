@@ -6,6 +6,20 @@ function currentLocation(){
   return state.locations.find(l=>l.id===state.location) || state.locations[0];
 }
 
+// The Daily tab isn't a real category (no CATEGORIES['daily'] entry, no
+// state.categories row of its own — see tabOrder()) so it has no cat.hex
+// to draw its dot/tabhex from the way every other tab does. Per the
+// project owner's own ask, it uses the live UI Colors Secondary accent
+// instead — the same color already used for the checklist "Pending" tag
+// and a couple of other secondary-accent spots (see the theming notes in
+// CLAUDE.md), so Daily reads as sharing that accent rather than getting a
+// one-off color of its own. uiColorPreset() already resolves 'custom'
+// against state.theme.customUi internally, same as applyThemeObject()'s
+// own `ui` lookup.
+function dailyTabHex(){
+  return uiColorPreset(state.theme.uiPreset).secondary;
+}
+
 function hashStr(s){
   let h = 0;
   for(let i=0; i<s.length; i++) h = (h*31 + s.charCodeAt(i)) | 0;
@@ -91,15 +105,15 @@ function tabImportanceRank(keys){
 // tabHasUrgentTask() is true — so it only ever appears when there's
 // actually something to say, unlike the always-on inline count it
 // replaces (which shows "0" just as prominently as anything else).
-// Skipped entirely for a tab with nothing open, and for 'all'/'daily' (no
-// single category icon to show). The markup here is just content — its
-// pennant shape, "behind the tab" z-index trick, and position all live in
-// the .tabsubtag rules in <style>.
+// Skipped entirely for a tab with nothing open, and for 'all' (no single
+// category icon to show — 'daily' gets one now, see dailyTabHex() below).
+// The markup here is just content — its pennant shape, "behind the tab"
+// z-index trick, and position all live in the .tabsubtag rules in <style>.
 function tabSubtagHtml(key, openCount){
-  if(key==='all' || key==='daily' || openCount<=0) return '';
+  if(key==='all' || openCount<=0) return '';
   const cat = CATEGORIES[key];
-  if(!cat) return '';
-  const icon = categoryDotHtml(cat, 'dot');
+  if(!cat && key !== 'daily') return '';
+  const icon = cat ? categoryDotHtml(cat, 'dot') : categoryDotHtml({ hex: dailyTabHex(), icon:'dot' }, 'dot');
   // Two independent flags, not one flag with the "!" tucked into a
   // corner of it — the project owner asked for the urgent marker to be
   // its own separate tag, sitting further out at the tab's left edge
@@ -129,7 +143,7 @@ function renderTabs(){
   const importanceRank = pushMode ? tabImportanceRank(keys) : null;
   wrap.innerHTML = keys.map((key, idx)=>{
     const openCount = tabOpenCount(key);
-    const dot = (subtagsOn || key==='all' || key==='daily') ? '' : categoryDotHtml(CATEGORIES[key], 'dot');
+    const dot = subtagsOn ? '' : key==='all' ? '' : key==='daily' ? categoryDotHtml({ hex: dailyTabHex(), icon:'dot' }, 'dot') : categoryDotHtml(CATEGORIES[key], 'dot');
     const label = key==='all' ? 'All' : key==='daily' ? 'Daily' : CATEGORIES[key].label;
     const countHtml = subtagsOn ? '' : `<span class="count">${openCount}</span>`;
     const subtagHtml = subtagsOn ? tabSubtagHtml(key, openCount) : '';
@@ -142,10 +156,11 @@ function renderTabs(){
     // derive --ink from --paper) since a category's own hex runs the
     // full range from pale gold to near-black; --tabedge is that hex
     // darkened via shadeHex() for "overlap"'s accent border, the same
-    // multiplicative-darken helper --desk-dark is built from. 'all'/
-    // 'daily' have no category color of their own, so they get none of
-    // these three and fall back to <style>'s var(--primary)-based
-    // defaults instead. --tabidx (1-based) is "overlap"'s default
+    // multiplicative-darken helper --desk-dark is built from. 'daily'
+    // uses dailyTabHex() (the live Secondary accent) here too, same as
+    // its dot above — 'all' is the only tab with no color of its own, so
+    // it's the only one that falls back to <style>'s var(--primary)-based
+    // defaults. --tabidx (1-based) is "overlap"'s default
     // stacking order — later tabs sit on top of earlier ones until
     // hovered, like a fanned-out stack of index cards — UNLESS
     // overlapHoverMode's 'push' variant is on, in which case it's instead
@@ -159,6 +174,7 @@ function renderTabs(){
     // component; onmouseenter/leave are only wired up in push mode — the
     // default look still does its lift/reorder in pure CSS via :hover.
     const cat = (key!=='all' && key!=='daily') ? CATEGORIES[key] : null;
+    const tabColorHex = cat ? cat.hex : (key==='daily' ? dailyTabHex() : null);
     const tabidx = importanceRank ? importanceRank[key] : idx+1;
     const jitter = tabJitterPx(key);
     // --tab-angle is only ever read by .tab.active's own transform (see
@@ -175,8 +191,8 @@ function renderTabs(){
     // it, instead of a covered tab being unreadable until you interact
     // with it. 0 (no offset) for the frontmost tab either way.
     const stagger = staggerOn ? -((keys.length - tabidx) / Math.max(1, keys.length - 1)) * OVERLAP_STAGGER_MAX : 0;
-    const hexStyle = cat
-      ? ` style="--tabhex:${cat.hex};--tabtext:${relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9'};--tabedge:${shadeHex(cat.hex, -0.25)};--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`
+    const hexStyle = tabColorHex
+      ? ` style="--tabhex:${tabColorHex};--tabtext:${relLuminance(tabColorHex) > 0.5 ? '#2A2318' : '#F1EAD9'};--tabedge:${shadeHex(tabColorHex, -0.25)};--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`
       : ` style="--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`;
     const hoverAttrs = pushMode ? ` onmouseenter="overlapTabHoverStart(${idx})" onmouseleave="overlapTabHoverEnd(${idx})"` : '';
     // Re-clicking the tab you're already on now has to actually do
