@@ -438,7 +438,17 @@
      still reading as a cover wrapping the card, the same way #appCard
      itself squares its own top corners to meet the tabs. */
   .leathercover{ position:relative; }
+  /* z-index:0 here (harmless against .leathercover's own siblings — 0
+     behaves the same as the auto it replaces for that comparison) is what
+     makes the ::after z-index:-1 below safe: a negative z-index only stays
+     contained "inside" the element that's sinking it below its own other
+     content when that element actually establishes a stacking context
+     (position + a non-auto z-index) — without this, ::after's negative
+     z-index would escape past .leathercover's own box entirely rather than
+     just sinking below #sidetabsPeek within it. See ::after's own comment
+     for what this is actually fixing. */
   .leathercover.leather-on{
+    position:relative; z-index:0;
     border-radius: var(--leather-radius);
     padding: var(--leather-pad-top) var(--leather-pad-right) var(--leather-pad-bottom) var(--leather-pad-left);
     background:
@@ -459,9 +469,33 @@
     mix-blend-mode: overlay;
     pointer-events: none;
   }
+  /* z-index:-1 (not the z-index:1-on-#sidetabsPeek fix an earlier pass
+     tried) is the real fix for the stitching-drawing-over-the-tabs glitch.
+     The earlier attempt gave #sidetabsPeek itself an explicit z-index,
+     which does stop ::after from painting over it — but position:absolute
+     PLUS a non-auto z-index unconditionally creates a NEW stacking context
+     on whatever element carries it, and doing that on #sidetabsPeek also
+     trapped its own children's z-index values (.tab.active's 4, :hover's
+     5) inside that new context — they could no longer escape to compete
+     against #appCard the way they need to (see .tab.active's own comment):
+     "the active tab pokes out in FRONT of the page, resting tabs stay
+     tucked behind it" broke into "every tab, active or not, stays behind
+     the page," reported back as the tabs now displaying behind the page
+     rather than in front. Sinking ::after itself below zero instead needs
+     no stacking context on #sidetabsPeek at all — it stays z-index:auto,
+     so its children's own explicit z-index values keep comparing directly
+     against #appCard's z-index:1 exactly as before this whole feature
+     existed. Within .leathercover.leather-on's own new context (see that
+     rule's own comment), z-index:-1 sinks the stitching below every
+     z-index:auto participant at the "0" level — ::before (grain) and every
+     resting .tab alike — regardless of DOM order, which is what actually
+     needed fixing (::after being generated last, and so painting last/on
+     top among same-level content, was the root cause). #appCard's own
+     z-index:1 and .tab.active's/:hover's z-index:4/5 both still handily
+     clear this either way, so none of that ordering changes. */
   .leathercover.leather-on::after{
     content:'';
-    position:absolute; inset: var(--stitch-inset);
+    position:absolute; inset: var(--stitch-inset); z-index:-1;
     border-radius: var(--stitch-radius);
     border: 1.5px dashed rgba(0,0,0,0.35);
     pointer-events: none;
@@ -1938,19 +1972,21 @@
   /* EXPERIMENTAL — taskDetailActionsPosition dev setting (starred in
      Settings, see devSettingsFieldsHtml()'s own comment): alternate spots
      for the real .titleactions (flag/pin) besides 'side', the default
-     above (no override needed for it). Both variants pull .titleactions
-     out of .taskdetailhead's grid flow entirely (position:absolute against
-     .stackedpage — the same positioned ancestor .categorylabel and
-     .pagetag already use, even though .titleactions lives one level deeper
-     in the DOM; position:absolute escapes straight to the nearest
-     positioned ancestor regardless of nesting). .taskdetailshare is left
-     alone by both — it stays in its own grid column (justify-self:end
-     above), which keeps the checkbox centered on its own (a minmax(0,1fr)
-     column with no content still gets its fair share of the row, same as
-     an empty one always would) without needing anything hidden to balance
-     against, unlike the old flex approach. */
+     above (no override needed for it). All three variants pull
+     .titleactions out of .taskdetailhead's grid flow entirely
+     (position:absolute against .stackedpage — the same positioned
+     ancestor .categorylabel and .pagetag already use, even though
+     .titleactions lives one level deeper in the DOM; position:absolute
+     escapes straight to the nearest positioned ancestor regardless of
+     nesting). .taskdetailshare is left alone by all three — it stays in
+     its own grid column (justify-self:end above), which keeps the
+     checkbox centered on its own (a minmax(0,1fr) column with no content
+     still gets its fair share of the row, same as an empty one always
+     would) without needing anything hidden to balance against, unlike the
+     old flex approach. */
   body[data-taskdetail-actions="corner"] .taskdetailhead .titleactions,
-  body[data-taskdetail-actions="topleft"] .taskdetailhead .titleactions{
+  body[data-taskdetail-actions="topleft"] .taskdetailhead .titleactions,
+  body[data-taskdetail-actions="headerline"] .taskdetailhead .titleactions{
     position:absolute; z-index:3;
   }
   /* corner: an actual swap with .categorylabel — flag/pin take its exact
@@ -1982,6 +2018,33 @@
   }
   body[data-taskdetail-actions="topleft"] .taskdetailhead .taskdetailshare{
     position:absolute; z-index:3; top:54px; right:14px;
+  }
+  /* headerline: rests both groups right on the title's own underline
+     (.titleedit.bigtitle's border-bottom — see that rule near the top of
+     <style>) rather than up in the checkbox row — the explicit ask being a
+     spot that doesn't touch the title field's own padding/margin/width at
+     all, which position:absolute (same mechanism every other variant here
+     already uses) guarantees for free: the title keeps the exact box it
+     always had, these just sit on top of it. top:144px is measured, not
+     derived from any live layout math (same as every other fixed offset
+     on this page — corner/topleft's own top:14/54/82 are exactly as fixed)
+     — 159px is .titleedit.bigtitle's own border-bottom position under the
+     DEFAULT header (no .sharedbadge line), and 144px centers a 30px-tall
+     .flagbtn/.sharebtn (see that rule in <style>) ON that line rather than
+     sitting with its own top edge there, so the button visually straddles
+     the rule the way "resting on" the line implies. A task with
+     .sharedbadge showing (see renderTaskDetailPage()) pushes the title
+     down and out of alignment with this fixed number, same caveat every
+     other fixed-offset variant here already carries. */
+  body[data-taskdetail-actions="headerline"] .taskdetailhead .titleactions,
+  body[data-taskdetail-actions="headerline"] .taskdetailhead .taskdetailshare{
+    top:144px;
+  }
+  body[data-taskdetail-actions="headerline"] .taskdetailhead .titleactions{
+    left:14px;
+  }
+  body[data-taskdetail-actions="headerline"] .taskdetailhead .taskdetailshare{
+    position:absolute; z-index:3; right:14px;
   }
   /* A row, not a stack — the date on the left, progress + the "move
      incomplete" button (when there's something to move) on the right.
@@ -3379,21 +3442,27 @@
      which is .leathercover's own OUTER edge, not wherever its padding
      happens to push #appCard to. With no leather, .leathercover has no
      padding of its own, so that outer edge and #appCard's edge are the
-     same point and left:0 just works. Its own z-index:1 (set below —
-     matching #appCard's, see .card above) is required, not optional: being
-     a real element placed after .leathercover's own ::before (the leather
-     grain texture, generated as that element's conceptual first child) is
-     ENOUGH to keep it painting above that texture, but .leathercover's
-     ::after (the stitching border, generated as its conceptual LAST child,
-     i.e. after every real child including this one) still painted right
-     over it at z-index:auto's default tree-order rules — the exact same
-     "generated last, painted last" trap the .card z-index:1 comment above
-     already warns about, just one layer further out. An explicit z-index
-     here (see that rule's own comment) fixes it the same way .card's does,
-     while still resolving its tie with #appCard's own z-index:1 by DOM
-     order (#appCard comes later, so it still correctly stays on top). */
+     same point and left:0 just works.
+     Deliberately NO explicit z-index here, even though the stitching-
+     border-drawing-over-the-tabs glitch this used to have looked exactly
+     like a job for one (an earlier pass tried exactly that). The problem
+     with putting it here: position:absolute plus any non-auto z-index
+     ALWAYS creates a new stacking context on the element that carries it —
+     doing that on #sidetabsPeek would also trap every .tab child's own
+     z-index (.tab.active's 4, :hover's 5, both set below) inside that new
+     local context, where they could no longer escape to compete against
+     #appCard the way .tab.active's own comment relies on. Reported back as
+     "the [active] tab now displays behind the page" — every tab, not just
+     resting ones, got stuck behind #appCard once that escape hatch closed.
+     Leaving #sidetabspeek at z-index:auto keeps it OUT of the way of that
+     mechanism entirely: its .tab children's own z-index values still
+     compare directly against #appCard's, exactly as if #sidetabspeek
+     weren't a positioned element at all. The stitching glitch is instead
+     fixed at its actual source — .leathercover.leather-on::after's own
+     z-index:-1, see that rule's comment — which needs no cooperation from
+     #sidetabspeek whatsoever. */
   .sidetabspeek{
-    position:absolute; left:0; top:28px; z-index:1; display:flex; flex-direction:column;
+    position:absolute; left:0; top:28px; display:flex; flex-direction:column;
     pointer-events:none;
   }
   /* Once leather is on, .leathercover.leather-on adds padding-left:
@@ -3722,9 +3791,22 @@
   .sidetabspeek .tab[data-shape="arrows"] > *{
     position:relative; z-index:1;
   }
+  /* The clip-path's own zigzag only ever reaches out to 0px at 4 points
+     (12.5/37.5/62.5/87.5%) and stays flush at 7px everywhere else (0/25/
+     50/75/100%) — with the color split originally landing at that exact
+     same 7px, the "valleys" between teeth showed NO band color at all
+     (the clip cuts away everything from 0-7px there), so each tooth read
+     as an isolated little triangle of band color floating with nothing
+     connecting it to its neighbors — "little diamonds behind the tab"
+     rather than felt as part of it. Widening the band's own stop to 10px
+     (3px past the teeth's own 7px reach) fixes this without touching the
+     clip-path/tooth geometry at all: that extra 3px is ALWAYS inside the
+     clip regardless of where the zigzag currently sits (the valleys' own
+     flush point, 7px, still has everything from 7-10px visible), so it
+     reads as one continuous backing strip the teeth emerge from. */
   .sidetabspeek .tab[data-shape="sawtooth"]{
     clip-path: polygon(7px 0, 100% 0, 100% 100%, 7px 100%, 0px 87.5%, 7px 75%, 0px 62.5%, 7px 50%, 0px 37.5%, 7px 25%, 0px 12.5%, 7px 0);
-    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 7px, var(--sidetab-fill, var(--tabhex, var(--primary))) 7px 100%);
+    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 10px, var(--sidetab-fill, var(--tabhex, var(--primary))) 10px 100%);
   }
   .sidetabspeek .tab[data-shape="jagged"]{
     clip-path: polygon(13px 0, 100% 0, 100% 100%, 13px 100%, 10px 91%, 2px 82%, 11px 74%, 4px 63%, 9px 55%, 0px 46%, 10px 38%, 5px 27%, 11px 18%, 3px 9%, 13px 0);
@@ -3793,10 +3875,7 @@
      on ::before, not a clip-path), for the same reason: a transform-based
      shape has none of clip-path's "point outside the box" problem here, so
      a circle centered on the tab's own left edge just works regardless of
-     how far it needs to protrude. No accompanying line (unlike pagetab) —
-     kept to just the bump so it reads as a distinctly plainer, softer
-     option next to pagetab's diamond-and-line rather than a minor variant
-     of it. */
+     how far it needs to protrude. */
   .sidetabspeek .tab[data-shape="scallop"]{
     clip-path:none; background: var(--sidetab-fill, var(--tabhex, var(--primary)));
   }
@@ -3805,44 +3884,86 @@
     transform: translateY(-50%); border-radius:50%;
     background: var(--tabband, var(--tabhex, var(--primary))); pointer-events:none;
   }
+  /* Vertical colorband line to match pagetab's own diamond-and-line look —
+     same width (4px, per the project owner's own "thicker" ask on pagetab)
+     and the same centering idiom: centered on the bump itself (circle
+     center = left:-10px + half its 20px width = 0, so the line centers at
+     left:-2px + half its own 4px width = 0 too, rather than the two
+     drifting off-axis from each other). ::after rather than a second
+     ::before, since ::before is already the circle. */
+  .sidetabspeek .tab[data-shape="scallop"]::after{
+    content:''; position:absolute; left:-2px; top:0; bottom:0; width:4px;
+    background: var(--tabband, var(--tabhex, var(--primary))); pointer-events:none;
+  }
   /* chevron: a single plain diagonal cut (top corner near-flush, bottom
      corner protruding the shape's own full 14px) rather than a symmetric
      point or notch — the "one clean angled line" option, distinct in kind
      (not just degree) from every other shape here, all of which are
-     symmetric about the tab's own vertical center. A single convex cut
-     needs only one layer (no border/parallel-edge to trace), so this
-     reuses the plain shared-gradient technique sawtooth/jagged already use
-     rather than the two-layer band+fill approach — the gradient's own
-     flat vertical split (at 7px, roughly the diagonal's own midpoint) is a
-     reasonable approximation of "band near the point, fill past it" for a
-     cut this shallow, same tradeoff sawtooth/jagged already accept for
-     their own zig-zag edges. */
+     symmetric about the tab's own vertical center.
+     FIXED: this originally used a flat vertical gradient split (at a fixed
+     7px) instead of tracing the diagonal, which — same root problem as the
+     one that took invertedv many rounds to get right, so this uses that
+     exact same proven two-layer technique rather than a new one — read as
+     the color band cutting across the shape at an angle that didn't match
+     the silhouette's own diagonal, most visible near the top corner where
+     the actual clipped edge had already retreated past the flat split
+     point (so almost no band showed there) while the bottom corner showed
+     the full band width (the split point + silhouette coincide there).
+     Same "two layers offset by a constant, so both edges are genuinely
+     parallel" idea as arrows above (a convex point/corner — as opposed to
+     invertedv's concave notch — needs the OUTER layer to be the parent,
+     since a clip-path parent bounds what its own child can ever show):
+     .tab (band) keeps the EXACT original silhouette unchanged — top
+     corner 14px (0px of protrusion past the shape's own 14px baseline —
+     see SIDETAB_SHAPE_EXTRA in 06-tabs-render.js), bottom corner 0px (the
+     full 14px baseline of protrusion) — so the shape itself doesn't move,
+     only the color-fill boundary changes. ::before (fill) is inset by a
+     constant 6px at BOTH corners (matching arrows' own "a little thicker"
+     offset): top corner 14+6=20px, bottom corner 0+6=6px. Because both
+     layers share the identical top-to-bottom diagonal direction offset by
+     the same 6px, the resulting band is a genuinely constant-width stripe
+     that follows the slant all the way down, not a straight vertical cut
+     across an angled shape. */
   .sidetabspeek .tab[data-shape="chevron"]{
     clip-path: polygon(14px 0, 100% 0, 100% 100%, 0px 100%);
-    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 7px, var(--sidetab-fill, var(--tabhex, var(--primary))) 7px 100%);
+    background: var(--tabband, var(--tabhex, var(--primary)));
+  }
+  .sidetabspeek .tab[data-shape="chevron"]::before{
+    content:''; position:absolute; inset:0;
+    clip-path: polygon(20px 0, 100% 0, 100% 100%, 6px 100%);
+    background: var(--sidetab-fill, var(--tabhex, var(--primary))); pointer-events:none;
+  }
+  .sidetabspeek .tab[data-shape="chevron"] > *{
+    position:relative; z-index:1;
   }
   /* The open-count badge moves out of the inline label flow into a small
-     fixed corner (top-right), the SAME spot regardless of which shape is
-     selected — deliberately not shape-dependent (e.g. nested inside
-     pagetab's own diamond) even though that was floated as an option: a
-     shape-specific spot would need its own bespoke size/contrast handling
-     per shape (several of these shapes — scallop, chevron, sawtooth,
-     swallowtail's forked notch — have no natural small container the way
-     pagetab's diamond happens to), and would mean the count moves to a
-     different place every time the shape setting changes, which makes it
-     slower to find at a glance rather than faster. One fixed spot for
-     every shape keeps this predictable and ports over to any future shape
-     for free. `right:12px` (not flush with the true edge) is deliberate:
-     it keeps the badge's own width clear of the active tab's own fade
-     zone (its last 10px — see .tab.active above), so the badge doesn't
-     reintroduce "fades into the number" as a corner badge instead of an
-     inline one. opacity:1 (overriding the base .tab .count's own 0.6 —
-     see that rule near the top of <style>) plus its own dark pill
-     background is what keeps the digits legible as a standalone badge
-     divorced from the label text, rather than the soft inline dim style
-     that only worked sitting directly beside darker label text. */
+     fixed corner, the SAME spot regardless of which shape is selected —
+     deliberately not shape-dependent (e.g. nested inside pagetab's own
+     diamond) even though that was floated as an option: a shape-specific
+     spot would need its own bespoke size/contrast handling per shape
+     (several of these shapes — scallop, chevron, sawtooth, swallowtail's
+     forked notch — have no natural small container the way pagetab's
+     diamond happens to), and would mean the count moves to a different
+     place every time the shape setting changes, which makes it slower to
+     find at a glance rather than faster. One fixed spot for every shape
+     keeps this predictable and ports over to any future shape for free.
+     Left rather than right, per the project owner's own "try it on the
+     left" ask — top:4px (near the top edge) keeps it clear of every
+     shape's own point/notch, which all sit at the tab's vertical CENTER
+     (the one exception being swallowtail/chevron's own corners, which do
+     reach close to y:0, but only their thin band sliver — see each
+     shape's own comment — so any overlap there is minor). left:6px is a
+     little further in than a flush 0px so the badge doesn't sit mostly
+     over the empty desk background outside a resting (non-protruding-at-
+     the-top) shape's own silhouette, while staying clear of where the
+     label text itself starts (each shape's own padding-left, 10-18px).
+     opacity:1 (overriding the base .tab .count's own 0.6 — see that rule
+     near the top of <style>) plus its own dark pill background is what
+     keeps the digits legible as a standalone badge divorced from the
+     label text, rather than the soft inline dim style that only worked
+     sitting directly beside darker label text. */
   .sidetabspeek .tab .count{
-    position:absolute; top:4px; right:12px; z-index:2;
+    position:absolute; top:4px; left:6px; z-index:2;
     opacity:1; background: rgba(0,0,0,0.28); color:#fff;
     font-size:0.6rem; line-height:1; padding:2px 5px; border-radius:8px;
   }

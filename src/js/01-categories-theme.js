@@ -1173,7 +1173,8 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     ${devField('<span title="Not settled — a few spots to compare against the current default, including swapping places with the category label entirely.">★ Task detail: flag/pin position</span>', dev.taskDetailActionsPosition, [
       ['side','Beside the checkbox (default)'],
       ['corner','Top-right corner — swaps with the category label'],
-      ['topleft','Top-left corner, under the Back tag']
+      ['topleft','Top-left corner, under the Back tag'],
+      ['headerline','Resting on the title\'s own underline']
     ], 'setDevTaskDetailActionsPosition')}
 
     ${devSectionHeadHtml('Tab Bar')}
