@@ -722,16 +722,16 @@ function applyDevSettings(){
   // on screen, so this applies everywhere once turned on, same reasoning
   // as fieldPickerStyle above.
   document.body.classList.toggle('dev-stickytabs', !!d.stickyTabBar);
-  // Read by the .tab:hover rules in <style> — push mode's hovered tab must
-  // NOT jump to a blanket top z-index the way the default look's does: a
-  // fixed order is the whole point of "push" (see tabImportanceRank()),
+  // Read by the .tab:hover rules in <style> — 'ranked' mode's hovered tab
+  // must NOT jump to a blanket top z-index the way 'hover' mode's does: a
+  // fixed order is the whole point of 'ranked' (see tabImportanceRank()),
   // and blanket-topping a hovered tab let it leap above tabs it doesn't
   // normally beat, hiding a *third*, unrelated tab sandwiched behind it
   // that was visible a moment before — exactly the "small tag gets lost"
-  // bug the project owner hit. Push mode reveals a hovered tab by moving
-  // its covering neighbor away (computeOverlapPush() in 06-tabs-render.js)
-  // instead, so it never needs to reorder at all.
-  document.body.dataset.overlapHoverMode = d.overlapHoverMode || 'default';
+  // bug the project owner hit. 'ranked' mode reveals a hovered tab by
+  // moving its covering neighbor away (computeOverlapPush() in
+  // 06-tabs-render.js) instead, so it never needs to reorder at all.
+  document.body.dataset.overlapStackMode = d.overlapStackMode || 'hover';
   // Read by the .sidetabspeek/[data-tabbar-desktop="sidetabs"] rules in
   // <style>, and by resolveSidetabShape() in 06-tabs-render.js for the
   // 'random'/'iconstyle' cases.
@@ -852,9 +852,20 @@ async function setDevTabBarDesktopStyle(val){
   queueSave();
 }
 
-async function setDevOverlapHoverMode(val){
-  pushUndo(`Changed dev overlap tab hover mode to "${val}"`);
-  state.devSettings.overlapHoverMode = val;
+// Unlike most setDev* setters, this one used to skip applyDevSettings()
+// (calling only render()) — a real bug, not just an oversight: 'ranked'
+// mode's hover behavior is driven by the [data-overlap-stack-mode]
+// attribute applyDevSettings() writes to <body> (see its own comment),
+// so picking 'ranked' here without that call left hover still behaving
+// like 'hover' mode even though the resting stack order (computed fresh
+// inside renderTabs() on every render(), no stale attribute involved)
+// had already switched — exactly the kind of "changed one thing, nothing
+// happened" the project owner reported. Fixed by adding the same
+// applyDevSettings() call every other setDev* setter already makes.
+async function setDevOverlapStackMode(val){
+  pushUndo(`Changed dev overlap tab stacking order to "${val}"`);
+  state.devSettings.overlapStackMode = val;
+  applyDevSettings();
   render();
   queueSave();
 }
@@ -1173,16 +1184,19 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     ${dev.tabBarDesktopStyle==='overlap' ? `
     <label class="${rowClass}">
       <input type="checkbox" ${dev.overlapSubtags?'checked':''} onchange="toggleDevSetting('overlapSubtags', this.checked)">
-      Overlap tabs: floating count badge instead of inline icon/number (only shown when a category has open tasks; adds "!" for anything overdue or High priority)
+      Overlap tabs: show open-count/urgent-"!" as a small flag peeking out from behind each tab, instead of an inline dot &amp; number (a tab with nothing open shows neither)
     </label>
-    ${devField('Overlap tabs: hover/select behavior', dev.overlapHoverMode, [
-      ['default','Default (hover reorders to the front)'],
-      ['push','Fixed order — hovering/selecting pushes neighbors aside instead']
-    ], 'setDevOverlapHoverMode')}
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.overlapRankStagger?'checked':''} onchange="toggleDevSetting('overlapRankStagger', this.checked)">
-      Overlap tabs: stagger by stacking rank (a covered tab sits a little higher at rest so its own label still peeks over the one covering it)
-    </label>
+    <!-- Was two separate controls (a hover-mode dropdown + an
+         independent stagger checkbox) — merged per the project owner's
+         own callout that they only did anything meaningful together:
+         "ranked" without stagger left the fixed order invisible at rest,
+         and stagger without "ranked" just staggered by plain tab
+         position. See defaultDevSettings()'s own comment in
+         02-storage-state.js for the full reasoning. -->
+    ${devField('Overlap tabs: stacking order', dev.overlapStackMode, [
+      ['hover','Hover lifts a tab to the front (default) — tabs otherwise stay in your own tab order'],
+      ['ranked','Busiest/urgent tabs stay pinned on top and peek out further at rest — order never changes on hover']
+    ], 'setDevOverlapStackMode')}
     ` : ''}
     ${dev.tabBarDesktopStyle==='sidetabs' ? `
     ${devField('Side tabs: appearance', dev.sidetabsAppearance, [

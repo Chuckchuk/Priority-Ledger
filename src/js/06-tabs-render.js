@@ -67,7 +67,7 @@ function tabOpenCount(key){
 }
 
 // Feeds both the overlapSubtags "!" badge and (via tabImportanceRank())
-// overlapHoverMode's "fixed order" ranking — a category counts as urgent
+// overlapStackMode's "ranked" ordering — a category counts as urgent
 // if it has any not-done task that's overdue or High priority. A
 // checklist tab has no such fields on its own "tasks" (a checklist's
 // task is a whole list — see isChecklistCategory()), so it's never urgent
@@ -78,7 +78,7 @@ function tabHasUrgentTask(key){
   return state.tasks.some(t => t.category===key && t.status!=='done' && (isOverdue(t) || t.priority===3));
 }
 
-// overlapHoverMode's 'push' variant (see devSettingsFieldsHtml() in
+// overlapStackMode's 'ranked' variant (see devSettingsFieldsHtml() in
 // 01-categories-theme.js) replaces position-based stacking (later tab
 // always on top, see --tabidx below) with a FIXED order by how much is
 // going on in each category — open task count, with any urgent (overdue/
@@ -138,8 +138,17 @@ function renderTabs(){
   // (a shown dot/count is better than an unstyled orphan badge).
   const overlapStyle = dev.tabBarDesktopStyle === 'overlap' && !mobileUiActive();
   const subtagsOn = overlapStyle && !!dev.overlapSubtags;
-  const pushMode = overlapStyle && dev.overlapHoverMode === 'push';
-  const staggerOn = overlapStyle && !!dev.overlapRankStagger;
+  // overlapStackMode's 'ranked' variant drives BOTH the fixed-by-
+  // importance stacking order and the stagger that makes that order
+  // visible at rest — pushMode/staggerOn are kept as separate local
+  // names (rather than one shared variable) purely because they read
+  // clearer at each of their own call sites below, not because they can
+  // ever actually differ; they used to be two independent dev settings
+  // that could be set incongruently, which is exactly what got merged
+  // into overlapStackMode (see defaultDevSettings()'s own comment in
+  // 02-storage-state.js).
+  const pushMode = overlapStyle && dev.overlapStackMode === 'ranked';
+  const staggerOn = pushMode;
   const importanceRank = pushMode ? tabImportanceRank(keys) : null;
   wrap.innerHTML = keys.map((key, idx)=>{
     const openCount = tabOpenCount(key);
@@ -163,16 +172,16 @@ function renderTabs(){
     // defaults. --tabidx (1-based) is "overlap"'s default
     // stacking order — later tabs sit on top of earlier ones until
     // hovered, like a fanned-out stack of index cards — UNLESS
-    // overlapHoverMode's 'push' variant is on, in which case it's instead
-    // a fixed rank by tabImportanceRank() so the stacking order holds
-    // still regardless of hover (see computeOverlapPush() below). --tab-
-    // jitter is a small per-tab pseudo-random resting-height offset
+    // overlapStackMode's 'ranked' variant is on, in which case it's
+    // instead a fixed rank by tabImportanceRank() so the stacking order
+    // holds still regardless of hover (see computeOverlapPush() below).
+    // --tab-jitter is a small per-tab pseudo-random resting-height offset
     // (hashStr()'d off the tab's own id so it's stable across renders,
     // not truly random — see the .tab transform rules in <style>), there
     // purely so a row of same-height pills reads a little more like a
     // hand-fanned stack of index cards and a little less like a UI
-    // component; onmouseenter/leave are only wired up in push mode — the
-    // default look still does its lift/reorder in pure CSS via :hover.
+    // component; onmouseenter/leave are only wired up in 'ranked' mode —
+    // 'hover' mode still does its lift/reorder in pure CSS via :hover.
     const cat = (key!=='all' && key!=='daily') ? CATEGORIES[key] : null;
     const tabColorHex = cat ? cat.hex : (key==='daily' ? dailyTabHex() : null);
     const tabidx = importanceRank ? importanceRank[key] : idx+1;
@@ -183,13 +192,14 @@ function renderTabs(){
     // tucked in slightly crooked, rather than a perfectly square chip.
     // Harmless to set on every tab, same reasoning as --tabidx elsewhere.
     const angle = tabAngleDeg(key);
-    // overlapRankStagger (see devSettingsFieldsHtml()): a tab further back
-    // in the stack (lower tabidx, whether that's ranked by position or by
-    // importance) sits a little higher at rest — proportional to how far
-    // back it is, capped at OVERLAP_STAGGER_MAX — so its own label has a
-    // better chance of peeking above whichever tab is currently covering
-    // it, instead of a covered tab being unreadable until you interact
-    // with it. 0 (no offset) for the frontmost tab either way.
+    // 'ranked' mode's stagger (staggerOn, tied to the same overlapStackMode
+    // choice as pushMode above): a tab further back in the stack (lower
+    // tabidx, i.e. less "important") sits a little higher at rest —
+    // proportional to how far back it is, capped at OVERLAP_STAGGER_MAX —
+    // so its own label has a better chance of peeking above whichever tab
+    // is currently covering it, instead of a covered tab being unreadable
+    // until you interact with it. 0 (no offset) for the frontmost tab
+    // either way, and for every tab at all in 'hover' mode.
     const stagger = staggerOn ? -((keys.length - tabidx) / Math.max(1, keys.length - 1)) * OVERLAP_STAGGER_MAX : 0;
     const hexStyle = tabColorHex
       ? ` style="--tabhex:${tabColorHex};--tabtext:${relLuminance(tabColorHex) > 0.5 ? '#2A2318' : '#F1EAD9'};--tabedge:${shadeHex(tabColorHex, -0.25)};--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`
@@ -515,10 +525,14 @@ const OVERLAP_PUSH1_SLACK = 6;       // px of deliberate residual overlap comput
                                       // in the neighbor's own --tab-hpad padding, not its label text
 const OVERLAP_PUSH2_FRACTION = 0.4;  // how much of a distance-2 tab's own edge gap it gets pushed by —
                                       // noticeably less than a distance-1 neighbor's push, per the ask
-const OVERLAP_STAGGER_MAX = 6;       // overlapRankStagger's max lift for the very back-most tab — kept well
-                                      // under .active's own dedicated lift (see the .tab.active rule in
-                                      // <style>) so "selected always highest" still holds even stacked with
-                                      // the worst-case jitter + two-line bonus a resting tab can also have.
+const OVERLAP_STAGGER_MAX = 8;       // overlapStackMode's 'ranked' mode: max lift for the very back-most
+                                      // tab. Was 6px — bumped up (the ceiling before eating into .active's
+                                      // own -20px dedicated lift, worst-case stacked with jitter's ±3px and
+                                      // the -6px two-line bonus, is 11px) since 6px read as barely-there
+                                      // next to those other two offsets, part of why 'ranked' mode's own
+                                      // effect was easy to miss at rest. Kept a few px under that 11px
+                                      // ceiling, not pushed all the way to it, so "selected always highest"
+                                      // keeps a real margin rather than a razor's edge.
 const OVERLAP_CONNECT_MIN = 7;       // px the active tab's tail must overlap #appCard's top edge by, at minimum —
                                       // enough to read as "the page is open here," not a flap resting on top,
                                       // without the deeper 14-30px band this started at, which read as the
@@ -727,12 +741,12 @@ function layoutOverlapTabs(){
   // ---- 3. Cache settled positions for computeOverlapPush() ----
   overlapNaturalRects = tabs.map(t=>({ left: t.offsetLeft, width: t.offsetWidth }));
 
-  // Push mode: the selected tab permanently pushes its own neighbors
+  // 'ranked' mode: the selected tab permanently pushes its own neighbors
   // aside too, not just on hover (per the project owner's ask) — applied
   // here so it's redone on every render (a mutation, a category rename,
   // etc.) not just the next mouse move.
   const activeIdx = tabs.findIndex(t=>t.classList.contains('active'));
-  if(dev.overlapHoverMode === 'push'){
+  if(dev.overlapStackMode === 'ranked'){
     computeOverlapPush(activeIdx>=0 ? [activeIdx] : []);
   }
 
@@ -826,8 +840,8 @@ function overlapEdgeGap(sourceIdx, neighborIdx){
     : Math.max(0, (s.left + s.width) - t.left);
 }
 
-// overlapHoverMode's 'push' variant (see devSettingsFieldsHtml() in
-// 01-categories-theme.js): rather than the default look's hover-lifts-
+// overlapStackMode's 'ranked' variant (see devSettingsFieldsHtml() in
+// 01-categories-theme.js): rather than 'hover' mode's hover-lifts-
 // above-everything trick, a hovered or selected tab instead shoves its
 // immediate neighbor(s) sideways, away from it, revealing itself without
 // needing to reorder the (now fixed, see tabImportanceRank()) stack.
@@ -897,7 +911,7 @@ function overlapActiveIdx(tabs){
 
 function overlapTabHoverStart(idx){
   const dev = state.devSettings || {};
-  if(dev.tabBarDesktopStyle !== 'overlap' || dev.overlapHoverMode !== 'push') return;
+  if(dev.tabBarDesktopStyle !== 'overlap' || dev.overlapStackMode !== 'ranked') return;
   const tabs = Array.from(document.getElementById('tabs').querySelectorAll('.tab'));
   const activeIdx = overlapActiveIdx(tabs);
   // Hovering the already-active tab (including its #tabConnector clone,

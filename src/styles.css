@@ -4126,11 +4126,11 @@
     /* Resting position: a small stable per-tab jitter (hashStr()'d off the
        tab's own id, see tabJitterPx()) so a row of same-height pills reads
        a little more like a hand-fanned stack of index cards; --tab-stagger
-       (0 unless overlapRankStagger is on) adds a further-back tab's own
+       (0 unless overlapStackMode is "ranked") adds a further-back tab's own
        rank-based lift on top, so a covered tab's label has a better shot
        at peeking above whatever's covering it (see renderTabs() in
        06-tabs-render.js); plus whatever horizontal push computeOverlapPush()
-       has assigned it (0 unless overlapHoverMode is "push" and this tab
+       has assigned it (0 unless overlapStackMode is "ranked" and this tab
        has a hovered/selected neighbor). */
     transform: translate(var(--tab-dx, 0px), calc(var(--tab-jitter, 0px) + var(--tab-stagger, 0px)));
   }
@@ -4149,17 +4149,17 @@
   /* !important on transform here is load-bearing, not decorative — it
      needs to outrank the inline --tabidx-driven stacking order above (an
      inline style otherwise beats a plain class rule regardless of source
-     order). Split in two because the two overlapHoverMode variants (see
+     order). Split in two because the two overlapStackMode variants (see
      devSettingsFieldsHtml() in 01-categories-theme.js and applyDevSettings()
-     for the body[data-overlap-hover-mode] attribute) disagree about
-     z-index specifically: the *default* variant wants hovering to reorder
+     for the body[data-overlap-stack-mode] attribute) disagree about
+     z-index specifically: the *'hover'* variant wants hovering to reorder
      to the very front (z-index:999), the whole point of that look. */
-  body:not(.mobileui-active)[data-tabbar-desktop="overlap"]:not([data-overlap-hover-mode="push"]) .tab:hover{
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"]:not([data-overlap-stack-mode="ranked"]) .tab:hover{
     transform: translate(var(--tab-dx, 0px), -8px) !important;
     z-index:999 !important;
     box-shadow:0 5px 16px rgba(0,0,0,0.4);
   }
-  /* overlapHoverMode's 'push' variant explicitly wants a FIXED stacking
+  /* overlapStackMode's 'ranked' variant explicitly wants a FIXED stacking
      order (tabImportanceRank()) that never reorders — reveal comes from
      computeOverlapPush() physically moving the covering neighbor away
      instead. z-index:999 here was a real bug, not a harmless leftover: it
@@ -4170,7 +4170,7 @@
      --tabidx's own z-index (no override at all here) fixes that outright:
      once its covering neighbor has moved out of the way, the hovered tab
      doesn't need to win a stacking fight it was never meant to be in. */
-  body:not(.mobileui-active)[data-tabbar-desktop="overlap"][data-overlap-hover-mode="push"] .tab:hover{
+  body:not(.mobileui-active)[data-tabbar-desktop="overlap"][data-overlap-stack-mode="ranked"] .tab:hover{
     transform: translate(var(--tab-dx, 0px), -8px) !important;
     box-shadow:0 5px 16px rgba(0,0,0,0.4);
   }
@@ -4180,11 +4180,12 @@
      plus a lift big enough to clear every jittered/two-line neighbor
      (guaranteeing "selected always highest") left a visible gap above
      #appCard on a single-line label. A tall tail plus a firm -20px lift
-     comfortably clears every resting tab's own max poke (jitter's ±3px,
-     two-line's -6px, and overlapRankStagger's up to -6px — see
-     OVERLAP_STAGGER_MAX in 06-tabs-render.js — worst case -15px combined,
-     leaving a real margin rather than a hairline one; dialed back from an
-     original -28px, which read as jutting up too far) while still leaving
+     clears every resting tab's own max poke (jitter's ±3px, two-line's
+     -6px, and overlapStackMode's 'ranked' mode stagger up to -8px — see
+     OVERLAP_STAGGER_MAX in 06-tabs-render.js — worst case -17px combined,
+     a tighter margin than the 6px stagger cap originally left, but still
+     a real one, not a hairline; dialed back from an original -28px lift,
+     which read as jutting up too far) while still leaving
      slack for layoutOverlapTabs()'s --tab-connect to dial in a modest,
      unambiguous overlap (OVERLAP_CONNECT_MIN/MAX, 7-16px — itself dialed
      back from an original 14-30px band that read as dipping distractingly
@@ -4219,9 +4220,9 @@
      ("way up high to way down low"), and pointless besides, since there's
      no separate action to take by hovering a tab you're already on. Per-
      rule specificity is why plain !important on .tab.active alone didn't
-     already win that fight: push mode's own :hover rule above carries an
-     extra [data-overlap-hover-mode="push"] attribute selector, making it
-     MORE specific than .tab.active by itself, !important or not.
+     already win that fight: 'ranked' mode's own :hover rule above carries
+     an extra [data-overlap-stack-mode="ranked"] attribute selector,
+     making it MORE specific than .tab.active by itself, !important or not.
      Compounding :hover directly onto this selector (rather than writing a
      separate rule) raises this rule to that same specificity, so the tie
      is broken by source order instead — and this rule already sits after

@@ -560,7 +560,7 @@ function defaultDevSettings(){
   //             defaultDevSettings()'s taskLongPressMode value below.
   //   'default': no long-press action at all — the plain tap's Steps-only
   //             quick view is the only thing this mode adds over desktop.
-  // overlapSubtags / overlapHoverMode are two further EXPERIMENTAL
+  // overlapSubtags / overlapStackMode are two further EXPERIMENTAL
   // sub-options of tabBarDesktopStyle's "overlap" look specifically —
   // only ever offered in the UI while that style is the current pick
   // (see devSettingsFieldsHtml() in 01-categories-theme.js). overlapSubtags
@@ -568,20 +568,27 @@ function defaultDevSettings(){
   // (only rendered when that category actually has open tasks, plus a "!"
   // when one is overdue or High priority — see tabSubtagHtml() in
   // 06-tabs-render.js), freeing width for tighter scrunching.
-  // overlapHoverMode's 'push' variant replaces hover-to-reorder with a
-  // fixed stacking order (by open-task "importance", see
-  // tabImportanceRank()) plus neighbors sliding away from whichever tab is
-  // hovered or selected instead (see computeOverlapPush()) — both in
-  // 06-tabs-render.js. overlapRankStagger is independent of hover mode —
-  // a further-back tab (lower --tabidx, whether that's ranked by position
-  // or by importance) sits a little higher at rest, just enough that its
-  // own label peeks above whichever tab is currently covering it, rather
-  // than a covered tab being unreadable until you interact with it.
+  //   overlapStackMode used to be two separate fields (overlapHoverMode
+  // 'default'/'push', plus an independent overlapRankStagger boolean) —
+  // merged into one after the project owner pointed out the two were a
+  // matched pair in practice: 'push' fixes the stack in a rank-by-
+  // importance order (see tabImportanceRank()) instead of hover-to-
+  // reorder, and the old separate stagger checkbox was the only thing
+  // that made that fixed order actually *visible* at rest (a covered
+  // tab's label peeking out further the more "important" it is) — push
+  // without stagger looked nearly identical to the default at rest, and
+  // stagger without push just staggered by plain tab position, which
+  // read as "I checked a box and nothing happened." One field now:
+  // 'hover' (default) is the original hover-to-reorder behavior with no
+  // stagger; 'ranked' is push + stagger together, so the two effects
+  // that only made sense combined can no longer be set independently.
+  // See renderTabs()/computeOverlapPush()/overlapTabHoverStart() in
+  // 06-tabs-render.js for the mechanism.
   // sidetabsAppearance / sidetabsShape are two further EXPERIMENTAL sub-
   // options of tabBarDesktopStyle's "sidetabs" look specifically — only
   // ever offered in the UI while that style is the current pick (see
   // devSettingsFieldsHtml() in 01-categories-theme.js), same pattern as
-  // overlapSubtags/overlapHoverMode above.
+  // overlapSubtags/overlapStackMode above.
   // sidetabsAppearance splits into two families. 'classic'/'classicband'
   // are the ORIGINAL sidetabs look, unchanged: a plain fixed-width column
   // of full-width tabs sitting beside .leathercover (real #tabs content,
@@ -625,7 +632,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', expandGroupingStyle:'rail', taskDetailActionsPosition:'side' };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', expandGroupingStyle:'rail', taskDetailActionsPosition:'side' };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -832,8 +839,7 @@ function normalizeState(){
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
   if(typeof state.devSettings.overlapSubtags !== 'boolean') state.devSettings.overlapSubtags = false;
-  if(typeof state.devSettings.overlapHoverMode !== 'string') state.devSettings.overlapHoverMode = 'default';
-  if(typeof state.devSettings.overlapRankStagger !== 'boolean') state.devSettings.overlapRankStagger = false;
+  if(state.devSettings.overlapStackMode !== 'hover' && state.devSettings.overlapStackMode !== 'ranked') state.devSettings.overlapStackMode = 'hover';
   if(typeof state.devSettings.sidetabsAppearance !== 'string') state.devSettings.sidetabsAppearance = 'color';
   // 'textured' was removed (a plain noise-filter overlay, not a real
   // material texture — didn't hold up). Only ever reachable by an account
