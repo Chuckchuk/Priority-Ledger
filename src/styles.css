@@ -1966,7 +1966,20 @@
      space on mobile and didn't touch the title's own centering the way
      sharing its row did. */
   .taskdetailhead{ display:grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items:center; height:64px; margin:4px 0 -6px; }
-  .taskdetailhead .checkwrap{ transform: scale(2.2); justify-self:center; }
+  /* grid-column:2 is required, not decorative: a grid item placed
+     position:absolute (as .titleactions/.taskdetailshare both become
+     under the corner/topleft/headerline variants below) stops
+     participating in grid auto-placement entirely, so with none of the 3
+     children explicitly placed, .checkwrap — left as the only genuinely
+     in-flow child once its siblings go absolute — auto-placed into the
+     FIRST track instead of the middle one, reading as left-aligned rather
+     than centered in every variant but the default ('side', where all 3
+     children stay in-flow and auto-place left-to-right into col 1/2/3
+     same as this explicit assignment would anyway). Pinning it to column 2
+     outright means it's always centered between the two outer minmax(0,
+     1fr) tracks regardless of how many siblings are actually in the grid
+     flow at the time. */
+  .taskdetailhead .checkwrap{ grid-column:2; transform: scale(2.2); justify-self:center; }
   .taskdetailhead .titleactions{ display:flex; gap:6px; flex-shrink:0; justify-self:start; }
   .taskdetailhead .taskdetailshare{ justify-self:end; }
   /* EXPERIMENTAL — taskDetailActionsPosition dev setting (starred in
@@ -2019,26 +2032,32 @@
   body[data-taskdetail-actions="topleft"] .taskdetailhead .taskdetailshare{
     position:absolute; z-index:3; top:54px; right:14px;
   }
-  /* headerline: rests both groups right on the title's own underline
-     (.titleedit.bigtitle's border-bottom — see that rule near the top of
-     <style>) rather than up in the checkbox row — the explicit ask being a
-     spot that doesn't touch the title field's own padding/margin/width at
-     all, which position:absolute (same mechanism every other variant here
-     already uses) guarantees for free: the title keeps the exact box it
-     always had, these just sit on top of it. top:144px is measured, not
-     derived from any live layout math (same as every other fixed offset
-     on this page — corner/topleft's own top:14/54/82 are exactly as fixed)
-     — 159px is .titleedit.bigtitle's own border-bottom position under the
-     DEFAULT header (no .sharedbadge line), and 144px centers a 30px-tall
-     .flagbtn/.sharebtn (see that rule in <style>) ON that line rather than
-     sitting with its own top edge there, so the button visually straddles
-     the rule the way "resting on" the line implies. A task with
-     .sharedbadge showing (see renderTaskDetailPage()) pushes the title
-     down and out of alignment with this fixed number, same caveat every
-     other fixed-offset variant here already carries. */
+  /* headerline: rests both groups right on top of the title's own
+     underline (.titleedit.bigtitle's border-bottom — see that rule near
+     the top of <style>) rather than up in the checkbox row — the explicit
+     ask being a spot that doesn't touch the title field's own padding/
+     margin/width at all, which position:absolute (same mechanism every
+     other variant here already uses) guarantees for free: the title keeps
+     the exact box it always had, these just sit on top of it.
+     "Resting ON TOP of the line" means the button's own BOTTOM edge sits
+     a few px above the line, not the line bisecting it — an earlier pass
+     centered the button ON the line instead (top:144px, so the line ran
+     straight through the button's own middle), which is the opposite of
+     "resting on top" and was called out for it. top:125px is measured,
+     not derived from any live layout math (same as every other fixed
+     offset on this page — corner/topleft's own top:14/54/82 are exactly
+     as fixed): 159px is .titleedit.bigtitle's own border-bottom position
+     under the DEFAULT header (no .sharedbadge line), and 125px puts a
+     30px-tall .flagbtn/.sharebtn's (see that rule in <style>) own bottom
+     edge at 155px — a 4px gap above the 159px line, "resting on top...
+     with a teeny bit of padding so it's not actually touching," per the
+     project owner's own wording. A task with .sharedbadge showing (see
+     renderTaskDetailPage()) pushes the title down and out of alignment
+     with this fixed number, same caveat every other fixed-offset variant
+     here already carries. */
   body[data-taskdetail-actions="headerline"] .taskdetailhead .titleactions,
   body[data-taskdetail-actions="headerline"] .taskdetailhead .taskdetailshare{
-    top:144px;
+    top:125px;
   }
   body[data-taskdetail-actions="headerline"] .taskdetailhead .titleactions{
     left:14px;
