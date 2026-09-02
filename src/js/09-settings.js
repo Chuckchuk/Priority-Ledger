@@ -278,8 +278,8 @@ function renderSettings(){
   el.innerHTML = `
     <div class="stackedpage">
       ${pageTagHtml('toggleSettings()', 'Done')}
-      ${settingsSectionHtml('tabs', 'Manage Tabs', tabsSection)}
       ${settingsSectionHtml('locations', 'Locations', locationSection)}
+      ${settingsSectionHtml('tabs', 'Manage Tabs', tabsSection)}
       ${settingsSectionHtml('taskFields', 'Task Fields', taskFieldsSection)}
       ${settingsSectionHtml('appearance', 'Appearance', appearanceSection)}
       ${settingsSectionHtml('trash', 'Recently Deleted', trashSection, (state.trash||[]).length ? 'trashhasitems' : '')}
