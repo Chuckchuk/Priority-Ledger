@@ -192,11 +192,17 @@ function dayChecklistRowHtml(t, dateStr){
   // uses (13-checklist.js) — no long-press companion, same reasoning as
   // daySubtaskRowHtml's own subCtxMenuAttr just above.
   const listCtxMenuAttr = ` oncontextmenu="return handleChecklistContextMenu(event,'${t.id}')"`;
+  // A checklist "list" is a plain task under the hood (13-checklist.js's
+  // own top comment), so moveTaskForward() — same function a whole
+  // standard task's own .movenext uses — already does the right thing
+  // here with no checklist-specific variant needed.
+  const onMoveTarget = (t.plannedDates||[]).includes(moveForwardTarget(dateStr));
   return `
   <li class="task">
     <div class="row"${listCtxMenuAttr} onclick="openChecklistListFromDay('${t.id}','${dateStr}')">
       ${checklistCheckcircleHtml(t)}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}</div>
+      <button class="movenext" ${onMoveTarget?'disabled':''} onclick="event.stopPropagation(); moveTaskForward('${t.id}','${dateStr}')" title="${onMoveTarget ? (dateStr<todayStr()?'Already planned for today':'Already planned for tomorrow') : (dateStr<todayStr()?'Also plan for today':'Also plan for tomorrow')}">→</button>
       <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dateStr}')" title="Remove from this day">×</button>
     </div>
   </li>`;

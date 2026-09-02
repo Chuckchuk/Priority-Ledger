@@ -95,9 +95,9 @@ function subDailyItemsForDay(dateStr){
   return out;
 }
 
-// A day's standard tasks/steps reduced to the actual countable/movable
-// "leaf units" — what dayItemsSummary()'s total/done counts, and what
-// moveIncompleteForward()/moveDayUnfinishedToToday() actually move.
+// A day's tasks/steps/checklist-lists reduced to the actual countable/
+// movable "leaf units" — what dayItemsSummary()'s total/done counts, and
+// what moveIncompleteForward()/moveDayUnfinishedToToday() actually move.
 // Naively counting every whole task *and* every step separately double-
 // counts a task that has its own steps planned the same day — a task
 // with 2 steps (one done, one not) would read as "2 unfinished" (the
@@ -119,10 +119,14 @@ function subDailyItemsForDay(dateStr){
 // given task, never both. A step whose parent isn't planned whole on this
 // day (an "orphan" step, no row to nest under — see daySubtaskRowHtml's
 // `nested` param) always counts on its own, since there's no parent unit
-// it could conflict with either way.
+// it could conflict with either way. A checklist list has no such nesting
+// to worry about — its own items aren't independently planned onto a day
+// the way a standard task's steps are, only the whole list is — so each
+// one is simply its own unit, done when the list's own status is.
 function dayLeafUnits(dateStr){
   const tasks = standardTasksForDay(dateStr);
   const subs = subDailyItemsForDay(dateStr);
+  const lists = checklistDailyItemsForDay(dateStr);
   const byParent = {};
   subs.forEach(x=>{ (byParent[x.task.id] = byParent[x.task.id] || []).push(x); });
   const taskIds = new Set(tasks.map(t=>t.id));
@@ -139,6 +143,7 @@ function dayLeafUnits(dateStr){
   subs.forEach(x=>{
     if(!taskIds.has(x.task.id)) units.push({ kind:'sub', task:x.task, sub:x.sub, done: x.sub.done });
   });
+  lists.forEach(t=>units.push({ kind:'checklist', task:t, done: t.status==='done' }));
   return units;
 }
 
@@ -148,11 +153,7 @@ function dayLeafUnits(dateStr){
 // once steps/checklists can be planned onto a day too.
 function dayItemsSummary(dateStr){
   const units = dayLeafUnits(dateStr);
-  const lists = checklistDailyItemsForDay(dateStr);
-  return {
-    total: units.length + lists.length,
-    done: units.filter(u=>u.done).length + lists.filter(t=>t.status==='done').length
-  };
+  return { total: units.length, done: units.filter(u=>u.done).length };
 }
 
 // Distinct categories touching a day, in state.categories' own display
@@ -252,16 +253,17 @@ async function addDayByText(){
 // onto `targetDate`, additively (plannedDates gains targetDate, dateStr's
 // own entry is untouched) and idempotently (a unit already carrying
 // targetDate is skipped, so re-running this can't pile up duplicates).
-// Checklist lists are excluded — a whole named list doesn't have the
-// "incomplete" urgency a standard task/step does, same reasoning the old
-// single-day cascade this replaced used.
+// Checklist lists move right along with tasks/steps here — same
+// plannedDates-carrying object as a 'task' unit, just sourced from
+// checklistDailyItemsForDay() instead of standardTasksForDay() (see
+// dayLeafUnits()).
 async function copyDayUnfinishedTo(dateStr, targetDate, undoLabel){
   const unfinished = dayLeafUnits(dateStr).filter(u=>!u.done);
   if(unfinished.length===0) return false;
   pushUndo(undoLabel);
   await ensureDay(targetDate);
   unfinished.forEach(u=>{
-    const obj = u.kind==='task' ? u.task : u.sub;
+    const obj = u.kind==='sub' ? u.sub : u.task;
     if(!obj.plannedDates) obj.plannedDates = [];
     if(!obj.plannedDates.includes(targetDate)) obj.plannedDates.push(targetDate);
   });
