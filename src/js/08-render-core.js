@@ -40,11 +40,20 @@ function fieldPickerHtml(kind, currentValue, onClickFor){
   if(style === 'default') return '';
   const curStr = String(currentValue==null ? '' : currentValue);
   const idx = steps.findIndex(s => s.v === curStr);
-  // "At max" (Urgent / High) is the one step that gets the pulse — see
-  // .fieldbtn.atmax / .fieldprogress.atmax in <style>. idx>0 excludes the
-  // single-step edge case of a field with only one entry ever reading as
-  // simultaneously "unset" and "maxed out".
-  const atMax = idx === steps.length - 1 && idx > 0;
+  // The one step that gets the pulse — see .fieldbtn.atmax/.fieldprogress
+  // .atmax in <style>. For Priority that's the LAST step (High — most
+  // urgent sits at the end of Low/Medium/High). Timeframe reads the
+  // opposite way: its urgency runs the other direction along the same
+  // array (None/Short/Medium/Long), so the step that should actually grab
+  // attention is the FIRST real one (Short, index 1) — a long runway
+  // isn't what needs a pulse, a short one is. Per the project owner's own
+  // catch: this used to always pulse the last step regardless of kind,
+  // which meant Timeframe was pulsing "Long," backwards from what it
+  // should highlight. Applies to both 'buttons' and 'progress' below —
+  // the same field pulsing on opposite ends depending only on which
+  // *style* happened to be picked would be its own new inconsistency.
+  const atMaxIdx = kind === 'timeframe' ? 1 : steps.length - 1;
+  const atMax = idx === atMaxIdx && idx > 0;
   // 'buttons': compact pills, one per REAL step — steps[0] is always the
   // "None"/unset entry (see TIMEFRAME_STEPS/PRIORITY_STEPS above) and
   // never gets its own pill here, per the project owner's own call: with
