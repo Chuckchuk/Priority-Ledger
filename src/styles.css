@@ -624,10 +624,19 @@
     border:1px solid var(--line); background:var(--card-bg-dim); border-radius:6px; width:30px; height:30px;
     cursor:pointer; font-size:0.84rem; color: var(--ink-soft); flex-shrink:0;
   }
-  .flagbtn.on{ background: var(--estate); color:white; border-color: var(--estate); }
+  /* --secondary, not --estate — per the project owner's own ask that a
+     flag's own "selected" color match the Secondary UI color rather than
+     read as an alert/danger state (--estate is reserved for genuine
+     danger — Delete, overdue, Cancelled; a flagged task isn't in trouble,
+     it's just marked). Applies wherever .flagbtn.on shows up on its own
+     (the plain urgent-flag toggle) — .rowflag.on/.flagfilterbtn.on below
+     match it explicitly for the same "things like the Flag" reasoning,
+     rather than inheriting from this rule, since neither actually is a
+     .flagbtn. */
+  .flagbtn.on{ background: var(--secondary); color:white; border-color: var(--secondary); }
   /* The "add to today" pin reuses .flagbtn's box but its own accent
-     color when on — --primary rather than --estate, so it doesn't read as
-     an alert state sitting right next to the urgent flag. */
+     color when on — --primary rather than the flag's own, so it doesn't
+     read as the same kind of marker sitting right next to it. */
   .daybtn.on{ background: var(--primary); color:white; border-color: var(--primary); }
   .addbtn{
     width:34px; height:34px; border-radius:50%; border:none; flex-shrink:0;
@@ -659,7 +668,7 @@
     border:1px solid var(--line); background:var(--card-bg-dim); border-radius:6px;
     cursor:pointer; font-size:0.84rem; color: var(--ink-soft);
   }
-  .flagfilterbtn.on{ background: var(--estate); color:white; border-color: var(--estate); }
+  .flagfilterbtn.on{ background: var(--secondary); color:white; border-color: var(--secondary); }
   ul.tasks{ list-style:none; margin:0; padding:0; }
   li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
   li.task.dragging{ opacity:0.4; }
@@ -1366,7 +1375,7 @@
      taskRowHtml/daySubtaskRowHtml), re-adding it would be a no-op, so the
      button fades out and stops accepting clicks rather than sitting there
      implying there's still something to do. */
-  .movetmrw, .dayremove, .rowpin, .rowexpand{
+  .movetmrw, .dayremove, .rowpin, .rowexpand, .rowflag{
     display:flex; align-items:center; justify-content:center;
     width:30px; height:30px; flex-shrink:0; padding:0; line-height:1;
     font-size:0.84rem; cursor:pointer; border-radius:6px;
@@ -1388,6 +1397,12 @@
      today toggle (.daybtn.on) when it's set, so the two read as the same
      control living in two places, not two different ones. */
   .rowpin.on{ background: var(--primary); color:white; border-color: var(--primary); }
+  /* Added next to .rowpin per the project owner's own ask — a way to
+     flag a task without opening it first, same as .rowpin already lets
+     you set "today" without opening it. --secondary, matching every
+     other flag "on" state (.flagbtn.on's own comment above has the full
+     reasoning for why --secondary and not --estate). */
+  .rowflag.on{ background: var(--secondary); color:white; border-color: var(--secondary); }
   .rowexpand:hover{ border-color: var(--ink); color: var(--ink); }
   /* The shared date-pill field — a step's own optional date AND (via the
      .taskdate modifier just below) a task's own due date both render
@@ -3486,8 +3501,23 @@
      off classic/classicband (same exclusion as .tabswrap/.leathercover
      above) since those use the ORIGINAL fixed-width column layout, sitting
      beside #appCard rather than tucked behind/over it — nothing to collide
-     with there. */
-  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"]:not([data-sidetabs-appearance="classic"]):not([data-sidetabs-appearance="classicband"]) .pagetag{
+     with there.
+     :not(.compact) is required, not optional — a first pass omitted it
+     and this rule's own specificity (body + 3 attribute-ish selectors +
+     class) unconditionally outranked every pendingTagStyle preset's own
+     positioning (e.g. body[data-pending-tag-style="jetout"] .pagetag.
+     compact{ left:-18px }, only body + 1 attribute + 2 classes), so a
+     compact tag sat wherever THIS rule put it regardless of which preset
+     was picked — reported back as "too far in" and "the jetout setting
+     still stays in place." Compact tags (the checklist "Pending" trigger,
+     Daily's own "Calendar"/"Daily" tags) were never part of the original
+     collision either — they hang off #appCard directly rather than a
+     .stackedpage (see the Page Tag vs. Compact Tag distinction in
+     devSettingsFieldsHtml()'s own comment, 01-categories-theme.js) and
+     already have their own dedicated positioning system entirely (the
+     pendingTagStyle dev setting) — this rule has no business touching
+     them at all, in any tab style. */
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"]:not([data-sidetabs-appearance="classic"]):not([data-sidetabs-appearance="classicband"]) .pagetag:not(.compact){
     left: 16px;
   }
   /* 'classic'/'classicband': the original sidetabs layout, restored

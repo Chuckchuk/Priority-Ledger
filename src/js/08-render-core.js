@@ -447,6 +447,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
         <button class="movetmrw" ${onTomorrow?'disabled':''} onclick="event.stopPropagation(); moveTaskToTomorrow('${t.id}','${dayDate}')" title="${onTomorrow ? 'Already planned for tomorrow' : 'Also plan for tomorrow'}">→</button>
         <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dayDate}')" title="Remove from this day">×</button>
       ` : `
+        <button class="rowflag ${t.urgent?'on':''}" onclick="event.stopPropagation(); toggleUrgent('${t.id}')" title="Toggle flag">⚑</button>
         <button class="rowpin ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">${DAYPIN_ICON_SVG}</button>
         <button class="rowexpand" onclick="event.stopPropagation(); openGenericTaskDetail('${t.id}')" title="Open full task page">⛶</button>
       `}
