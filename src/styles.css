@@ -596,12 +596,19 @@
     pointer-events: none;
   }
   .quickadd{ display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
-  .quickadd input[type=text]{
+  /* .fabaddsheet input[type=text] (#fabAddInput, the floating-add-button
+     sheet's own quick-add field — see shell-body.html) had no styling of
+     its own at all before this, real text included — not just a missing
+     placeholder color, plain unstyled browser input. Folded into this
+     shared rule rather than duplicated, since it's the same "quick task
+     title" field the main quick-add bar and Daily/checklist's own already
+     are, just reached from the FAB instead. */
+  .quickadd input[type=text], .fabaddsheet input[type=text]{
     flex:1; min-width: 160px; border:none; border-bottom: 1.5px solid var(--ink-soft);
     background:transparent; font-family:'Fraunces', serif; font-style:italic; font-size:1.02rem;
     padding: 6px 2px; color: var(--ink); outline:none;
   }
-  .quickadd input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
+  .quickadd input[type=text]::placeholder, .fabaddsheet input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
   .quickadd select{
     font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
@@ -1094,6 +1101,7 @@
        rather than two distinct sections. */
     margin-top:16px;
   }
+  .notesfield::placeholder{ color: var(--ink-soft); opacity:0.8; }
   .notesfield:focus{
     outline:none; border-color: var(--input-accent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-accent) 20%, transparent);
@@ -2306,6 +2314,7 @@
     flex:1; min-width:120px; border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
     font-family:'IBM Plex Sans', sans-serif; font-size:0.9rem; padding:4px 2px; color:var(--ink); outline:none;
   }
+  .catedit::placeholder{ color: var(--ink-soft); opacity:0.8; }
   .catwarn{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--estate); flex-basis:100%; }
   .catdelete, .catdeleteconfirm, .catcancel{
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
@@ -2383,6 +2392,7 @@
     flex:1; min-width:80px; border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
     font-family:'IBM Plex Sans', sans-serif; font-size:0.86rem; padding:4px 2px; color:var(--ink); outline:none;
   }
+  .templatecreaterow input::placeholder{ color: var(--ink-soft); opacity:0.8; }
   /* Same visual language as .resetthemebtn — a small dashed-outline
      secondary action, distinct from .remove's red "Delete list" right
      next to it in the same footer row. */
@@ -2414,6 +2424,7 @@
     border:none; border-bottom:1px dashed var(--ink-soft); background:transparent;
     font-family:'IBM Plex Sans', sans-serif; font-size:0.86rem; padding:4px 2px; color:var(--ink); outline:none;
   }
+  .templatesaveform input::placeholder{ color: var(--ink-soft); opacity:0.8; }
   .templatesaveformactions{ display:flex; gap:6px; margin-top:6px; }
   /* The <Template>: half of a linked list's own title — fixed, not part
      of the editable input beside it (see checklistTitleFieldHtml(),
@@ -2622,6 +2633,7 @@
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:5px 6px; color:var(--ink);
     text-transform:uppercase;
   }
+  .catcustomhex::placeholder{ color: var(--ink-soft); opacity:0.8; text-transform:none; }
   .catcustomdone{
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.03em;
     background: var(--primary); color:white; border:none; border-radius:5px; padding:6px 10px; cursor:pointer; flex-shrink:0;
