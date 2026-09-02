@@ -486,10 +486,15 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // exactly the "quick view" cluttered with edit options this replaced.
   const expandInner = taskSubtasksHtml(t);
   // The right-click menu (desktop-only, see handleTaskContextMenu()
-  // below) — scoped to !inDaily for the same reason usePressGesture is: a
-  // Daily row already has its own click behavior and canRemoveHere rules
-  // that don't map cleanly onto this.
-  const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
+  // below) — right-click and the row's own left-click navigation
+  // (rowClick above) are different events, so there's no actual conflict
+  // wiring this up regardless of inDaily; per the explicit ask, a Daily
+  // row should offer Mark complete/Mark as Cancelled/etc. the same way
+  // every other row does. "Edit details" still routes to
+  // openGenericTaskDetail() here too (not Daily's own taskDetailId) —
+  // its own "Back" tag rather than "Daily" is a pre-existing, harmless
+  // quirk of that path, not something inDaily introduces.
+  const ctxMenuAttr = ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
   // Hover-preview of a task's own Notes — only wired up at all when there
   // are actually notes to show, so a task without any never pays for (or
   // could ever trigger) the hover machinery in the first place. See

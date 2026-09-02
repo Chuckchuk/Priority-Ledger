@@ -9961,10 +9961,15 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // exactly the "quick view" cluttered with edit options this replaced.
   const expandInner = taskSubtasksHtml(t);
   // The right-click menu (desktop-only, see handleTaskContextMenu()
-  // below) — scoped to !inDaily for the same reason usePressGesture is: a
-  // Daily row already has its own click behavior and canRemoveHere rules
-  // that don't map cleanly onto this.
-  const ctxMenuAttr = inDaily ? '' : ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
+  // below) — right-click and the row's own left-click navigation
+  // (rowClick above) are different events, so there's no actual conflict
+  // wiring this up regardless of inDaily; per the explicit ask, a Daily
+  // row should offer Mark complete/Mark as Cancelled/etc. the same way
+  // every other row does. "Edit details" still routes to
+  // openGenericTaskDetail() here too (not Daily's own taskDetailId) —
+  // its own "Back" tag rather than "Daily" is a pre-existing, harmless
+  // quirk of that path, not something inDaily introduces.
+  const ctxMenuAttr = ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
   // Hover-preview of a task's own Notes — only wired up at all when there
   // are actually notes to show, so a task without any never pays for (or
   // could ever trigger) the hover machinery in the first place. See
@@ -13622,9 +13627,15 @@ function daySubtaskRowHtml(task, sub, dateStr, nested){
   // "step" on one day and "TASK > step" on another. Nesting still gets
   // its indent (below) as an *additional* cue, it just isn't the only one.
   const label = `<span class="daysubparent">${escapeHtml(task.title)} &gt; </span>${escapeHtml(sub.text)}`;
+  // Right-click menu, same handleSubtaskContextMenu() the non-Daily
+  // .subtext row uses (08-render-core.js) — no long-press companion here,
+  // matching taskRowHtml's own inDaily scoping: a Daily row's tap already
+  // opens the full task/step detail page, so there's no gesture gap to
+  // fill on mobile the way there is elsewhere.
+  const subCtxMenuAttr = ` oncontextmenu="return handleSubtaskContextMenu(event,'${task.id}','${sub.id}')"`;
   return `
   <li class="task ${nested ? 'daysubnested' : ''}">
-    <div class="row" onclick="openTaskDetailFromDay('${task.id}')">
+    <div class="row"${subCtxMenuAttr} onclick="openTaskDetailFromDay('${task.id}')">
       ${spacer}
       <div class="checkwrap daysub" onclick="event.stopPropagation()">
         <div class="subcheck ${sub.done?'done':''}" onclick="toggleSubtask('${task.id}','${sub.id}')"></div>
@@ -13637,9 +13648,13 @@ function daySubtaskRowHtml(task, sub, dateStr, nested){
 }
 
 function dayChecklistRowHtml(t, dateStr){
+  // Same handleChecklistContextMenu() the non-Daily checklist overview row
+  // uses (13-checklist.js) — no long-press companion, same reasoning as
+  // daySubtaskRowHtml's own subCtxMenuAttr just above.
+  const listCtxMenuAttr = ` oncontextmenu="return handleChecklistContextMenu(event,'${t.id}')"`;
   return `
   <li class="task">
-    <div class="row" onclick="openChecklistListFromDay('${t.id}','${dateStr}')">
+    <div class="row"${listCtxMenuAttr} onclick="openChecklistListFromDay('${t.id}','${dateStr}')">
       ${checklistCheckcircleHtml(t)}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}</div>
       <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dateStr}')" title="Remove from this day">×</button>

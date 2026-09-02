@@ -167,9 +167,15 @@ function daySubtaskRowHtml(task, sub, dateStr, nested){
   // "step" on one day and "TASK > step" on another. Nesting still gets
   // its indent (below) as an *additional* cue, it just isn't the only one.
   const label = `<span class="daysubparent">${escapeHtml(task.title)} &gt; </span>${escapeHtml(sub.text)}`;
+  // Right-click menu, same handleSubtaskContextMenu() the non-Daily
+  // .subtext row uses (08-render-core.js) — no long-press companion here,
+  // matching taskRowHtml's own inDaily scoping: a Daily row's tap already
+  // opens the full task/step detail page, so there's no gesture gap to
+  // fill on mobile the way there is elsewhere.
+  const subCtxMenuAttr = ` oncontextmenu="return handleSubtaskContextMenu(event,'${task.id}','${sub.id}')"`;
   return `
   <li class="task ${nested ? 'daysubnested' : ''}">
-    <div class="row" onclick="openTaskDetailFromDay('${task.id}')">
+    <div class="row"${subCtxMenuAttr} onclick="openTaskDetailFromDay('${task.id}')">
       ${spacer}
       <div class="checkwrap daysub" onclick="event.stopPropagation()">
         <div class="subcheck ${sub.done?'done':''}" onclick="toggleSubtask('${task.id}','${sub.id}')"></div>
@@ -182,9 +188,13 @@ function daySubtaskRowHtml(task, sub, dateStr, nested){
 }
 
 function dayChecklistRowHtml(t, dateStr){
+  // Same handleChecklistContextMenu() the non-Daily checklist overview row
+  // uses (13-checklist.js) — no long-press companion, same reasoning as
+  // daySubtaskRowHtml's own subCtxMenuAttr just above.
+  const listCtxMenuAttr = ` oncontextmenu="return handleChecklistContextMenu(event,'${t.id}')"`;
   return `
   <li class="task">
-    <div class="row" onclick="openChecklistListFromDay('${t.id}','${dateStr}')">
+    <div class="row"${listCtxMenuAttr} onclick="openChecklistListFromDay('${t.id}','${dateStr}')">
       ${checklistCheckcircleHtml(t)}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}</div>
       <button class="dayremove" onclick="event.stopPropagation(); unplanTaskFromDay('${t.id}','${dateStr}')" title="Remove from this day">×</button>
