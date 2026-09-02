@@ -1912,62 +1912,76 @@
      here (unlike the inline row's own .checkwrap) — EXPERIMENTAL, task
      icons/category markers are due their own pass later; dropped for now
      rather than keep a placement that wasn't working. */
-  /* justify-content:space-between with exactly 3 children (spacer,
-     checkwrap, actions) centers the *middle* one perfectly as long as the
-     two outer children are equal width — which .titlespacer guarantees by
-     being a visibility:hidden clone of .titleactions rather than a fixed
-     px value that could drift out of sync with it. This is also why the
-     urgent flag/today-pin ended up here at all rather than beside the
-     title below: this row already existed (just centering a checkbox, no
-     content of its own on either side) and is already at the very top, so
-     putting them here needed no new vertical space on mobile and didn't
-     touch the title's own centering the way sharing its row did — see
-     renderTaskDetailPage() in 08-render-core.js. */
-  .taskdetailhead{ display:flex; align-items:center; justify-content:space-between; height:64px; margin:4px 0 -6px; }
-  .taskdetailhead .checkwrap{ transform: scale(2.2); }
-  .taskdetailhead .titleactions{ display:flex; gap:6px; flex-shrink:0; }
-  .taskdetailhead .titlespacer{ visibility:hidden; pointer-events:none; }
+  /* A 3-column CSS grid (minmax(0,1fr) auto minmax(0,1fr)) rather than the
+     old flex + invisible-spacer trick — the middle (auto) column always
+     sits exactly centered between the two outer 1fr columns regardless of
+     how much real content either one holds, since equal-fr tracks split
+     the row's leftover space evenly by definition, independent of their
+     own content width. That's what made the old flex layout's own
+     visibility:hidden spacer clone necessary (flex's centering trick only
+     works with two truly EQUAL-width outer children) — with a real, but
+     differently-sized, thing on each side now (flag/pin on the left,
+     share on the right — see renderTaskDetailPage() in 08-render-core.js),
+     the old approach couldn't center the checkbox without fighting itself.
+     minmax(0, 1fr), not a bare 1fr, so a column's content is free to be
+     narrower than its own 1fr share without forcing the track wider than
+     it needs to be. This is also why the urgent flag/today-pin ended up in
+     this row at all rather than beside the title below: it already
+     existed (centering a checkbox, no content of its own on either side)
+     and sits at the very top, so putting them here needed no new vertical
+     space on mobile and didn't touch the title's own centering the way
+     sharing its row did. */
+  .taskdetailhead{ display:grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items:center; height:64px; margin:4px 0 -6px; }
+  .taskdetailhead .checkwrap{ transform: scale(2.2); justify-self:center; }
+  .taskdetailhead .titleactions{ display:flex; gap:6px; flex-shrink:0; justify-self:start; }
+  .taskdetailhead .taskdetailshare{ justify-self:end; }
   /* EXPERIMENTAL — taskDetailActionsPosition dev setting (starred in
      Settings, see devSettingsFieldsHtml()'s own comment): alternate spots
      for the real .titleactions (flag/pin) besides 'side', the default
-     above (no override needed for it). Both variants pull the real
-     .titleactions out of .taskdetailhead's flex flow entirely
-     (position:absolute against .stackedpage — the same positioned
-     ancestor .categorylabel and .pagetag already use, even though
-     .titleactions lives one level deeper in the DOM; position:absolute
-     escapes straight to the nearest positioned ancestor regardless of
-     nesting) and hide .titlespacer, which exists only to keep the
-     checkbox centered while a same-weight sibling occupies the row's
-     other side — once .titleactions leaves that flow, .taskdetailhead
-     re-centers on its own remaining child instead. */
-  body[data-taskdetail-actions="corner"] .taskdetailhead,
-  body[data-taskdetail-actions="topleft"] .taskdetailhead{
-    justify-content:center;
-  }
-  body[data-taskdetail-actions="corner"] .taskdetailhead .titlespacer,
-  body[data-taskdetail-actions="topleft"] .taskdetailhead .titlespacer{
-    display:none;
-  }
-  body[data-taskdetail-actions="corner"] .taskdetailhead .titleactions:not(.titlespacer),
-  body[data-taskdetail-actions="topleft"] .taskdetailhead .titleactions:not(.titlespacer){
+     above (no override needed for it). Both variants pull .titleactions
+     out of .taskdetailhead's grid flow entirely (position:absolute against
+     .stackedpage — the same positioned ancestor .categorylabel and
+     .pagetag already use, even though .titleactions lives one level deeper
+     in the DOM; position:absolute escapes straight to the nearest
+     positioned ancestor regardless of nesting). .taskdetailshare is left
+     alone by both — it stays in its own grid column (justify-self:end
+     above), which keeps the checkbox centered on its own (a minmax(0,1fr)
+     column with no content still gets its fair share of the row, same as
+     an empty one always would) without needing anything hidden to balance
+     against, unlike the old flex approach. */
+  body[data-taskdetail-actions="corner"] .taskdetailhead .titleactions,
+  body[data-taskdetail-actions="topleft"] .taskdetailhead .titleactions{
     position:absolute; z-index:3;
   }
   /* corner: an actual swap with .categorylabel — flag/pin take its exact
      top-right coordinates, and the label moves down into roughly where
      flag/pin sat by default, against the same header row the checkbox is
-     in. */
-  body[data-taskdetail-actions="corner"] .taskdetailhead .titleactions:not(.titlespacer){
+     in. Share, in this variant, moves to the corner .titleactions is
+     vacating on the OPPOSITE side (top:54px;left:14px — the same free spot
+     'topleft' below uses for flag/pin) rather than sitting in its own
+     now-mostly-empty grid column, so it doesn't end up floating in open
+     space once flag/pin have left the flow. */
+  body[data-taskdetail-actions="corner"] .taskdetailhead .titleactions{
     top:14px; right:-6px;
   }
   body[data-taskdetail-actions="corner"] .categorylabel{
     top:82px; right:-6px;
   }
+  body[data-taskdetail-actions="corner"] .taskdetailhead .taskdetailshare{
+    position:absolute; z-index:3; top:54px; left:14px;
+  }
   /* topleft: a small cluster just under the Back tag (.pagetag sits at
      top:14px; left:-6px — see <style>'s own .pagetag rule), the one
      corner nothing else occupies, rather than sharing either corner
-     already spoken for. */
-  body[data-taskdetail-actions="topleft"] .taskdetailhead .titleactions:not(.titlespacer){
+     already spoken for. Share mirrors it on the opposite side
+     (top:54px;right:14px, under .categorylabel's own top:14px;right:-6px
+     corner) rather than sitting in its own grid column here too, for the
+     same reason as 'corner' above. */
+  body[data-taskdetail-actions="topleft"] .taskdetailhead .titleactions{
     top:54px; left:14px;
+  }
+  body[data-taskdetail-actions="topleft"] .taskdetailhead .taskdetailshare{
+    position:absolute; z-index:3; top:54px; right:14px;
   }
   /* A row, not a stack — the date on the left, progress + the "move
      incomplete" button (when there's something to move) on the right.
@@ -3301,6 +3315,26 @@
     display:none;
   }
   body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"] .leathercover{ flex:1; min-width:0; }
+  /* Glitch fix: .pagetag's own base `left:-6px` (see that rule in <style>)
+     pokes its tip just past .stackedpage's own edge, which is fine against
+     open desk space in every other tab style — but the peeking family
+     here tucks the topmost tab (#sidetabsPeek's first child, "All") right
+     up against #appCard's own top-left corner, the exact same corner
+     .pagetag itself hangs off of, so the two collided ("the PageTags seem
+     to touch the first All tab" — confirmed: the tab's own right edge and
+     .pagetag's tip landed within a couple px of each other). Nudging
+     .pagetag right (not down — there's no single vertical gap to move
+     into, since tabs stack the full height of the column, not just at the
+     top) is the fix the project owner asked for: change the tag's own
+     positioning only in this view rather than moving the tab column to
+     make room, which they noted would push it a lot further down. Scoped
+     off classic/classicband (same exclusion as .tabswrap/.leathercover
+     above) since those use the ORIGINAL fixed-width column layout, sitting
+     beside #appCard rather than tucked behind/over it — nothing to collide
+     with there. */
+  body:not(.mobileui-active)[data-tabbar-desktop="sidetabs"]:not([data-sidetabs-appearance="classic"]):not([data-sidetabs-appearance="classicband"]) .pagetag{
+    left: 16px;
+  }
   /* 'classic'/'classicband': the original sidetabs layout, restored
      verbatim — a fixed-width column, every tab full-width and flush with
      its neighbors, no overlap, no shape, no peeking mechanism at all. Its
@@ -3345,18 +3379,21 @@
      which is .leathercover's own OUTER edge, not wherever its padding
      happens to push #appCard to. With no leather, .leathercover has no
      padding of its own, so that outer edge and #appCard's edge are the
-     same point and left:0 just works. No explicit z-index here
-     (deliberately): #appCard's own z-index:1 (see .card above) already
-     unconditionally outranks any *unpositioned-or-z-index-auto* box
-     regardless of DOM order, so leaving this at the auto default is what
-     guarantees it always paints below #appCard — an explicit value here
-     would just be one more number to keep in sync with .card's for no
-     benefit. Being a real element placed after .leathercover's own
-     ::before (the leather grain texture, generated as that element's
-     conceptual first child) is what keeps it painting above that texture,
-     same idea as .bookmark just above it in shell-body.html. */
+     same point and left:0 just works. Its own z-index:1 (set below —
+     matching #appCard's, see .card above) is required, not optional: being
+     a real element placed after .leathercover's own ::before (the leather
+     grain texture, generated as that element's conceptual first child) is
+     ENOUGH to keep it painting above that texture, but .leathercover's
+     ::after (the stitching border, generated as its conceptual LAST child,
+     i.e. after every real child including this one) still painted right
+     over it at z-index:auto's default tree-order rules — the exact same
+     "generated last, painted last" trap the .card z-index:1 comment above
+     already warns about, just one layer further out. An explicit z-index
+     here (see that rule's own comment) fixes it the same way .card's does,
+     while still resolving its tie with #appCard's own z-index:1 by DOM
+     order (#appCard comes later, so it still correctly stays on top). */
   .sidetabspeek{
-    position:absolute; left:0; top:28px; display:flex; flex-direction:column;
+    position:absolute; left:0; top:28px; z-index:1; display:flex; flex-direction:column;
     pointer-events:none;
   }
   /* Once leather is on, .leathercover.leather-on adds padding-left:
@@ -3456,7 +3493,7 @@
      that space and got masked to nothing, which is why every shape but
      invertedv (the one shape whose point stays inside the box, since it
      cuts *inward*) looked "stopped working." Scoped to only the active
-     tab's own tucked/right edge instead (90%-100% of its width — well
+     tab's own tucked/right edge instead (the last 10px of its width — well
      past both the label, which ends inside its own 10px right padding,
      and the pointed shapes, whose protruding tips sit on the opposite,
      LEFT side entirely) — "fade at the very tip, never the text," per the
@@ -3473,10 +3510,43 @@
      luminance, so white-to-transparent works correctly under both
      luminance and alpha interpretations — the standard, correct way to
      write a mask gradient, not a black one. */
+  /* mask-size/mask-position/mask-repeat below fix a real glitch: "the
+     outside of the point gets chopped off" on pagetab's own diamond (and
+     any other shape whose point sits at a negative x-offset — arrows,
+     swallowtail, sawtooth, jagged) once its tab is active. The comment
+     above ("the pointed shapes... sit on the opposite, LEFT side
+     entirely") assumed a plain 0%-100% mask would simply never reach that
+     content — true for WHERE the gradient's own stops are defined, but not
+     for what happens OUTSIDE them: mask-image defaults to mask-size:auto
+     (100% of the box) and mask-repeat:repeat, so a gradient nominally
+     spanning "0% to 100% of the box" actually TILES infinitely, and
+     content sitting to the LEFT of x:0 (any point's negative-offset
+     protrusion) samples from the tail end of the PREVIOUS repeated tile —
+     which, for this gradient, is exactly the transparent stop. That's what
+     "fades into the number" and "chops off the point" both were: not the
+     intended 90%-100% fade reaching left at all, but the mask's own repeat
+     wrapping around and re-applying its transparent end to content that
+     was supposed to be nowhere near it.
+     The fix keeps the fade's own geometry identical (still only the last
+     10px before the tab's true right edge) while making the rendered tile
+     wide enough to also cover every shape's negative protrusion, so
+     nothing ever needs to sample a repeated tile: mask-size adds 20px
+     (comfortably past the deepest negative point any shape here uses —
+     see SIDETAB_SHAPE_EXTRA in 06-tabs-render.js) and mask-position shifts
+     the tile left by that same 20px so its own local 0 lands at the
+     tab's real x:-20px; mask-repeat:no-repeat then means there's no second
+     tile for anything to wrap around into. The gradient's own stops are
+     expressed against that now-wider tile (100% = tile width = box+20px),
+     so "white until 10px before the box's true right edge" becomes
+     `calc(100% - 10px)` and "transparent at the true right edge" becomes
+     the tile's own 100%. */
   .sidetabspeek .tab.active{
     transform: translateX(-6px); z-index:4; font-weight:500;
-    -webkit-mask-image: linear-gradient(to right, white 0%, white 90%, transparent 100%);
-    mask-image: linear-gradient(to right, white 0%, white 90%, transparent 100%);
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-size: calc(100% + 20px) 100%; mask-size: calc(100% + 20px) 100%;
+    -webkit-mask-position: -20px 0; mask-position: -20px 0;
+    -webkit-mask-image: linear-gradient(to right, white 0px, white calc(100% - 10px), transparent 100%);
+    mask-image: linear-gradient(to right, white 0px, white calc(100% - 10px), transparent 100%);
   }
   /* No background declared here on purpose (an earlier pass had a plain
      one) — the shape rules below already give every tab, active or not,
@@ -3682,12 +3752,99 @@
   /* "a neat straight shape with a diamond bump in the middle" — a plain
      vertical line the same color as the diamond, running the tab's full
      height, centered on the diamond itself (left:-7px + half its 16px
-     width = 1px, matching this strip's own center: left:0 + half its 2px
-     width). ::after rather than a second ::before, since ::before is
-     already the diamond. */
+     width = 1px, matching this strip's own center: left:-1px + half its
+     4px width). Widened from 2px to 4px per the project owner's own ask
+     ("thicker") — left shifted from 0px to -1px to keep it centered on the
+     diamond at the new width rather than drifting off-axis. ::after rather
+     than a second ::before, since ::before is already the diamond. */
   .sidetabspeek .tab[data-shape="pagetab"]::after{
-    content:''; position:absolute; left:0px; top:0; bottom:0; width:2px;
+    content:''; position:absolute; left:-1px; top:0; bottom:0; width:4px;
     background: var(--tabband, var(--tabhex, var(--primary))); pointer-events:none;
+  }
+  /* swallowtail: a forked ribbon-bookmark tip — "little slits at the end,
+     the color band color" (photo reference: a physical ribbon bookmark
+     with a V cut into its own end). Same two-layer band+fill technique as
+     invertedv above (a shallower .tab "band" layer showing through as a
+     border around a deeper ::before "fill" layer, offset by a constant 4px
+     everywhere so the two edges stay parallel), just mirrored and much
+     deeper: invertedv is corners-near-flush with a shallow inward dimple;
+     this is corners at full protrusion (flush with the shape's own padded
+     edge, x:4px/8px) with a NOTCH reaching most of the way back in
+     (20px/24px) — "not much shorter" was the explicit ask, so the two
+     prongs read as genuinely forked rather than a light tick like
+     invertedv's. Five points each (no separate flat-run breakpoints the
+     way invertedv's own comment explains it once needed) since the prongs
+     here are meant to come to real corners at y:0/100%, not stay flush for
+     a stretch first. */
+  .sidetabspeek .tab[data-shape="swallowtail"]{
+    clip-path: polygon(4px 0, 100% 0, 100% 100%, 4px 100%, 20px 50%);
+    background: var(--tabband, var(--tabhex, var(--primary)));
+  }
+  .sidetabspeek .tab[data-shape="swallowtail"]::before{
+    content:''; position:absolute; inset:0;
+    clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 24px 50%);
+    background: var(--sidetab-fill, var(--tabhex, var(--primary))); pointer-events:none;
+  }
+  .sidetabspeek .tab[data-shape="swallowtail"] > *{
+    position:relative; z-index:1;
+  }
+  /* scallop: a soft rounded bump instead of any pointed shape — same
+     transform-based technique pagetab's own diamond uses (a plain circle
+     on ::before, not a clip-path), for the same reason: a transform-based
+     shape has none of clip-path's "point outside the box" problem here, so
+     a circle centered on the tab's own left edge just works regardless of
+     how far it needs to protrude. No accompanying line (unlike pagetab) —
+     kept to just the bump so it reads as a distinctly plainer, softer
+     option next to pagetab's diamond-and-line rather than a minor variant
+     of it. */
+  .sidetabspeek .tab[data-shape="scallop"]{
+    clip-path:none; background: var(--sidetab-fill, var(--tabhex, var(--primary)));
+  }
+  .sidetabspeek .tab[data-shape="scallop"]::before{
+    content:''; position:absolute; left:-10px; top:50%; width:20px; height:20px;
+    transform: translateY(-50%); border-radius:50%;
+    background: var(--tabband, var(--tabhex, var(--primary))); pointer-events:none;
+  }
+  /* chevron: a single plain diagonal cut (top corner near-flush, bottom
+     corner protruding the shape's own full 14px) rather than a symmetric
+     point or notch — the "one clean angled line" option, distinct in kind
+     (not just degree) from every other shape here, all of which are
+     symmetric about the tab's own vertical center. A single convex cut
+     needs only one layer (no border/parallel-edge to trace), so this
+     reuses the plain shared-gradient technique sawtooth/jagged already use
+     rather than the two-layer band+fill approach — the gradient's own
+     flat vertical split (at 7px, roughly the diagonal's own midpoint) is a
+     reasonable approximation of "band near the point, fill past it" for a
+     cut this shallow, same tradeoff sawtooth/jagged already accept for
+     their own zig-zag edges. */
+  .sidetabspeek .tab[data-shape="chevron"]{
+    clip-path: polygon(14px 0, 100% 0, 100% 100%, 0px 100%);
+    background: linear-gradient(to right, var(--tabband, var(--tabhex, var(--primary))) 0 7px, var(--sidetab-fill, var(--tabhex, var(--primary))) 7px 100%);
+  }
+  /* The open-count badge moves out of the inline label flow into a small
+     fixed corner (top-right), the SAME spot regardless of which shape is
+     selected — deliberately not shape-dependent (e.g. nested inside
+     pagetab's own diamond) even though that was floated as an option: a
+     shape-specific spot would need its own bespoke size/contrast handling
+     per shape (several of these shapes — scallop, chevron, sawtooth,
+     swallowtail's forked notch — have no natural small container the way
+     pagetab's diamond happens to), and would mean the count moves to a
+     different place every time the shape setting changes, which makes it
+     slower to find at a glance rather than faster. One fixed spot for
+     every shape keeps this predictable and ports over to any future shape
+     for free. `right:12px` (not flush with the true edge) is deliberate:
+     it keeps the badge's own width clear of the active tab's own fade
+     zone (its last 10px — see .tab.active above), so the badge doesn't
+     reintroduce "fades into the number" as a corner badge instead of an
+     inline one. opacity:1 (overriding the base .tab .count's own 0.6 —
+     see that rule near the top of <style>) plus its own dark pill
+     background is what keeps the digits legible as a standalone badge
+     divorced from the label text, rather than the soft inline dim style
+     that only worked sitting directly beside darker label text. */
+  .sidetabspeek .tab .count{
+    position:absolute; top:4px; right:12px; z-index:2;
+    opacity:1; background: rgba(0,0,0,0.28); color:#fff;
+    font-size:0.6rem; line-height:1; padding:2px 5px; border-radius:8px;
   }
 
   /* indextabs: pure restyle of the existing horizontal row — no wrap/

@@ -241,10 +241,17 @@ function renderTabs(){
 // SIDETAB_TUCK/SIDETAB_TUCK_ACTIVE) stays fixed — see the width/marginLeft
 // math below.
 const SIDETAB_TUCK = 12;         // px past #appCard's edge every resting tab tucks
-const SIDETAB_TUCK_ACTIVE = 18;  // the active tab gets to tuck a bit deeper — its
+const SIDETAB_TUCK_ACTIVE = 24;  // the active tab gets to tuck a bit deeper — its
                                   // own mask-image fade (.tab.active in <style>) is
                                   // what makes that safe to do without it reading
-                                  // as covering page content
+                                  // as covering page content. Bumped from 18 per the
+                                  // project owner's own fix for "the selected tab
+                                  // fades into the count number": more of the tab's
+                                  // own width now tucks cleanly behind #appCard's
+                                  // opaque edge instead of relying on the fade alone
+                                  // to hide it, giving the label/count more room
+                                  // before the fade zone (still the tab's own last
+                                  // ~10px, see .tab.active in <style>) ever starts.
 const SIDETAB_MIN_POKE = 58;     // floor so a short label ("ALL") doesn't shrink
                                   // the tab down to an unreadably small nub
 const SIDETAB_MAX_POKE = 112;    // ceiling on how wide a single-line label can push
@@ -273,7 +280,7 @@ const SIDETAB_HEIGHT_2LINE = 60; // vs. the base 44px — see .sidetabspeek .tab
 // while the tab's own on-screen position (and thus how far it visually
 // pokes out) stays exactly the same — see the .sidetabspeek
 // .tab[data-shape="…"] rules in <style> for the actual shifted polygons.
-const SIDETAB_SHAPE_EXTRA = { pagetab:14, arrows:20, invertedv:6, sawtooth:7, jagged:13, flat:0 };
+const SIDETAB_SHAPE_EXTRA = { pagetab:14, arrows:20, invertedv:6, sawtooth:7, jagged:13, flat:0, swallowtail:24, scallop:10, chevron:14 };
 function layoutSidetabsPeek(){
   const peek = document.getElementById('sidetabsPeek');
   if(!peek) return;
@@ -340,21 +347,27 @@ function layoutSidetabsPeek(){
 // excluded from both (per the project owner's own callout: it's the one
 // "crazy" shape, not meant to show up unpredictably or get assigned to a
 // category that never asked for it).
-const SIDETAB_SHAPES_PICKABLE = ['pagetab', 'invertedv', 'arrows', 'sawtooth'];
+const SIDETAB_SHAPES_PICKABLE = ['pagetab', 'invertedv', 'arrows', 'sawtooth', 'swallowtail', 'scallop', 'chevron'];
 // 'iconstyle' maps each category's own chosen icon glyph (CATEGORY_ICON_
 // GLYPHS, 01-categories-theme.js — Settings lets a category pick one) to a
 // shape that echoes it: a literal flag reads as a little pennant (pagetab,
 // the same silhouette .pagetag uses elsewhere); sharp icons (star/diamond)
 // get the sharp outward arrow; rounder/plainer ones split between the
-// softer invertedv and the more geometric sawtooth. This is an editorial
+// softer invertedv and the more geometric sawtooth; a forked cross reads
+// well as the forked bookmark-ribbon notch (swallowtail); a many-sided/
+// roundish hexagon gets the soft round bump (scallop); a single sharp
+// triangle gets the plain single-slant cut (chevron). This is an editorial
 // pairing, not a derived one — there's no principled way to compute it, so
 // treat this table as the place to retune it if a specific pairing reads
-// wrong once you see it.
+// wrong once you see it. ('ring' isn't a real CATEGORY_ICON_GLYPHS key —
+// stale from before icons were finalized — so it's dropped rather than
+// carried forward to a shape it can never actually resolve to.)
 const SIDETAB_ICON_SHAPE_MAP = {
   flag:'pagetab', dot:'pagetab',
   star:'arrows', diamond:'arrows',
-  house:'invertedv', ring:'invertedv',
-  square:'sawtooth', check:'sawtooth'
+  house:'invertedv',
+  square:'sawtooth', check:'sawtooth',
+  hexagon:'scallop', triangle:'chevron', cross:'swallowtail'
 };
 function resolveSidetabShape(key, setting){
   if(setting !== 'random' && setting !== 'iconstyle') return setting;

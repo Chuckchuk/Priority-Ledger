@@ -998,21 +998,25 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
   // the title (it threw off the title's own centering) and wanted them
   // reachable without adding any new vertical space on mobile, so this
   // row (already reserved for the checkbox, already at the very top)
-  // absorbs them instead of a row of its own. The first, invisible copy
-  // is a pure spacer — same markup, visibility:hidden — so the checkbox
-  // stays visually centered instead of drifting toward the empty left
-  // side once real buttons occupy the right (see .taskdetailhead
-  // .titleactions.titlespacer in <style>).
-  const actionsHtml = `
+  // absorbs them instead of a row of its own. Share sits apart from them
+  // on the opposite (right) side of the row rather than grouped in with
+  // flag/pin — per the project owner's own ask, since it's a fundamentally
+  // different kind of action (handing this task to someone else) from the
+  // two personal-organization toggles beside it. .taskdetailhead is a
+  // 3-column CSS grid (see <style>) specifically so the checkbox in the
+  // middle column stays centered regardless of how wide the left (flag/
+  // pin) and right (share) content are — no matching invisible spacer
+  // needed the way a flex-based "both real items on one side" layout
+  // would have required.
+  const leftActionsHtml = `
     <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-    <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>
-    ${shareButtonHtml(t.id)}`;
+    <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>`;
   return `
     <div class="stackedpage">
       ${pageTagHtml(backOnclick, backLabel)}
       ${categoryLabelHtml(t)}
       <div class="taskdetailhead">
-        <div class="titleactions titlespacer" aria-hidden="true">${actionsHtml}</div>
+        <div class="titleactions">${leftActionsHtml}</div>
         <div class="checkwrap">
           <!-- Right-click/long-press here reuses the exact same task
                context menu the row-list version opens — per the explicit
@@ -1030,7 +1034,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
             onmousedown="taskDetailCheckPressStart(event,'${t.id}')" onmouseup="taskDetailCheckPressEnd()" onmouseleave="taskDetailCheckPressEnd()"></div>
           ${subProgressHtml(subs)}
         </div>
-        <div class="titleactions">${actionsHtml}</div>
+        <div class="taskdetailshare">${shareButtonHtml(t.id)}</div>
       </div>
       ${t.sharedImport ? `<div class="sharedbadge inline">Shared</div>` : ''}
       ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle', true)}

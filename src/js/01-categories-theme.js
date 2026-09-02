@@ -1215,11 +1215,14 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       ['classicband','Classic + color band (no icon)']
     ], 'setDevSidetabsAppearance')}
     ${devField('Side tabs: shape (Colored/Translucent Pill/Edge only)', dev.sidetabsShape, [
-      ['pagetab','Page-tab point (default)'],
+      ['pagetab','Diamond point (default)'],
       ['invertedv','Inverted V'],
       ['arrows','Arrows out'],
       ['jagged','Jagged edge'],
       ['sawtooth','Clean sawtooth'],
+      ['swallowtail','Bookmark fork'],
+      ['scallop','Rounded bump'],
+      ['chevron','Slanted cut'],
       ['flat','Flat (no point)'],
       ['random','Random (stable per tab)'],
       ['iconstyle','Depending on icon style']
