@@ -198,13 +198,20 @@ function renderDayDetail(dateStr){
   const subItems = subDailyItemsForDay(dateStr);
   const checklistItems = checklistDailyItemsForDay(dateStr);
   const { total, done } = dayItemsSummary(dateStr);
-  // What moveIncompleteToTomorrow() actually moves is dayLeafUnits()'s
+  // What moveIncompleteForward() actually moves is dayLeafUnits()'s
   // unfinished units — this has to match that exactly (task-with-open-
   // steps doesn't double count itself alongside its steps), or the
   // button's label would promise more than it delivers.
   const unfinishedCount = dayLeafUnits(dateStr).filter(u=>!u.done).length;
   const isPast = dateStr < todayStr();
-  const nextDate = addDaysToDateStr(dateStr, 1);
+  // Where the bulk "Move N incomplete" button below actually sends
+  // things — today if this day's already passed, tomorrow otherwise, via
+  // the same moveForwardTarget() the per-row .movenext button uses (see
+  // its comment, 14-task-actions.js). Its label shows this resolved date
+  // directly (already did, even before this — "→ tomorrow's date", never
+  // the word "Tomorrow"), so past-day vs. not falls out automatically
+  // with no separate label branch needed.
+  const forwardTarget = moveForwardTarget(dateStr);
   const headerTag = dayHeaderTag(dateStr);
   // For the prev/next arrows flanking the h2 below — null when this day
   // sits at either end of your logged days (see adjacentDayStr()), which
@@ -274,7 +281,7 @@ function renderDayDetail(dateStr){
         <h2>${dayLabel(dateStr)}</h2>
         <div class="daydetailheadright">
           <div class="dayprogress">${total ? `${done} of ${total} done` : 'Nothing planned yet'}</div>
-          ${unfinishedCount>0 && dateStr<=todayStr() ? `<button class="pullbtn" onclick="moveIncompleteToTomorrow('${dateStr}')">Move ${unfinishedCount} incomplete → ${fmtDate(nextDate)}</button>` : ''}
+          ${unfinishedCount>0 && dateStr<=todayStr() ? `<button class="pullbtn" onclick="moveIncompleteForward('${dateStr}')">Move ${unfinishedCount} incomplete → ${fmtDate(forwardTarget)}</button>` : ''}
         </div>
       </div>
       ${isPast ? `<div class="lockednote"><span>🔒 This day has passed</span></div>` : ''}

@@ -97,7 +97,7 @@ function subDailyItemsForDay(dateStr){
 
 // A day's standard tasks/steps reduced to the actual countable/movable
 // "leaf units" — what dayItemsSummary()'s total/done counts, and what
-// moveIncompleteToTomorrow()/moveDayUnfinishedToToday() actually move.
+// moveIncompleteForward()/moveDayUnfinishedToToday() actually move.
 // Naively counting every whole task *and* every step separately double-
 // counts a task that has its own steps planned the same day — a task
 // with 2 steps (one done, one not) would read as "2 unfinished" (the
@@ -247,7 +247,7 @@ async function addDayByText(){
 // than minting duplicate task objects. An item already carrying tomorrow's
 // date is skipped, so mashing this button repeatedly can't pile up
 // duplicate entries on tomorrow's list the way the old copy did.
-// Shared by moveIncompleteToTomorrow() and moveDayUnfinishedToToday() —
+// Shared by moveIncompleteForward() and moveDayUnfinishedToToday() —
 // copies every unfinished leaf unit (see dayLeafUnits()) from `dateStr`
 // onto `targetDate`, additively (plannedDates gains targetDate, dateStr's
 // own entry is untouched) and idempotently (a unit already carrying
@@ -270,16 +270,30 @@ async function copyDayUnfinishedTo(dateStr, targetDate, undoLabel){
   return true;
 }
 
-async function moveIncompleteToTomorrow(dateStr){
-  await copyDayUnfinishedTo(dateStr, addDaysToDateStr(dateStr, 1), 'Moved incomplete items to tomorrow');
+// The day-detail page's own bulk "Move N incomplete → [date]" button (see
+// renderDayDetail(), 12-daily-tree.js) — targets moveForwardTarget()'s
+// target (14-task-actions.js), same "today if dateStr's already passed,
+// tomorrow otherwise" rule the per-row .movenext button uses, rather than
+// always dateStr+1. That naive +1 used to land a past day's leftovers on
+// some other past (or barely-past) day instead of anywhere actually
+// actionable — the exact bug .movenext had before it was fixed the same
+// way. Renamed from moveIncompleteToTomorrow() since it was never really
+// always tomorrow, same reasoning .movetmrw was renamed to .movenext.
+async function moveIncompleteForward(dateStr){
+  const target = moveForwardTarget(dateStr);
+  const label = target===todayStr() ? 'Moved incomplete items to today' : 'Moved incomplete items to tomorrow';
+  await copyDayUnfinishedTo(dateStr, target, label);
 }
 
 // The day-list's own per-past-day "N unfinished" marker (see
 // dayItemHtml()) — copies that day's unfinished leaf units onto *today*
-// specifically, regardless of how far in the past the day is, rather than
-// one day forward the way moveIncompleteToTomorrow() does. Same copy
-// (not remove) semantics as that function: the original day keeps its
-// full history, today just also picks up whatever's still open.
+// unconditionally, regardless of how far in the past the day is. Reached
+// from a different surface than moveIncompleteForward() above (the plain
+// day list vs. a day's own detail page), but the two necessarily agree
+// once a day's in the past, since that's exactly what
+// moveForwardTarget() resolves to there too. Same copy (not remove)
+// semantics either way: the original day keeps its full history, today
+// just also picks up whatever's still open.
 async function moveDayUnfinishedToToday(dateStr){
   await copyDayUnfinishedTo(dateStr, todayStr(), 'Moved unfinished items to today');
 }
