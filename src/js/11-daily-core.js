@@ -103,19 +103,23 @@ function subDailyItemsForDay(dateStr){
 // with 2 steps (one done, one not) would read as "2 unfinished" (the
 // task plus the open step) instead of the 1 real thing still open. The
 // rule: a standard task with steps also planned on this same day isn't
-// its own unit while any of those steps is still open — each step is the
-// unit instead. Once every one of those steps is done, the parent's own
-// checkbox becomes the one remaining unit — a finished step list with an
-// unchecked parent is "one thing left to close out" (the checkbox
-// itself), not zero and not a phantom extra alongside already-finished
-// steps. This mirrors how the project owner actually uses the app: a
-// task with steps is a container, the steps are the real work, *unless*
-// it has none, in which case the task itself is the actionable thing —
-// so a task only ever counts as its own unit when it has no open-step
-// competition for the same day. A step whose parent isn't planned whole
-// on this day (an "orphan" step, no row to nest under — see
-// daySubtaskRowHtml's `nested` param) always counts on its own, since
-// there's no parent unit it could conflict with.
+// its own unit while any of those steps is still open *and the task
+// itself hasn't been marked done* — each step is the unit instead. Two
+// ways out of that: once every one of those steps is done, the parent's
+// own checkbox becomes the one remaining unit (a finished step list with
+// an unchecked parent is "one thing left to close out," not zero and not
+// a phantom extra); or the parent gets checked off directly — from
+// anywhere, not necessarily this day's own view — which counts as done
+// regardless of what its steps say, since checking the parent off is a
+// deliberate "I'm calling this whole thing finished" action that
+// supersedes the steps-are-the-real-work heuristic, not something the
+// heuristic should keep contradicting. Either way, once the parent counts
+// as its own unit, its steps stop counting as separate ones — only one of
+// "the parent" or "its open-that-day steps" is ever the unit(s) for a
+// given task, never both. A step whose parent isn't planned whole on this
+// day (an "orphan" step, no row to nest under — see daySubtaskRowHtml's
+// `nested` param) always counts on its own, since there's no parent unit
+// it could conflict with either way.
 function dayLeafUnits(dateStr){
   const tasks = standardTasksForDay(dateStr);
   const subs = subDailyItemsForDay(dateStr);
@@ -126,7 +130,7 @@ function dayLeafUnits(dateStr){
   const units = [];
   tasks.forEach(t=>{
     const kids = byParent[t.id];
-    if(!kids || !kids.length || kids.every(x=>x.sub.done)){
+    if(!kids || !kids.length || t.status==='done' || kids.every(x=>x.sub.done)){
       units.push({ kind:'task', task:t, done: t.status==='done' });
     } else {
       kids.forEach(x=>units.push({ kind:'sub', task:x.task, sub:x.sub, done: x.sub.done }));
