@@ -192,9 +192,9 @@ function renderSettings(){
              Pastel-only version — only the gating and the Primary/
              Secondary choice are new. -->
         <div class="inkfromuirow">
-          <label class="catlocchk">
+          <label class="catlocchk" title="Especially good for Pastel palettes — keeps text and lines from blending into soft colors. Works with any color scheme.">
             <input type="checkbox" ${state.theme.inkFromUi?'checked':''} onchange="toggleInkFromUi(this.checked)">
-            Text & lines match UI Color
+            Text & lines match UI Color (Good for Pastel)
           </label>
           ${state.theme.inkFromUi ? `
           <div class="inksrctabs">
