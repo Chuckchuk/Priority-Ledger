@@ -698,6 +698,26 @@ function applyTheme(){ applyThemeObject(state.theme); }
 // to know this setting exists.
 function applyDevSettings(){
   const d = state.devSettings || defaultDevSettings();
+  // EXPERIMENTAL — Desktop zoom (Dev Settings → Desktop): reproduces
+  // actual browser zoom via CSS `zoom` on #appShell itself, rather than
+  // transform:scale() (doesn't affect layout flow, so it breaks anything
+  // absolutely-positioned without manual compensation — and this app
+  // leans on that heavily: #ctxMenu, #noteHoverTip, #sidetabsPeek, the
+  // swipe-gesture math) or bumping the root font-size (only rem/em-sized
+  // things would grow; most of this app's own spacing/icon sizing is
+  // plain px, so text and boxes would drift apart instead of scaling
+  // together). `zoom` is what real browser zoom itself does under the
+  // hood, so JS position math that reads getBoundingClientRect() against
+  // a zoomed ancestor sees the same already-scaled numbers it would if
+  // the user had zoomed their own browser — nothing here needs its own
+  // zoom-awareness. Scoped to #appShell specifically (not body/html),
+  // which also keeps the PWA safe-area/notch handling on <html> (see
+  // CLAUDE.md's own theming notes) out of the scaled subtree entirely.
+  // #authShell (the login screen) is deliberately left alone — this is a
+  // per-account devSettings value, meaningless before there's an account
+  // signed into yet. See the body[data-desktop-zoom="…"] rules in <style>
+  // for the actual per-preset values.
+  document.body.dataset.desktopZoom = d.desktopZoom || '100';
   document.body.classList.toggle('devtag-seam', !!d.tagSeam);
   document.body.dataset.pendingTagStyle = d.pendingTagStyle || 'default';
   document.body.classList.toggle('devlist-dates', !!d.showListDates);
@@ -799,6 +819,14 @@ function refreshMobileUiActive(){
 async function toggleDevSetting(key, checked){
   pushUndo(`${checked ? 'Enabled' : 'Disabled'} dev setting: ${key}`);
   state.devSettings[key] = checked;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevDesktopZoom(val){
+  pushUndo(`Changed dev desktop zoom to "${val}%"`);
+  state.devSettings.desktopZoom = val;
   applyDevSettings();
   render();
   queueSave();
@@ -1197,6 +1225,15 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
   `;
 
   const desktopBody = `
+    ${devSectionHeadHtml('Display')}
+    ${devField('<span title="Reproduces real browser zoom (CSS zoom on #appShell) rather than a font-size or transform trick — see applyDevSettings()\'s own comment in 01-categories-theme.js for why those two would scale unevenly here.">★ Desktop zoom</span>', dev.desktopZoom, [
+      ['100','100% (default)'],
+      ['110','110%'],
+      ['115','115%'],
+      ['125','125%'],
+      ['135','135%'],
+      ['150','150%']
+    ], 'setDevDesktopZoom')}
     ${devSectionHeadHtml('Tab Bar')}
     ${devField('Tab bar style', dev.tabBarDesktopStyle, [
       ['overlap','Overlapping color tabs (default)'],

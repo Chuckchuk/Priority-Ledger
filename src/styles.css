@@ -526,6 +526,20 @@
     border: 1.5px dashed rgba(0,0,0,0.35);
     pointer-events: none;
   }
+  /* EXPERIMENTAL — Dev Settings' "Desktop zoom" (state.devSettings.
+     desktopZoom, set via document.body.dataset.desktopZoom in
+     applyDevSettings() — see that call's own comment for why `zoom` and
+     not transform/font-size). "100" is the default and needs no override.
+     Scoped off mobileUiActive() same as every other Desktop-group dev
+     setting (see the "GENERAL/DESKTOP/MOBILE" grouping comment in
+     devSettingsFieldsHtml(), 01-categories-theme.js) — this is a desktop-
+     density fix, not something to also apply under the Mobile UI Lab's
+     own viewport-emulated styles. */
+  body:not(.mobileui-active)[data-desktop-zoom="110"] #appShell{ zoom: 1.1; }
+  body:not(.mobileui-active)[data-desktop-zoom="115"] #appShell{ zoom: 1.15; }
+  body:not(.mobileui-active)[data-desktop-zoom="125"] #appShell{ zoom: 1.25; }
+  body:not(.mobileui-active)[data-desktop-zoom="135"] #appShell{ zoom: 1.35; }
+  body:not(.mobileui-active)[data-desktop-zoom="150"] #appShell{ zoom: 1.5; }
   /* EXPERIMENTAL — Dev Settings' "Inner page size" (state.devSettings.
      pageInsetPreset, set via document.body.dataset.pageInset in
      applyDevSettings()). "classic" is the default and needs no override —

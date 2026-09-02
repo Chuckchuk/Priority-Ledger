@@ -646,6 +646,32 @@ function taskContextMenuHtml(t, includeEdit){
   `;
 }
 
+// The "Desktop zoom" dev setting (state.devSettings.desktopZoom, applied
+// via CSS `zoom` on #appShell — see applyDevSettings()'s own comment in
+// 01-categories-theme.js for why `zoom` and not transform/font-size)
+// broke every position:fixed popover in the app the moment it's anything
+// but 100%: a position:fixed element's own inline top/left get re-scaled
+// a SECOND time by a zoomed ANCESTOR (confirmed empirically — this isn't
+// documented/consistent browser behavior, it was tested directly), on top
+// of the already-correct, already-in-true-viewport-pixels values
+// getBoundingClientRect() reports (zoom doesn't need any compensation
+// there — only for values ASSIGNED back via inline style on a
+// position:fixed element). Dividing by the same factor before assigning
+// cancels it out. Every position:fixed popover positioned by JS in this
+// app (task/day/subtask/category-move/sort context menus below, the
+// checklist context menu in 13-checklist.js, the share menu in
+// 19-sharing.js, the note hover tip below) needs this — position:absolute
+// placements elsewhere (the category color wheel's knobs in 09-settings.js,
+// the overlap tab-bar's clones in 06-tabs-render.js) do NOT, since those
+// resolve relative to a normal positioned ancestor already inside the
+// same zoomed subtree, which stays internally consistent under `zoom`
+// with no cross-boundary mismatch to correct for.
+function zoomFactor(){
+  const shell = document.getElementById('appShell');
+  const z = shell ? parseFloat(getComputedStyle(shell).zoom) : 1;
+  return z && !isNaN(z) ? z : 1;
+}
+
 // Shared by the desktop right-click menu and the mobile 'detail'
 // long-press menu — positioned at (x, y), then nudged back onto screen
 // after a layout pass, since its own width/height aren't known until the
@@ -656,14 +682,15 @@ function renderTaskContextMenu(taskId, x, y, includeEdit){
   ctxMenuTaskId = taskId;
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = taskContextMenuHtml(t, includeEdit);
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
   menu.classList.add('open');
   applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
-    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
-    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
 function openTaskContextMenu(taskId, x, y){
@@ -714,14 +741,15 @@ function renderSubtaskContextMenu(taskId, subId, x, y){
   ctxMenuTaskId = taskId;
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = subtaskContextMenuHtml(t, s);
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
   menu.classList.add('open');
   applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
-    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
-    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
 function handleSubtaskContextMenu(e, taskId, subId){
@@ -895,21 +923,22 @@ function showNoteHoverTip(rowEl, notes){
   // rect if .title somehow isn't found.
   const titleEl = rowEl.querySelector('.title');
   const r = (titleEl || rowEl).getBoundingClientRect();
-  tip.style.left = r.left + 'px';
+  const zf = zoomFactor();
+  tip.style.left = (r.left/zf) + 'px';
   // Anchored to the title text's own bottom (not the whole row's), and a
   // smaller gap than before — the row's bottom sits further down than
   // the text itself (badges/meta below it, row padding), which read as
   // too much empty space between the title and the tip. 4px keeps them
   // visibly close without the tip touching the text.
-  tip.style.top = (r.bottom + 4) + 'px';
+  tip.style.top = ((r.bottom + 4)/zf) + 'px';
   // Same post-layout nudge-back-onscreen pass renderTaskContextMenu() and
   // renderCategoryMoveMenu() already use — the tip's own width/height
   // aren't knowable until the browser has actually laid it out with real
   // content in it.
   requestAnimationFrame(() => {
     const tr = tip.getBoundingClientRect();
-    if(tr.right > window.innerWidth) tip.style.left = Math.max(8, window.innerWidth - tr.width - 8) + 'px';
-    if(tr.bottom > window.innerHeight) tip.style.top = Math.max(8, r.top - tr.height - 6) + 'px';
+    if(tr.right > window.innerWidth) tip.style.left = (Math.max(8, window.innerWidth - tr.width - 8)/zf) + 'px';
+    if(tr.bottom > window.innerHeight) tip.style.top = (Math.max(8, r.top - tr.height - 6)/zf) + 'px';
   });
 }
 function hideNoteHoverTip(){
@@ -940,14 +969,15 @@ function renderDayContextMenu(dateStr, x, y){
   ctxMenuDayStr = dateStr;
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = dayContextMenuHtml(dateStr);
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
   menu.classList.add('open');
   applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
-    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
-    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
 // Desktop-only, same reasoning as handleTaskContextMenu() above — on an
@@ -1015,14 +1045,15 @@ function renderCategoryMoveMenu(taskId, x, y){
   ctxMenuMoveTaskId = taskId;
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = categoryMoveMenuHtml(t);
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
   menu.classList.add('open');
   applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
-    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
-    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
 // Anchored under the label itself (el) rather than a click coordinate —
@@ -1046,14 +1077,15 @@ function renderSortMenu(x, y, includeCategory){
   ctxMenuSortOpen = true;
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = `<div class="ctxmenu-label">Sort by</div>${sortMenuButtonsHtml(includeCategory)}`;
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
   menu.classList.add('open');
   applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
-    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
-    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
 function openSortMenu(el, includeCategory){

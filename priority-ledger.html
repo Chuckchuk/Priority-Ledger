@@ -558,6 +558,20 @@
     border: 1.5px dashed rgba(0,0,0,0.35);
     pointer-events: none;
   }
+  /* EXPERIMENTAL — Dev Settings' "Desktop zoom" (state.devSettings.
+     desktopZoom, set via document.body.dataset.desktopZoom in
+     applyDevSettings() — see that call's own comment for why `zoom` and
+     not transform/font-size). "100" is the default and needs no override.
+     Scoped off mobileUiActive() same as every other Desktop-group dev
+     setting (see the "GENERAL/DESKTOP/MOBILE" grouping comment in
+     devSettingsFieldsHtml(), 01-categories-theme.js) — this is a desktop-
+     density fix, not something to also apply under the Mobile UI Lab's
+     own viewport-emulated styles. */
+  body:not(.mobileui-active)[data-desktop-zoom="110"] #appShell{ zoom: 1.1; }
+  body:not(.mobileui-active)[data-desktop-zoom="115"] #appShell{ zoom: 1.15; }
+  body:not(.mobileui-active)[data-desktop-zoom="125"] #appShell{ zoom: 1.25; }
+  body:not(.mobileui-active)[data-desktop-zoom="135"] #appShell{ zoom: 1.35; }
+  body:not(.mobileui-active)[data-desktop-zoom="150"] #appShell{ zoom: 1.5; }
   /* EXPERIMENTAL — Dev Settings' "Inner page size" (state.devSettings.
      pageInsetPreset, set via document.body.dataset.pageInset in
      applyDevSettings()). "classic" is the default and needs no override —
@@ -5732,6 +5746,26 @@ function applyTheme(){ applyThemeObject(state.theme); }
 // to know this setting exists.
 function applyDevSettings(){
   const d = state.devSettings || defaultDevSettings();
+  // EXPERIMENTAL — Desktop zoom (Dev Settings → Desktop): reproduces
+  // actual browser zoom via CSS `zoom` on #appShell itself, rather than
+  // transform:scale() (doesn't affect layout flow, so it breaks anything
+  // absolutely-positioned without manual compensation — and this app
+  // leans on that heavily: #ctxMenu, #noteHoverTip, #sidetabsPeek, the
+  // swipe-gesture math) or bumping the root font-size (only rem/em-sized
+  // things would grow; most of this app's own spacing/icon sizing is
+  // plain px, so text and boxes would drift apart instead of scaling
+  // together). `zoom` is what real browser zoom itself does under the
+  // hood, so JS position math that reads getBoundingClientRect() against
+  // a zoomed ancestor sees the same already-scaled numbers it would if
+  // the user had zoomed their own browser — nothing here needs its own
+  // zoom-awareness. Scoped to #appShell specifically (not body/html),
+  // which also keeps the PWA safe-area/notch handling on <html> (see
+  // CLAUDE.md's own theming notes) out of the scaled subtree entirely.
+  // #authShell (the login screen) is deliberately left alone — this is a
+  // per-account devSettings value, meaningless before there's an account
+  // signed into yet. See the body[data-desktop-zoom="…"] rules in <style>
+  // for the actual per-preset values.
+  document.body.dataset.desktopZoom = d.desktopZoom || '100';
   document.body.classList.toggle('devtag-seam', !!d.tagSeam);
   document.body.dataset.pendingTagStyle = d.pendingTagStyle || 'default';
   document.body.classList.toggle('devlist-dates', !!d.showListDates);
@@ -5833,6 +5867,14 @@ function refreshMobileUiActive(){
 async function toggleDevSetting(key, checked){
   pushUndo(`${checked ? 'Enabled' : 'Disabled'} dev setting: ${key}`);
   state.devSettings[key] = checked;
+  applyDevSettings();
+  render();
+  queueSave();
+}
+
+async function setDevDesktopZoom(val){
+  pushUndo(`Changed dev desktop zoom to "${val}%"`);
+  state.devSettings.desktopZoom = val;
   applyDevSettings();
   render();
   queueSave();
@@ -6231,6 +6273,15 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
   `;
 
   const desktopBody = `
+    ${devSectionHeadHtml('Display')}
+    ${devField('<span title="Reproduces real browser zoom (CSS zoom on #appShell) rather than a font-size or transform trick — see applyDevSettings()\'s own comment in 01-categories-theme.js for why those two would scale unevenly here.">★ Desktop zoom</span>', dev.desktopZoom, [
+      ['100','100% (default)'],
+      ['110','110%'],
+      ['115','115%'],
+      ['125','125%'],
+      ['135','135%'],
+      ['150','150%']
+    ], 'setDevDesktopZoom')}
     ${devSectionHeadHtml('Tab Bar')}
     ${devField('Tab bar style', dev.tabBarDesktopStyle, [
       ['overlap','Overlapping color tabs (default)'],
@@ -7277,7 +7328,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', expandGroupingStyle:'rail', taskDetailActionsPosition:'side' };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', expandGroupingStyle:'rail', taskDetailActionsPosition:'side', desktopZoom:'100' };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -7483,6 +7534,7 @@ function normalizeState(){
   if(typeof state.devSettings.floatingAddButton !== 'boolean') state.devSettings.floatingAddButton = false;
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
+  if(typeof state.devSettings.desktopZoom !== 'string') state.devSettings.desktopZoom = '100';
   if(typeof state.devSettings.overlapSubtags !== 'boolean') state.devSettings.overlapSubtags = false;
   if(state.devSettings.overlapStackMode !== 'hover' && state.devSettings.overlapStackMode !== 'ranked') state.devSettings.overlapStackMode = 'hover';
   if(typeof state.devSettings.sidetabsAppearance !== 'string') state.devSettings.sidetabsAppearance = 'color';
@@ -10067,6 +10119,32 @@ function taskContextMenuHtml(t, includeEdit){
   `;
 }
 
+// The "Desktop zoom" dev setting (state.devSettings.desktopZoom, applied
+// via CSS `zoom` on #appShell — see applyDevSettings()'s own comment in
+// 01-categories-theme.js for why `zoom` and not transform/font-size)
+// broke every position:fixed popover in the app the moment it's anything
+// but 100%: a position:fixed element's own inline top/left get re-scaled
+// a SECOND time by a zoomed ANCESTOR (confirmed empirically — this isn't
+// documented/consistent browser behavior, it was tested directly), on top
+// of the already-correct, already-in-true-viewport-pixels values
+// getBoundingClientRect() reports (zoom doesn't need any compensation
+// there — only for values ASSIGNED back via inline style on a
+// position:fixed element). Dividing by the same factor before assigning
+// cancels it out. Every position:fixed popover positioned by JS in this
+// app (task/day/subtask/category-move/sort context menus below, the
+// checklist context menu in 13-checklist.js, the share menu in
+// 19-sharing.js, the note hover tip below) needs this — position:absolute
+// placements elsewhere (the category color wheel's knobs in 09-settings.js,
+// the overlap tab-bar's clones in 06-tabs-render.js) do NOT, since those
+// resolve relative to a normal positioned ancestor already inside the
+// same zoomed subtree, which stays internally consistent under `zoom`
+// with no cross-boundary mismatch to correct for.
+function zoomFactor(){
+  const shell = document.getElementById('appShell');
+  const z = shell ? parseFloat(getComputedStyle(shell).zoom) : 1;
+  return z && !isNaN(z) ? z : 1;
+}
+
 // Shared by the desktop right-click menu and the mobile 'detail'
 // long-press menu — positioned at (x, y), then nudged back onto screen
 // after a layout pass, since its own width/height aren't known until the
@@ -10077,14 +10155,15 @@ function renderTaskContextMenu(taskId, x, y, includeEdit){
   ctxMenuTaskId = taskId;
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = taskContextMenuHtml(t, includeEdit);
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
   menu.classList.add('open');
   applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
-    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
-    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
 function openTaskContextMenu(taskId, x, y){
@@ -10135,14 +10214,15 @@ function renderSubtaskContextMenu(taskId, subId, x, y){
   ctxMenuTaskId = taskId;
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = subtaskContextMenuHtml(t, s);
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
   menu.classList.add('open');
   applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
-    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
-    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
 function handleSubtaskContextMenu(e, taskId, subId){
@@ -10316,21 +10396,22 @@ function showNoteHoverTip(rowEl, notes){
   // rect if .title somehow isn't found.
   const titleEl = rowEl.querySelector('.title');
   const r = (titleEl || rowEl).getBoundingClientRect();
-  tip.style.left = r.left + 'px';
+  const zf = zoomFactor();
+  tip.style.left = (r.left/zf) + 'px';
   // Anchored to the title text's own bottom (not the whole row's), and a
   // smaller gap than before — the row's bottom sits further down than
   // the text itself (badges/meta below it, row padding), which read as
   // too much empty space between the title and the tip. 4px keeps them
   // visibly close without the tip touching the text.
-  tip.style.top = (r.bottom + 4) + 'px';
+  tip.style.top = ((r.bottom + 4)/zf) + 'px';
   // Same post-layout nudge-back-onscreen pass renderTaskContextMenu() and
   // renderCategoryMoveMenu() already use — the tip's own width/height
   // aren't knowable until the browser has actually laid it out with real
   // content in it.
   requestAnimationFrame(() => {
     const tr = tip.getBoundingClientRect();
-    if(tr.right > window.innerWidth) tip.style.left = Math.max(8, window.innerWidth - tr.width - 8) + 'px';
-    if(tr.bottom > window.innerHeight) tip.style.top = Math.max(8, r.top - tr.height - 6) + 'px';
+    if(tr.right > window.innerWidth) tip.style.left = (Math.max(8, window.innerWidth - tr.width - 8)/zf) + 'px';
+    if(tr.bottom > window.innerHeight) tip.style.top = (Math.max(8, r.top - tr.height - 6)/zf) + 'px';
   });
 }
 function hideNoteHoverTip(){
@@ -10361,14 +10442,15 @@ function renderDayContextMenu(dateStr, x, y){
   ctxMenuDayStr = dateStr;
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = dayContextMenuHtml(dateStr);
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
   menu.classList.add('open');
   applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
-    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
-    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
 // Desktop-only, same reasoning as handleTaskContextMenu() above — on an
@@ -10436,14 +10518,15 @@ function renderCategoryMoveMenu(taskId, x, y){
   ctxMenuMoveTaskId = taskId;
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = categoryMoveMenuHtml(t);
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
   menu.classList.add('open');
   applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
-    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
-    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
 // Anchored under the label itself (el) rather than a click coordinate —
@@ -10467,14 +10550,15 @@ function renderSortMenu(x, y, includeCategory){
   ctxMenuSortOpen = true;
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = `<div class="ctxmenu-label">Sort by</div>${sortMenuButtonsHtml(includeCategory)}`;
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
   menu.classList.add('open');
   applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
-    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
-    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
 function openSortMenu(el, includeCategory){
@@ -13911,14 +13995,15 @@ function renderChecklistContextMenu(taskId, x, y){
   ctxMenuTaskId = taskId;
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = checklistContextMenuHtml(t);
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
   menu.classList.add('open');
   applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
-    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
-    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
 // Desktop-only, same reasoning as handleTaskContextMenu() (08-render-core.js).
@@ -15785,13 +15870,14 @@ function openShareMenu(el, taskId){
 function positionShareMenu(el){
   const menu = document.getElementById('shareMenu');
   const r = el.getBoundingClientRect();
-  menu.style.left = r.right + 'px';
-  menu.style.top = (r.bottom + 6) + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (r.right/zf) + 'px';
+  menu.style.top = ((r.bottom + 6)/zf) + 'px';
   menu.classList.add('open');
   requestAnimationFrame(() => {
     const mr = menu.getBoundingClientRect();
-    if(mr.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - mr.width - 8) + 'px';
-    if(mr.bottom > window.innerHeight) menu.style.top = Math.max(8, r.top - mr.height - 6) + 'px';
+    if(mr.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - mr.width - 8)/zf) + 'px';
+    if(mr.bottom > window.innerHeight) menu.style.top = (Math.max(8, r.top - mr.height - 6)/zf) + 'px';
   });
 }
 

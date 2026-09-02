@@ -263,14 +263,15 @@ function renderChecklistContextMenu(taskId, x, y){
   ctxMenuTaskId = taskId;
   const menu = document.getElementById('ctxMenu');
   menu.innerHTML = checklistContextMenuHtml(t);
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
   menu.classList.add('open');
   applyDevElementNames();
   requestAnimationFrame(() => {
     const r = menu.getBoundingClientRect();
-    if(r.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - r.width - 8) + 'px';
-    if(r.bottom > window.innerHeight) menu.style.top = Math.max(8, window.innerHeight - r.height - 8) + 'px';
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
 // Desktop-only, same reasoning as handleTaskContextMenu() (08-render-core.js).

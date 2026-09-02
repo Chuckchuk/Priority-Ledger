@@ -161,13 +161,14 @@ function openShareMenu(el, taskId){
 function positionShareMenu(el){
   const menu = document.getElementById('shareMenu');
   const r = el.getBoundingClientRect();
-  menu.style.left = r.right + 'px';
-  menu.style.top = (r.bottom + 6) + 'px';
+  const zf = zoomFactor();
+  menu.style.left = (r.right/zf) + 'px';
+  menu.style.top = ((r.bottom + 6)/zf) + 'px';
   menu.classList.add('open');
   requestAnimationFrame(() => {
     const mr = menu.getBoundingClientRect();
-    if(mr.right > window.innerWidth) menu.style.left = Math.max(8, window.innerWidth - mr.width - 8) + 'px';
-    if(mr.bottom > window.innerHeight) menu.style.top = Math.max(8, r.top - mr.height - 6) + 'px';
+    if(mr.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - mr.width - 8)/zf) + 'px';
+    if(mr.bottom > window.innerHeight) menu.style.top = (Math.max(8, r.top - mr.height - 6)/zf) + 'px';
   });
 }
 
