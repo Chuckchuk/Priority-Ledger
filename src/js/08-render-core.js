@@ -45,10 +45,28 @@ function fieldPickerHtml(kind, currentValue, onClickFor){
   // single-step edge case of a field with only one entry ever reading as
   // simultaneously "unset" and "maxed out".
   const atMax = idx === steps.length - 1 && idx > 0;
+  // 'buttons': compact pills, one per REAL step — steps[0] is always the
+  // "None"/unset entry (see TIMEFRAME_STEPS/PRIORITY_STEPS above) and
+  // never gets its own pill here, per the project owner's own call: with
+  // no separate "None" pill to tap, clicking the pill that's ALREADY
+  // active is what clears a field back to unset instead — the same
+  // toggle-off-by-tapping-again idiom .flagbtn/.rowpin/.rowflag already
+  // use elsewhere in this exact header, so it isn't a new interaction to
+  // learn, just this control adopting one that was already established.
+  // Fewer, smaller pills (3 for Timeframe, 3 for Priority, vs. the
+  // original 6-and-4) is the other half of "still pretty noisy" — this
+  // was always meant to be a compact alternative to a dropdown, not
+  // another full-size control sitting next to it.
   if(style === 'buttons'){
-    return `<div class="fieldbuttons">${steps.map(s => `
-      <button type="button" class="fieldbtn ${s.v===curStr?'active':''} ${s.v===curStr && atMax?'atmax':''}"
-        onclick="${onClickFor(s.v)}">${escapeHtml(s.label)}</button>`).join('')}</div>`;
+    const noneValue = steps[0].v;
+    const realSteps = steps.slice(1);
+    return `<div class="fieldbuttons compact">${realSteps.map(s => {
+      const isActive = s.v === curStr;
+      const clickValue = isActive ? noneValue : s.v;
+      return `
+      <button type="button" class="fieldbtn ${isActive?'active':''} ${isActive && atMax?'atmax':''}"
+        onclick="${onClickFor(clickValue)}" title="${isActive ? 'Click to clear' : escapeHtml(s.label)}">${escapeHtml(s.label)}</button>`;
+    }).join('')}</div>`;
   }
   // progress: a filled track + one dot per step, each independently
   // clickable (not just draggable) so picking "Long" is still a single
@@ -220,8 +238,25 @@ function taskNotesAndMetaHtml(t){
     const age = daysBetween(t.createdAt, todayStr());
     if(age > 0) metaLine += ` · Open ${age}d`;
   }
+  // .empty (t.notes falsy at render time) drops the field's own resting
+  // min-height way down — see that class's own comment in <style> for why
+  // an always-120px-tall empty box was part of what read as "noisy" on an
+  // otherwise-sparse task. The oninput auto-grow (plain scrollHeight
+  // technique, no library) is what keeps that shrink from working AGAINST
+  // you while actually typing a real note: height:auto first so
+  // scrollHeight reflects the content that's there NOW rather than
+  // whatever the box's previous explicit height was (scrollHeight of a
+  // box already taller than its content just reports that stale height
+  // back), then set to match — content genuinely too tall to fit still
+  // grows the field instead of scrolling inside a stuck-small box. Only
+  // ever grows (never shrinks back down mid-edit, matching a plain
+  // textarea's own natural resize-by-dragging behavior, which also never
+  // auto-shrinks) — the class re-evaluates fresh on the next real render
+  // (e.g. after blur commits via updateNotes()) if it's empty again.
   return `
-      <textarea class="notesfield" placeholder="Notes…" onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>
+      <textarea class="notesfield ${t.notes ? '' : 'empty'}" placeholder="Notes…"
+        oninput="this.style.height='auto'; this.style.height=this.scrollHeight+'px';"
+        onblur="updateNotes('${t.id}', this.value)">${escapeHtml(t.notes||'')}</textarea>
       <div class="taskmeta">${metaLine}</div>`;
 }
 
@@ -229,8 +264,31 @@ function taskNotesAndMetaHtml(t){
 // variant (see taskRowHtml() below) can show just this — the one part of
 // a task's detail worth glancing at on every tap — without the rest of
 // taskManagementFieldsHtml() coming along with it.
+// Collapses to a single "+ Add step" link when there are no steps yet,
+// instead of always showing the "Steps" label plus the dashed add-input —
+// per the project owner's own callout that an empty task detail page
+// feels noisy/tightly-packed even though it has nothing in it. Clicking
+// the link sets stepsAddOpenId (02-storage-state.js) so THIS render pass
+// shows the real add-input instead — same "click to reveal" idiom
+// renderAddToDayPicker()'s own dayAddOpen already uses. Once a real step
+// gets added, subs.length>0 takes over rendering the full section
+// regardless of stepsAddOpenId, so there's nothing to reset on the
+// success path; openGenericTaskDetail() resets it on the way IN instead,
+// so a task's own add-input doesn't stay stuck open from a previous visit
+// where it was opened but nothing was ever typed.
+function openStepsAdd(taskId){
+  stepsAddOpenId = taskId;
+  render();
+  focusVisibleSubadd();
+}
 function taskSubtasksHtml(t){
   const subs = t.subtasks || [];
+  if(subs.length===0 && stepsAddOpenId!==t.id){
+    return `
+      <div class="subwrap">
+        <button class="addsteplink" onclick="openStepsAdd('${t.id}')">+ Add step</button>
+      </div>`;
+  }
   return `
       <div class="subwrap">
         <div class="sublabel">Steps</div>
@@ -1152,6 +1210,7 @@ function closeTaskDetail(){
 let genericTaskDetailId = null;
 function openGenericTaskDetail(taskId){
   genericTaskDetailId = taskId;
+  stepsAddOpenId = null;
   render();
 }
 function closeGenericTaskDetail(){

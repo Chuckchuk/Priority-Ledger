@@ -28,14 +28,21 @@ const TIMEFRAME_LABELS = { today:'Today', short:'Short', medium:'Medium', long:'
 // 'default') and the two custom pickers (fieldPickerHtml() in
 // 08-render-core.js) — a single source of truth so all three ever show
 // the same options in the same order. Last step in each list is treated
-// as that field's "max" (urgent / High) for the pulse animation.
+// as that field's "max" (Long / High) for the pulse animation.
+// 'today' and 'urgent' were both removed from the SELECTABLE list per the
+// project owner's own ask — both already duplicated an existing, separate
+// concept (the "add to today" pin, and the `urgent` flag itself — see the
+// comment right above these constants, which already called this overlap
+// out before it was actually acted on) rather than adding anything a
+// timeframe of "short/medium/long" doesn't already cover. TIMEFRAME_LABELS
+// keeps both entries (below) so any task that already has one saved (from
+// before this change) still renders a real label on its own badge instead
+// of "undefined" — this list is just what's offered going forward.
 const TIMEFRAME_STEPS = [
   { v:'', label:'None' },
-  { v:'today', label:'Today' },
   { v:'short', label:'Short' },
   { v:'medium', label:'Medium' },
-  { v:'long', label:'Long' },
-  { v:'urgent', label:'Urgent' }
+  { v:'long', label:'Long' }
 ];
 const PRIORITY_STEPS = [
   { v:'0', label:'None' },
@@ -149,6 +156,10 @@ let fabAddOpen = false;
 // long-press timer/gesture-tracking state. All pure UI chrome, same as
 // the rest of this block.
 let taskSettingsOpenId = null;
+// Which task's own Steps section (taskSubtasksHtml(), 08-render-core.js)
+// has its "+ Add step" input expanded, while that task still has zero
+// steps — see openStepsAdd()'s own comment for the full reasoning.
+let stepsAddOpenId = null;
 let taskPressTimer = null;
 let taskLongPressFired = false;
 let taskPressStartX = 0;

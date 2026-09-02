@@ -142,13 +142,23 @@
           </div>
           <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
           <select id="quickCategory"></select>
+          <!-- 'today'/'urgent' dropped from the selectable options (kept
+               only in TIMEFRAME_LABELS, 02-storage-state.js, for any task
+               that already has one saved) — same reasoning as
+               TIMEFRAME_STEPS's own comment there: both already duplicated
+               a separate existing concept (this same row's own "Mark
+               urgent" flag toggle right below, and the "add to today" pin)
+               rather than adding anything Short/Medium/Long doesn't
+               already cover. This select has to stay in sync with
+               TIMEFRAME_STEPS by hand — it's static shell markup, not
+               generated from that array, since it's the "real value
+               source" even when a custom fieldPickerStyle is on (see the
+               comment just below). -->
           <select id="quickTimeframe" title="Timeframe">
             <option value="">Timeframe</option>
-            <option value="today">Today</option>
             <option value="short">Short</option>
             <option value="medium">Medium</option>
             <option value="long">Long</option>
-            <option value="urgent">Urgent</option>
           </select>
           <!-- fieldPickerStyle (see defaultDevSettings() in 02-storage-
                state.js) — the select above stays the real value source

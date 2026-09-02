@@ -1110,6 +1110,16 @@
        rather than two distinct sections. */
     margin-top:16px;
   }
+  /* A brand-new task's Notes field defaulted to the SAME 120px min-height
+     as one with three paragraphs in it, which was a big part of what read
+     as "enormous" on an otherwise-empty task detail page. Shrunk to
+     roughly 2 lines' worth at rest, with MORE padding than the base rule
+     (not less) — per the project owner's own callout that a smaller empty
+     box still needs room to breathe, or it just reads as cramped instead
+     of enormous. See the oninput handler in taskNotesAndMetaHtml()
+     (08-render-core.js) for how typing a real note grows it back out of
+     this. */
+  .notesfield.empty{ min-height:52px; padding:16px; }
   .notesfield::placeholder{ color: var(--ink-soft); opacity:0.8; }
   .notesfield:focus{
     outline:none; border-color: var(--input-accent);
@@ -1148,13 +1158,20 @@
      static container (shell-body.html); the task-detail expand-row hosts
      .fieldbuttons/.fieldprogress directly with no extra wrapper. */
   .fieldpicker{ flex:1 1 150px; min-width:120px; }
-  /* ---- 'buttons': a row of small pill buttons, one per step ---- */
+  /* ---- 'buttons': a row of small pill buttons, one per REAL step (no
+     "None" pill — see fieldPickerHtml()'s own comment for the click-
+     active-to-clear idiom that replaces it) ---- */
   .fieldbuttons{ display:flex; flex-wrap:wrap; gap:5px; }
   .fieldbtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.03em;
     padding:6px 10px; border-radius:999px; border:1px solid var(--line); background: var(--card-bg-dim);
     color: var(--ink-soft); cursor:pointer; transition: background .15s ease, color .15s ease, border-color .15s ease;
   }
+  /* .compact — tighter gap/padding on top of dropping the None pill and
+     Timeframe's own Today/Urgent options, since "still pretty noisy" was
+     about the row as a WHOLE, not any one pill. */
+  .fieldbuttons.compact{ gap:4px; }
+  .fieldbuttons.compact .fieldbtn{ padding:5px 9px; }
   .fieldbtn.active{ background: var(--primary); border-color: var(--primary); color:white; }
   /* The one step that's "maxed out" (Urgent / High) gets a little life of
      its own once it's actually selected — a soft, repeating ring pulse
@@ -1252,6 +1269,19 @@
   .footer-row .remove{ color: var(--estate); }
   .subwrap{ margin-top:10px; }
   .sublabel{ font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.06em; text-transform:uppercase; color: var(--ink-soft); margin-bottom:6px; }
+  /* The zero-steps collapsed state (taskSubtasksHtml(), 08-render-core.js)
+     — deliberately a plain text link, not a bordered .pullbtn-style
+     button: this is meant to read as quieter than what it replaces (the
+     "Steps" label plus a whole dashed input box), so giving it its own
+     box/border would undercut the point. Same font language as .sublabel
+     (which it stands in for) so it still reads as belonging to this
+     section rather than a random link. */
+  .addsteplink{
+    background:none; border:none; padding:2px 0; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; letter-spacing:0.04em; text-transform:uppercase;
+    color: var(--ink-soft);
+  }
+  .addsteplink:hover{ color: var(--primary); }
   .pendinggroup{ margin-bottom:16px; }
   .subrow{ display:flex; align-items:center; gap:8px; padding:3px 0; }
   .subrow.dragging{ opacity:0.4; }
