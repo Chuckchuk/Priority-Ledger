@@ -9307,7 +9307,7 @@ function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
         <div class="expandactions">
           ${hideActions ? '' : `
           <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>`}
+          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">${DAYPIN_ICON_SVG}</button>`}
           ${canRemoveHere && !hideActions ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
       </div>`;
@@ -9431,7 +9431,7 @@ function taskSubtasksHtml(t){
             <div class="subtext ${s.done?'done':''}${s.cancelled?' cancelled':''}"${subMenuAttrs} onclick="subtextTap(event,this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <div class="subrowactions">
               <div class="datefield ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
-              <button class="flagbtn daybtn ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
+              <button class="flagbtn daybtn ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">${DAYPIN_ICON_SVG}</button>
               <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
             </div>
           </div>`;
@@ -10211,7 +10211,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
   // would have required.
   const leftActionsHtml = `
     <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-    <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>`;
+    <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">${DAYPIN_ICON_SVG}</button>`;
   return `
     <div class="stackedpage">
       ${pageTagHtml(backOnclick, backLabel)}
@@ -15292,8 +15292,18 @@ async function fetchSharedItemWithFallback(shareId){
 // renderChecklistDetail() in 13-checklist.js) — sharing either is the same
 // operation under the hood (see the top-of-file comment above), so one
 // definition keeps the two from drifting apart.
+// The icon itself: the plain ⇪ glyph (UPWARDS WHITE ARROW FROM BAR) read as
+// an arbitrary arrow rather than "share" at a glance — per the project
+// owner's own ask for "the typical share button you see everywhere," this
+// is the iOS/macOS share glyph instead (an arrow rising out of an open-
+// topped box/tray), stroked rather than filled so it reads as the same
+// thin-line style that glyph is everywhere else. stroke="currentColor"
+// picks up .flagbtn's own color the same way fill="currentColor" does for
+// DAYPIN_ICON_SVG (08-render-core.js) — both inherit whatever color the
+// wrapping button/span already carries rather than needing their own.
+const SHARE_ICON_SVG = '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
 function shareButtonHtml(taskId){
-  return `<button class="sharebtn flagbtn" onclick="event.stopPropagation(); openShareMenu(this,'${taskId}')" title="Share">⇪</button>`;
+  return `<button class="sharebtn flagbtn" onclick="event.stopPropagation(); openShareMenu(this,'${taskId}')" title="Share">${SHARE_ICON_SVG}</button>`;
 }
 
 let shareMenuTaskId = null;

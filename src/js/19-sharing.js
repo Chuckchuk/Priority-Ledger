@@ -106,8 +106,18 @@ async function fetchSharedItemWithFallback(shareId){
 // renderChecklistDetail() in 13-checklist.js) — sharing either is the same
 // operation under the hood (see the top-of-file comment above), so one
 // definition keeps the two from drifting apart.
+// The icon itself: the plain ⇪ glyph (UPWARDS WHITE ARROW FROM BAR) read as
+// an arbitrary arrow rather than "share" at a glance — per the project
+// owner's own ask for "the typical share button you see everywhere," this
+// is the iOS/macOS share glyph instead (an arrow rising out of an open-
+// topped box/tray), stroked rather than filled so it reads as the same
+// thin-line style that glyph is everywhere else. stroke="currentColor"
+// picks up .flagbtn's own color the same way fill="currentColor" does for
+// DAYPIN_ICON_SVG (08-render-core.js) — both inherit whatever color the
+// wrapping button/span already carries rather than needing their own.
+const SHARE_ICON_SVG = '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
 function shareButtonHtml(taskId){
-  return `<button class="sharebtn flagbtn" onclick="event.stopPropagation(); openShareMenu(this,'${taskId}')" title="Share">⇪</button>`;
+  return `<button class="sharebtn flagbtn" onclick="event.stopPropagation(); openShareMenu(this,'${taskId}')" title="Share">${SHARE_ICON_SVG}</button>`;
 }
 
 let shareMenuTaskId = null;

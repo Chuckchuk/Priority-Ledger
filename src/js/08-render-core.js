@@ -8,6 +8,20 @@
 // clicking a step actually does; this only renders the control. Returns
 // '' for 'default' — callers keep showing their own native <select> in
 // that case rather than this function rendering one too.
+// Plain SVG pin icon, not the 📌 emoji it replaces in every .flagbtn.daybtn
+// button below — an emoji glyph ignores CSS `color` entirely and always
+// paints its own fixed multi-color image, which is why the "add to today"
+// button used to look visually inconsistent next to its neighbors (⚑ flag,
+// the share icon below), both plain glyphs that DO pick up .flagbtn's own
+// color/tint (including the white .on state — see .daybtn.on in <style>).
+// A standard map-pin silhouette (teardrop with a circular cutout), same
+// fill="currentColor" / 1em-sized idiom CATEGORY_ICON_SVG's own 'house'
+// override already uses (01-categories-theme.js) for the identical reason.
+// One shared constant (not three separate inline copies) so the header's,
+// the inline expand-row's, and a subtask row's own pin buttons can't drift
+// apart from each other.
+const DAYPIN_ICON_SVG = '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><path d="M12 2C7.86 2 4.5 5.36 4.5 9.5c0 5.25 6.16 11.44 7.06 12.32.24.23.62.23.86 0C13.34 20.94 19.5 14.75 19.5 9.5 19.5 5.36 16.14 2 12 2zm0 10.2a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4z" fill="currentColor"/></svg>';
+
 function fieldPickerHtml(kind, currentValue, onClickFor){
   const steps = kind === 'timeframe' ? TIMEFRAME_STEPS : PRIORITY_STEPS;
   const style = (state.devSettings && state.devSettings.fieldPickerStyle) || 'default';
@@ -106,7 +120,7 @@ function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
         <div class="expandactions">
           ${hideActions ? '' : `
           <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">📌</button>`}
+          <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${todayTitle}">${DAYPIN_ICON_SVG}</button>`}
           ${canRemoveHere && !hideActions ? `<button class="remove" onclick="deleteTask('${t.id}')">Remove</button>` : ''}
         </div>
       </div>`;
@@ -230,7 +244,7 @@ function taskSubtasksHtml(t){
             <div class="subtext ${s.done?'done':''}${s.cancelled?' cancelled':''}"${subMenuAttrs} onclick="subtextTap(event,this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
             <div class="subrowactions">
               <div class="datefield ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
-              <button class="flagbtn daybtn ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">📌</button>
+              <button class="flagbtn daybtn ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">${DAYPIN_ICON_SVG}</button>
               <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
             </div>
           </div>`;
@@ -1010,7 +1024,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
   // would have required.
   const leftActionsHtml = `
     <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle urgent">⚑</button>
-    <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">📌</button>`;
+    <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">${DAYPIN_ICON_SVG}</button>`;
   return `
     <div class="stackedpage">
       ${pageTagHtml(backOnclick, backLabel)}
