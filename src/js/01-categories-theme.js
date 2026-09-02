@@ -641,9 +641,14 @@ function applyThemeObject(t){
     const sourceHex = t.inkFromUiSource === 'secondary' ? ui.secondary : ui.primary;
     const sourceHsv = hexToHsv(sourceHex);
     const tintSat = Math.min(0.15 + sourceHsv.s * 1.0, 0.62);
-    const inkHex = hsvToHex(sourceHsv.h, tintSat, 0.22);
+    // Value (0.34/0.58) bumped up from an initial 0.22/0.48 — at 0.22 the
+    // result still read as "nearly black" regardless of hue (the project
+    // owner's own words) since a color that dark loses most of its
+    // perceptible hue no matter how saturated; brighter keeps the same
+    // hue/saturation math but actually lets the color read as a color.
+    const inkHex = hsvToHex(sourceHsv.h, tintSat, 0.34);
     root.setProperty('--ink', inkHex);
-    root.setProperty('--ink-soft', hsvToHex(sourceHsv.h, tintSat, 0.48));
+    root.setProperty('--ink-soft', hsvToHex(sourceHsv.h, tintSat, 0.58));
     root.setProperty('--line', hexToRgba(inkHex, 0.16));
   } else {
     root.setProperty('--ink', dark ? '#F1EAD9' : '#2A2318');
