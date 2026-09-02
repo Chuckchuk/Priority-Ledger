@@ -594,10 +594,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  // pastelInkStyle (EXPERIMENTAL) — see applyThemeObject()'s own comment
-  // in 01-categories-theme.js for what it actually changes and why it's
-  // gated behind a toggle instead of just being the new default.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', expandGroupingStyle:'rail', taskDetailActionsPosition:'side', pastelInkStyle:false };
+  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapHoverMode:'default', overlapRankStagger:false, sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', expandGroupingStyle:'rail', taskDetailActionsPosition:'side' };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -775,6 +772,8 @@ function normalizeState(){
   if(typeof state.theme.grain !== 'boolean') state.theme.grain = false;
   if(typeof state.theme.pages !== 'boolean') state.theme.pages = false;
   if(typeof state.theme.leather !== 'boolean') state.theme.leather = false;
+  if(typeof state.theme.inkFromUi !== 'boolean') state.theme.inkFromUi = false;
+  if(state.theme.inkFromUiSource !== 'primary' && state.theme.inkFromUiSource !== 'secondary') state.theme.inkFromUiSource = 'primary';
   const uiPresetIsCustom = state.theme.uiPreset === 'custom' && !!state.theme.customUi;
   if(typeof state.theme.uiPreset !== 'string' || (!uiPresetIsCustom && !UI_COLOR_PRESETS.some(p=>p.id===state.theme.uiPreset))) state.theme.uiPreset = 'rust';
   if(typeof state.advancedTaskFields !== 'boolean') state.advancedTaskFields = true;

@@ -106,6 +106,32 @@
     --stackpage-radius: 10px;
   }
   *{box-sizing:border-box;}
+  /* A native <input type="checkbox"> renders as the browser/OS's own
+     control by default (white box, system-blue check) — every checkbox
+     in Settings (Background gradient, location toggles, dev settings,
+     etc.) is one of these, and none of them matched the app's own
+     checkmark language (.check/.subcheck, the real task checkboxes)
+     anywhere else on the page. Restyled here at the plain tag level
+     (not a class added per-instance) specifically so it's automatically
+     consistent for every current checkbox AND any future one, with
+     nothing to remember to add each time. Same visual language as
+     .check.done: a bordered square that fills solid on check, not an
+     attempt to reproduce .check's own bigger 18px/rounder proportions —
+     these sit inline in dense label text, so a smaller, plainer square
+     fits better than a literal clone would. */
+  input[type="checkbox"]{
+    appearance:none; -webkit-appearance:none; margin:0;
+    width:14px; height:14px; flex-shrink:0; vertical-align:middle;
+    border:1.5px solid var(--ink-soft); border-radius:3px;
+    background: var(--card-bg); cursor:pointer; position:relative;
+    transition: background 130ms ease, border-color 130ms ease;
+  }
+  input[type="checkbox"]:checked{ background: var(--ink); border-color: var(--ink); }
+  input[type="checkbox"]:checked::after{
+    content:'✓'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color: var(--card-bg); font-size:10px; line-height:1;
+  }
+  input[type="checkbox"]:focus-visible{ outline:2px solid var(--primary); outline-offset:1px; }
   /* Standalone "Add to Home Screen" mode on iOS doesn't give the page a
      transparent/matching backdrop for free — the strip behind the notch/
      status bar and the bottom home-indicator (outside the normal
@@ -2733,6 +2759,20 @@
     flex:1; min-width:0; padding:8px 0 0 20px; margin-left:20px;
     border-left:1px dashed var(--line);
   }
+  /* "Text & lines match UI Color" (Appearance, right under Background
+     gradient — see colorSplit() in 09-settings.js) — the checkbox and,
+     once checked, the Primary/Secondary pair sit on one row when there's
+     room, wrapping to their own line on a narrow phone rather than
+     truncating. margin-top separates it from the gradient checkbox
+     above without a full .settingsdivider (this is still "part of the
+     same options list," not a new section). */
+  .inkfromuirow{ display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
+  .inksrctabs{ display:flex; gap:4px; }
+  .inksrctab{
+    font-family:'IBM Plex Mono', monospace; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.03em;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:4px 10px; cursor:pointer; color:var(--ink-soft);
+  }
+  .inksrctab.active{ background: var(--primary); border-color: var(--primary); color:white; }
   .texturerow{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
   .texturebtn{
     font-family:'IBM Plex Mono', monospace; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.03em;

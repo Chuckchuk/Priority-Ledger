@@ -182,6 +182,26 @@ function renderSettings(){
           <input type="checkbox" ${state.theme.gradient?'checked':''} onchange="toggleThemeGradient(this.checked)">
           Background gradient
         </label>
+        <!-- Graduated out of Dev Settings (was pastelInkStyle there,
+             gated to only when a Pastel palette was active) — a real,
+             always-available Appearance choice now, right under
+             Background gradient since both live in "options about the
+             color section" rather than being colors themselves. See
+             applyThemeObject()'s own inkFromUi comment (01-categories-
+             theme.js) for the actual color math, unchanged from the
+             Pastel-only version — only the gating and the Primary/
+             Secondary choice are new. -->
+        <div class="inkfromuirow">
+          <label class="catlocchk">
+            <input type="checkbox" ${state.theme.inkFromUi?'checked':''} onchange="toggleInkFromUi(this.checked)">
+            Text & lines match UI Color
+          </label>
+          ${state.theme.inkFromUi ? `
+          <div class="inksrctabs">
+            <button class="inksrctab ${state.theme.inkFromUiSource!=='secondary'?'active':''}" onclick="setInkFromUiSource('primary')">Primary</button>
+            <button class="inksrctab ${state.theme.inkFromUiSource==='secondary'?'active':''}" onclick="setInkFromUiSource('secondary')">Secondary</button>
+          </div>` : ''}
+        </div>
       </div>
     </div>
     <button class="resetthemebtn" onclick="resetTheme()">Reset to classic colors</button>
@@ -884,13 +904,6 @@ async function setCategoryPaletteSet(id){
   state.categoryPaletteId = id;
   rebuildCategoryPalette();
   rebuildCategoriesIndex();
-  // Category colors alone don't drive any CSS custom property (unlike
-  // Desk & Ledger/UI Colors, which already call applyTheme() from their
-  // own setters) — except pastelModeActive() (01-categories-theme.js),
-  // which pastelInkStyle reads, folds this in too. Re-running applyTheme()
-  // here is what makes ink/line pick up a category-only switch into or
-  // out of Pastel immediately, not just a Desk/UI one.
-  applyTheme();
   render();
   queueSave();
 }
@@ -1460,6 +1473,23 @@ async function setDeskPaperPreset(id){
 async function toggleThemeGradient(checked){
   pushUndo(checked ? 'Enabled background gradient' : 'Disabled background gradient');
   state.theme.gradient = checked;
+  applyTheme();
+  render();
+  queueSave();
+}
+
+async function toggleInkFromUi(checked){
+  pushUndo(checked ? 'Enabled text & lines matching UI color' : 'Disabled text & lines matching UI color');
+  state.theme.inkFromUi = checked;
+  applyTheme();
+  render();
+  queueSave();
+}
+
+async function setInkFromUiSource(source){
+  if(state.theme.inkFromUiSource === source) return;
+  pushUndo(`Changed text & lines color source to "${source}"`);
+  state.theme.inkFromUiSource = source;
   applyTheme();
   render();
   queueSave();

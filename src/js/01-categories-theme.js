@@ -209,7 +209,7 @@ function defaultTheme(){
   // just no longer what a new account or "Reset to classic colors" lands
   // on. customUi holds a user's own picked Primary/Secondary pair when
   // uiPreset is 'custom' (see uiColorPreset() below) — null until then.
-  return { bg:'#28362E', paper:'#F1EAD9', gradient:false, grain:false, pages:false, leather:false, uiPreset:'rust', customUi:null };
+  return { bg:'#28362E', paper:'#F1EAD9', gradient:false, grain:false, pages:false, leather:false, uiPreset:'rust', customUi:null, inkFromUi:false, inkFromUiSource:'primary' };
 }
 
 // "Primary" and "Secondary" (Settings → Appearance → UI Colors) are a
@@ -495,25 +495,14 @@ function shadeHex(hex, percent){
   return '#' + (0x1000000 + r*0x10000 + g*0x100 + b).toString(16).slice(1);
 }
 
-// hex + alpha -> an rgba() string — used by applyThemeObject()'s pastel
-// ink style to turn a computed hex ink color into a translucent line
-// color, same role the hand-written rgba(42,35,24,0.16) plays for the
-// fixed default ink.
+// hex + alpha -> an rgba() string — used by applyThemeObject()'s
+// inkFromUi style to turn a computed hex ink color into a translucent
+// line color, same role the hand-written rgba(42,35,24,0.16) plays for
+// the fixed default ink.
 function hexToRgba(hex, alpha){
   const num = parseInt(hex.replace('#',''), 16);
   const r = (num >> 16) & 0xFF, g = (num >> 8) & 0xFF, b = num & 0xFF;
   return `rgba(${r},${g},${b},${alpha})`;
-}
-
-// True once any of the three Pastel palette sets (Category Colors, Desk &
-// Ledger, UI Colors) is the active one — see applyThemeObject()'s
-// pastelInkStyle branch, the one place this is read. Deliberately "any of
-// the three," not just Desk & Ledger's own — the project owner's own
-// complaint was about the category tab row (the loudest pastel signal)
-// reading out of place against the rest of the page, not specifically
-// about the paper color.
-function pastelModeActive(){
-  return state.categoryPaletteId === 'pastel' || state.deskPaletteId === 'pastel' || state.uiPaletteId === 'pastel';
 }
 
 // HSV, not HSL, since that's the natural fit for a "ring picks hue,
@@ -613,54 +602,48 @@ function applyThemeObject(t){
   // feedback — uses.
   root.setProperty('--input-accent', ui.primary);
   const dark = relLuminance(t.paper) < 0.5;
-  // EXPERIMENTAL (Dev Settings → pastelInkStyle) — the flat neutral
-  // ink/line below was picked for the app's original warm-cream paper
-  // and never adapts to what's actually on screen, so once any of the
-  // three Pastel palette sets are in play (category tabs, Desk & Ledger,
-  // or UI Colors — see pastelModeActive() below) the project owner's own
-  // read was that a colorless near-black ink/line reads as "out of
-  // place" against it: heavy and serious next to something meant to feel
-  // soft and playful.
-  // First attempt here darkened the *actual paper* color in place via
-  // shadeHex (the same multiplicative technique --desk-dark uses) —
-  // hue-preserving in theory, but shadeHex scales r/g/b by one constant
-  // factor, which leaves HSV saturation completely UNCHANGED and only
-  // drops value. A pastel paper's saturation is already low by design
-  // (that's what makes it read as soft/pale in the first place — every
-  // DESK_PAPER_PRESET_SETS.pastel paper sits under 20% saturation), so
-  // preserving that same low saturation at a much darker value produced
-  // an ink that was, in practice, nearly indistinguishable near-grey
-  // regardless of which pastel paper was active. A second attempt boosted
-  // paper's own saturation before darkening, which fixed the "all one
-  // grey" problem but was still capped by how little hue signal a paper
-  // color carries to begin with (paper is deliberately washed-out — it's
-  // paper) — visibly better, but the project owner's own read after
-  // trying it against Seafoam & Mist (Desk & Ledger) + Rose & Sage (UI
-  // Colors) was still "so subtle it's pretty useless."
-  // This derives from the current UI Colors PRIMARY instead — a real,
-  // deliberately-chosen accent hue (never washed-out the way a paper
-  // color is by design), so boosting its saturation and dropping its
-  // value produces a genuinely rich, confident dark tone: Rose & Sage's
+  // t.inkFromUi (Settings → Appearance, right under Background gradient —
+  // see appearanceSection() in 09-settings.js) — started as an
+  // EXPERIMENTAL Dev Setting scoped to when a Pastel palette was active
+  // (pastelModeActive(), since removed), graduated to a real, always-
+  // available Appearance choice per the project owner's own ask, since
+  // there's nothing pastel-specific about wanting text/lines to echo the
+  // UI accent — it can look good in any palette.
+  //   The flat neutral ink/line below was picked for the app's original
+  // warm-cream paper and never adapts to what's actually on screen. Two
+  // earlier approaches tried deriving a tint from the desk *paper* color
+  // instead (first a plain hue-preserving darken, then one that boosted
+  // paper's saturation first) — both landed too close to one shared
+  // charcoal to actually read as tinted, since paper is deliberately
+  // washed-out by design (that's what makes it paper). This derives from
+  // the current UI Colors PRIMARY or SECONDARY instead (t.inkFromUiSource
+  // — a real, deliberately-chosen accent hue, never washed-out the way a
+  // paper color is), boosting its saturation and dropping its value to
+  // produce a genuinely rich, confident dark tone: Rose & Sage's own
   // dusty-rose primary becomes a deep wine ink, Mint & Coral's becomes a
-  // deep teal, Periwinkle & Peach's a deep navy, and so on — six visibly
-  // different, actually-legible colors instead of one shared charcoal.
-  // It also means the ink now echoes whatever accent color is already
-  // doing the most visual work elsewhere on the page (buttons, page
-  // tags, the Daily tab's own dot — see dailyTabHex() in
-  // 06-tabs-render.js), which reads as more "designed together" than
-  // tying it to paper ever did. Only font was NOT touched here — see the
-  // project owner's own ask and CLAUDE.md's standing "keep the Fraunces/
-  // IBM Plex identity" rule; swapping type families per-palette would be
-  // a much larger, riskier change (117+ hardcoded font-family
-  // declarations across styles.css, no existing --font-* variable layer
-  // to hook into) for a less certain payoff, so this stayed color-only.
-  const pastelTint = !dark && !!(state.devSettings && state.devSettings.pastelInkStyle) && pastelModeActive();
-  if(pastelTint){
-    const primaryHsv = hexToHsv(ui.primary);
-    const tintSat = Math.min(0.15 + primaryHsv.s * 1.0, 0.62);
-    const inkHex = hsvToHex(primaryHsv.h, tintSat, 0.22);
+  // deep teal, and so on — confirmed against the project owner's own test
+  // case (Desk & Ledger: Seafoam & Mist, UI Colors: Rose & Sage) as an
+  // actual, clearly legible shift rather than "so subtle it's useless."
+  // It also means the ink echoes whatever accent color is already doing
+  // the most visual work elsewhere on the page (buttons, page tags, the
+  // Daily tab's own dot — see dailyTabHex() in 06-tabs-render.js), which
+  // reads as more "designed together" than tying it to paper ever did.
+  // Only font was NOT touched here — see the project owner's own ask and
+  // CLAUDE.md's standing "keep the Fraunces/IBM Plex identity" rule;
+  // swapping type families would be a much larger, riskier change (117+
+  // hardcoded font-family declarations across styles.css, no existing
+  // --font-* variable layer to hook into) for a less certain payoff, so
+  // this stayed color-only — the formula/constants themselves are
+  // unchanged from the Pastel-only version, just no longer gated on any
+  // palette being Pastel.
+  const inkFromUi = !dark && !!t.inkFromUi;
+  if(inkFromUi){
+    const sourceHex = t.inkFromUiSource === 'secondary' ? ui.secondary : ui.primary;
+    const sourceHsv = hexToHsv(sourceHex);
+    const tintSat = Math.min(0.15 + sourceHsv.s * 1.0, 0.62);
+    const inkHex = hsvToHex(sourceHsv.h, tintSat, 0.22);
     root.setProperty('--ink', inkHex);
-    root.setProperty('--ink-soft', hsvToHex(primaryHsv.h, tintSat, 0.48));
+    root.setProperty('--ink-soft', hsvToHex(sourceHsv.h, tintSat, 0.48));
     root.setProperty('--line', hexToRgba(inkHex, 0.16));
   } else {
     root.setProperty('--ink', dark ? '#F1EAD9' : '#2A2318');
@@ -767,11 +750,6 @@ function applyDevSettings(){
   // default) needs no matching selector, same as 'none' above.
   document.body.dataset.taskdetailActions = d.taskDetailActionsPosition || 'side';
   refreshMobileUiActive();
-  // pastelInkStyle lives in applyThemeObject()'s own ink/line computation,
-  // not a body class/dataset here — re-run it so toggling the checkbox
-  // (or any other dev setting; cheap enough to always redo) takes effect
-  // immediately instead of waiting for the next unrelated theme change.
-  applyTheme();
 }
 
 // True on an actual phone-ish viewport/pointer, or whenever
@@ -1065,12 +1043,6 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
     </label>`;
 
   const generalBody = `
-    ${devSectionHeadHtml('Pastel Mode')}
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.pastelInkStyle?'checked':''} onchange="toggleDevSetting('pastelInkStyle', this.checked)">
-      Tint text & lines to match, whenever Category Colors, Desk & Ledger, or UI Colors is set to Pastel (color only — font stays as-is)
-    </label>
-
     ${devSectionHeadHtml('Page Tags')}
     <label class="${rowClass}">
       <input type="checkbox" ${dev.tagSeam?'checked':''} onchange="toggleDevSetting('tagSeam', this.checked)">
