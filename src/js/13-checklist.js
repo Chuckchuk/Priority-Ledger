@@ -252,6 +252,7 @@ function checklistListRowHtml(t){
 function checklistContextMenuHtml(t){
   return `
     <button onclick="ctxMenuAction(()=>toggleStatus('${t.id}'))">${t.status==='done' ? 'Reopen' : 'Mark complete'}</button>
+    ${t.cancelled ? `<button onclick="ctxMenuAction(()=>uncancelTaskToComplete('${t.id}'))">Mark complete</button>` : ''}
     <button onclick="ctxMenuCopyTitle('${t.id}')">Copy title</button>
     <div class="ctxmenu-sep"></div>
     ${t.status!=='done' ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markTaskCancelled('${t.id}'))">Mark as Cancelled</button>` : ''}
@@ -365,16 +366,20 @@ function checklistTitleFieldHtml(t){
     onblur="updateTitle('${t.id}', this.value)"
     onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">`;
 }
-// suffixVal empty falls back to "New List" — same reasoning as
+// suffixVal empty falls back to today's date — same reasoning as
 // confirmSaveListAsTemplate()/confirmCreateFromTemplate() below: an
 // empty <Name> half would otherwise save as "<Template>: " with nothing
-// after the colon, which reads as broken rather than intentional.
+// after the colon, which reads as broken rather than intentional. Today's
+// date (not the literal "New List") per the explicit ask, since a
+// template gets reused repeatedly — "Packing list: Sep 3" tells the two
+// instances apart from each other later, "Packing list: New List" (or
+// worse, several of them) doesn't.
 async function updateTemplatedTitle(id, suffixVal){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
   const tpl = t.templateId ? (state.checklistTemplates||[]).find(tp=>tp.id===t.templateId) : null;
   if(!tpl) return updateTitle(id, suffixVal);
-  const suffix = suffixVal.trim() || 'New List';
+  const suffix = suffixVal.trim() || fmtDate(todayStr());
   await updateTitle(id, `${tpl.name}: ${suffix}`);
 }
 
@@ -632,7 +637,7 @@ function moveTargetTemplateListHtml(){
       return `
         <div class="templatecreaterow">
           <span class="templatenameprefix">${escapeHtml(tpl.name)}: </span>
-          <input type="text" id="moveTargetTemplateNameInput" placeholder="New List"
+          <input type="text" id="moveTargetTemplateNameInput" placeholder="${fmtDate(todayStr())}"
             onkeydown="if(event.key==='Enter'){ confirmMoveItemsToTemplateList('${tpl.id}', this.value); } else if(event.key==='Escape'){ cancelMoveTargetTemplateName(); }">
           <button class="templatecreateconfirm" onclick="confirmMoveItemsToTemplateList('${tpl.id}')">Create</button>
           <button class="templatecreatecancel" onclick="cancelMoveTargetTemplateName()">Cancel</button>
@@ -739,7 +744,7 @@ async function confirmMoveItemsToTemplateList(templateId, nameFromEnter){
   const t = state.tasks.find(x=>x.id===moveModeListId);
   if(!tpl || !t || !moveModeSelectedIds || !moveModeSelectedIds.size) return;
   const input = document.getElementById('moveTargetTemplateNameInput');
-  const specific = (nameFromEnter !== undefined ? nameFromEnter : (input ? input.value : '')).trim() || 'New List';
+  const specific = (nameFromEnter !== undefined ? nameFromEnter : (input ? input.value : '')).trim() || fmtDate(todayStr());
   const n = moveModeSelectedIds.size;
   const title = `${tpl.name}: ${specific}`;
   pushUndo(`Moved ${n} item${n===1?'':'s'} to a new "${tpl.name}" list`);
@@ -890,7 +895,7 @@ async function confirmSaveListAsTemplate(taskId){
   const nameInput = document.getElementById('templateSaveNameInput');
   const specificInput = document.getElementById('templateSaveSpecificInput');
   const templateName = (nameInput ? nameInput.value.trim() : '') || t.title;
-  const specific = (specificInput ? specificInput.value.trim() : '') || 'New List';
+  const specific = (specificInput ? specificInput.value.trim() : '') || fmtDate(todayStr());
   pushUndo(`Saved "${templateName}" as a template`);
   if(!Array.isArray(state.checklistTemplates)) state.checklistTemplates = [];
   const tpl = { id: newId('tpl'), name: templateName, items: (t.subtasks||[]).map(s=>s.text), createdAt: todayStr() };
@@ -926,7 +931,7 @@ function checklistTemplateFooterHtml(t){
         <label class="templatesaveformlabel">Template name</label>
         <input type="text" id="templateSaveNameInput" value="${escapeHtml(t.title)}">
         <label class="templatesaveformlabel">This list's own name <span class="templatesaveformhint">e.g. "Packing List: Madrid Trip"</span></label>
-        <input type="text" id="templateSaveSpecificInput" placeholder="New List">
+        <input type="text" id="templateSaveSpecificInput" placeholder="${fmtDate(todayStr())}">
         <div class="templatesaveformactions">
           <button class="templatecreateconfirm" onclick="confirmSaveListAsTemplate('${t.id}')">Save</button>
           <button class="templatecreatecancel" onclick="cancelSaveListAsTemplate()">Cancel</button>
@@ -970,13 +975,17 @@ function cancelCreateFromTemplate(){
 // is the same string this reads back off the template — the two can
 // never drift apart since neither is hand-typed twice). Opens the new
 // list immediately afterward rather than leaving you on the Templates
-// view, since that's the obvious next thing you'd want.
+// view, since that's the obvious next thing you'd want. An empty name
+// falls back to today's date, same as everywhere else a "<specific>"
+// half of a templated title can be left blank (updateTemplatedTitle(),
+// confirmSaveListAsTemplate()) — a template gets reused repeatedly, so
+// "Packing list: Sep 3" actually tells this instance apart from the
+// next one later; the field no longer just silently no-ops on empty.
 async function confirmCreateFromTemplate(templateId, categoryId){
   const tpl = (state.checklistTemplates||[]).find(tp=>tp.id===templateId);
   if(!tpl) return;
   const input = document.getElementById('templateNameInput');
-  const specific = input ? input.value.trim() : '';
-  if(!specific) return;
+  const specific = (input ? input.value.trim() : '') || fmtDate(todayStr());
   const title = `${tpl.name}: ${specific}`;
   pushUndo(`Created "${title}" from template`);
   const newTask = {
@@ -1007,7 +1016,7 @@ function renderChecklistTemplates(categoryId){
           ${checklistTemplateCreateId === tpl.id ? `
             <div class="templatecreaterow">
               <span class="templatenameprefix">${escapeHtml(tpl.name)}: </span>
-              <input type="text" id="templateNameInput" placeholder="New List"
+              <input type="text" id="templateNameInput" placeholder="${fmtDate(todayStr())}"
                 onkeydown="if(event.key==='Enter'){ confirmCreateFromTemplate('${tpl.id}','${categoryId}'); } else if(event.key==='Escape'){ cancelCreateFromTemplate(); }">
               <button class="templatecreateconfirm" onclick="confirmCreateFromTemplate('${tpl.id}','${categoryId}')">Create</button>
               <button class="templatecreatecancel" onclick="cancelCreateFromTemplate()">Cancel</button>

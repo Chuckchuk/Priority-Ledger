@@ -152,6 +152,25 @@ async function markTaskCancelled(id){
   scheduleTaskLeave(id);
 }
 
+// Reached only from a cancelled task's own right-click/long-press menu,
+// alongside its existing Reopen — the direct "I actually meant complete,
+// not cancelled" fix, per the explicit ask, so correcting a mis-tap
+// doesn't take two separate actions (Reopen back to open, then mark
+// complete again). t.status was already 'done' the moment it was
+// cancelled (see markTaskCancelled() just above) so this only ever
+// clears the cancelled flag itself — nothing else about the task's
+// completion state actually changes. No celebration burst, same
+// reasoning markTaskCancelled() itself skips one: fixing a mislabel
+// isn't a new "you did it" moment.
+async function uncancelTaskToComplete(id){
+  const t = state.tasks.find(t=>t.id===id);
+  if(!t || !t.cancelled) return;
+  pushUndo(`Marked "${t.title}" complete`);
+  t.cancelled = false;
+  render();
+  queueSave();
+}
+
 // How long the just-checked row lingers, fully visible (checkmark,
 // strikethrough title, the celebration burst), before it starts actually
 // leaving — roughly the celebration burst's own duration
@@ -369,6 +388,21 @@ async function markSubtaskCancelled(taskId, subId){
   pushUndo(`Marked a step in "${t.title}" cancelled`);
   s.done = true;
   s.cancelled = true;
+  render();
+  reopen(taskId);
+  queueSave();
+}
+// Same "fix a mislabel directly" shortcut as uncancelTaskToComplete()
+// above, one level down — reused as-is by a checklist item's own context
+// menu too (subtaskContextMenuHtml() is shared by both, a checklist
+// "item" being just a subtask under the hood).
+async function uncancelSubtaskToComplete(taskId, subId){
+  const t = state.tasks.find(t=>t.id===taskId);
+  if(!t) return;
+  const s = (t.subtasks||[]).find(s=>s.id===subId);
+  if(!s || !s.cancelled) return;
+  pushUndo(`Marked a step in "${t.title}" complete`);
+  s.cancelled = false;
   render();
   reopen(taskId);
   queueSave();

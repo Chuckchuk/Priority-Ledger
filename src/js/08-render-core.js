@@ -641,6 +641,7 @@ function taskContextMenuHtml(t, includeEdit){
   const plannedToday = (t.plannedDates||[]).includes(todayStr());
   return `
     <button onclick="ctxMenuAction(()=>toggleStatus('${t.id}'))">${t.status==='done' ? 'Reopen' : 'Mark complete'}</button>
+    ${t.cancelled ? `<button onclick="ctxMenuAction(()=>uncancelTaskToComplete('${t.id}'))">Mark complete</button>` : ''}
     ${t.status!=='done' ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markTaskCancelled('${t.id}'))">Mark as Cancelled</button>` : ''}
     <button onclick="ctxMenuAction(()=>toggleUrgent('${t.id}'))">${t.urgent ? 'Unmark urgent' : 'Mark urgent'}</button>
     <button onclick="ctxMenuAction(()=>toggleTaskToday('${t.id}'))">${plannedToday ? 'Remove from today' : 'Add to today'}</button>
@@ -731,6 +732,7 @@ function openTaskContextMenuForRow(taskId, rowEl){
 function subtaskContextMenuHtml(t, s){
   return `
     <button onclick="ctxMenuAction(()=>toggleSubtask('${t.id}','${s.id}'))">${s.done ? 'Reopen' : 'Mark Complete'}</button>
+    ${s.cancelled ? `<button onclick="ctxMenuAction(()=>uncancelSubtaskToComplete('${t.id}','${s.id}'))">Mark Complete</button>` : ''}
     ${!s.done ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markSubtaskCancelled('${t.id}','${s.id}'))">Mark as Cancelled</button>` : ''}
   `;
 }
