@@ -110,11 +110,15 @@ function fieldPickerHtml(kind, currentValue, onClickFor){
 // below; a step's own text, startEditSubtask(), 15-subtask-edit.js) so a
 // long value gets to actually show on screen across visible lines
 // instead of being edited through a small scrolling window. Wired to
-// both oninput (as you type) and onfocus (the moment you tap in) rather
-// than only the former, since a textarea with a fixed `rows` doesn't
-// otherwise know to grow past that until something asks it to — onfocus
-// is what makes an already-long value show in full the instant you start
-// editing, not only after the first keystroke changes it.
+// oninput (as you type), onfocus (the moment you tap in — makes an
+// already-long value show in full immediately, not only after the first
+// keystroke changes it), AND re-run on every render() (see its own tail
+// call) — the last one is what lets every one of these fields start at
+// rows="1" rather than needing a taller fixed baseline "just in case": a
+// genuinely short value now actually measures short (rows="1"'s real
+// height), which taskDetailActionsPosition's 'headerline' variant
+// (positionHeaderlineActions() below) depends on to tell a short title
+// apart from a long one in the first place.
 function autogrowTextarea(el){
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
@@ -124,18 +128,28 @@ function autogrowTextarea(el){
 // match the checklist detail page's large centered title (see .bigtitle
 // in <style>, shared with .titleedit there); every other caller
 // (taskManagementFieldsHtml, the inline .expand) omits it and gets the
-// normal compact field. Mobile swaps the plain <input> for an
-// autogrowTextarea()-driven <textarea> (see its own comment above) — same
-// onblur/Enter-commits behavior either way; updateTitle() itself collapses
-// any embedded newlines a textarea uniquely allows in (a pasted multi-line
-// value, since Enter itself is intercepted below before it can insert one)
-// back to spaces, so a title can never actually end up multi-line data
-// regardless of which element edited it.
+// normal compact field. Swaps the plain <input> for an
+// autogrowTextarea()-driven <textarea> (see its own comment above) on
+// mobile always, and on desktop too for 'bigtitle' specifically — a long
+// title there used to just horizontally-scroll inside a single-line
+// input, showing whatever portion happened to be scrolled into view
+// rather than the actual title, which is exactly as "lost/unclean" on a
+// mouse-driven desktop as the same field was on a phone (per the
+// explicit ask, reported against BOTH). The small inline/compact
+// variant (no extraClass — the long-press settings sheet, inline task
+// management fields) stays desktop's plain <input>: that context is
+// cramped enough already that turning it multi-line everywhere wasn't
+// what broke, so there's no reason to touch it there. Same onblur/Enter-
+// commits behavior either way; updateTitle() itself collapses any
+// embedded newlines a textarea uniquely allows in (a pasted multi-line
+// value, since Enter itself is intercepted below before it can insert
+// one) back to spaces, so a title can never actually end up multi-line
+// data regardless of which element edited it.
 function taskTitleFieldHtml(t, extraClass){
   const commitAttrs = `onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }"`;
-  if(mobileUiActive()){
-    return `<textarea class="titleedit ${extraClass||''} autogrowtext" rows="2"
+  if(mobileUiActive() || extraClass === 'bigtitle'){
+    return `<textarea class="titleedit ${extraClass||''} autogrowtext" rows="1"
         oninput="autogrowTextarea(this)" onfocus="autogrowTextarea(this)" ${commitAttrs}>${escapeHtml(t.title)}</textarea>`;
   }
   return `<input type="text" class="titleedit ${extraClass||''}" value="${escapeHtml(t.title)}" ${commitAttrs}>`;
@@ -266,12 +280,29 @@ function taskAdvancedFieldsRowHtml(t){
   const timeframeFlash = timeframeFlashTaskId === t.id
     ? (timeframeFlashKind === 'conflict' ? ' timeframe-flash-conflict' : ' timeframe-flash-auto')
     : '';
+  // Per the explicit ask: Timeframe and Priority used to sit directly
+  // next to each other in one flat flex row, which on desktop read as
+  // harder to tell apart (nothing marks where one field ends and the
+  // other begins) and on mobile wrapped oddly — the two pill groups
+  // aren't independent of each other in a single flex-wrap row, so a
+  // group could end up split across lines in whatever order happened to
+  // run out of width, rather than each field's own pills staying
+  // together as one wrapping block. .fieldsrow (justify-content:
+  // space-between) plus one .fieldgroup wrapper per field fixes both:
+  // desktop keeps Timeframe pinned left and Priority pinned right with
+  // real daylight between them, and each group now wraps its own pills
+  // independently of the other's, so Timeframe running out of room never
+  // pushes part of Priority (or vice versa) into a confusing spot.
   return `
-      <div class="expand-row">
-        <label class="fieldlabel">TIMEFRAME</label>
-        <span class="timeframewrap${timeframeFlash}">${timeframePicker}</span>
-        <label class="fieldlabel">PRIORITY</label>
-        ${priorityPicker}
+      <div class="expand-row fieldsrow">
+        <div class="fieldgroup">
+          <label class="fieldlabel">TIMEFRAME</label>
+          <span class="timeframewrap${timeframeFlash}">${timeframePicker}</span>
+        </div>
+        <div class="fieldgroup">
+          <label class="fieldlabel">PRIORITY</label>
+          ${priorityPicker}
+        </div>
       </div>`;
 }
 
@@ -867,6 +898,14 @@ function handleSubtaskContextMenu(e, taskId, subId){
 // about a *row's* tap behavior that has no meaning for one step's text).
 let subtaskPressTimer = null;
 let subtaskPressRow = null;
+// The whole .subrow (not subtaskPressRow itself, which stays .subtext —
+// see below) to dim during the hold — same .pressing feedback a standard
+// task row already gives instantly on touchstart (see taskPressStart()'s
+// own comment on .row.pressing in <style>), per the explicit ask for
+// "something is happening" feedback on every long-pressable item, not
+// just task rows. Kept as its own variable rather than re-deriving via
+// closest() in three places.
+let subtaskPressWholeRow = null;
 let subtaskPressStartX = 0, subtaskPressStartY = 0;
 let subtaskLongPressFired = false;
 function subtaskPressStart(e, taskId, subId){
@@ -875,11 +914,17 @@ function subtaskPressStart(e, taskId, subId){
   const pt = e.touches ? e.touches[0] : e;
   subtaskPressStartX = pt.clientX;
   subtaskPressStartY = pt.clientY;
+  // subtaskPressRow stays .subtext itself (the touch target) — its own
+  // getBoundingClientRect() below is what anchors the menu, and that's
+  // always meant to hug the text specifically, not the whole row.
   subtaskPressRow = e.currentTarget;
+  subtaskPressWholeRow = subtaskPressRow.closest('.subrow');
+  if(subtaskPressWholeRow) subtaskPressWholeRow.classList.add('pressing');
   clearTimeout(subtaskPressTimer);
   subtaskPressTimer = setTimeout(() => {
     subtaskPressTimer = null;
     subtaskLongPressFired = true;
+    if(subtaskPressWholeRow) subtaskPressWholeRow.classList.remove('pressing');
     const r = subtaskPressRow.getBoundingClientRect();
     renderSubtaskContextMenu(taskId, subId, r.left, r.bottom + 6);
   }, TASK_LONG_PRESS_MS);
@@ -894,11 +939,13 @@ function subtaskPressMove(e){
   if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
     clearTimeout(subtaskPressTimer);
     subtaskPressTimer = null;
+    if(subtaskPressWholeRow) subtaskPressWholeRow.classList.remove('pressing');
   }
 }
 function subtaskPressEnd(){
   clearTimeout(subtaskPressTimer);
   subtaskPressTimer = null;
+  if(subtaskPressWholeRow) subtaskPressWholeRow.classList.remove('pressing');
   if(subtaskLongPressFired) ctxMenuDragEnd();
 }
 // Swallows the click a touchend fires right after a long-press already
@@ -927,10 +974,17 @@ function taskDetailCheckPressStart(e, taskId){
   taskDetailCheckPressStartX = pt.clientX;
   taskDetailCheckPressStartY = pt.clientY;
   taskDetailCheckPressEl = e.currentTarget;
+  // Opacity, not the .pressing background/scale treatment a row gets —
+  // this element already carries its own scale(2.2) transform (see
+  // .taskdetailhead .checkwrap in <style>), and a second transform
+  // declaration would just replace the first rather than combine with
+  // it, undoing that sizing for as long as the hold lasts.
+  taskDetailCheckPressEl.classList.add('pressing');
   clearTimeout(taskDetailCheckPressTimer);
   taskDetailCheckPressTimer = setTimeout(() => {
     taskDetailCheckPressTimer = null;
     taskDetailCheckLongPressFired = true;
+    taskDetailCheckPressEl.classList.remove('pressing');
     openTaskContextMenuForRow(taskId, taskDetailCheckPressEl);
   }, TASK_LONG_PRESS_MS);
 }
@@ -943,11 +997,13 @@ function taskDetailCheckPressMove(e){
   if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
     clearTimeout(taskDetailCheckPressTimer);
     taskDetailCheckPressTimer = null;
+    if(taskDetailCheckPressEl) taskDetailCheckPressEl.classList.remove('pressing');
   }
 }
 function taskDetailCheckPressEnd(){
   clearTimeout(taskDetailCheckPressTimer);
   taskDetailCheckPressTimer = null;
+  if(taskDetailCheckPressEl) taskDetailCheckPressEl.classList.remove('pressing');
   if(taskDetailCheckLongPressFired) ctxMenuDragEnd();
 }
 function taskDetailCheckTap(e, taskId){
@@ -1524,6 +1580,53 @@ function currentTabBodyHtml(){
   return categoryListHtml();
 }
 
+// 'headerline' (EXPERIMENTAL taskDetailActionsPosition, see
+// devSettingsFieldsHtml()'s own comment in 01-categories-theme.js) rests
+// the flag/pin/share buttons a few px above the title's own underline —
+// unlike corner/topleft (anchored to #appCard's own fixed corners, which
+// never move), that line's actual Y position is exactly as variable as
+// the title text above it: a long title wrapping to 3-4 lines pushes it
+// much further down than a short one- or two-line title does. The old
+// fixed CSS `top` (one number for desktop, one for mobile — see the
+// body[data-taskdetail-actions="headerline"] rules in <style>) was
+// measured against a short test title, so a genuinely long one left the
+// buttons overlapping mid-title instead of resting below it — exactly
+// the "buttons lost behind the title, looks unclean" bug reported. This
+// measures the title's actual current bottom edge after every render
+// (regardless of how many lines it wrapped to) and repositions both
+// buttons relative to that, in JS, rather than trying to keep guessing a
+// better fixed number. The CSS values remain as the pre-JS fallback (so
+// there's no flash of unpositioned buttons before this first runs).
+// Resting right above the underline only actually works while the title
+// is short enough that doing so doesn't run the button into the title's
+// OWN text first — .titleedit's padding-bottom (the whitespace between
+// the last line of text and the underline itself) is a fixed few px,
+// nowhere near tall enough to also fit a ~30px button once a title wraps
+// to several lines. Rather than let that overlap happen (the original
+// bug), a title tall enough to cause it falls back to resting just above
+// the title's own TOP edge instead — the same spot a short title's
+// buttons already end up near anyway (a short title begins right below
+// the checkbox row), so this reads as "the same feature, gracefully
+// stepping back to a safe spot" rather than a visibly different mode.
+const HEADERLINE_GAP_PX = 4;
+function positionHeaderlineActions(){
+  if((state.devSettings||{}).taskDetailActionsPosition !== 'headerline') return;
+  const title = document.querySelector('#genericTaskDetailView .titleedit.bigtitle');
+  const stackedpage = title && title.closest('.stackedpage');
+  if(!title || !stackedpage) return;
+  const titleRect = title.getBoundingClientRect();
+  const containerTop = stackedpage.getBoundingClientRect().top;
+  const relTitleTop = titleRect.top - containerTop;
+  const relTitleBottom = titleRect.bottom - containerTop;
+  ['titleactions', 'taskdetailshare'].forEach(cls => {
+    const el = document.querySelector(`#genericTaskDetailView .${cls}`);
+    if(!el) return;
+    let top = relTitleBottom - HEADERLINE_GAP_PX - el.offsetHeight;
+    if(top >= relTitleTop) top = relTitleTop - HEADERLINE_GAP_PX - el.offsetHeight;
+    el.style.top = top + 'px';
+  });
+}
+
 function render(){
   // Sizes every mobile autogrowTextarea() field (a task/list's own title,
   // a step's text mid-edit) to fit its current content on the next
@@ -1533,8 +1636,13 @@ function render(){
   // several early `return`s below for different views, so a single tail
   // call at the end of render() itself wouldn't run for most of them.
   // Cheap even when nothing needs it: 0 matches on desktop, and a plain
-  // querySelectorAll the rest of the time.
-  requestAnimationFrame(() => document.querySelectorAll('.autogrowtext').forEach(autogrowTextarea));
+  // querySelectorAll the rest of the time. positionHeaderlineActions()
+  // rides along on the same next-frame pass for the same reason (needs
+  // the title's post-render, post-autogrow layout to measure against).
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.autogrowtext').forEach(autogrowTextarea);
+    positionHeaderlineActions();
+  });
   renderDevPanel();
   renderTaskSettingsSheet();
   renderLocBadge();

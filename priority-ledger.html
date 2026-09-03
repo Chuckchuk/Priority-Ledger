@@ -745,6 +745,24 @@
      08-render-core.js) — without this the 500ms hold gives no visual cue
      at all until either it fires or the finger lifts. */
   .row.pressing{ background: var(--card-bg-dim); border-radius:6px; transform: scale(0.98); }
+  /* Same feedback, extended to a step/checklist-item row's own hold
+     (subtaskPressStart(), 08-render-core.js — also covers a checklist
+     item, which reuses that same engine) per the explicit ask: every
+     long-pressable item should give this same "something is happening"
+     cue while you wait, not just a standard task row. .subrow's own base
+     rule has no transition of its own (unlike .row) to inherit, so this
+     adds one directly rather than reaching back to change the shared
+     base rule for every other .subrow state (dragging, dragover, etc.)
+     that doesn't want it animated. */
+  .subrow{ transition: background-color 120ms ease, transform 120ms ease; }
+  .subrow.pressing{ background: var(--card-bg-dim); border-radius:6px; transform: scale(0.98); }
+  /* The task detail page's own big checkbox (taskDetailCheckPressStart(),
+     08-render-core.js) — opacity rather than .row.pressing's background/
+     scale treatment, since this element already carries its own
+     transform:scale(2.2) (.taskdetailhead .checkwrap in <style>) that a
+     second transform declaration would just overwrite rather than
+     combine with, undoing that sizing for as long as the hold lasts. */
+  .checkwrap.pressing{ opacity:0.6; }
   /* Drag reordering is scoped to this small handle rather than the whole
      row — the row already has its own click-to-expand and a checkbox
      right next to where a handle would sit, so making the entire row a
@@ -1090,7 +1108,17 @@
      directly in .row the way they used to (same flex:1/flex-shrink:0
      roles, just one level deeper), so this changes nothing by default. */
   .titlewrap{ display:flex; align-items:baseline; gap:8px; flex:1; min-width:0; }
-  .title{ flex:1; font-size:0.97rem; line-height:1.4; }
+  /* min-width:0 (not the flex-item default of auto) — without it, .title
+     refuses to shrink below its own longest unbreakable word's width
+     even once .titlewrap itself has none left to give it (a long title
+     alongside .meta's own flex-shrink:0 badges, on a narrow phone row).
+     That forced the whole row wider than .titlewrap's real box instead
+     of just wrapping the title text further, which is what pushed .meta
+     out past the row's own right edge into the fixed-position flag/pin/
+     expand buttons next to it — the exact "badge overlapping the pin
+     icon" bug reported. Same fix, same reasoning, as .subtext's own
+     min-width:0 a few hundred lines down. */
+  .title{ flex:1; min-width:0; font-size:0.97rem; line-height:1.4; }
   .title.done{ text-decoration: line-through; color: var(--ink-soft); }
   /* EXPERIMENTAL — Settings → Dev Settings. Always rendered by
      checklistListRowHtml() (see .listdate there), just hidden by
@@ -1179,6 +1207,13 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-accent) 20%, transparent);
   }
   .expand-row{ display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  /* Timeframe/Priority (taskAdvancedFieldsRowHtml(), 08-render-core.js)
+     — see that function's own comment. space-between pins the two
+     .fieldgroup children to opposite ends on desktop; each group is its
+     own flex-wrap container so a group's pills wrap together as a block
+     if they don't fit, independent of the other group's own width. */
+  .expand-row.fieldsrow{ justify-content:space-between; }
+  .fieldgroup{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   /* Groups the urgent/today-pin/remove buttons into one unit, purely as a
      CSS hook for the Mobile UI Lab's taskDetailMobile "stacked"/"grouped"
      variants (near the end of this file) — display:contents makes the
@@ -1406,30 +1441,33 @@
      checklist list's own items share the row markup with (13-checklist.js)
      — those never had a pin button here to begin with. */
   body.mobileui-active .subrow .stepsactions .daybtn{ display:none; }
-  /* Per the explicit follow-up ask: a "Date -----" placeholder (and,
-     alongside it, a Remove "×" — brought back per a later follow-up, see
-     below) on every single step, most of which will never get one, read
-     as unnecessary information cluttering the list — worse once the Date
-     chip started sitting inline with short steps (more visible per
-     screen, not less). Both stay hidden while this task has never used a
-     due date on ANY of its steps (.subwrap.stepsdated, set by
-     taskSubtasksHtml() from subs.some(s=>s.dueDate)) — the moment one
-     step gets a date, both show for every step in this same task, dated
-     or not, rather than the affordance only ever being discoverable one
-     step at a time through each one's own long-press menu. Before that
-     first date exists, "Add Date" in this row's own long-press menu
-     (subtaskContextMenuHtml(), 08-render-core.js — gated on !s.dueDate)
-     is the only way in: it calls startAddSubtaskDate(), which finds this
-     very (CSS-hidden, still real) .datefield element and swaps it for the
-     same startEditSubtaskDate() input a visible field's own tap already
-     uses — no separate "whole new menu" needed, since the swap-to-input
-     mechanism already works on a display:none element exactly like a
-     visible one. Remove stays reachable via the menu's own "Remove Item"
-     regardless of stepsdated — this only ever governs the INLINE copy of
-     that same action, per "next to the date button whenever the date
-     matters." */
-  body.mobileui-active .subwrap:not(.stepsdated) .subrow .stepsactions .datefield.empty,
-  body.mobileui-active .subwrap:not(.stepsdated) .subrow .stepsactions .subdel{ display:none; }
+  /* Per the explicit follow-up ask: a "Date -----" placeholder on every
+     single step, most of which will never get one, read as unnecessary
+     information cluttering the list — worse once the Date chip started
+     sitting inline with short steps (more visible per screen, not less).
+     Stays hidden while this task has never used a due date on ANY of its
+     steps (.subwrap.stepsdated, set by taskSubtasksHtml() from
+     subs.some(s=>s.dueDate)) — the moment one step gets a date, it shows
+     for every step in this same task, dated or not, rather than the
+     affordance only ever being discoverable one step at a time through
+     each one's own long-press menu. Before that first date exists, "Add
+     Date" in this row's own long-press menu (subtaskContextMenuHtml(),
+     08-render-core.js — gated on !s.dueDate) is the only way in: it calls
+     startAddSubtaskDate(), which finds this very (CSS-hidden, still real)
+     .datefield element and swaps it for the same startEditSubtaskDate()
+     input a visible field's own tap already uses — no separate "whole
+     new menu" needed, since the swap-to-input mechanism already works on
+     a display:none element exactly like a visible one. Remove ("×")
+     itself is NOT gated on stepsdated per a later follow-up ask — a step
+     needs to be removable regardless of whether this task uses dates at
+     all, unlike Date, which genuinely has nothing to show while
+     everything's still empty. */
+  body.mobileui-active .subwrap:not(.stepsdated) .subrow .stepsactions .datefield.empty{ display:none; }
+  /* Smaller than .subdel's own base rule on mobile specifically — now
+     that it's always inline next to the Date chip (rather than menu-only,
+     see above), per the explicit ask it needed to give back a little of
+     the room it costs sitting there permanently. */
+  body.mobileui-active .subrow .stepsactions .subdel{ font-size:0.72rem; padding:0 2px; }
   /* Per the explicit follow-up ask: once Pin/Remove were gone, the lone
      remaining Date chip still always dropped to its own full-width line
      below the text (the general .subrowactions rule above), which for a
@@ -9827,11 +9865,15 @@ function fieldPickerHtml(kind, currentValue, onClickFor){
 // below; a step's own text, startEditSubtask(), 15-subtask-edit.js) so a
 // long value gets to actually show on screen across visible lines
 // instead of being edited through a small scrolling window. Wired to
-// both oninput (as you type) and onfocus (the moment you tap in) rather
-// than only the former, since a textarea with a fixed `rows` doesn't
-// otherwise know to grow past that until something asks it to — onfocus
-// is what makes an already-long value show in full the instant you start
-// editing, not only after the first keystroke changes it.
+// oninput (as you type), onfocus (the moment you tap in — makes an
+// already-long value show in full immediately, not only after the first
+// keystroke changes it), AND re-run on every render() (see its own tail
+// call) — the last one is what lets every one of these fields start at
+// rows="1" rather than needing a taller fixed baseline "just in case": a
+// genuinely short value now actually measures short (rows="1"'s real
+// height), which taskDetailActionsPosition's 'headerline' variant
+// (positionHeaderlineActions() below) depends on to tell a short title
+// apart from a long one in the first place.
 function autogrowTextarea(el){
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
@@ -9841,18 +9883,28 @@ function autogrowTextarea(el){
 // match the checklist detail page's large centered title (see .bigtitle
 // in <style>, shared with .titleedit there); every other caller
 // (taskManagementFieldsHtml, the inline .expand) omits it and gets the
-// normal compact field. Mobile swaps the plain <input> for an
-// autogrowTextarea()-driven <textarea> (see its own comment above) — same
-// onblur/Enter-commits behavior either way; updateTitle() itself collapses
-// any embedded newlines a textarea uniquely allows in (a pasted multi-line
-// value, since Enter itself is intercepted below before it can insert one)
-// back to spaces, so a title can never actually end up multi-line data
-// regardless of which element edited it.
+// normal compact field. Swaps the plain <input> for an
+// autogrowTextarea()-driven <textarea> (see its own comment above) on
+// mobile always, and on desktop too for 'bigtitle' specifically — a long
+// title there used to just horizontally-scroll inside a single-line
+// input, showing whatever portion happened to be scrolled into view
+// rather than the actual title, which is exactly as "lost/unclean" on a
+// mouse-driven desktop as the same field was on a phone (per the
+// explicit ask, reported against BOTH). The small inline/compact
+// variant (no extraClass — the long-press settings sheet, inline task
+// management fields) stays desktop's plain <input>: that context is
+// cramped enough already that turning it multi-line everywhere wasn't
+// what broke, so there's no reason to touch it there. Same onblur/Enter-
+// commits behavior either way; updateTitle() itself collapses any
+// embedded newlines a textarea uniquely allows in (a pasted multi-line
+// value, since Enter itself is intercepted below before it can insert
+// one) back to spaces, so a title can never actually end up multi-line
+// data regardless of which element edited it.
 function taskTitleFieldHtml(t, extraClass){
   const commitAttrs = `onblur="updateTitle('${t.id}', this.value)"
         onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }"`;
-  if(mobileUiActive()){
-    return `<textarea class="titleedit ${extraClass||''} autogrowtext" rows="2"
+  if(mobileUiActive() || extraClass === 'bigtitle'){
+    return `<textarea class="titleedit ${extraClass||''} autogrowtext" rows="1"
         oninput="autogrowTextarea(this)" onfocus="autogrowTextarea(this)" ${commitAttrs}>${escapeHtml(t.title)}</textarea>`;
   }
   return `<input type="text" class="titleedit ${extraClass||''}" value="${escapeHtml(t.title)}" ${commitAttrs}>`;
@@ -9983,12 +10035,29 @@ function taskAdvancedFieldsRowHtml(t){
   const timeframeFlash = timeframeFlashTaskId === t.id
     ? (timeframeFlashKind === 'conflict' ? ' timeframe-flash-conflict' : ' timeframe-flash-auto')
     : '';
+  // Per the explicit ask: Timeframe and Priority used to sit directly
+  // next to each other in one flat flex row, which on desktop read as
+  // harder to tell apart (nothing marks where one field ends and the
+  // other begins) and on mobile wrapped oddly — the two pill groups
+  // aren't independent of each other in a single flex-wrap row, so a
+  // group could end up split across lines in whatever order happened to
+  // run out of width, rather than each field's own pills staying
+  // together as one wrapping block. .fieldsrow (justify-content:
+  // space-between) plus one .fieldgroup wrapper per field fixes both:
+  // desktop keeps Timeframe pinned left and Priority pinned right with
+  // real daylight between them, and each group now wraps its own pills
+  // independently of the other's, so Timeframe running out of room never
+  // pushes part of Priority (or vice versa) into a confusing spot.
   return `
-      <div class="expand-row">
-        <label class="fieldlabel">TIMEFRAME</label>
-        <span class="timeframewrap${timeframeFlash}">${timeframePicker}</span>
-        <label class="fieldlabel">PRIORITY</label>
-        ${priorityPicker}
+      <div class="expand-row fieldsrow">
+        <div class="fieldgroup">
+          <label class="fieldlabel">TIMEFRAME</label>
+          <span class="timeframewrap${timeframeFlash}">${timeframePicker}</span>
+        </div>
+        <div class="fieldgroup">
+          <label class="fieldlabel">PRIORITY</label>
+          ${priorityPicker}
+        </div>
       </div>`;
 }
 
@@ -10584,6 +10653,14 @@ function handleSubtaskContextMenu(e, taskId, subId){
 // about a *row's* tap behavior that has no meaning for one step's text).
 let subtaskPressTimer = null;
 let subtaskPressRow = null;
+// The whole .subrow (not subtaskPressRow itself, which stays .subtext —
+// see below) to dim during the hold — same .pressing feedback a standard
+// task row already gives instantly on touchstart (see taskPressStart()'s
+// own comment on .row.pressing in <style>), per the explicit ask for
+// "something is happening" feedback on every long-pressable item, not
+// just task rows. Kept as its own variable rather than re-deriving via
+// closest() in three places.
+let subtaskPressWholeRow = null;
 let subtaskPressStartX = 0, subtaskPressStartY = 0;
 let subtaskLongPressFired = false;
 function subtaskPressStart(e, taskId, subId){
@@ -10592,11 +10669,17 @@ function subtaskPressStart(e, taskId, subId){
   const pt = e.touches ? e.touches[0] : e;
   subtaskPressStartX = pt.clientX;
   subtaskPressStartY = pt.clientY;
+  // subtaskPressRow stays .subtext itself (the touch target) — its own
+  // getBoundingClientRect() below is what anchors the menu, and that's
+  // always meant to hug the text specifically, not the whole row.
   subtaskPressRow = e.currentTarget;
+  subtaskPressWholeRow = subtaskPressRow.closest('.subrow');
+  if(subtaskPressWholeRow) subtaskPressWholeRow.classList.add('pressing');
   clearTimeout(subtaskPressTimer);
   subtaskPressTimer = setTimeout(() => {
     subtaskPressTimer = null;
     subtaskLongPressFired = true;
+    if(subtaskPressWholeRow) subtaskPressWholeRow.classList.remove('pressing');
     const r = subtaskPressRow.getBoundingClientRect();
     renderSubtaskContextMenu(taskId, subId, r.left, r.bottom + 6);
   }, TASK_LONG_PRESS_MS);
@@ -10611,11 +10694,13 @@ function subtaskPressMove(e){
   if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
     clearTimeout(subtaskPressTimer);
     subtaskPressTimer = null;
+    if(subtaskPressWholeRow) subtaskPressWholeRow.classList.remove('pressing');
   }
 }
 function subtaskPressEnd(){
   clearTimeout(subtaskPressTimer);
   subtaskPressTimer = null;
+  if(subtaskPressWholeRow) subtaskPressWholeRow.classList.remove('pressing');
   if(subtaskLongPressFired) ctxMenuDragEnd();
 }
 // Swallows the click a touchend fires right after a long-press already
@@ -10644,10 +10729,17 @@ function taskDetailCheckPressStart(e, taskId){
   taskDetailCheckPressStartX = pt.clientX;
   taskDetailCheckPressStartY = pt.clientY;
   taskDetailCheckPressEl = e.currentTarget;
+  // Opacity, not the .pressing background/scale treatment a row gets —
+  // this element already carries its own scale(2.2) transform (see
+  // .taskdetailhead .checkwrap in <style>), and a second transform
+  // declaration would just replace the first rather than combine with
+  // it, undoing that sizing for as long as the hold lasts.
+  taskDetailCheckPressEl.classList.add('pressing');
   clearTimeout(taskDetailCheckPressTimer);
   taskDetailCheckPressTimer = setTimeout(() => {
     taskDetailCheckPressTimer = null;
     taskDetailCheckLongPressFired = true;
+    taskDetailCheckPressEl.classList.remove('pressing');
     openTaskContextMenuForRow(taskId, taskDetailCheckPressEl);
   }, TASK_LONG_PRESS_MS);
 }
@@ -10660,11 +10752,13 @@ function taskDetailCheckPressMove(e){
   if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
     clearTimeout(taskDetailCheckPressTimer);
     taskDetailCheckPressTimer = null;
+    if(taskDetailCheckPressEl) taskDetailCheckPressEl.classList.remove('pressing');
   }
 }
 function taskDetailCheckPressEnd(){
   clearTimeout(taskDetailCheckPressTimer);
   taskDetailCheckPressTimer = null;
+  if(taskDetailCheckPressEl) taskDetailCheckPressEl.classList.remove('pressing');
   if(taskDetailCheckLongPressFired) ctxMenuDragEnd();
 }
 function taskDetailCheckTap(e, taskId){
@@ -11241,6 +11335,53 @@ function currentTabBodyHtml(){
   return categoryListHtml();
 }
 
+// 'headerline' (EXPERIMENTAL taskDetailActionsPosition, see
+// devSettingsFieldsHtml()'s own comment in 01-categories-theme.js) rests
+// the flag/pin/share buttons a few px above the title's own underline —
+// unlike corner/topleft (anchored to #appCard's own fixed corners, which
+// never move), that line's actual Y position is exactly as variable as
+// the title text above it: a long title wrapping to 3-4 lines pushes it
+// much further down than a short one- or two-line title does. The old
+// fixed CSS `top` (one number for desktop, one for mobile — see the
+// body[data-taskdetail-actions="headerline"] rules in <style>) was
+// measured against a short test title, so a genuinely long one left the
+// buttons overlapping mid-title instead of resting below it — exactly
+// the "buttons lost behind the title, looks unclean" bug reported. This
+// measures the title's actual current bottom edge after every render
+// (regardless of how many lines it wrapped to) and repositions both
+// buttons relative to that, in JS, rather than trying to keep guessing a
+// better fixed number. The CSS values remain as the pre-JS fallback (so
+// there's no flash of unpositioned buttons before this first runs).
+// Resting right above the underline only actually works while the title
+// is short enough that doing so doesn't run the button into the title's
+// OWN text first — .titleedit's padding-bottom (the whitespace between
+// the last line of text and the underline itself) is a fixed few px,
+// nowhere near tall enough to also fit a ~30px button once a title wraps
+// to several lines. Rather than let that overlap happen (the original
+// bug), a title tall enough to cause it falls back to resting just above
+// the title's own TOP edge instead — the same spot a short title's
+// buttons already end up near anyway (a short title begins right below
+// the checkbox row), so this reads as "the same feature, gracefully
+// stepping back to a safe spot" rather than a visibly different mode.
+const HEADERLINE_GAP_PX = 4;
+function positionHeaderlineActions(){
+  if((state.devSettings||{}).taskDetailActionsPosition !== 'headerline') return;
+  const title = document.querySelector('#genericTaskDetailView .titleedit.bigtitle');
+  const stackedpage = title && title.closest('.stackedpage');
+  if(!title || !stackedpage) return;
+  const titleRect = title.getBoundingClientRect();
+  const containerTop = stackedpage.getBoundingClientRect().top;
+  const relTitleTop = titleRect.top - containerTop;
+  const relTitleBottom = titleRect.bottom - containerTop;
+  ['titleactions', 'taskdetailshare'].forEach(cls => {
+    const el = document.querySelector(`#genericTaskDetailView .${cls}`);
+    if(!el) return;
+    let top = relTitleBottom - HEADERLINE_GAP_PX - el.offsetHeight;
+    if(top >= relTitleTop) top = relTitleTop - HEADERLINE_GAP_PX - el.offsetHeight;
+    el.style.top = top + 'px';
+  });
+}
+
 function render(){
   // Sizes every mobile autogrowTextarea() field (a task/list's own title,
   // a step's text mid-edit) to fit its current content on the next
@@ -11250,8 +11391,13 @@ function render(){
   // several early `return`s below for different views, so a single tail
   // call at the end of render() itself wouldn't run for most of them.
   // Cheap even when nothing needs it: 0 matches on desktop, and a plain
-  // querySelectorAll the rest of the time.
-  requestAnimationFrame(() => document.querySelectorAll('.autogrowtext').forEach(autogrowTextarea));
+  // querySelectorAll the rest of the time. positionHeaderlineActions()
+  // rides along on the same next-frame pass for the same reason (needs
+  // the title's post-render, post-autogrow layout to measure against).
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.autogrowtext').forEach(autogrowTextarea);
+    positionHeaderlineActions();
+  });
   renderDevPanel();
   renderTaskSettingsSheet();
   renderLocBadge();
@@ -14564,10 +14710,13 @@ function checklistRowTap(e, taskId){
 // whose title has since been hand-edited away from starting with
 // "<Template>: " (nothing stops that at the character level; this only
 // renders the split UI when the title still visibly matches).
-// Mobile variants use the same autogrowTextarea() <textarea> swap as a
-// standard task's own title (taskTitleFieldHtml(), 08-render-core.js) —
-// see that function's own comment for why a <textarea> here is safe
-// (updateTitle()/updateTemplatedTitle() both collapse newlines back out).
+// Always the autogrowTextarea() <textarea> swap (see taskTitleFieldHtml()'s
+// own comment, 08-render-core.js, for why a <textarea> is safe here —
+// updateTitle()/updateTemplatedTitle() both collapse newlines back out),
+// on desktop as well as mobile — a checklist's own title is ALWAYS the
+// big page-header variant (there's no compact one to fall back to the
+// way a standard task's title has), so there's no narrower context here
+// where a plain single-line <input> would ever be the better fit.
 function checklistTitleFieldHtml(t){
   const tpl = t.templateId ? (state.checklistTemplates||[]).find(tp=>tp.id===t.templateId) : null;
   const prefix = tpl ? `${tpl.name}: ` : null;
@@ -14575,23 +14724,17 @@ function checklistTitleFieldHtml(t){
     const suffix = t.title.slice(prefix.length);
     const commitAttrs = `onblur="updateTemplatedTitle('${t.id}', this.value)"
           onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }"`;
-    const field = mobileUiActive()
-      ? `<textarea class="titleedit bigtitle templatetitlesuffix autogrowtext" rows="2"
-          oninput="autogrowTextarea(this)" onfocus="autogrowTextarea(this)" ${commitAttrs}>${escapeHtml(suffix)}</textarea>`
-      : `<input type="text" class="titleedit bigtitle templatetitlesuffix" value="${escapeHtml(suffix)}" ${commitAttrs}>`;
     return `
       <div class="templatetitlerow">
         <span class="templatetitleprefix">${escapeHtml(tpl.name)}:</span>
-        ${field}
+        <textarea class="titleedit bigtitle templatetitlesuffix autogrowtext" rows="1"
+          oninput="autogrowTextarea(this)" onfocus="autogrowTextarea(this)" ${commitAttrs}>${escapeHtml(suffix)}</textarea>
       </div>`;
   }
   const commitAttrs = `onblur="updateTitle('${t.id}', this.value)"
     onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }"`;
-  if(mobileUiActive()){
-    return `<textarea class="titleedit bigtitle autogrowtext" rows="2"
+  return `<textarea class="titleedit bigtitle autogrowtext" rows="1"
       oninput="autogrowTextarea(this)" onfocus="autogrowTextarea(this)" ${commitAttrs}>${escapeHtml(t.title)}</textarea>`;
-  }
-  return `<input type="text" class="titleedit bigtitle" value="${escapeHtml(t.title)}" ${commitAttrs}>`;
 }
 // suffixVal empty falls back to today's date — same reasoning as
 // confirmSaveListAsTemplate()/confirmCreateFromTemplate() below: an

@@ -713,6 +713,24 @@
      08-render-core.js) — without this the 500ms hold gives no visual cue
      at all until either it fires or the finger lifts. */
   .row.pressing{ background: var(--card-bg-dim); border-radius:6px; transform: scale(0.98); }
+  /* Same feedback, extended to a step/checklist-item row's own hold
+     (subtaskPressStart(), 08-render-core.js — also covers a checklist
+     item, which reuses that same engine) per the explicit ask: every
+     long-pressable item should give this same "something is happening"
+     cue while you wait, not just a standard task row. .subrow's own base
+     rule has no transition of its own (unlike .row) to inherit, so this
+     adds one directly rather than reaching back to change the shared
+     base rule for every other .subrow state (dragging, dragover, etc.)
+     that doesn't want it animated. */
+  .subrow{ transition: background-color 120ms ease, transform 120ms ease; }
+  .subrow.pressing{ background: var(--card-bg-dim); border-radius:6px; transform: scale(0.98); }
+  /* The task detail page's own big checkbox (taskDetailCheckPressStart(),
+     08-render-core.js) — opacity rather than .row.pressing's background/
+     scale treatment, since this element already carries its own
+     transform:scale(2.2) (.taskdetailhead .checkwrap in <style>) that a
+     second transform declaration would just overwrite rather than
+     combine with, undoing that sizing for as long as the hold lasts. */
+  .checkwrap.pressing{ opacity:0.6; }
   /* Drag reordering is scoped to this small handle rather than the whole
      row — the row already has its own click-to-expand and a checkbox
      right next to where a handle would sit, so making the entire row a
@@ -1058,7 +1076,17 @@
      directly in .row the way they used to (same flex:1/flex-shrink:0
      roles, just one level deeper), so this changes nothing by default. */
   .titlewrap{ display:flex; align-items:baseline; gap:8px; flex:1; min-width:0; }
-  .title{ flex:1; font-size:0.97rem; line-height:1.4; }
+  /* min-width:0 (not the flex-item default of auto) — without it, .title
+     refuses to shrink below its own longest unbreakable word's width
+     even once .titlewrap itself has none left to give it (a long title
+     alongside .meta's own flex-shrink:0 badges, on a narrow phone row).
+     That forced the whole row wider than .titlewrap's real box instead
+     of just wrapping the title text further, which is what pushed .meta
+     out past the row's own right edge into the fixed-position flag/pin/
+     expand buttons next to it — the exact "badge overlapping the pin
+     icon" bug reported. Same fix, same reasoning, as .subtext's own
+     min-width:0 a few hundred lines down. */
+  .title{ flex:1; min-width:0; font-size:0.97rem; line-height:1.4; }
   .title.done{ text-decoration: line-through; color: var(--ink-soft); }
   /* EXPERIMENTAL — Settings → Dev Settings. Always rendered by
      checklistListRowHtml() (see .listdate there), just hidden by
@@ -1147,6 +1175,13 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--input-accent) 20%, transparent);
   }
   .expand-row{ display:flex; gap:10px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  /* Timeframe/Priority (taskAdvancedFieldsRowHtml(), 08-render-core.js)
+     — see that function's own comment. space-between pins the two
+     .fieldgroup children to opposite ends on desktop; each group is its
+     own flex-wrap container so a group's pills wrap together as a block
+     if they don't fit, independent of the other group's own width. */
+  .expand-row.fieldsrow{ justify-content:space-between; }
+  .fieldgroup{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   /* Groups the urgent/today-pin/remove buttons into one unit, purely as a
      CSS hook for the Mobile UI Lab's taskDetailMobile "stacked"/"grouped"
      variants (near the end of this file) — display:contents makes the
@@ -1374,30 +1409,33 @@
      checklist list's own items share the row markup with (13-checklist.js)
      — those never had a pin button here to begin with. */
   body.mobileui-active .subrow .stepsactions .daybtn{ display:none; }
-  /* Per the explicit follow-up ask: a "Date -----" placeholder (and,
-     alongside it, a Remove "×" — brought back per a later follow-up, see
-     below) on every single step, most of which will never get one, read
-     as unnecessary information cluttering the list — worse once the Date
-     chip started sitting inline with short steps (more visible per
-     screen, not less). Both stay hidden while this task has never used a
-     due date on ANY of its steps (.subwrap.stepsdated, set by
-     taskSubtasksHtml() from subs.some(s=>s.dueDate)) — the moment one
-     step gets a date, both show for every step in this same task, dated
-     or not, rather than the affordance only ever being discoverable one
-     step at a time through each one's own long-press menu. Before that
-     first date exists, "Add Date" in this row's own long-press menu
-     (subtaskContextMenuHtml(), 08-render-core.js — gated on !s.dueDate)
-     is the only way in: it calls startAddSubtaskDate(), which finds this
-     very (CSS-hidden, still real) .datefield element and swaps it for the
-     same startEditSubtaskDate() input a visible field's own tap already
-     uses — no separate "whole new menu" needed, since the swap-to-input
-     mechanism already works on a display:none element exactly like a
-     visible one. Remove stays reachable via the menu's own "Remove Item"
-     regardless of stepsdated — this only ever governs the INLINE copy of
-     that same action, per "next to the date button whenever the date
-     matters." */
-  body.mobileui-active .subwrap:not(.stepsdated) .subrow .stepsactions .datefield.empty,
-  body.mobileui-active .subwrap:not(.stepsdated) .subrow .stepsactions .subdel{ display:none; }
+  /* Per the explicit follow-up ask: a "Date -----" placeholder on every
+     single step, most of which will never get one, read as unnecessary
+     information cluttering the list — worse once the Date chip started
+     sitting inline with short steps (more visible per screen, not less).
+     Stays hidden while this task has never used a due date on ANY of its
+     steps (.subwrap.stepsdated, set by taskSubtasksHtml() from
+     subs.some(s=>s.dueDate)) — the moment one step gets a date, it shows
+     for every step in this same task, dated or not, rather than the
+     affordance only ever being discoverable one step at a time through
+     each one's own long-press menu. Before that first date exists, "Add
+     Date" in this row's own long-press menu (subtaskContextMenuHtml(),
+     08-render-core.js — gated on !s.dueDate) is the only way in: it calls
+     startAddSubtaskDate(), which finds this very (CSS-hidden, still real)
+     .datefield element and swaps it for the same startEditSubtaskDate()
+     input a visible field's own tap already uses — no separate "whole
+     new menu" needed, since the swap-to-input mechanism already works on
+     a display:none element exactly like a visible one. Remove ("×")
+     itself is NOT gated on stepsdated per a later follow-up ask — a step
+     needs to be removable regardless of whether this task uses dates at
+     all, unlike Date, which genuinely has nothing to show while
+     everything's still empty. */
+  body.mobileui-active .subwrap:not(.stepsdated) .subrow .stepsactions .datefield.empty{ display:none; }
+  /* Smaller than .subdel's own base rule on mobile specifically — now
+     that it's always inline next to the Date chip (rather than menu-only,
+     see above), per the explicit ask it needed to give back a little of
+     the room it costs sitting there permanently. */
+  body.mobileui-active .subrow .stepsactions .subdel{ font-size:0.72rem; padding:0 2px; }
   /* Per the explicit follow-up ask: once Pin/Remove were gone, the lone
      remaining Date chip still always dropped to its own full-width line
      below the text (the general .subrowactions rule above), which for a
