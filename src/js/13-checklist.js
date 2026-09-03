@@ -527,6 +527,7 @@ function openMoveTargetPicker(){
   moveTargetFilter = '';
   moveTargetNewOpen = false;
   moveTargetTemplateOpen = false;
+  moveTargetTemplatePickId = null;
   renderMoveTargetModal();
 }
 // Closes just the picker, not the whole move mode — lets you back out to
@@ -537,6 +538,7 @@ function closeMoveTargetPicker(){
   moveTargetOpen = false;
   moveTargetNewOpen = false;
   moveTargetTemplateOpen = false;
+  moveTargetTemplatePickId = null;
   const el = document.getElementById('moveItemModal');
   if(el){ el.classList.remove('open'); el.innerHTML = ''; }
 }
@@ -553,11 +555,28 @@ function openMoveTargetNewForm(){
 function openMoveTargetTemplatePicker(){
   moveTargetTemplateOpen = true;
   moveTargetNewOpen = false;
+  moveTargetTemplatePickId = null;
   renderMoveTargetModal();
 }
 function closeMoveTargetSubforms(){
   moveTargetNewOpen = false;
   moveTargetTemplateOpen = false;
+  moveTargetTemplatePickId = null;
+  renderMoveTargetModal();
+}
+// Expands the naming form (moveTargetTemplateListHtml() below) inline
+// under the chosen template, same "pick, then name" two-step
+// startCreateFromTemplate()/confirmCreateFromTemplate() already use on
+// the real Templates page — picking a template here shouldn't
+// immediately create+move under a generic "<Template>: New List" title
+// with no chance to say what this particular list actually is.
+function startMoveTargetTemplateName(templateId){
+  moveTargetTemplatePickId = templateId;
+  renderMoveTargetModal();
+  document.getElementById('moveTargetTemplateNameInput')?.focus();
+}
+function cancelMoveTargetTemplateName(){
+  moveTargetTemplatePickId = null;
   renderMoveTargetModal();
 }
 
@@ -604,7 +623,23 @@ function moveTargetNewFormHtml(){
 function moveTargetTemplateListHtml(){
   const templates = state.checklistTemplates || [];
   if(!templates.length) return `<div class="ctxmenu-label">No templates yet</div>`;
-  return templates.map(tpl => `<button onclick="confirmMoveItemsToTemplateList('${tpl.id}')">${escapeHtml(tpl.name)}</button>`).join('');
+  return templates.map(tpl => {
+    // Same inline "<Template>: <specific>" naming row the real Templates
+    // page uses (.templatecreaterow etc., renderChecklistTemplates()) —
+    // reused verbatim rather than reinvented, so picking a template here
+    // reads as the same action, just reached from a different door.
+    if(moveTargetTemplatePickId === tpl.id){
+      return `
+        <div class="templatecreaterow">
+          <span class="templatenameprefix">${escapeHtml(tpl.name)}: </span>
+          <input type="text" id="moveTargetTemplateNameInput" placeholder="New List"
+            onkeydown="if(event.key==='Enter'){ confirmMoveItemsToTemplateList('${tpl.id}', this.value); } else if(event.key==='Escape'){ cancelMoveTargetTemplateName(); }">
+          <button class="templatecreateconfirm" onclick="confirmMoveItemsToTemplateList('${tpl.id}')">Create</button>
+          <button class="templatecreatecancel" onclick="cancelMoveTargetTemplateName()">Cancel</button>
+        </div>`;
+    }
+    return `<button onclick="startMoveTargetTemplateName('${tpl.id}')">${escapeHtml(tpl.name)} <span class="templatemeta">${tpl.items.length} item${tpl.items.length===1?'':'s'}</span></button>`;
+  }).join('');
 }
 function renderMoveTargetModal(){
   const el = document.getElementById('moveItemModal');
@@ -699,12 +734,14 @@ async function confirmMoveItemsToNewList(nameFromEnter){
   });
   finishMoveItems();
 }
-async function confirmMoveItemsToTemplateList(templateId){
+async function confirmMoveItemsToTemplateList(templateId, nameFromEnter){
   const tpl = (state.checklistTemplates||[]).find(tp=>tp.id===templateId);
   const t = state.tasks.find(x=>x.id===moveModeListId);
   if(!tpl || !t || !moveModeSelectedIds || !moveModeSelectedIds.size) return;
+  const input = document.getElementById('moveTargetTemplateNameInput');
+  const specific = (nameFromEnter !== undefined ? nameFromEnter : (input ? input.value : '')).trim() || 'New List';
   const n = moveModeSelectedIds.size;
-  const title = `${tpl.name}: New List`;
+  const title = `${tpl.name}: ${specific}`;
   pushUndo(`Moved ${n} item${n===1?'':'s'} to a new "${tpl.name}" list`);
   const movedItems = extractSelectedMoveItems(t);
   const templateItems = tpl.items.map(text => ({ id:newId('sub'), text, done:false, dueDate:'', plannedDates:[] }));

@@ -175,6 +175,13 @@ let moveTargetOpen = false;
 let moveTargetFilter = '';
 let moveTargetNewOpen = false;
 let moveTargetTemplateOpen = false;
+// Which template (inside the "From template" list within moveTargetTemplateOpen)
+// currently has its own inline naming form expanded, mirroring
+// checklistTemplateCreateId's own role on the real Templates page —
+// picking a template shouldn't immediately create+move with a generic
+// name, it should offer the same "<Template>: <specific>" naming step
+// the Templates page's own "New List" button already gives.
+let moveTargetTemplatePickId = null;
 let taskPressTimer = null;
 let taskLongPressFired = false;
 let taskPressStartX = 0;
