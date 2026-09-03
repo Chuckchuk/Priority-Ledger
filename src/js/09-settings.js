@@ -490,15 +490,14 @@ function categoryPickerHtml(c){
   // saved colors."
   const customIsActive = !CATEGORY_PALETTE.some(hex=>hex.toLowerCase()===c.hex.toLowerCase())
     && !(state.customCategoryColors||[]).some(hex=>hex.toLowerCase()===c.hex.toLowerCase());
-  // Same per-glyph transform:scale() correction categoryDotHtml() applies
-  // everywhere else an icon shows up — without it here too, the picker's
-  // own preview wouldn't match what picking it actually looks like.
-  const icons = CATEGORY_ICON_ORDER.map(id=>{
-    const scale = CATEGORY_ICON_SCALE[id] || 1;
-    const glyphStyle = scale !== 1 ? ` style="display:inline-block;transform:scale(${scale})"` : '';
-    return `
-    <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}"><span${glyphStyle}>${CATEGORY_ICON_SVG[id] || CATEGORY_ICON_GLYPHS[id]}</span></button>`;
-  }).join('');
+  // Same CATEGORY_ICON_SVG every icon shows up through everywhere else
+  // (categoryDotHtml()) — no per-glyph scale correction needed here
+  // either now that every icon is a hand-authored SVG in a shared
+  // viewBox rather than a raw text glyph, so the picker's own preview
+  // just is what picking it actually looks like, unscaled.
+  const icons = CATEGORY_ICON_ORDER.map(id => `
+    <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}">${CATEGORY_ICON_SVG[id]}</button>`
+  ).join('');
   return `
     <div class="catpicker">
       <button class="catpickerclose" onclick="toggleCategoryPicker('${c.id}')" title="Close">×</button>

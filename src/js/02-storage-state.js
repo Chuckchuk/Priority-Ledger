@@ -656,7 +656,7 @@ function defaultDevSettings(){
   // hashStr()-off-the-tab's-own-key idiom the overlap look's --tab-jitter
   // uses, so it doesn't reshuffle on every render. 'iconstyle' resolves
   // the same way but keyed off each category's own chosen icon glyph
-  // (CATEGORY_ICON_GLYPHS, set in Settings) instead of a hash — flag
+  // (CATEGORY_ICON_SVG, set in Settings) instead of a hash — flag
   // categories read as literal little flags (pagetab), sharp icons (star/
   // diamond) get the arrow shape, round/plain ones (house/ring/square/
   // check/dot) get invertedv/sawtooth — see resolveSidetabShape() for the
@@ -823,7 +823,7 @@ function normalizeState(){
   state.categories.forEach(c => { if(c.type === 'calendar') c.type = 'standard'; });
   // 'ring' (a hollow-circle icon) was replaced outright by 'hexagon' — a
   // filled shape, not just a filled-in circle, since a solid circle would
-  // have only duplicated 'dot' — see CATEGORY_ICON_GLYPHS' own comment in
+  // have only duplicated 'dot' — see CATEGORY_ICON_SVG's own comment in
   // 01-categories-theme.js. Any account that had a category actually set
   // to 'ring' picks up the new icon automatically rather than pointing at
   // a glyph that no longer exists.

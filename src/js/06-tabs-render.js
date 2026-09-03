@@ -369,7 +369,7 @@ const SIDETAB_SHAPES_PICKABLE = ['pagetab', 'invertedv', 'arrows', 'sawtooth', '
 // triangle gets the plain single-slant cut (chevron). This is an editorial
 // pairing, not a derived one — there's no principled way to compute it, so
 // treat this table as the place to retune it if a specific pairing reads
-// wrong once you see it. ('ring' isn't a real CATEGORY_ICON_GLYPHS key —
+// wrong once you see it. ('ring' isn't a real CATEGORY_ICON_SVG key —
 // stale from before icons were finalized — so it's dropped rather than
 // carried forward to a shape it can never actually resolve to.)
 const SIDETAB_ICON_SHAPE_MAP = {

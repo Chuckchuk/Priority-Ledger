@@ -5320,75 +5320,58 @@ function defaultCategories(){
     { id:'lists',     label:'Lists',     hex: '#A9782F', locations:['home','away'],  type:'checklist' }
   ];
 }
-// A category's marker is a single glyph colored via its own hex — 'dot'
-// (a plain bullet) is the default and the only option before this feature
-// existed, so every pre-existing category (no `.icon` field saved yet)
-// renders exactly as it always did. Deliberately plain text-presentation
-// symbols, not color emoji: an emoji glyph ignores `color:` in most
-// fonts/browsers, which would break "shows in the category's own color"
-// for every choice but the default. Order here is the order offered in
-// categoryPickerHtml()'s icon row.
-// triangle/cross added later, same "plain text-presentation glyph, not
-// color emoji" rule as the original 8 — both are ordinary Unicode
-// symbols with no registered emoji presentation, so they're safe to add
-// without re-checking every font this app might render in.
-// 'house' and 'ring' both used to be hollow/outline glyphs (⌂, ○) — per
-// the project owner's own callout, every icon here should read as a
-// solid, filled shape (like 'star' always has), not a mix of filled and
-// outline. 'house' keeps its id (still reads as "a house," just now a
-// filled pentagon — a square base + triangular roof silhouette — instead
-// of the outline glyph); 'ring' is gone entirely rather than just filled
-// in, since a filled circle would only duplicate 'dot' — 'hexagon' takes
-// its place in the same array position instead, a genuinely different
-// filled silhouette. See the icon migration in normalizeState()
-// (02-storage-state.js) for accounts that had 'ring' saved already, and
-// CATEGORY_ICON_SCALE below for why each glyph also carries its own
-// visual-size correction now.
+// A category's marker is a single icon colored via its own hex — 'dot'
+// (a plain circle) is the default and the only option before this
+// feature existed, so every pre-existing category (no `.icon` field
+// saved yet) renders exactly as it always did. Order here is the order
+// offered in categoryPickerHtml()'s icon row.
+// Every icon is a hand-authored SVG in a shared 24×24 viewBox, not a
+// Unicode text glyph — the previous version (CATEGORY_ICON_GLYPHS, a
+// per-icon `transform:scale()` correction sized by measuring each
+// glyph's own opaque-pixel *area* against 'star' on an offscreen canvas)
+// was trying to solve the wrong problem: matching ink *area* across
+// glyphs of wildly different shapes means their actual bounding boxes
+// end up nothing alike (a thin checkmark needed scale:1.58 to match a
+// filled star's ink coverage, a solid square only 1.62 the other way,
+// dot 1.47...) — so despite being genuinely measured, not eyeballed,
+// icons still visibly render at very different *sizes* next to each
+// other, exactly the "some icons appear way bigger than others" the
+// project owner kept running into. Every shape below is instead drawn
+// to reach roughly the same distance from center (about 8-10 of the 24
+// viewBox units each way) regardless of its own shape's ink density —
+// same idiom the standalone 'house' SVG already used before this pass,
+// just extended to every icon and freed of the scale hack entirely.
+// fill="currentColor" (stroke="currentColor" for 'check', the one
+// stroke-based shape) is what still picks up a category's own hex via
+// the wrapping span's own `color:`, same as before. Centered by the
+// geometry itself now, not by a transform whose origin had to line up
+// with whatever off-center bounding box a given glyph's font metrics
+// happened to produce — see the caticonbtn picker's own "not centered"
+// bug this also fixes.
 const CATEGORY_ICON_ORDER = ['dot','star','flag','house','diamond','square','hexagon','check','triangle','cross'];
-const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⬟', diamond:'◆', square:'■', hexagon:'⬢', check:'✓', triangle:'▲', cross:'✚' };
-// SVG override for icons a plain Unicode glyph can't represent well —
-// today just 'house': the pentagon glyph above (⬟) read as too close to
-// a plain hexagon rather than an actual house silhouette, per the
-// project owner's own callout, and there's no reliable filled "square +
-// triangle roof" text-presentation character to swap in instead (real
-// house pictographs are emoji-only, which ignores `color:` styling —
-// see CATEGORY_ICON_GLYPHS' own comment on why that's a hard rule here).
-// fill="currentColor" is what lets this still pick up a category's own
-// hex the exact same way every glyph-based icon does via its wrapping
-// span's own `color:`. A plain house pentagon (wall corners + a centered
-// roof peak) in a 24×24 box, confirmed by eye in the running app rather
-// than assumed correct from the coordinates alone.
 const CATEGORY_ICON_SVG = {
-  house: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,2 21,10 21,21 3,21 3,10" fill="currentColor"/></svg>'
+  dot: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><circle cx="12" cy="12" r="9" fill="currentColor"/></svg>',
+  star: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,2 14.47,8.6 21.51,8.91 15.99,13.3 17.88,20.09 12,16.2 6.12,20.09 8.01,13.3 2.49,8.91 9.53,8.6" fill="currentColor"/></svg>',
+  flag: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><rect x="4" y="2" width="2.5" height="20" fill="currentColor"/><path d="M6.5,3 L19,7.5 L6.5,12 Z" fill="currentColor"/></svg>',
+  house: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,2 21,10 21,21 3,21 3,10" fill="currentColor"/></svg>',
+  diamond: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,2 22,12 12,22 2,12" fill="currentColor"/></svg>',
+  square: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor"/></svg>',
+  hexagon: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,2 20.66,7 20.66,17 12,22 3.34,17 3.34,7" fill="currentColor"/></svg>',
+  check: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><path d="M4,13 L9,18 L20,6" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  triangle: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,3 21,20 3,20" fill="currentColor"/></svg>',
+  cross: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><path d="M10,3 H14 V10 H21 V14 H14 V21 H10 V14 H3 V10 H10 Z" fill="currentColor"/></svg>'
 };
-// Per-glyph visual-size correction, applied as a CSS transform:scale()
-// (not font-size — that would compose wrongly with each call site's own
-// differently-sized base class, .dot/.cdot/.caticonbtn/etc., since an
-// inline font-size fully replaces rather than multiplies the class's
-// own). Different Unicode symbols at the identical font-size cover very
-// different fractions of their own box — a thin glyph like '✓' or '▲'
-// visually reads noticeably smaller than a filled disc like '●' at the
-// same nominal size. These values were measured, not eyeballed: each
-// glyph rendered to an offscreen canvas at a fixed size, its actual
-// opaque-pixel bounding box measured, then scaled so its own covered
-// area matches 'star' — the reference the project owner pointed at —
-// rather than guessing proportions by eye (see the project owner's own
-// past feedback on authoring visual geometry blind). 1 means "already
-// matches, no correction needed."
-const CATEGORY_ICON_SCALE = { dot:1.47, star:1, flag:1.37, house:0.85, diamond:1.48, square:1.62, hexagon:1.12, check:1.58, triangle:0.95, cross:1.06 };
 // Single shared renderer for every place a category's marker shows up
 // (task rows, the task detail page, the tab bar, the day-tree picker, the
 // Settings row) — same reasoning as taskRowHtml being the one place a
-// task row renders: edit the glyph logic once, everywhere picks it up.
+// task row renders: edit the icon logic once, everywhere picks it up.
 // `cls` is the site's existing dot class (`cdot` or `dot`) so each call
-// site keeps its own layout/spacing rules; only the glyph-vs-background
+// site keeps its own layout/spacing rules; only the icon-vs-background
 // rendering is unified here.
 function categoryDotHtml(c, cls){
   const icon = c.icon || 'dot';
-  const inner = CATEGORY_ICON_SVG[icon] || CATEGORY_ICON_GLYPHS[icon] || CATEGORY_ICON_GLYPHS.dot;
-  const scale = CATEGORY_ICON_SCALE[icon] || 1;
-  const scaleStyle = scale !== 1 ? `display:inline-block;transform:scale(${scale});` : '';
-  return `<span class="${cls}" style="color:${c.hex};${scaleStyle}">${inner}</span>`;
+  const inner = CATEGORY_ICON_SVG[icon] || CATEGORY_ICON_SVG.dot;
+  return `<span class="${cls}" style="color:${c.hex}">${inner}</span>`;
 }
 
 let CATEGORIES = {};
@@ -7530,7 +7513,7 @@ function defaultDevSettings(){
   // hashStr()-off-the-tab's-own-key idiom the overlap look's --tab-jitter
   // uses, so it doesn't reshuffle on every render. 'iconstyle' resolves
   // the same way but keyed off each category's own chosen icon glyph
-  // (CATEGORY_ICON_GLYPHS, set in Settings) instead of a hash — flag
+  // (CATEGORY_ICON_SVG, set in Settings) instead of a hash — flag
   // categories read as literal little flags (pagetab), sharp icons (star/
   // diamond) get the arrow shape, round/plain ones (house/ring/square/
   // check/dot) get invertedv/sawtooth — see resolveSidetabShape() for the
@@ -7697,7 +7680,7 @@ function normalizeState(){
   state.categories.forEach(c => { if(c.type === 'calendar') c.type = 'standard'; });
   // 'ring' (a hollow-circle icon) was replaced outright by 'hexagon' — a
   // filled shape, not just a filled-in circle, since a solid circle would
-  // have only duplicated 'dot' — see CATEGORY_ICON_GLYPHS' own comment in
+  // have only duplicated 'dot' — see CATEGORY_ICON_SVG's own comment in
   // 01-categories-theme.js. Any account that had a category actually set
   // to 'ring' picks up the new icon automatically rather than pointing at
   // a glyph that no longer exists.
@@ -8832,7 +8815,7 @@ const SIDETAB_SHAPES_PICKABLE = ['pagetab', 'invertedv', 'arrows', 'sawtooth', '
 // triangle gets the plain single-slant cut (chevron). This is an editorial
 // pairing, not a derived one — there's no principled way to compute it, so
 // treat this table as the place to retune it if a specific pairing reads
-// wrong once you see it. ('ring' isn't a real CATEGORY_ICON_GLYPHS key —
+// wrong once you see it. ('ring' isn't a real CATEGORY_ICON_SVG key —
 // stale from before icons were finalized — so it's dropped rather than
 // carried forward to a shape it can never actually resolve to.)
 const SIDETAB_ICON_SHAPE_MAP = {
@@ -11024,7 +11007,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
 function categoryLabelHtml(t){
   const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const textColor = relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9';
-  const glyph = CATEGORY_ICON_SVG[cat.icon] || CATEGORY_ICON_GLYPHS[cat.icon] || CATEGORY_ICON_GLYPHS.dot;
+  const glyph = CATEGORY_ICON_SVG[cat.icon] || CATEGORY_ICON_SVG.dot;
   const tape = state.devSettings && state.devSettings.categoryLabelStyle === 'tape';
   return `<button class="categorylabel${tape ? ' categorylabel-tape' : ''}" style="--catlabel-hex:${cat.hex}; --catlabel-text:${textColor}" onclick="event.stopPropagation(); openCategoryMoveMenu(this,'${t.id}')" title="Move to another category">${glyph} ${escapeHtml(cat.label)}</button>`;
 }
@@ -11857,15 +11840,14 @@ function categoryPickerHtml(c){
   // saved colors."
   const customIsActive = !CATEGORY_PALETTE.some(hex=>hex.toLowerCase()===c.hex.toLowerCase())
     && !(state.customCategoryColors||[]).some(hex=>hex.toLowerCase()===c.hex.toLowerCase());
-  // Same per-glyph transform:scale() correction categoryDotHtml() applies
-  // everywhere else an icon shows up — without it here too, the picker's
-  // own preview wouldn't match what picking it actually looks like.
-  const icons = CATEGORY_ICON_ORDER.map(id=>{
-    const scale = CATEGORY_ICON_SCALE[id] || 1;
-    const glyphStyle = scale !== 1 ? ` style="display:inline-block;transform:scale(${scale})"` : '';
-    return `
-    <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}"><span${glyphStyle}>${CATEGORY_ICON_SVG[id] || CATEGORY_ICON_GLYPHS[id]}</span></button>`;
-  }).join('');
+  // Same CATEGORY_ICON_SVG every icon shows up through everywhere else
+  // (categoryDotHtml()) — no per-glyph scale correction needed here
+  // either now that every icon is a hand-authored SVG in a shared
+  // viewBox rather than a raw text glyph, so the picker's own preview
+  // just is what picking it actually looks like, unscaled.
+  const icons = CATEGORY_ICON_ORDER.map(id => `
+    <button class="caticonbtn ${(c.icon||'dot')===id?'active':''}" onclick="setCategoryIcon('${c.id}','${id}')" title="${id}" style="color:${c.hex}">${CATEGORY_ICON_SVG[id]}</button>`
+  ).join('');
   return `
     <div class="catpicker">
       <button class="catpickerclose" onclick="toggleCategoryPicker('${c.id}')" title="Close">×</button>
@@ -14198,14 +14180,15 @@ function renderChecklistOverview(categoryId){
 // one shared "8" during an earlier pass of this feature; the project
 // owner's own follow-up split them back into two independent numbers.
 const CHECKLIST_PEG_LIMIT = 12;
-const PEG_SLOT_DEG = 360 / CHECKLIST_PEG_LIMIT;
 // Both the first peg slot and the progress ring's 0% point start here:
-// top-left rather than dead center-top. Kept as a multiple of
-// PEG_SLOT_DEG (30°) on purpose — since 90° (the gap between the four
-// cardinal directions) is exactly 3 slots, that's what guarantees the
-// slots nearest top/right/bottom/left land exactly on those axes
-// instead of sitting at an off-angle. -25 (nearer the "25° left of top"
-// originally asked for) would have thrown that off.
+// top-left rather than dead center-top, matching the "25° left of top"
+// look originally asked for. Shared by both the discrete-peg ring and
+// the smooth conic-gradient fallback below purely so the two read as
+// the same ring rotated the same way when a list crosses the threshold
+// between them — pegs are now spaced dynamically per the real item
+// count (see checklistProgressHtml() below), so this no longer needs to
+// land on a cardinal axis the way it did back when every list shared
+// one fixed 12-slot grid.
 const PEG_START_DEG = -30;
 
 // At or under the threshold: one fixed-size .peg per item, in list
@@ -14264,22 +14247,40 @@ function pegArcPath(cx, cy, rInner, rOuter, halfWidthDeg){
        + `L ${r3(ix2)} ${r3(iy2)} A ${rInner} ${rInner} 0 0 0 ${r3(ix1)} ${r3(iy1)} Z`;
 }
 // Same radial span the old flat peg used (outer edge 14px out from
-// center, inner edge 9px out — a 5px-thick band). Half-width widened
-// from 12° to 13.5° at the same 30° slot size (CHECKLIST_PEG_LIMIT back
-// at 12) — less padding between adjacent pegs, per the explicit ask,
-// while keeping each one easily visible: 13.5° half-width is 27° of
-// actual peg out of each 30° slot (90% fill) vs. the old 12°-of-30°
-// (80% fill) — a bit fuller, not just carried over unchanged.
+// center, inner edge 9px out — a 5px-thick band).
 const PEG_R_OUTER = 14;
 const PEG_R_INNER = 9;
-const PEG_HALF_WIDTH_DEG = 13.5;
-const PEG_PATH_AT_ZERO = pegArcPath(17, 17, PEG_R_INNER, PEG_R_OUTER, PEG_HALF_WIDTH_DEG);
+// Fraction of each slot's own angular width a peg actually fills — the
+// rest is the visible gap to its neighbor. Applied against a slot size
+// that's now *derived from the real item count* (see checklistProgressHtml()
+// below), not the old fixed 30° (CHECKLIST_PEG_LIMIT slots, always,
+// however few items there actually were). A short list previously still
+// only claimed as many of those fixed 30°-apart slots as it had items —
+// 4 items sat clustered in one ~120° wedge, leaving the rest of the ring
+// visibly bare, which read as "jetting out"/sparse rather than a real
+// ring, and got worse the fewer items there were. Spreading `total`
+// pegs evenly across the *whole* 360° instead means a short list's pegs
+// end up wider and evenly spaced around the full circle rather than
+// bunched together — per the explicit ask, this also makes the ring's
+// actual look stop depending on how many items happen to be in it (it
+// was never really about zoom itself; a half-empty cluster just reads
+// as more obviously "off" at some zoom levels than others). This trades
+// away the previous design's one guarantee — an item's own peg staying
+// at the same fixed slot for the life of the list — since evenly
+// respacing means every peg's angle shifts slightly whenever an item is
+// added or removed anywhere in the list. That trade is deliberate: a
+// ring that actually looks like a ring at any item count is what was
+// asked for now. 0.92 (up from the old fixed-slot version's 0.9) per
+// "remove some padding... more filled out."
+const PEG_FILL_RATIO = 0.92;
 
 function checklistProgressHtml(subs){
   if(!subs.length) return '';
   const done = subs.filter(s=>s.done).length;
   const total = subs.length;
   if(total <= CHECKLIST_PEG_LIMIT){
+    const slotDeg = 360 / total;
+    const pegPath = pegArcPath(17, 17, PEG_R_INNER, PEG_R_OUTER, slotDeg * PEG_FILL_RATIO / 2);
     // Painted in "unfilled first, filled last" order (not slot order) so
     // a filled peg always paints over an unfilled neighbor at their
     // slightly-overlapping corners — SVG has no z-index to lean on here
@@ -14289,8 +14290,8 @@ function checklistProgressHtml(subs){
     // position in this reordered list, so sorting doesn't move anything.
     const ordered = subs.map((s,i)=>({s,i})).sort((a,b)=>(a.s.done?1:0)-(b.s.done?1:0));
     const pegs = ordered.map(({s,i})=>{
-      const angle = PEG_START_DEG + i*PEG_SLOT_DEG;
-      return `<path class="peg ${s.done?'filled':''}" d="${PEG_PATH_AT_ZERO}" transform="rotate(${angle} 17 17)"></path>`;
+      const angle = PEG_START_DEG + i*slotDeg;
+      return `<path class="peg ${s.done?'filled':''}" d="${pegPath}" transform="rotate(${angle} 17 17)"></path>`;
     }).join('');
     return `<svg class="pegring" viewBox="0 0 34 34">${pegs}</svg>`;
   }

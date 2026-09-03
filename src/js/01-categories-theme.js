@@ -83,75 +83,58 @@ function defaultCategories(){
     { id:'lists',     label:'Lists',     hex: '#A9782F', locations:['home','away'],  type:'checklist' }
   ];
 }
-// A category's marker is a single glyph colored via its own hex — 'dot'
-// (a plain bullet) is the default and the only option before this feature
-// existed, so every pre-existing category (no `.icon` field saved yet)
-// renders exactly as it always did. Deliberately plain text-presentation
-// symbols, not color emoji: an emoji glyph ignores `color:` in most
-// fonts/browsers, which would break "shows in the category's own color"
-// for every choice but the default. Order here is the order offered in
-// categoryPickerHtml()'s icon row.
-// triangle/cross added later, same "plain text-presentation glyph, not
-// color emoji" rule as the original 8 — both are ordinary Unicode
-// symbols with no registered emoji presentation, so they're safe to add
-// without re-checking every font this app might render in.
-// 'house' and 'ring' both used to be hollow/outline glyphs (⌂, ○) — per
-// the project owner's own callout, every icon here should read as a
-// solid, filled shape (like 'star' always has), not a mix of filled and
-// outline. 'house' keeps its id (still reads as "a house," just now a
-// filled pentagon — a square base + triangular roof silhouette — instead
-// of the outline glyph); 'ring' is gone entirely rather than just filled
-// in, since a filled circle would only duplicate 'dot' — 'hexagon' takes
-// its place in the same array position instead, a genuinely different
-// filled silhouette. See the icon migration in normalizeState()
-// (02-storage-state.js) for accounts that had 'ring' saved already, and
-// CATEGORY_ICON_SCALE below for why each glyph also carries its own
-// visual-size correction now.
+// A category's marker is a single icon colored via its own hex — 'dot'
+// (a plain circle) is the default and the only option before this
+// feature existed, so every pre-existing category (no `.icon` field
+// saved yet) renders exactly as it always did. Order here is the order
+// offered in categoryPickerHtml()'s icon row.
+// Every icon is a hand-authored SVG in a shared 24×24 viewBox, not a
+// Unicode text glyph — the previous version (CATEGORY_ICON_GLYPHS, a
+// per-icon `transform:scale()` correction sized by measuring each
+// glyph's own opaque-pixel *area* against 'star' on an offscreen canvas)
+// was trying to solve the wrong problem: matching ink *area* across
+// glyphs of wildly different shapes means their actual bounding boxes
+// end up nothing alike (a thin checkmark needed scale:1.58 to match a
+// filled star's ink coverage, a solid square only 1.62 the other way,
+// dot 1.47...) — so despite being genuinely measured, not eyeballed,
+// icons still visibly render at very different *sizes* next to each
+// other, exactly the "some icons appear way bigger than others" the
+// project owner kept running into. Every shape below is instead drawn
+// to reach roughly the same distance from center (about 8-10 of the 24
+// viewBox units each way) regardless of its own shape's ink density —
+// same idiom the standalone 'house' SVG already used before this pass,
+// just extended to every icon and freed of the scale hack entirely.
+// fill="currentColor" (stroke="currentColor" for 'check', the one
+// stroke-based shape) is what still picks up a category's own hex via
+// the wrapping span's own `color:`, same as before. Centered by the
+// geometry itself now, not by a transform whose origin had to line up
+// with whatever off-center bounding box a given glyph's font metrics
+// happened to produce — see the caticonbtn picker's own "not centered"
+// bug this also fixes.
 const CATEGORY_ICON_ORDER = ['dot','star','flag','house','diamond','square','hexagon','check','triangle','cross'];
-const CATEGORY_ICON_GLYPHS = { dot:'●', star:'★', flag:'⚑', house:'⬟', diamond:'◆', square:'■', hexagon:'⬢', check:'✓', triangle:'▲', cross:'✚' };
-// SVG override for icons a plain Unicode glyph can't represent well —
-// today just 'house': the pentagon glyph above (⬟) read as too close to
-// a plain hexagon rather than an actual house silhouette, per the
-// project owner's own callout, and there's no reliable filled "square +
-// triangle roof" text-presentation character to swap in instead (real
-// house pictographs are emoji-only, which ignores `color:` styling —
-// see CATEGORY_ICON_GLYPHS' own comment on why that's a hard rule here).
-// fill="currentColor" is what lets this still pick up a category's own
-// hex the exact same way every glyph-based icon does via its wrapping
-// span's own `color:`. A plain house pentagon (wall corners + a centered
-// roof peak) in a 24×24 box, confirmed by eye in the running app rather
-// than assumed correct from the coordinates alone.
 const CATEGORY_ICON_SVG = {
-  house: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,2 21,10 21,21 3,21 3,10" fill="currentColor"/></svg>'
+  dot: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><circle cx="12" cy="12" r="9" fill="currentColor"/></svg>',
+  star: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,2 14.47,8.6 21.51,8.91 15.99,13.3 17.88,20.09 12,16.2 6.12,20.09 8.01,13.3 2.49,8.91 9.53,8.6" fill="currentColor"/></svg>',
+  flag: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><rect x="4" y="2" width="2.5" height="20" fill="currentColor"/><path d="M6.5,3 L19,7.5 L6.5,12 Z" fill="currentColor"/></svg>',
+  house: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,2 21,10 21,21 3,21 3,10" fill="currentColor"/></svg>',
+  diamond: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,2 22,12 12,22 2,12" fill="currentColor"/></svg>',
+  square: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor"/></svg>',
+  hexagon: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,2 20.66,7 20.66,17 12,22 3.34,17 3.34,7" fill="currentColor"/></svg>',
+  check: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><path d="M4,13 L9,18 L20,6" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  triangle: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><polygon points="12,3 21,20 3,20" fill="currentColor"/></svg>',
+  cross: '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><path d="M10,3 H14 V10 H21 V14 H14 V21 H10 V14 H3 V10 H10 Z" fill="currentColor"/></svg>'
 };
-// Per-glyph visual-size correction, applied as a CSS transform:scale()
-// (not font-size — that would compose wrongly with each call site's own
-// differently-sized base class, .dot/.cdot/.caticonbtn/etc., since an
-// inline font-size fully replaces rather than multiplies the class's
-// own). Different Unicode symbols at the identical font-size cover very
-// different fractions of their own box — a thin glyph like '✓' or '▲'
-// visually reads noticeably smaller than a filled disc like '●' at the
-// same nominal size. These values were measured, not eyeballed: each
-// glyph rendered to an offscreen canvas at a fixed size, its actual
-// opaque-pixel bounding box measured, then scaled so its own covered
-// area matches 'star' — the reference the project owner pointed at —
-// rather than guessing proportions by eye (see the project owner's own
-// past feedback on authoring visual geometry blind). 1 means "already
-// matches, no correction needed."
-const CATEGORY_ICON_SCALE = { dot:1.47, star:1, flag:1.37, house:0.85, diamond:1.48, square:1.62, hexagon:1.12, check:1.58, triangle:0.95, cross:1.06 };
 // Single shared renderer for every place a category's marker shows up
 // (task rows, the task detail page, the tab bar, the day-tree picker, the
 // Settings row) — same reasoning as taskRowHtml being the one place a
-// task row renders: edit the glyph logic once, everywhere picks it up.
+// task row renders: edit the icon logic once, everywhere picks it up.
 // `cls` is the site's existing dot class (`cdot` or `dot`) so each call
-// site keeps its own layout/spacing rules; only the glyph-vs-background
+// site keeps its own layout/spacing rules; only the icon-vs-background
 // rendering is unified here.
 function categoryDotHtml(c, cls){
   const icon = c.icon || 'dot';
-  const inner = CATEGORY_ICON_SVG[icon] || CATEGORY_ICON_GLYPHS[icon] || CATEGORY_ICON_GLYPHS.dot;
-  const scale = CATEGORY_ICON_SCALE[icon] || 1;
-  const scaleStyle = scale !== 1 ? `display:inline-block;transform:scale(${scale});` : '';
-  return `<span class="${cls}" style="color:${c.hex};${scaleStyle}">${inner}</span>`;
+  const inner = CATEGORY_ICON_SVG[icon] || CATEGORY_ICON_SVG.dot;
+  return `<span class="${cls}" style="color:${c.hex}">${inner}</span>`;
 }
 
 let CATEGORIES = {};

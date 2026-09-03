@@ -1340,7 +1340,7 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
 function categoryLabelHtml(t){
   const cat = CATEGORIES[t.category] || FALLBACK_CATEGORY;
   const textColor = relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9';
-  const glyph = CATEGORY_ICON_SVG[cat.icon] || CATEGORY_ICON_GLYPHS[cat.icon] || CATEGORY_ICON_GLYPHS.dot;
+  const glyph = CATEGORY_ICON_SVG[cat.icon] || CATEGORY_ICON_SVG.dot;
   const tape = state.devSettings && state.devSettings.categoryLabelStyle === 'tape';
   return `<button class="categorylabel${tape ? ' categorylabel-tape' : ''}" style="--catlabel-hex:${cat.hex}; --catlabel-text:${textColor}" onclick="event.stopPropagation(); openCategoryMoveMenu(this,'${t.id}')" title="Move to another category">${glyph} ${escapeHtml(cat.label)}</button>`;
 }
