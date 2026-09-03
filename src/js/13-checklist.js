@@ -315,6 +315,10 @@ function checklistPressStart(e, taskId){
   }, TASK_LONG_PRESS_MS);
 }
 function checklistPressMove(e){
+  // See taskPressMove()'s own comment (08-render-core.js) — same "long-
+  // press already opened the menu, this is drag-to-choose now" branch,
+  // shared engine.
+  if(checklistLongPressFired){ if(ctxMenuDragMove(e)) e.preventDefault(); return; }
   if(!checklistPressTimer) return;
   const pt = e.touches ? e.touches[0] : e;
   const dx = pt.clientX - checklistPressStartX, dy = pt.clientY - checklistPressStartY;
@@ -328,6 +332,7 @@ function checklistPressEnd(){
   clearTimeout(checklistPressTimer);
   checklistPressTimer = null;
   if(checklistPressRow) checklistPressRow.classList.remove('pressing');
+  if(checklistLongPressFired) ctxMenuDragEnd();
 }
 // Swallows the click a touchend fires right after a long-press already
 // opened the menu — same "was this actually a long-press just now"

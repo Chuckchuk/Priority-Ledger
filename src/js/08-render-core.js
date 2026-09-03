@@ -576,6 +576,10 @@ function taskPressStart(e, taskId){
   }, TASK_LONG_PRESS_MS);
 }
 function taskPressMove(e){
+  // Long-press already fired (menu's open) — from here on this is a
+  // drag-to-choose gesture, not "did the finger move far enough to
+  // cancel the long-press" any more. See ctxMenuDragMove()'s own comment.
+  if(taskLongPressFired){ if(ctxMenuDragMove(e)) e.preventDefault(); return; }
   if(!taskPressTimer) return;
   const pt = e.touches ? e.touches[0] : e;
   const dx = pt.clientX - taskPressStartX, dy = pt.clientY - taskPressStartY;
@@ -589,6 +593,11 @@ function taskPressEnd(){
   clearTimeout(taskPressTimer);
   taskPressTimer = null;
   if(taskPressRow) taskPressRow.classList.remove('pressing');
+  // Only meaningful once the long-press actually opened a menu — see
+  // ctxMenuDragEnd()'s own comment. A no-op the rest of the time
+  // (ctxMenuDragTarget can only be set by ctxMenuDragMove(), which itself
+  // only ever runs once taskLongPressFired is true).
+  if(taskLongPressFired) ctxMenuDragEnd();
 }
 // Mobile 'detail': a plain tap jumps straight to the full task page —
 // same platform-standard split as a home-screen icon (tap to open,
@@ -816,6 +825,9 @@ function subtaskPressStart(e, taskId, subId){
   }, TASK_LONG_PRESS_MS);
 }
 function subtaskPressMove(e){
+  // See taskPressMove()'s own comment — same "long-press already opened
+  // the menu, this is drag-to-choose now" branch, shared engine.
+  if(subtaskLongPressFired){ if(ctxMenuDragMove(e)) e.preventDefault(); return; }
   if(!subtaskPressTimer) return;
   const pt = e.touches ? e.touches[0] : e;
   const dx = pt.clientX - subtaskPressStartX, dy = pt.clientY - subtaskPressStartY;
@@ -827,6 +839,7 @@ function subtaskPressMove(e){
 function subtaskPressEnd(){
   clearTimeout(subtaskPressTimer);
   subtaskPressTimer = null;
+  if(subtaskLongPressFired) ctxMenuDragEnd();
 }
 // Swallows the click a touchend fires right after a long-press already
 // opened the menu — same pattern taskRowTap()/checklistRowTap() use.
@@ -862,6 +875,8 @@ function taskDetailCheckPressStart(e, taskId){
   }, TASK_LONG_PRESS_MS);
 }
 function taskDetailCheckPressMove(e){
+  // See taskPressMove()'s own comment — same shared drag-to-choose engine.
+  if(taskDetailCheckLongPressFired){ if(ctxMenuDragMove(e)) e.preventDefault(); return; }
   if(!taskDetailCheckPressTimer) return;
   const pt = e.touches ? e.touches[0] : e;
   const dx = pt.clientX - taskDetailCheckPressStartX, dy = pt.clientY - taskDetailCheckPressStartY;
@@ -873,6 +888,7 @@ function taskDetailCheckPressMove(e){
 function taskDetailCheckPressEnd(){
   clearTimeout(taskDetailCheckPressTimer);
   taskDetailCheckPressTimer = null;
+  if(taskDetailCheckLongPressFired) ctxMenuDragEnd();
 }
 function taskDetailCheckTap(e, taskId){
   if(taskDetailCheckLongPressFired){ taskDetailCheckLongPressFired = false; e.preventDefault(); return; }
@@ -902,6 +918,59 @@ function ctxMenuCopyTitle(taskId){
   const t = state.tasks.find(x=>x.id===taskId);
   closeCtxMenu();
   if(t && navigator.clipboard) navigator.clipboard.writeText(t.title).catch(()=>{});
+}
+
+// ---------- long-press-then-drag menu selection (touch only) ----------
+// Native iOS/Android context menus let you keep your finger down after a
+// long-press, drag onto the option you want, and lift to choose it —
+// without this, choosing anything took two separate touches (long-press
+// to open, then a second tap on a button). This reproduces that for
+// #ctxMenu generically, since every long-press menu in the app (a task
+// row, a step, a checklist row) already funnels into that one shared
+// element (see ctxMenuTaskId's own comment above) — one implementation
+// covers all three flavors. Wired into each row-type's own *PressMove/
+// *PressEnd, gated on that row's own *LongPressFired flag (only true once
+// its long-press actually opened the menu) — see taskPressMove() for the
+// exact hookup. If the finger lifts while resting on a button, that
+// button is chosen, same as tapping it; if it lifts anywhere else (never
+// dragged onto an option, or dragged back off one), the menu is left open
+// exactly as it already was before any of this existed — a plain tap
+// still picks an option, per the explicit ask to keep that path
+// untouched. Mouse never reaches this: a row's own onmousedown/onmouseup
+// only ever call *PressStart/*PressEnd, never *PressMove (no
+// onmousemove attribute on any row) — ctxMenuDragMove() is the only place
+// ctxMenuDragTarget ever gets set, so it's structurally touch-only.
+let ctxMenuDragTarget = null;
+
+// Called from *PressMove once *LongPressFired is true. Returns true
+// whenever the finger's still down over an open menu at all (regardless
+// of whether it's landed on a button yet) — callers use that to decide
+// whether to preventDefault() and lock page scroll for the rest of this
+// touch, not just for the moments it happens to be directly over a
+// button, since the whole point is the screen no longer scrolling out
+// from under the gesture once the menu is up.
+function ctxMenuDragMove(e){
+  const menu = document.getElementById('ctxMenu');
+  if(!menu.classList.contains('open') || !e.touches) return false;
+  const pt = e.touches[0];
+  const el = document.elementFromPoint(pt.clientX, pt.clientY);
+  const btn = el && el.closest('#ctxMenu button');
+  if(btn !== ctxMenuDragTarget){
+    if(ctxMenuDragTarget) ctxMenuDragTarget.classList.remove('ctxmenu-armed');
+    ctxMenuDragTarget = btn || null;
+    if(ctxMenuDragTarget) ctxMenuDragTarget.classList.add('ctxmenu-armed');
+  }
+  return true;
+}
+// Called from *PressEnd once *LongPressFired is true (i.e. every finger
+// lift that followed a long-press, whether or not it ever actually
+// dragged). Clicking the armed button reuses that button's own onclick —
+// same ctxMenuAction()/closeCtxMenu() path a plain tap already goes
+// through — rather than duplicating its action here.
+function ctxMenuDragEnd(){
+  const target = ctxMenuDragTarget;
+  ctxMenuDragTarget = null;
+  if(target){ target.classList.remove('ctxmenu-armed'); target.click(); }
 }
 
 // ---------- a task row's Notes hover preview ----------

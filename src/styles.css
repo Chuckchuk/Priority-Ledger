@@ -4568,6 +4568,18 @@
      outranks .ctxmenu button regardless of source order. */
   .ctxmenu button.ctxmenu-danger{ color: var(--estate); }
   .ctxmenu button.ctxmenu-danger:hover{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
+  /* Long-press-then-drag selection (ctxMenuDragMove(), 08-render-core.js)
+     — the touch-only equivalent of :hover, since a finger dragged onto a
+     button after a long-press never triggers a real :hover state the way
+     a mouse would. Same look as :hover on purpose: whichever button is
+     "armed" (would be chosen if the finger lifted right now) should read
+     exactly like the mouse affordance for "this is what you're about to
+     pick," not a distinct visual language of its own. Same two-classes-
+     +type specificity as .ctxmenu-danger's own hover above, for the same
+     reason — otherwise a danger item's plain color:var(--estate) would
+     outrank this on source order alone and never visibly arm. */
+  .ctxmenu button.ctxmenu-armed{ background: var(--card-bg-dim); }
+  .ctxmenu button.ctxmenu-danger.ctxmenu-armed{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
   /* A non-interactive heading row inside #ctxMenu — "Move to" (the
      category menu, categoryMoveMenuHtml() in 08-render-core.js) is the
      one menu here that isn't just a flat list of actions, so it gets a
