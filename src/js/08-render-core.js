@@ -321,7 +321,17 @@ function taskSubtasksHtml(t){
             <span class="draghandle sub" onpointerdown="subHandlePointerDown(event,'${t.id}','${s.id}')" title="Drag to reorder">⠿</span>
             <div class="subcheck ${s.done?'done':''}${s.cancelled?' cancelled':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
             <div class="subtext ${s.done?'done':''}${s.cancelled?' cancelled':''}"${subMenuAttrs} onclick="subtextTap(event,this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
-            <div class="subrowactions">
+            <!-- stepsactions (see body.mobileui-active .stepsactions in
+                 <style>) — the modifier that lets the mobile-only rule
+                 below hide just the pin/remove buttons here, now that
+                 they're also reachable from this row's own long-press menu
+                 (subtaskContextMenuHtml() above), without touching a
+                 checklist item's own .subrowactions (13-checklist.js),
+                 which never had a pin button and still needs its inline
+                 "×" since it has no long-press "Pin to Today" of its own
+                 to make Remove Item feel any less like its one obvious
+                 delete affordance. -->
+            <div class="subrowactions stepsactions">
               <div class="datefield ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
               <button class="flagbtn daybtn ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">${DAYPIN_ICON_SVG}</button>
               <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
@@ -729,11 +739,29 @@ function openTaskContextMenuForRow(taskId, rowEl){
 // cancelled step needs a menu for, even though the checkbox already
 // does the same toggle directly; Mark as Cancelled only makes sense
 // while the step isn't done yet.
+// Pin to Today / Remove Item were added per the explicit ask, once a
+// standard task's own step row started dropping its always-visible
+// Pin/Remove buttons on mobile (see the .stepsactions comment in
+// taskSubtasksHtml() below and body.mobileui-active .stepsactions in
+// <style>) — this menu is now the only way to reach either on a phone.
+// Pin to Today is gated off for a checklist list's own items
+// (isChecklistCategory(t.category)) rather than shown everywhere this
+// function is shared: a checklist item never had a "planned for today"
+// concept exposed anywhere in its UI before this menu existed (no inline
+// pin button, no date field), so silently granting it here would be a
+// new capability nobody asked for, not just a relocated one. Remove Item
+// has no such asymmetry — a checklist item's inline "×" already does the
+// exact same delete, so offering it here too for both flavors is just a
+// second path to something already possible either way.
 function subtaskContextMenuHtml(t, s){
+  const plannedToday = (s.plannedDates||[]).includes(todayStr());
   return `
     <button onclick="ctxMenuAction(()=>toggleSubtask('${t.id}','${s.id}'))">${s.done ? 'Reopen' : 'Mark Complete'}</button>
     ${s.cancelled ? `<button onclick="ctxMenuAction(()=>uncancelSubtaskToComplete('${t.id}','${s.id}'))">Mark Complete</button>` : ''}
     ${!s.done ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markSubtaskCancelled('${t.id}','${s.id}'))">Mark as Cancelled</button>` : ''}
+    ${!isChecklistCategory(t.category) ? `<button onclick="ctxMenuAction(()=>toggleSubtaskToday('${t.id}','${s.id}'))">${plannedToday ? 'Remove from Today' : 'Pin to Today'}</button>` : ''}
+    <div class="ctxmenu-sep"></div>
+    <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteSubtask('${t.id}','${s.id}'))">Remove Item</button>
   `;
 }
 function renderSubtaskContextMenu(taskId, subId, x, y){

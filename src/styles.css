@@ -1349,6 +1349,25 @@
     display:flex; align-items:center; gap:8px; justify-content:flex-end;
     width:100%; margin-top:2px;
   }
+  /* Per the explicit ask: a standard task's own step row was always
+     forcing this whole line — Date pill + pin + remove, all three —
+     onto its own row below the text, regardless of how short that text
+     was, which read as an airy near-empty line for a short step and, at
+     scale across a long Steps list, meaningfully ate into how many
+     items fit on screen at once. Pin and Remove now live in the row's
+     own long-press menu instead (subtaskContextMenuHtml(), 08-render-
+     core.js) — same parity a standard task's own row already has (its
+     own Pin/Delete equivalents are menu-only too) — so this drops the
+     mobile actions line to just the Date field, which has to stay
+     inline since there's no menu equivalent for setting a date yet.
+     Scoped to .stepsactions specifically (the modifier taskSubtasksHtml()
+     adds only to a task's own steps), not the bare .subrowactions class a
+     checklist list's own items share the row markup with (13-checklist.js)
+     — those never had a pin button here to begin with, and still need
+     their inline "×" since Remove Item is their only delete affordance
+     either way. */
+  body.mobileui-active .subrow .stepsactions .daybtn,
+  body.mobileui-active .subrow .stepsactions .subdel{ display:none; }
   .subdropend{ height:10px; }
   .subdropend.dragover{ border-top: 2px solid var(--primary); }
   /* The task's own due-date field claims the whole row on the full detail
