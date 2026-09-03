@@ -1368,6 +1368,28 @@
      either way. */
   body.mobileui-active .subrow .stepsactions .daybtn,
   body.mobileui-active .subrow .stepsactions .subdel{ display:none; }
+  /* Per the explicit follow-up ask: once Pin/Remove were gone, the lone
+     remaining Date chip still always dropped to its own full-width line
+     below the text (the general .subrowactions rule above), which for a
+     short step read as an emptyish second line for no reason. This lets
+     it share the first line instead, WITHOUT touching .subtext's own
+     flex:1 1 0% (see that rule's own comment above for exactly why that
+     basis can't become 'auto' — reintroducing that regresses the
+     documented "checkmark and drag handle move away from the text" bug):
+     flex-wrap already keeps everything on one flex line regardless of
+     text length (a 0-basis item never itself forces a wrap), so all this
+     needs is to stop forcing its own width and let it size to its own
+     content instead — align-self:flex-end (not the row's own inherited
+     flex-start) is what then makes a LONG step's wrapped text actually
+     read as "date moved down": the chip sits at the bottom of the row's
+     line box, level with the last line of wrapped text, rather than
+     floating up alongside just the first line while the rest of the step
+     wraps on below it. A short, single-line step has no meaningful gap
+     between its one line's top and bottom, so flex-end vs flex-start is
+     invisible there — the chip just reads as sitting inline. */
+  body.mobileui-active .subrow .stepsactions{
+    width:auto; margin-top:0; align-self:flex-end;
+  }
   .subdropend{ height:10px; }
   .subdropend.dragover{ border-top: 2px solid var(--primary); }
   /* The task's own due-date field claims the whole row on the full detail
@@ -4580,6 +4602,15 @@
      outrank this on source order alone and never visibly arm. */
   .ctxmenu button.ctxmenu-armed{ background: var(--card-bg-dim); }
   .ctxmenu button.ctxmenu-danger.ctxmenu-armed{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
+  /* A menu row that borrows an icon already established elsewhere in the
+     app for the same action (right now: the pin glyph a row's own
+     "today" button already uses — DAYPIN_ICON_SVG, 08-render-core.js) —
+     switches that one button from the plain block layout every other
+     menu item uses to a flex row so the icon can sit flush right while
+     the label stays left, rather than every .ctxmenu button needing this
+     space-between treatment whether or not it has an icon to place. */
+  .ctxmenu button.ctxmenu-hasicon{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .ctxmenu-icon{ display:flex; flex-shrink:0; width:1em; height:1em; opacity:0.65; }
   /* A non-interactive heading row inside #ctxMenu — "Move to" (the
      category menu, categoryMoveMenuHtml() in 08-render-core.js) is the
      one menu here that isn't just a flat list of actions, so it gets a

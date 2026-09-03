@@ -656,6 +656,14 @@ let ctxMenuTaskId = null;
 // desktop's own row already has a .rowexpand button for this too, but a
 // right-click menu that's already open is one less click than reaching
 // for it.
+// ctxmenu-hasicon/.ctxmenu-icon (see <style>) puts the same pin glyph
+// this task's own row already uses for pinning to today (DAYPIN_ICON_SVG)
+// on the right edge of this one menu row too, per the explicit ask —
+// scoped to just this item rather than every row, since it's the one
+// action here that already has an established icon language elsewhere in
+// the app to borrow; the rest (Mark complete, Mark as Cancelled, Mark
+// urgent, Edit details, Copy title, Delete) have no equivalent icon
+// button anywhere else to stay consistent with.
 function taskContextMenuHtml(t, includeEdit){
   const plannedToday = (t.plannedDates||[]).includes(todayStr());
   return `
@@ -663,7 +671,7 @@ function taskContextMenuHtml(t, includeEdit){
     ${t.cancelled ? `<button onclick="ctxMenuAction(()=>uncancelTaskToComplete('${t.id}'))">Mark complete</button>` : ''}
     ${t.status!=='done' ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markTaskCancelled('${t.id}'))">Mark as Cancelled</button>` : ''}
     <button onclick="ctxMenuAction(()=>toggleUrgent('${t.id}'))">${t.urgent ? 'Unmark urgent' : 'Mark urgent'}</button>
-    <button onclick="ctxMenuAction(()=>toggleTaskToday('${t.id}'))">${plannedToday ? 'Remove from today' : 'Add to today'}</button>
+    <button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>toggleTaskToday('${t.id}'))">${plannedToday ? 'Remove from today' : 'Add to today'}<span class="ctxmenu-icon">${DAYPIN_ICON_SVG}</span></button>
     ${includeEdit ? `<button onclick="ctxMenuAction(()=>openGenericTaskDetail('${t.id}'))">Edit details</button>` : ''}
     <button onclick="ctxMenuCopyTitle('${t.id}')">Copy title</button>
     <div class="ctxmenu-sep"></div>
@@ -768,7 +776,7 @@ function subtaskContextMenuHtml(t, s){
     <button onclick="ctxMenuAction(()=>toggleSubtask('${t.id}','${s.id}'))">${s.done ? 'Reopen' : 'Mark Complete'}</button>
     ${s.cancelled ? `<button onclick="ctxMenuAction(()=>uncancelSubtaskToComplete('${t.id}','${s.id}'))">Mark Complete</button>` : ''}
     ${!s.done ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markSubtaskCancelled('${t.id}','${s.id}'))">Mark as Cancelled</button>` : ''}
-    ${!isChecklistCategory(t.category) ? `<button onclick="ctxMenuAction(()=>toggleSubtaskToday('${t.id}','${s.id}'))">${plannedToday ? 'Remove from Today' : 'Pin to Today'}</button>` : ''}
+    ${!isChecklistCategory(t.category) ? `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>toggleSubtaskToday('${t.id}','${s.id}'))">${plannedToday ? 'Remove from Today' : 'Pin to Today'}<span class="ctxmenu-icon">${DAYPIN_ICON_SVG}</span></button>` : ''}
     <div class="ctxmenu-sep"></div>
     <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteSubtask('${t.id}','${s.id}'))">Remove Item</button>
   `;

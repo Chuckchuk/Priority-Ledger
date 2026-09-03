@@ -1400,6 +1400,28 @@
      either way. */
   body.mobileui-active .subrow .stepsactions .daybtn,
   body.mobileui-active .subrow .stepsactions .subdel{ display:none; }
+  /* Per the explicit follow-up ask: once Pin/Remove were gone, the lone
+     remaining Date chip still always dropped to its own full-width line
+     below the text (the general .subrowactions rule above), which for a
+     short step read as an emptyish second line for no reason. This lets
+     it share the first line instead, WITHOUT touching .subtext's own
+     flex:1 1 0% (see that rule's own comment above for exactly why that
+     basis can't become 'auto' — reintroducing that regresses the
+     documented "checkmark and drag handle move away from the text" bug):
+     flex-wrap already keeps everything on one flex line regardless of
+     text length (a 0-basis item never itself forces a wrap), so all this
+     needs is to stop forcing its own width and let it size to its own
+     content instead — align-self:flex-end (not the row's own inherited
+     flex-start) is what then makes a LONG step's wrapped text actually
+     read as "date moved down": the chip sits at the bottom of the row's
+     line box, level with the last line of wrapped text, rather than
+     floating up alongside just the first line while the rest of the step
+     wraps on below it. A short, single-line step has no meaningful gap
+     between its one line's top and bottom, so flex-end vs flex-start is
+     invisible there — the chip just reads as sitting inline. */
+  body.mobileui-active .subrow .stepsactions{
+    width:auto; margin-top:0; align-self:flex-end;
+  }
   .subdropend{ height:10px; }
   .subdropend.dragover{ border-top: 2px solid var(--primary); }
   /* The task's own due-date field claims the whole row on the full detail
@@ -4612,6 +4634,15 @@
      outrank this on source order alone and never visibly arm. */
   .ctxmenu button.ctxmenu-armed{ background: var(--card-bg-dim); }
   .ctxmenu button.ctxmenu-danger.ctxmenu-armed{ background: color-mix(in srgb, var(--estate) 14%, transparent); }
+  /* A menu row that borrows an icon already established elsewhere in the
+     app for the same action (right now: the pin glyph a row's own
+     "today" button already uses — DAYPIN_ICON_SVG, 08-render-core.js) —
+     switches that one button from the plain block layout every other
+     menu item uses to a flex row so the icon can sit flush right while
+     the label stays left, rather than every .ctxmenu button needing this
+     space-between treatment whether or not it has an icon to place. */
+  .ctxmenu button.ctxmenu-hasicon{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .ctxmenu-icon{ display:flex; flex-shrink:0; width:1em; height:1em; opacity:0.65; }
   /* A non-interactive heading row inside #ctxMenu — "Move to" (the
      category menu, categoryMoveMenuHtml() in 08-render-core.js) is the
      one menu here that isn't just a flat list of actions, so it gets a
@@ -10309,6 +10340,14 @@ let ctxMenuTaskId = null;
 // desktop's own row already has a .rowexpand button for this too, but a
 // right-click menu that's already open is one less click than reaching
 // for it.
+// ctxmenu-hasicon/.ctxmenu-icon (see <style>) puts the same pin glyph
+// this task's own row already uses for pinning to today (DAYPIN_ICON_SVG)
+// on the right edge of this one menu row too, per the explicit ask —
+// scoped to just this item rather than every row, since it's the one
+// action here that already has an established icon language elsewhere in
+// the app to borrow; the rest (Mark complete, Mark as Cancelled, Mark
+// urgent, Edit details, Copy title, Delete) have no equivalent icon
+// button anywhere else to stay consistent with.
 function taskContextMenuHtml(t, includeEdit){
   const plannedToday = (t.plannedDates||[]).includes(todayStr());
   return `
@@ -10316,7 +10355,7 @@ function taskContextMenuHtml(t, includeEdit){
     ${t.cancelled ? `<button onclick="ctxMenuAction(()=>uncancelTaskToComplete('${t.id}'))">Mark complete</button>` : ''}
     ${t.status!=='done' ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markTaskCancelled('${t.id}'))">Mark as Cancelled</button>` : ''}
     <button onclick="ctxMenuAction(()=>toggleUrgent('${t.id}'))">${t.urgent ? 'Unmark urgent' : 'Mark urgent'}</button>
-    <button onclick="ctxMenuAction(()=>toggleTaskToday('${t.id}'))">${plannedToday ? 'Remove from today' : 'Add to today'}</button>
+    <button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>toggleTaskToday('${t.id}'))">${plannedToday ? 'Remove from today' : 'Add to today'}<span class="ctxmenu-icon">${DAYPIN_ICON_SVG}</span></button>
     ${includeEdit ? `<button onclick="ctxMenuAction(()=>openGenericTaskDetail('${t.id}'))">Edit details</button>` : ''}
     <button onclick="ctxMenuCopyTitle('${t.id}')">Copy title</button>
     <div class="ctxmenu-sep"></div>
@@ -10421,7 +10460,7 @@ function subtaskContextMenuHtml(t, s){
     <button onclick="ctxMenuAction(()=>toggleSubtask('${t.id}','${s.id}'))">${s.done ? 'Reopen' : 'Mark Complete'}</button>
     ${s.cancelled ? `<button onclick="ctxMenuAction(()=>uncancelSubtaskToComplete('${t.id}','${s.id}'))">Mark Complete</button>` : ''}
     ${!s.done ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markSubtaskCancelled('${t.id}','${s.id}'))">Mark as Cancelled</button>` : ''}
-    ${!isChecklistCategory(t.category) ? `<button onclick="ctxMenuAction(()=>toggleSubtaskToday('${t.id}','${s.id}'))">${plannedToday ? 'Remove from Today' : 'Pin to Today'}</button>` : ''}
+    ${!isChecklistCategory(t.category) ? `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>toggleSubtaskToday('${t.id}','${s.id}'))">${plannedToday ? 'Remove from Today' : 'Pin to Today'}<span class="ctxmenu-icon">${DAYPIN_ICON_SVG}</span></button>` : ''}
     <div class="ctxmenu-sep"></div>
     <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteSubtask('${t.id}','${s.id}'))">Remove Item</button>
   `;
