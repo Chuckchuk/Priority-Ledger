@@ -14405,9 +14405,19 @@ function renderChecklistDetail(taskId){
 // no cross-list batch (you always finish or cancel one list's move
 // before opening another).
 function startMoveItem(taskId, subId){
+  const t = state.tasks.find(x=>x.id===taskId);
+  const movableCount = t ? (t.subtasks||[]).filter(s=>!s.done && !s.cancelled).length : 0;
   moveModeListId = taskId;
   moveModeSelectedIds = new Set([subId]);
   render();
+  // The item just tapped is the only eligible one in the whole list —
+  // there's nothing left to add to a batch, so the selection step (which
+  // would just show one already-checked item and a Move… button) is
+  // pure friction. Straight to the picker instead, per the explicit ask.
+  // render() above still puts the list itself into move mode first, so
+  // if the picker gets cancelled it falls back to that one-item selection
+  // rather than to nothing.
+  if(movableCount <= 1) openMoveTargetPicker();
 }
 function toggleMoveItemSelected(subId){
   if(!moveModeSelectedIds) return;
