@@ -160,6 +160,21 @@ let taskSettingsOpenId = null;
 // has its "+ Add step" input expanded, while that task still has zero
 // steps — see openStepsAdd()'s own comment for the full reasoning.
 let stepsAddOpenId = null;
+// "Move item(s) to another list" — see the block of functions in
+// 13-checklist.js this backs. moveModeListId is the checklist list
+// currently showing selection checkboxes on its items (null the rest of
+// the time); moveModeSelectedIds is the Set of that list's own subtask
+// ids currently checked for the batch. moveTargetOpen/moveTargetFilter/
+// moveTargetNewOpen/moveTargetTemplateOpen are all about the target-list
+// picker modal that opens once you confirm a selection — kept separate
+// from the two above so closing just the picker (to go back and adjust
+// the selection) doesn't also drop the selection itself.
+let moveModeListId = null;
+let moveModeSelectedIds = null;
+let moveTargetOpen = false;
+let moveTargetFilter = '';
+let moveTargetNewOpen = false;
+let moveTargetTemplateOpen = false;
 let taskPressTimer = null;
 let taskLongPressFired = false;
 let taskPressStartX = 0;

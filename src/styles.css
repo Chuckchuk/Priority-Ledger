@@ -967,6 +967,13 @@
   }
   .checkcircle.done{ background: var(--ink); border-color: var(--ink); }
   .checkcircle.done::after{ content:'✓'; color: var(--card-bg); font-size:10px; }
+  /* Same reasoning as .check.done.cancelled/.subcheck.done.cancelled
+     (see their own comments) — a checklist list marked cancelled reuses
+     .done's plumbing entirely (markTaskCancelled() sets status:'done'
+     either way), this just swaps the fixed --estate red/✕ in over the
+     plain done look, same as everywhere else cancelled is drawn. */
+  .checkcircle.done.cancelled{ background: var(--estate); border-color: var(--estate); }
+  .checkcircle.done.cancelled::after{ content:'✕'; }
   /* Same hover language as .check (see its own comment) — a colored ring,
      ink-toned once done. translate(-50%,-50%) already centers .checkcircle
      at rest; the guide-wiggle/celebrate-pop animations above set their own
@@ -1409,6 +1416,55 @@
      genuinely finished step, not just another shade of "done." */
   .subtext.done.cancelled{ text-decoration-color: var(--estate); color: var(--estate); }
   .subdel{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:0.85rem; flex-shrink:0; }
+  /* Checklist items only — "move this item to another list"
+     (startMoveItem(), 13-checklist.js). A plain text label rather than a
+     hand-drawn icon glyph, on purpose: this is a brand-new action with no
+     existing icon language to borrow, and blind icon geometry has cost
+     multiple correction rounds elsewhere in this app before — a short
+     word is unambiguous at any size for zero risk. */
+  .moveitembtn{
+    background:none; border:none; color: var(--ink-soft); cursor:pointer; flex-shrink:0;
+    font-family:'IBM Plex Mono', monospace; font-size:0.66rem; letter-spacing:0.03em; text-transform:uppercase;
+  }
+  .moveitembtn:hover{ color: var(--primary); }
+  /* ---- move mode (batch-selecting items to move, .subrow.movemode) ----
+     The row itself becomes the tap target (see the onclick moved onto
+     .subrow, 13-checklist.js) rather than a dedicated checkbox column, so
+     .moveitemcheck is purely a visual indicator, not its own hit target —
+     same "tap anywhere on the row" idiom .checkcircle-wrap's siblings
+     don't use but a selection list elsewhere on mobile (e.g. Photos
+     multi-select) commonly does, which is the more natural gesture once
+     you're deliberately selecting several things in a row. */
+  .subrow.movemode{ cursor:pointer; }
+  .subrow.movemode.moveineligible{ opacity:0.35; cursor:default; }
+  .subrow.movemode .draghandle{ visibility:hidden; }
+  .moveitemcheck{
+    width:16px; height:16px; border-radius:50%; border:1.5px solid var(--ink-soft);
+    flex-shrink:0; position:relative; background: var(--card-bg);
+  }
+  .moveitemcheck.on{ background: var(--primary); border-color: var(--primary); }
+  .moveitemcheck.on::after{
+    content:'✓'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:white; font-size:9px;
+  }
+  /* Replaces the normal footer-row (Delete list/template buttons) while a
+     move is in progress — those actions don't make sense mid-selection,
+     and this bar is the one place left to either confirm or bail out. */
+  .movemodebar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-top:14px; padding-top:12px; border-top:1px solid var(--line);
+  }
+  .movemodebarcount{ font-family:'IBM Plex Mono', monospace; font-size:0.72rem; color: var(--ink-soft); }
+  .movemodebaractions{ display:flex; gap:8px; }
+  .movemodebarcancel{
+    background:none; border:1px solid var(--line); border-radius:6px; padding:7px 12px; cursor:pointer;
+    color: var(--ink-soft); font-family:'IBM Plex Sans', sans-serif; font-size:0.8rem;
+  }
+  .movemodebarcancel:hover{ border-color: var(--ink-soft); color: var(--ink); }
+  .movemodebarconfirm{
+    background: var(--primary); color:white; border:none; border-radius:6px; padding:7px 14px; cursor:pointer;
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.8rem; font-weight:600;
+  }
   /* .movenext ("move to whatever's next" — today if the day you're
      looking at has already passed, tomorrow otherwise; see
      moveForwardTarget(), 14-task-actions.js) / .dayremove ("remove from
@@ -4576,6 +4632,67 @@
     color: var(--ink-soft); margin-bottom:10px;
   }
   .shareimport-preview{ margin-bottom:10px; }
+  /* ---- "Move item(s) to another list" target picker (#moveItemModal,
+     openMoveTargetPicker()/renderMoveTargetModal(), 13-checklist.js) ----
+     Desktop: same centered scrim+card idiom as #shareImportModal just
+     above (reuses .shareimport-scrim directly rather than a second,
+     identical scrim rule) — just its own wider/taller card, since this
+     one holds a scrollable list of candidate lists plus a search field
+     and inline create-new forms, not a short fixed button list.
+     .moveitem-sheethead (the grabber+close row, reusing the exact same
+     markup/classes the mobile quickadd sheet already uses — see
+     .quickaddsheethead/.quickaddsheetgrabber/.quickaddsheetclose above)
+     stays hidden here on desktop; only the mobile override below turns
+     it on, once this card has actually become a bottom sheet and a
+     grabber/explicit close button are the only way to dismiss it (no
+     dedicated close button otherwise reachable without the scrim/Cancel). */
+  .moveitem{ display:none; }
+  .moveitem.open{ display:block; }
+  .moveitem-card{
+    position:fixed; z-index:211; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:min(400px, calc(100vw - 32px)); max-height:min(560px, calc(100vh - 64px));
+    display:flex; flex-direction:column;
+    background: var(--card-bg); border:1px solid var(--line); border-radius:12px;
+    box-shadow:0 16px 40px rgba(0,0,0,0.4); padding:16px;
+  }
+  .moveitem-sheethead{ display:none; }
+  .moveitem-search{
+    width:100%; margin:8px 0 10px; padding:8px 10px; border-radius:7px;
+    border:1px solid var(--line); background: var(--card-bg-dim); color: var(--ink);
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.85rem;
+  }
+  .moveitem-newrow{ display:flex; gap:8px; margin-bottom:10px; }
+  .moveitem-newbtn{
+    background:none; border:1px dashed var(--line); border-radius:7px; padding:6px 10px; cursor:pointer;
+    color: var(--ink-soft); font-family:'IBM Plex Sans', sans-serif; font-size:0.78rem;
+  }
+  .moveitem-newbtn:hover{ border-color: var(--primary); color: var(--primary); }
+  .moveitem-list{ flex:1; overflow-y:auto; min-height:0; }
+  .moveitem-list .ctxmenu.ctxmenu-embedded{ margin-bottom:6px; }
+  .movetargetnewform{ display:flex; gap:8px; margin-bottom:10px; }
+  .movetargetnewform input{
+    flex:1; padding:8px 10px; border-radius:7px; border:1px solid var(--line);
+    background: var(--card-bg-dim); color: var(--ink); font-family:'IBM Plex Sans', sans-serif; font-size:0.85rem;
+  }
+  .movetargetbacklink{
+    background:none; border:none; padding:0; margin-left:8px; cursor:pointer;
+    color: var(--primary); font-family:'IBM Plex Mono', monospace; font-size:0.64rem; text-transform:uppercase;
+  }
+  /* Mobile: docks to the bottom of the screen and only claims half the
+     viewport height, per the explicit ask — leaves the checklist detail
+     page (and the rest of the items still eligible for the batch) visibly
+     peeking above it, since you may want to back out and tap a couple
+     more items in before actually confirming a target. Same slide-up
+     idiom as the quickadd bottomsheet (transform/opacity transition,
+     rounded top corners, grabber head) rather than a new one-off pattern. */
+  body.mobileui-active .moveitem-card{
+    top:auto; left:0; right:0; bottom:0; transform:none;
+    width:100%; max-width:none; height:50vh; max-height:50vh;
+    border-radius:20px 20px 0 0; padding:12px 16px 20px;
+  }
+  body.mobileui-active .moveitem-sheethead{
+    display:flex; align-items:center; justify-content:center; position:relative; margin-bottom:6px; flex-shrink:0;
+  }
   /* Shared between the import dialog's preview and the standalone
      no-account page (renderShareStandaloneContent()) — same "big title"
      treatment .checklisttitle/.bigtitle already give a detail page's own

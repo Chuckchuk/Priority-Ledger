@@ -280,6 +280,14 @@
        .categorylabel "Move to" menu's look, per the explicit ask to keep
        this feeling like the same category picker. -->
   <div class="shareimport" id="shareImportModal"></div>
+  <!-- "Move item(s) to another list" target picker (openMoveTargetPicker(),
+       13-checklist.js) — same static-top-level-div idiom as
+       #shareImportModal just above, manipulated purely via
+       renderMoveTargetModal() rather than living inside #checklistView's
+       own innerHTML, so typing in its search field (or any other in-modal
+       interaction) never gets wiped out by an unrelated render() of the
+       checklist view underneath it. -->
+  <div class="moveitem" id="moveItemModal"></div>
 </div>
 
 <div class="devpanel" id="devPanel" style="display:none;">

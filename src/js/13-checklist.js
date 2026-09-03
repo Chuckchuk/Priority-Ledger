@@ -219,7 +219,7 @@ function checklistCheckcircleHtml(t, subtle){
   const total = subs.length;
   return `<div class="checkcircle-wrap" title="${total ? `${done}/${total} items` : ''}">
     ${checklistProgressHtml(subs)}
-    <div class="checkcircle ${t.status==='done'?'done':''}${checkGuideClass(t, subs, subtle)}${checkCelebrateClass(t)}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
+    <div class="checkcircle ${t.status==='done'?'done':''}${t.cancelled?' cancelled':''}${checkGuideClass(t, subs, subtle)}${checkCelebrateClass(t)}" onclick="event.stopPropagation(); toggleStatus('${t.id}')"></div>
   </div>`;
 }
 
@@ -254,6 +254,7 @@ function checklistContextMenuHtml(t){
     <button onclick="ctxMenuAction(()=>toggleStatus('${t.id}'))">${t.status==='done' ? 'Reopen' : 'Mark complete'}</button>
     <button onclick="ctxMenuCopyTitle('${t.id}')">Copy title</button>
     <div class="ctxmenu-sep"></div>
+    ${t.status!=='done' ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markTaskCancelled('${t.id}'))">Mark as Cancelled</button>` : ''}
     <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteChecklistList('${t.id}'))">Delete</button>
   `;
 }
@@ -386,6 +387,12 @@ function renderChecklistDetail(taskId){
   // overview, and say so rather than showing a label ("Lists") that no
   // longer matches where closeChecklistList() is actually about to go.
   const backLabel = checklistReturnDay ? 'Daily' : (cat ? cat.label : 'Lists');
+  // "Move item(s) to another list" — see the transient vars' own comment
+  // (02-storage-state.js). Only ever true for the one list currently open
+  // (moveModeListId is reset whenever this view is left, see
+  // closeChecklistList()), so there's no risk of two lists somehow both
+  // reading as "in move mode" at once.
+  const inMoveMode = moveModeListId === t.id;
   return `
     <div class="stackedpage">
       ${pageTagHtml('closeChecklistList()', backLabel)}
@@ -395,29 +402,308 @@ function renderChecklistDetail(taskId){
       ${checklistTitleFieldHtml(t)}
       <div class="taskmeta checklistmeta">Created ${fmtDate(t.createdAt)}</div>
       <div class="subwrap">
-        ${subs.map(s=>`
-          <div class="subrow ${t.status==='done'?'listdone':''}" data-sub-id="${s.id}">
+        ${subs.map(s=>{
+          const movable = !s.done && !s.cancelled;
+          const selected = inMoveMode && moveModeSelectedIds.has(s.id);
+          // Right-click/long-press menu (Reopen/Mark as Cancelled, same
+          // as a standard task's own steps — see subtaskContextMenuHtml(),
+          // 08-render-core.js) is suppressed while in move mode, same as
+          // the plain checkbox/edit-tap actions just below: every click on
+          // an eligible item's row should mean exactly one thing right
+          // now — toggle it into/out of the batch — not fight with a
+          // second, unrelated tap target.
+          const subMenuAttrs = inMoveMode ? '' : ` oncontextmenu="return handleSubtaskContextMenu(event,'${t.id}','${s.id}')"
+            ontouchstart="subtaskPressStart(event,'${t.id}','${s.id}')" ontouchmove="subtaskPressMove(event)" ontouchend="subtaskPressEnd()" ontouchcancel="subtaskPressEnd()"
+            onmousedown="subtaskPressStart(event,'${t.id}','${s.id}')" onmouseup="subtaskPressEnd()" onmouseleave="subtaskPressEnd()"`;
+          const rowClass = `subrow ${t.status==='done'?'listdone':''}${inMoveMode?' movemode':''}${selected?' moveselected':''}${inMoveMode && !movable?' moveineligible':''}`;
+          const rowClick = inMoveMode && movable ? ` onclick="toggleMoveItemSelected('${s.id}')"` : '';
+          return `
+          <div class="${rowClass}" data-sub-id="${s.id}"${rowClick}>
             <span class="draghandle sub" onpointerdown="subHandlePointerDown(event,'${t.id}','${s.id}')" title="Drag to reorder">⠿</span>
-            <div class="subcheck circle ${s.done?'done':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
-            <div class="subtext ${s.done?'done':''}" onclick="startEditSubtask(this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
-            <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
-          </div>`).join('')}
-        ${subDropEndHtml(t.id, subs)}
+            <div class="subcheck circle ${s.done?'done':''}${s.cancelled?' cancelled':''}" ${inMoveMode?'':`onclick="toggleSubtask('${t.id}','${s.id}')"`}></div>
+            <div class="subtext ${s.done?'done':''}${s.cancelled?' cancelled':''}"${subMenuAttrs} ${inMoveMode?'':`onclick="subtextTap(event,this,'${t.id}','${s.id}')"`}>${escapeHtml(s.text)}</div>
+            ${inMoveMode
+              ? (movable ? `<div class="moveitemcheck ${selected?'on':''}"></div>` : '')
+              : `<div class="subrowactions">
+                     ${movable ? `<button class="moveitembtn" onclick="event.stopPropagation(); startMoveItem('${t.id}','${s.id}')" title="Move to another list">Move</button>` : ''}
+                     <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
+                   </div>`}
+          </div>`;
+        }).join('')}
+        ${inMoveMode ? '' : subDropEndHtml(t.id, subs)}
         <!-- onblur commit + clear-before-call on Enter — same fix, same
              reasoning, as taskSubtasksHtml()'s own .subadd in
              08-render-core.js (both add to a task's subtasks via the same
              addSubtask(), a checklist "item" being just that under the
              hood). Keep the two in sync if this ever changes. -->
-        <input type="text" class="subadd" placeholder="+ add an item, enter to save"
+        ${inMoveMode ? '' : `<input type="text" class="subadd" placeholder="+ add an item, enter to save"
           onkeydown="if(event.key==='Enter'){ const v=this.value; this.value=''; addSubtask('${t.id}', v); }"
-          onblur="addSubtask('${t.id}', this.value)">
+          onblur="addSubtask('${t.id}', this.value)">`}
       </div>
-      <div class="footer-row">
-        ${checklistTemplateFooterHtml(t)}
-        ${checklistSaveTemplateTaskId === t.id ? '' : `<button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button>`}
-      </div>
+      ${inMoveMode ? `
+        <div class="movemodebar">
+          <span class="movemodebarcount">${moveModeSelectedIds.size} selected</span>
+          <div class="movemodebaractions">
+            <button class="movemodebarcancel" onclick="cancelMoveMode()">Cancel</button>
+            <button class="movemodebarconfirm" onclick="openMoveTargetPicker()">Move…</button>
+          </div>
+        </div>
+      ` : `
+        <div class="footer-row">
+          ${checklistTemplateFooterHtml(t)}
+          ${checklistSaveTemplateTaskId === t.id ? '' : `<button class="remove" onclick="deleteChecklistList('${t.id}')">Delete list</button>`}
+        </div>
+      `}
     </div>
   `;
+}
+
+// ---------- Move item(s) to another list ----------
+// Lets a nearly-finished list's own leftover item(s) get reassigned to a
+// different (still-open) list instead of forcing a delete-here/re-type-
+// there round trip — the explicit grocery-store scenario this was built
+// for: everything's checked off except one item, and that item belongs
+// on next week's list, not this one. A "moved" item is marked done+
+// cancelled in the list it came from (same markSubtaskCancelled() shape,
+// so it reads exactly like any other cancelled step — see .subcheck.
+// cancelled/.subtext.cancelled in <style>) and a fresh copy (new id,
+// done:false) is appended to the target list; nothing about the source
+// item is deleted, so undo/Recently-Deleted-style recovery isn't needed
+// for this specifically — reopening a "moved" item like any other
+// cancelled one un-cancels it right back in place, it just won't also
+// remove the copy that was already dropped into the target list (moving
+// something and then undoing your mind on the source is rare enough,
+// and cheap enough to clean up by hand, not to warrant a linked-item
+// system for).
+//
+// startMoveItem() enters "move mode" scoped to the one list currently
+// open (moveModeListId) with that item pre-selected; toggleMoveItemSelected()
+// lets you add more of that same list's own not-done/not-cancelled items
+// to the batch before confirming. Only one list can be "in move mode" at
+// once, same as selectedListId only ever pointing at one list — there's
+// no cross-list batch (you always finish or cancel one list's move
+// before opening another).
+function startMoveItem(taskId, subId){
+  moveModeListId = taskId;
+  moveModeSelectedIds = new Set([subId]);
+  render();
+}
+function toggleMoveItemSelected(subId){
+  if(!moveModeSelectedIds) return;
+  if(moveModeSelectedIds.has(subId)) moveModeSelectedIds.delete(subId);
+  else moveModeSelectedIds.add(subId);
+  render();
+}
+function cancelMoveMode(){
+  moveModeListId = null;
+  moveModeSelectedIds = null;
+  closeMoveTargetPicker();
+}
+
+// ---- the target-list picker modal ----
+// A real modal (not a #ctxMenu popover, unlike most other "pick one of a
+// few things" menus in this app) — the destination list is picked from
+// potentially many lists spread across every checklist tab, plus an
+// inline "create a new list" form, which doesn't fit a small anchored
+// popover the way a short fixed button list does. Structured after
+// #shareImportModal (19-sharing.js/<style>) for the desktop look — same
+// scrim+card idiom — with its own mobile override (see .moveitem in
+// <style>) that docks it to the bottom of the screen instead, per the
+// explicit ask, so there's still room on screen to keep tapping other
+// items into the batch if you back out to adjust the selection.
+function openMoveTargetPicker(){
+  if(!moveModeSelectedIds || !moveModeSelectedIds.size) return;
+  moveTargetOpen = true;
+  moveTargetFilter = '';
+  moveTargetNewOpen = false;
+  moveTargetTemplateOpen = false;
+  renderMoveTargetModal();
+}
+// Closes just the picker, not the whole move mode — lets you back out to
+// tap a couple more items into the batch and reopen it, rather than
+// starting the selection over from scratch. cancelMoveMode() is the one
+// that also calls this, for the "abandon entirely" path.
+function closeMoveTargetPicker(){
+  moveTargetOpen = false;
+  moveTargetNewOpen = false;
+  moveTargetTemplateOpen = false;
+  const el = document.getElementById('moveItemModal');
+  if(el){ el.classList.remove('open'); el.innerHTML = ''; }
+}
+function updateMoveTargetFilter(val){
+  moveTargetFilter = val;
+  renderMoveTargetModal();
+}
+function openMoveTargetNewForm(){
+  moveTargetNewOpen = true;
+  moveTargetTemplateOpen = false;
+  renderMoveTargetModal();
+  document.getElementById('moveTargetNewNameInput')?.focus();
+}
+function openMoveTargetTemplatePicker(){
+  moveTargetTemplateOpen = true;
+  moveTargetNewOpen = false;
+  renderMoveTargetModal();
+}
+function closeMoveTargetSubforms(){
+  moveTargetNewOpen = false;
+  moveTargetTemplateOpen = false;
+  renderMoveTargetModal();
+}
+
+// Every not-yet-complete list across every checklist-type category
+// except the one the item(s) are currently in — "not complete" (t.status
+// !== 'done') already covers a cancelled list too, since markTaskCancelled()
+// always sets status to 'done' alongside t.cancelled. Grouped by category
+// (per the project owner's own call — an item should be movable to any
+// list anywhere, not just ones in the current tab), with group headers
+// only shown once there's more than one checklist category actually
+// offering a candidate, so the single-checklist-tab account this app
+// defaults new users to doesn't see a redundant one-item-group header.
+function moveTargetCandidateGroups(){
+  const q = moveTargetFilter.trim().toLowerCase();
+  const groups = state.categories
+    .filter(c => c.type === 'checklist')
+    .map(c => ({
+      cat: c,
+      lists: checklistLists(c.id).filter(t =>
+        t.id !== moveModeListId && t.status !== 'done' &&
+        (!q || t.title.toLowerCase().includes(q))
+      )
+    }))
+    .filter(g => g.lists.length);
+  return groups;
+}
+function moveTargetGroupsHtml(){
+  const groups = moveTargetCandidateGroups();
+  if(!groups.length) return `<div class="ctxmenu-label">No matching lists</div>`;
+  const showHeaders = groups.length > 1;
+  return groups.map(g => `
+    ${showHeaders ? `<div class="ctxmenu-label">${escapeHtml(g.cat.label)}</div>` : ''}
+    ${g.lists.map(t => `<button onclick="confirmMoveItemsToList('${t.id}')">${escapeHtml(t.title)}</button>`).join('')}
+  `).join('');
+}
+function moveTargetNewFormHtml(){
+  return `
+    <div class="movetargetnewform">
+      <input type="text" id="moveTargetNewNameInput" placeholder="New list name…"
+        onkeydown="if(event.key==='Enter'){ confirmMoveItemsToNewList(this.value); } else if(event.key==='Escape'){ closeMoveTargetSubforms(); }">
+      <button class="templatecreatecancel" onclick="closeMoveTargetSubforms()">Cancel</button>
+    </div>`;
+}
+function moveTargetTemplateListHtml(){
+  const templates = state.checklistTemplates || [];
+  if(!templates.length) return `<div class="ctxmenu-label">No templates yet</div>`;
+  return templates.map(tpl => `<button onclick="confirmMoveItemsToTemplateList('${tpl.id}')">${escapeHtml(tpl.name)}</button>`).join('');
+}
+function renderMoveTargetModal(){
+  const el = document.getElementById('moveItemModal');
+  if(!el) return;
+  if(!moveTargetOpen || !moveModeListId || !moveModeSelectedIds || !moveModeSelectedIds.size){
+    el.classList.remove('open'); el.innerHTML = ''; return;
+  }
+  el.classList.add('open');
+  const n = moveModeSelectedIds.size;
+  el.innerHTML = `
+    <div class="shareimport-scrim" onclick="closeMoveTargetPicker()"></div>
+    <div class="moveitem-card">
+      <div class="quickaddsheethead moveitem-sheethead">
+        <div class="quickaddsheetgrabber"></div>
+        <button class="quickaddsheetclose" onclick="closeMoveTargetPicker()">×</button>
+      </div>
+      <div class="shareimport-heading">Move ${n} item${n===1?'':'s'} to…</div>
+      <input type="text" class="moveitem-search" placeholder="Search lists…" value="${escapeHtml(moveTargetFilter)}"
+        oninput="updateMoveTargetFilter(this.value)">
+      ${moveTargetNewOpen ? moveTargetNewFormHtml() : moveTargetTemplateOpen ? `
+        <div class="moveitem-newrow">
+          <button class="movetargetbacklink" onclick="closeMoveTargetSubforms()">‹ Back</button>
+        </div>
+      ` : `
+        <div class="moveitem-newrow">
+          <button class="moveitem-newbtn" onclick="openMoveTargetNewForm()">+ New list</button>
+          ${(state.checklistTemplates||[]).length ? `<button class="moveitem-newbtn" onclick="openMoveTargetTemplatePicker()">From template</button>` : ''}
+        </div>
+      `}
+      <div class="moveitem-list">
+        <div class="ctxmenu ctxmenu-embedded open">
+          ${moveTargetTemplateOpen ? `
+            <div class="ctxmenu-label">Choose a template</div>
+            ${moveTargetTemplateListHtml()}
+          ` : moveTargetGroupsHtml()}
+        </div>
+      </div>
+      <div class="footer-row"><button onclick="closeMoveTargetPicker()">Cancel</button></div>
+    </div>`;
+}
+
+// Shared by all three confirm paths below (existing list / brand-new list
+// / new-from-template) — the part that actually mutates the source list:
+// cancels every selected item in place (same fields markSubtaskCancelled()
+// sets, so it renders identically to any other cancelled step) and hands
+// back plain {text} copies for the caller to push onto whatever target
+// list it's building. One pushUndo covers the whole operation (source
+// cancellation + target append together), per this app's whole-state-
+// snapshot undo model — see the Undo/redo bullet in CLAUDE.md.
+function extractSelectedMoveItems(t){
+  const items = (t.subtasks||[]).filter(s=>moveModeSelectedIds.has(s.id));
+  items.forEach(s=>{ s.done = true; s.cancelled = true; });
+  return items.map(s => ({ id:newId('sub'), text:s.text, done:false, dueDate:'', plannedDates:[] }));
+}
+function finishMoveItems(){
+  moveModeListId = null;
+  moveModeSelectedIds = null;
+  closeMoveTargetPicker();
+  render();
+  queueSave();
+}
+async function confirmMoveItemsToList(targetId){
+  const t = state.tasks.find(x=>x.id===moveModeListId);
+  const target = state.tasks.find(x=>x.id===targetId);
+  if(!t || !target || !moveModeSelectedIds || !moveModeSelectedIds.size) return;
+  const n = moveModeSelectedIds.size;
+  pushUndo(`Moved ${n} item${n===1?'':'s'} to "${target.title}"`);
+  const newItems = extractSelectedMoveItems(t);
+  if(!target.subtasks) target.subtasks = [];
+  target.subtasks.push(...newItems);
+  finishMoveItems();
+}
+async function confirmMoveItemsToNewList(nameFromEnter){
+  const input = document.getElementById('moveTargetNewNameInput');
+  const title = (nameFromEnter !== undefined ? nameFromEnter : (input ? input.value : '')).trim();
+  if(!title) return;
+  const t = state.tasks.find(x=>x.id===moveModeListId);
+  if(!t || !moveModeSelectedIds || !moveModeSelectedIds.size) return;
+  const n = moveModeSelectedIds.size;
+  pushUndo(`Moved ${n} item${n===1?'':'s'} to a new list "${title}"`);
+  const newItems = extractSelectedMoveItems(t);
+  // Created in the source list's own category — the picker offers every
+  // checklist tab as a *destination*, but a brand-new list born out of
+  // this flow has no destination of its own to pick from, so it defaults
+  // to sitting alongside the list it was split off from rather than
+  // surfacing a whole extra category-choice step for what's meant to be
+  // a quick "spin off the leftovers" action.
+  state.tasks.unshift({
+    id: newId('task'), title, category: t.category, status:'open', urgent:false, dueDate:'',
+    notes:'', plannedDates:[], timeframe:'', priority:0, completedAt:'', createdAt: todayStr(),
+    subtasks: newItems
+  });
+  finishMoveItems();
+}
+async function confirmMoveItemsToTemplateList(templateId){
+  const tpl = (state.checklistTemplates||[]).find(tp=>tp.id===templateId);
+  const t = state.tasks.find(x=>x.id===moveModeListId);
+  if(!tpl || !t || !moveModeSelectedIds || !moveModeSelectedIds.size) return;
+  const n = moveModeSelectedIds.size;
+  const title = `${tpl.name}: New List`;
+  pushUndo(`Moved ${n} item${n===1?'':'s'} to a new "${tpl.name}" list`);
+  const movedItems = extractSelectedMoveItems(t);
+  const templateItems = tpl.items.map(text => ({ id:newId('sub'), text, done:false, dueDate:'', plannedDates:[] }));
+  state.tasks.unshift({
+    id: newId('task'), title, category: t.category, status:'open', urgent:false, dueDate:'',
+    notes:'', plannedDates:[], timeframe:'', priority:0, completedAt:'', createdAt: todayStr(), templateId: tpl.id,
+    subtasks: [...templateItems, ...movedItems]
+  });
+  finishMoveItems();
 }
 
 // Flat "what's still left" across every list in the category — the
@@ -464,6 +750,13 @@ function openChecklistList(id, returnDay){
 }
 function closeChecklistList(){
   selectedListId = null;
+  // Leaving the list mid-move (Esc, the back tag, or its own "Daily"
+  // return) drops whatever selection/picker state was in progress — same
+  // reasoning checklistSaveTemplateTaskId etc. never survive a navigate-
+  // away either, there's no "resume this later" concept for any of them.
+  moveModeListId = null;
+  moveModeSelectedIds = null;
+  closeMoveTargetPicker();
   if(checklistReturnDay){
     const d = checklistReturnDay;
     checklistReturnDay = null;

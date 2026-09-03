@@ -58,6 +58,8 @@ document.addEventListener('keydown', (e) => {
     if(settingsOpen){ toggleSettings(); return; }
     if(checklistPendingOpen){ closeChecklistPending(); return; }
     if(checklistTemplatesOpen){ closeChecklistTemplates(); return; }
+    if(moveTargetOpen){ closeMoveTargetPicker(); return; }
+    if(moveModeListId){ cancelMoveMode(); return; }
     if(selectedListId){ closeChecklistList(); return; }
     if(genericTaskDetailId){ closeGenericTaskDetail(); return; }
     if(sharedItemsOpen){ closeSharedItems(); return; }
