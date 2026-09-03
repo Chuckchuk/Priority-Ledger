@@ -1386,20 +1386,41 @@
      onto its own row below the text, regardless of how short that text
      was, which read as an airy near-empty line for a short step and, at
      scale across a long Steps list, meaningfully ate into how many
-     items fit on screen at once. Pin and Remove now live in the row's
-     own long-press menu instead (subtaskContextMenuHtml(), 08-render-
-     core.js) — same parity a standard task's own row already has (its
-     own Pin/Delete equivalents are menu-only too) — so this drops the
-     mobile actions line to just the Date field, which has to stay
-     inline since there's no menu equivalent for setting a date yet.
+     items fit on screen at once. Pin now lives in the row's own
+     long-press menu instead (subtaskContextMenuHtml(), 08-render-core.js)
+     — same parity a standard task's own row already has (its own Pin
+     equivalent is menu-only too) — unconditionally, unlike Remove just
+     below, since there's no "pinning to today doesn't matter for this
+     task" state the way there's a "this task doesn't use dates" one.
      Scoped to .stepsactions specifically (the modifier taskSubtasksHtml()
      adds only to a task's own steps), not the bare .subrowactions class a
      checklist list's own items share the row markup with (13-checklist.js)
-     — those never had a pin button here to begin with, and still need
-     their inline "×" since Remove Item is their only delete affordance
-     either way. */
-  body.mobileui-active .subrow .stepsactions .daybtn,
-  body.mobileui-active .subrow .stepsactions .subdel{ display:none; }
+     — those never had a pin button here to begin with. */
+  body.mobileui-active .subrow .stepsactions .daybtn{ display:none; }
+  /* Per the explicit follow-up ask: a "Date -----" placeholder (and,
+     alongside it, a Remove "×" — brought back per a later follow-up, see
+     below) on every single step, most of which will never get one, read
+     as unnecessary information cluttering the list — worse once the Date
+     chip started sitting inline with short steps (more visible per
+     screen, not less). Both stay hidden while this task has never used a
+     due date on ANY of its steps (.subwrap.stepsdated, set by
+     taskSubtasksHtml() from subs.some(s=>s.dueDate)) — the moment one
+     step gets a date, both show for every step in this same task, dated
+     or not, rather than the affordance only ever being discoverable one
+     step at a time through each one's own long-press menu. Before that
+     first date exists, "Add Date" in this row's own long-press menu
+     (subtaskContextMenuHtml(), 08-render-core.js — gated on !s.dueDate)
+     is the only way in: it calls startAddSubtaskDate(), which finds this
+     very (CSS-hidden, still real) .datefield element and swaps it for the
+     same startEditSubtaskDate() input a visible field's own tap already
+     uses — no separate "whole new menu" needed, since the swap-to-input
+     mechanism already works on a display:none element exactly like a
+     visible one. Remove stays reachable via the menu's own "Remove Item"
+     regardless of stepsdated — this only ever governs the INLINE copy of
+     that same action, per "next to the date button whenever the date
+     matters." */
+  body.mobileui-active .subwrap:not(.stepsdated) .subrow .stepsactions .datefield.empty,
+  body.mobileui-active .subwrap:not(.stepsdated) .subrow .stepsactions .subdel{ display:none; }
   /* Per the explicit follow-up ask: once Pin/Remove were gone, the lone
      remaining Date chip still always dropped to its own full-width line
      below the text (the general .subrowactions rule above), which for a
@@ -2303,6 +2324,26 @@
   body[data-taskdetail-actions="headerline"] .taskdetailhead .titleactions,
   body[data-taskdetail-actions="headerline"] .taskdetailhead .taskdetailshare{
     top:125px;
+  }
+  /* Per the explicit ask: 125px is a desktop measurement (see above) —
+     mobile's own title/header sizing puts the underline at a different Y
+     than desktop's, so reusing that number there landed the buttons'
+     bottom edge a few px PAST the line instead of resting a few px above
+     it (an actual overlap, not just a smaller gap). Measured directly
+     against a real mobile-viewport render (not derived from the desktop
+     number by some conversion factor) the same way the desktop value
+     itself was: title's own border-bottom sits at 374px down a task
+     detail page with no .sharedbadge showing, and .titleactions/
+     .taskdetailshare are 30-32px tall there, so 340px puts a 30px-tall
+     button's bottom edge 4px above that line — same gap desktop targets,
+     just mobile's own correct number instead of desktop's. Carries the
+     exact same .sharedbadge caveat desktop's own value does: a shared
+     task pushes the title (and therefore the real line position) down,
+     out of alignment with this fixed number, same as every other
+     fixed-offset variant here already accepts. */
+  body.mobileui-active[data-taskdetail-actions="headerline"] .taskdetailhead .titleactions,
+  body.mobileui-active[data-taskdetail-actions="headerline"] .taskdetailhead .taskdetailshare{
+    top:116px;
   }
   body[data-taskdetail-actions="headerline"] .taskdetailhead .titleactions{
     left:14px;
@@ -9701,6 +9742,15 @@ function reorderSubtask(taskId, draggedSubId, targetSubId, before){
 // button can't drift apart from each other.
 const DAYPIN_ICON_SVG = '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" fill="currentColor"/></svg>';
 
+// Same calendar glyph #dailyShortcutBtn (shell-body.html) uses for "jump
+// to today," minus its solid today-marker dot — kept deliberately
+// separate from that one rather than sharing a constant with it (there's
+// no JS home for that button's own markup to read a shared constant from
+// anyway, since it's static HTML), and the dot specifically means
+// "today," which would be the wrong signal on a menu item about setting
+// an arbitrary date rather than jumping to a fixed one.
+const DATE_ICON_SVG = '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>';
+
 function fieldPickerHtml(kind, currentValue, onClickFor){
   const steps = kind === 'timeframe' ? TIMEFRAME_STEPS : PRIORITY_STEPS;
   const style = (state.devSettings && state.devSettings.fieldPickerStyle) || 'default';
@@ -9965,8 +10015,17 @@ function taskSubtasksHtml(t){
         <button class="addsteplink" onclick="openStepsAdd('${t.id}')">+ Add step</button>
       </div>`;
   }
+  // Per the explicit ask: once ANY step on this task has a real due date,
+  // the (otherwise hidden-while-empty, mobile-only — see .datefield.empty
+  // in <style>) Date field shows for every step here, dated or not, and
+  // Remove ("×") comes back alongside it. A task that's never used dates
+  // on its steps stays fully decluttered; the moment it does, the
+  // affordance stops being invisible everywhere else in that same task,
+  // rather than only ever being discoverable one step at a time through
+  // each one's own long-press menu.
+  const stepsDated = subs.some(s=>!!s.dueDate);
   return `
-      <div class="subwrap">
+      <div class="subwrap${stepsDated ? ' stepsdated' : ''}">
         <div class="sublabel">Steps</div>
         ${subs.map(s=>{
           const subPlannedToday = (s.plannedDates||[]).includes(todayStr());
@@ -10428,22 +10487,29 @@ function openTaskContextMenuForRow(taskId, rowEl){
 // Pin/Remove buttons on mobile (see the .stepsactions comment in
 // taskSubtasksHtml() below and body.mobileui-active .stepsactions in
 // <style>) — this menu is now the only way to reach either on a phone.
-// Pin to Today is gated off for a checklist list's own items
-// (isChecklistCategory(t.category)) rather than shown everywhere this
-// function is shared: a checklist item never had a "planned for today"
-// concept exposed anywhere in its UI before this menu existed (no inline
-// pin button, no date field), so silently granting it here would be a
-// new capability nobody asked for, not just a relocated one. Remove Item
-// has no such asymmetry — a checklist item's inline "×" already does the
+// Pin to Today / Add Date are both gated off for a checklist list's own
+// items (isChecklistCategory(t.category)) rather than shown everywhere
+// this function is shared: a checklist item never had a "planned for
+// today" concept OR a date field exposed anywhere in its UI before this
+// menu existed, so silently granting either here would be a new
+// capability nobody asked for, not just a relocated one. Remove Item has
+// no such asymmetry — a checklist item's inline "×" already does the
 // exact same delete, so offering it here too for both flavors is just a
-// second path to something already possible either way.
+// second path to something already possible either way. Add Date is
+// further gated on !s.dueDate — once a step has one, the (now visible
+// again) inline Date field IS the edit affordance, same tap-to-edit it
+// always was; this menu item only exists to give a dateless step its
+// first one, since the field itself is hidden while empty (see
+// .datefield.empty in <style>) and so isn't there to tap.
 function subtaskContextMenuHtml(t, s){
   const plannedToday = (s.plannedDates||[]).includes(todayStr());
+  const isChecklistItem = isChecklistCategory(t.category);
   return `
     <button onclick="ctxMenuAction(()=>toggleSubtask('${t.id}','${s.id}'))">${s.done ? 'Reopen' : 'Mark Complete'}</button>
     ${s.cancelled ? `<button onclick="ctxMenuAction(()=>uncancelSubtaskToComplete('${t.id}','${s.id}'))">Mark Complete</button>` : ''}
     ${!s.done ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markSubtaskCancelled('${t.id}','${s.id}'))">Mark as Cancelled</button>` : ''}
-    ${!isChecklistCategory(t.category) ? `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>toggleSubtaskToday('${t.id}','${s.id}'))">${plannedToday ? 'Remove from Today' : 'Pin to Today'}<span class="ctxmenu-icon">${DAYPIN_ICON_SVG}</span></button>` : ''}
+    ${!isChecklistItem ? `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>toggleSubtaskToday('${t.id}','${s.id}'))">${plannedToday ? 'Remove from Today' : 'Pin to Today'}<span class="ctxmenu-icon">${DAYPIN_ICON_SVG}</span></button>` : ''}
+    ${!isChecklistItem && !s.dueDate ? `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>startAddSubtaskDate('${t.id}','${s.id}'))">Add Date<span class="ctxmenu-icon">${DATE_ICON_SVG}</span></button>` : ''}
     <div class="ctxmenu-sep"></div>
     <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteSubtask('${t.id}','${s.id}'))">Remove Item</button>
   `;
@@ -15398,6 +15464,18 @@ function startEditSubtaskDate(el, taskId, subId){
   };
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); input.blur(); } });
+}
+
+// "Add Date" in a dateless step's own long-press menu (subtaskContextMenuHtml(),
+// 08-render-core.js) — the field itself still exists in the DOM even
+// while empty (see .datefield.empty in <style>, hidden but not removed),
+// so this just finds that same element and hands it to
+// startEditSubtaskDate() exactly as its own onclick already would if it
+// were visible and tapped directly. No separate date-picker UI needed.
+function startAddSubtaskDate(taskId, subId){
+  const row = document.querySelector(`.subrow[data-sub-id="${subId}"]`);
+  const el = row && row.querySelector('.datefield');
+  if(el) startEditSubtaskDate(el, taskId, subId);
 }
 
 // Same auto-plan-onto-its-due-day behavior as updateDueDate — see the

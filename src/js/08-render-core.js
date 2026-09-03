@@ -34,6 +34,15 @@
 // button can't drift apart from each other.
 const DAYPIN_ICON_SVG = '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" fill="currentColor"/></svg>';
 
+// Same calendar glyph #dailyShortcutBtn (shell-body.html) uses for "jump
+// to today," minus its solid today-marker dot — kept deliberately
+// separate from that one rather than sharing a constant with it (there's
+// no JS home for that button's own markup to read a shared constant from
+// anyway, since it's static HTML), and the dot specifically means
+// "today," which would be the wrong signal on a menu item about setting
+// an arbitrary date rather than jumping to a fixed one.
+const DATE_ICON_SVG = '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>';
+
 function fieldPickerHtml(kind, currentValue, onClickFor){
   const steps = kind === 'timeframe' ? TIMEFRAME_STEPS : PRIORITY_STEPS;
   const style = (state.devSettings && state.devSettings.fieldPickerStyle) || 'default';
@@ -298,8 +307,17 @@ function taskSubtasksHtml(t){
         <button class="addsteplink" onclick="openStepsAdd('${t.id}')">+ Add step</button>
       </div>`;
   }
+  // Per the explicit ask: once ANY step on this task has a real due date,
+  // the (otherwise hidden-while-empty, mobile-only — see .datefield.empty
+  // in <style>) Date field shows for every step here, dated or not, and
+  // Remove ("×") comes back alongside it. A task that's never used dates
+  // on its steps stays fully decluttered; the moment it does, the
+  // affordance stops being invisible everywhere else in that same task,
+  // rather than only ever being discoverable one step at a time through
+  // each one's own long-press menu.
+  const stepsDated = subs.some(s=>!!s.dueDate);
   return `
-      <div class="subwrap">
+      <div class="subwrap${stepsDated ? ' stepsdated' : ''}">
         <div class="sublabel">Steps</div>
         ${subs.map(s=>{
           const subPlannedToday = (s.plannedDates||[]).includes(todayStr());
@@ -761,22 +779,29 @@ function openTaskContextMenuForRow(taskId, rowEl){
 // Pin/Remove buttons on mobile (see the .stepsactions comment in
 // taskSubtasksHtml() below and body.mobileui-active .stepsactions in
 // <style>) — this menu is now the only way to reach either on a phone.
-// Pin to Today is gated off for a checklist list's own items
-// (isChecklistCategory(t.category)) rather than shown everywhere this
-// function is shared: a checklist item never had a "planned for today"
-// concept exposed anywhere in its UI before this menu existed (no inline
-// pin button, no date field), so silently granting it here would be a
-// new capability nobody asked for, not just a relocated one. Remove Item
-// has no such asymmetry — a checklist item's inline "×" already does the
+// Pin to Today / Add Date are both gated off for a checklist list's own
+// items (isChecklistCategory(t.category)) rather than shown everywhere
+// this function is shared: a checklist item never had a "planned for
+// today" concept OR a date field exposed anywhere in its UI before this
+// menu existed, so silently granting either here would be a new
+// capability nobody asked for, not just a relocated one. Remove Item has
+// no such asymmetry — a checklist item's inline "×" already does the
 // exact same delete, so offering it here too for both flavors is just a
-// second path to something already possible either way.
+// second path to something already possible either way. Add Date is
+// further gated on !s.dueDate — once a step has one, the (now visible
+// again) inline Date field IS the edit affordance, same tap-to-edit it
+// always was; this menu item only exists to give a dateless step its
+// first one, since the field itself is hidden while empty (see
+// .datefield.empty in <style>) and so isn't there to tap.
 function subtaskContextMenuHtml(t, s){
   const plannedToday = (s.plannedDates||[]).includes(todayStr());
+  const isChecklistItem = isChecklistCategory(t.category);
   return `
     <button onclick="ctxMenuAction(()=>toggleSubtask('${t.id}','${s.id}'))">${s.done ? 'Reopen' : 'Mark Complete'}</button>
     ${s.cancelled ? `<button onclick="ctxMenuAction(()=>uncancelSubtaskToComplete('${t.id}','${s.id}'))">Mark Complete</button>` : ''}
     ${!s.done ? `<button class="ctxmenu-danger" onclick="ctxMenuAction(()=>markSubtaskCancelled('${t.id}','${s.id}'))">Mark as Cancelled</button>` : ''}
-    ${!isChecklistCategory(t.category) ? `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>toggleSubtaskToday('${t.id}','${s.id}'))">${plannedToday ? 'Remove from Today' : 'Pin to Today'}<span class="ctxmenu-icon">${DAYPIN_ICON_SVG}</span></button>` : ''}
+    ${!isChecklistItem ? `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>toggleSubtaskToday('${t.id}','${s.id}'))">${plannedToday ? 'Remove from Today' : 'Pin to Today'}<span class="ctxmenu-icon">${DAYPIN_ICON_SVG}</span></button>` : ''}
+    ${!isChecklistItem && !s.dueDate ? `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>startAddSubtaskDate('${t.id}','${s.id}'))">Add Date<span class="ctxmenu-icon">${DATE_ICON_SVG}</span></button>` : ''}
     <div class="ctxmenu-sep"></div>
     <button class="ctxmenu-danger" onclick="ctxMenuAction(()=>deleteSubtask('${t.id}','${s.id}'))">Remove Item</button>
   `;

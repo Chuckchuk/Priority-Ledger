@@ -61,6 +61,18 @@ function startEditSubtaskDate(el, taskId, subId){
   input.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); input.blur(); } });
 }
 
+// "Add Date" in a dateless step's own long-press menu (subtaskContextMenuHtml(),
+// 08-render-core.js) — the field itself still exists in the DOM even
+// while empty (see .datefield.empty in <style>, hidden but not removed),
+// so this just finds that same element and hands it to
+// startEditSubtaskDate() exactly as its own onclick already would if it
+// were visible and tapped directly. No separate date-picker UI needed.
+function startAddSubtaskDate(taskId, subId){
+  const row = document.querySelector(`.subrow[data-sub-id="${subId}"]`);
+  const el = row && row.querySelector('.datefield');
+  if(el) startEditSubtaskDate(el, taskId, subId);
+}
+
 // Same auto-plan-onto-its-due-day behavior as updateDueDate — see the
 // comment there, including sweepDueSoonPlanning() catching up a date
 // that drifts into the window later on its own.
