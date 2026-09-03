@@ -147,6 +147,18 @@ function swipeTextWidth(text, font){
 // swipe competing with them.
 function classifySwipeZone(target){
   if(!target || !target.closest) return null;
+  // A touch that starts inside a text field is trying to position a
+  // cursor or extend a text selection, never to swipe the page away —
+  // per the explicit ask, this has to opt out of every swipe zone below
+  // (back, day-nav, month-nav), not just the ones that happen to overlap
+  // a text field in practice, since editing text should never fight a
+  // page gesture regardless of where on the page it happens. Mirrors the
+  // identical guard pullRefreshEligible() already has for the same
+  // reason. A plain vertical scroll starting here is untouched either
+  // way — returning null here means swipeGesture never gets set, so the
+  // touchmove listener below bails immediately and never calls
+  // preventDefault(), leaving native scroll/selection completely alone.
+  if(target.closest('input, textarea, select, [contenteditable="true"]')) return null;
   if(openCategoryPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId || customSelectOpenKey) return null;
   const daynav = document.querySelector('.daynavrow');
   if(daynav && daynav.contains(target)){

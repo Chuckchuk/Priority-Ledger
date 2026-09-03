@@ -305,10 +305,16 @@ function reopen(id){
   if(exp) exp.classList.add('open');
 }
 
+// Collapses embedded newlines to spaces before trimming — Enter itself
+// commits rather than inserting one (see taskTitleFieldHtml()'s own
+// onkeydown, 08-render-core.js), but the mobile <textarea> variant it
+// swaps in still lets a pasted multi-line value through verbatim, unlike
+// a plain <input>. Keeps a title single-line data regardless of which
+// element (input or textarea) it was actually edited through.
 async function updateTitle(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
-  const newVal = val.trim();
+  const newVal = val.replace(/\s*\n+\s*/g, ' ').trim();
   if(newVal && newVal !== t.title){
     pushUndo(`Renamed task to "${newVal}"`);
     t.title = newVal;

@@ -103,15 +103,42 @@ function fieldPickerHtml(kind, currentValue, onClickFor){
     </div>`;
 }
 
+// Grows a <textarea> to fit whatever it currently holds — the mobile
+// stand-in for a plain <input>'s (never-wrapping, horizontally-scrolling)
+// single line, used by every "edit this normally-one-line text field"
+// spot in the app (a task/list's own title, growableTitleFieldHtml()
+// below; a step's own text, startEditSubtask(), 15-subtask-edit.js) so a
+// long value gets to actually show on screen across visible lines
+// instead of being edited through a small scrolling window. Wired to
+// both oninput (as you type) and onfocus (the moment you tap in) rather
+// than only the former, since a textarea with a fixed `rows` doesn't
+// otherwise know to grow past that until something asks it to — onfocus
+// is what makes an already-long value show in full the instant you start
+// editing, not only after the first keystroke changes it.
+function autogrowTextarea(el){
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
 // extraClass is optional — renderTaskDetailPage() passes 'bigtitle' to
 // match the checklist detail page's large centered title (see .bigtitle
 // in <style>, shared with .titleedit there); every other caller
 // (taskManagementFieldsHtml, the inline .expand) omits it and gets the
-// normal compact field.
+// normal compact field. Mobile swaps the plain <input> for an
+// autogrowTextarea()-driven <textarea> (see its own comment above) — same
+// onblur/Enter-commits behavior either way; updateTitle() itself collapses
+// any embedded newlines a textarea uniquely allows in (a pasted multi-line
+// value, since Enter itself is intercepted below before it can insert one)
+// back to spaces, so a title can never actually end up multi-line data
+// regardless of which element edited it.
 function taskTitleFieldHtml(t, extraClass){
-  return `<input type="text" class="titleedit ${extraClass||''}" value="${escapeHtml(t.title)}"
-        onblur="updateTitle('${t.id}', this.value)"
-        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">`;
+  const commitAttrs = `onblur="updateTitle('${t.id}', this.value)"
+        onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }"`;
+  if(mobileUiActive()){
+    return `<textarea class="titleedit ${extraClass||''} autogrowtext" rows="2"
+        oninput="autogrowTextarea(this)" onfocus="autogrowTextarea(this)" ${commitAttrs}>${escapeHtml(t.title)}</textarea>`;
+  }
+  return `<input type="text" class="titleedit ${extraClass||''}" value="${escapeHtml(t.title)}" ${commitAttrs}>`;
 }
 
 // Shared by taskCoreFieldsRowHtml's own today-pin (inside the full task
@@ -1498,6 +1525,16 @@ function currentTabBodyHtml(){
 }
 
 function render(){
+  // Sizes every mobile autogrowTextarea() field (a task/list's own title,
+  // a step's text mid-edit) to fit its current content on the next
+  // frame, after whichever branch below actually paints — needed because
+  // a freshly re-rendered <textarea> only knows its correct height once
+  // asked (see autogrowTextarea()'s own comment), and this function has
+  // several early `return`s below for different views, so a single tail
+  // call at the end of render() itself wouldn't run for most of them.
+  // Cheap even when nothing needs it: 0 matches on desktop, and a plain
+  // querySelectorAll the rest of the time.
+  requestAnimationFrame(() => document.querySelectorAll('.autogrowtext').forEach(autogrowTextarea));
   renderDevPanel();
   renderTaskSettingsSheet();
   renderLocBadge();

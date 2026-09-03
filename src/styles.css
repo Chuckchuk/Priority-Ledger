@@ -1169,6 +1169,15 @@
      — passed in as taskExpandFieldsHtml()'s titleClass param) so the two
      "big page header" looks can't drift apart. */
   .titleedit.bigtitle{ font-size:1.5rem; text-align:center; }
+  /* Mobile's <textarea> stand-in (autogrowTextarea(), 08-render-core.js)
+     for what's otherwise a plain <input> — resize:none drops the manual
+     resize handle a textarea gets by default (its own height is already
+     driven by JS, a hand-drag would just fight that), and overflow:hidden
+     avoids a scrollbar flashing on screen for the one frame between the
+     textarea mounting at its default height and autogrowTextarea() (its
+     own onfocus/oninput, or an explicit call right after insertion —
+     startEditSubtask(), 15-subtask-edit.js) resizing it to fit. */
+  .autogrowtext{ resize:none; overflow:hidden; }
   .catselect{
     font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase;
     background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:6px; color:var(--ink);

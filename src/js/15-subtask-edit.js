@@ -1,19 +1,33 @@
+// Mobile edits through a <textarea> (autogrowTextarea(), 08-render-core.js)
+// instead of a plain <input> — same reasoning as a task/list's own title
+// field (taskTitleFieldHtml()'s own comment): a long step's text
+// otherwise has to be edited through a small horizontally-scrolling
+// window instead of just being visible, wrapped, on screen. Sized once
+// immediately after insertion (an input event alone wouldn't fire until
+// something is actually typed, so a long existing value would start
+// clipped) as well as on every subsequent input.
 function startEditSubtask(el, taskId, subId){
   const t = state.tasks.find(t=>t.id===taskId);
   const s = t && (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'subedit';
+  const mobile = mobileUiActive();
+  const input = document.createElement(mobile ? 'textarea' : 'input');
+  if(mobile){ input.className = 'subedit autogrowtext'; input.rows = 1; }
+  else { input.type = 'text'; input.className = 'subedit'; }
   input.value = s.text;
   el.replaceWith(input);
+  if(mobile) autogrowTextarea(input);
   input.focus();
   input.select();
+  if(mobile) input.addEventListener('input', () => autogrowTextarea(input));
   let committed = false;
   const commit = async () => {
     if(committed) return;
     committed = true;
-    const val = input.value.trim();
+    // Collapse embedded newlines back to spaces — Enter itself commits
+    // rather than inserting one (below), but a textarea (mobile) still
+    // lets a pasted multi-line value in verbatim, unlike a plain <input>.
+    const val = input.value.replace(/\s*\n+\s*/g, ' ').trim();
     if(val && val !== s.text){
       pushUndo(`Renamed step to "${val}"`);
       s.text = val;

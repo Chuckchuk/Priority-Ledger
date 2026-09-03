@@ -373,22 +373,34 @@ function checklistRowTap(e, taskId){
 // whose title has since been hand-edited away from starting with
 // "<Template>: " (nothing stops that at the character level; this only
 // renders the split UI when the title still visibly matches).
+// Mobile variants use the same autogrowTextarea() <textarea> swap as a
+// standard task's own title (taskTitleFieldHtml(), 08-render-core.js) —
+// see that function's own comment for why a <textarea> here is safe
+// (updateTitle()/updateTemplatedTitle() both collapse newlines back out).
 function checklistTitleFieldHtml(t){
   const tpl = t.templateId ? (state.checklistTemplates||[]).find(tp=>tp.id===t.templateId) : null;
   const prefix = tpl ? `${tpl.name}: ` : null;
   if(prefix && t.title.startsWith(prefix)){
     const suffix = t.title.slice(prefix.length);
+    const commitAttrs = `onblur="updateTemplatedTitle('${t.id}', this.value)"
+          onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }"`;
+    const field = mobileUiActive()
+      ? `<textarea class="titleedit bigtitle templatetitlesuffix autogrowtext" rows="2"
+          oninput="autogrowTextarea(this)" onfocus="autogrowTextarea(this)" ${commitAttrs}>${escapeHtml(suffix)}</textarea>`
+      : `<input type="text" class="titleedit bigtitle templatetitlesuffix" value="${escapeHtml(suffix)}" ${commitAttrs}>`;
     return `
       <div class="templatetitlerow">
         <span class="templatetitleprefix">${escapeHtml(tpl.name)}:</span>
-        <input type="text" class="titleedit bigtitle templatetitlesuffix" value="${escapeHtml(suffix)}"
-          onblur="updateTemplatedTitle('${t.id}', this.value)"
-          onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+        ${field}
       </div>`;
   }
-  return `<input type="text" class="titleedit bigtitle" value="${escapeHtml(t.title)}"
-    onblur="updateTitle('${t.id}', this.value)"
-    onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">`;
+  const commitAttrs = `onblur="updateTitle('${t.id}', this.value)"
+    onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }"`;
+  if(mobileUiActive()){
+    return `<textarea class="titleedit bigtitle autogrowtext" rows="2"
+      oninput="autogrowTextarea(this)" onfocus="autogrowTextarea(this)" ${commitAttrs}>${escapeHtml(t.title)}</textarea>`;
+  }
+  return `<input type="text" class="titleedit bigtitle" value="${escapeHtml(t.title)}" ${commitAttrs}>`;
 }
 // suffixVal empty falls back to today's date — same reasoning as
 // confirmSaveListAsTemplate()/confirmCreateFromTemplate() below: an
