@@ -903,37 +903,36 @@ async function setCategoryColor(id, hex){
 // Switches which of CATEGORY_PALETTE_SETS is active (01-categories-
 // theme.js) — a global choice, not per-category — and remaps every
 // category currently showing one of the *old* set's colors to whichever
-// color in the new set is the closest actual match (nearestPaletteColor(),
-// 01-categories-theme.js), per the project owner's own explicit ask: a
-// green category in Classic should land on whichever color is closest to
-// that green in Pastel, not just whatever happened to share its old
-// array index. A category not currently showing one of the old set's
-// colors — a custom wheel pick, or one of state.customCategoryColors'
-// own saved swatches — is left alone, per the project owner's own
-// explicit rule; oldColors.some(...) below is just what tells the two
-// cases apart, same by-*value* lookup this always used (a category never
-// stores *which slot* it was picked from, only the literal hex).
-//   This used to remap by same-index instead (newSet.colors[idx]), which
-// broke outright the moment two sets weren't the same length — exactly
-// what happened once the Dark Mode sets were added at 9 colors against
-// every light set's 12: a category sitting in slot 9-11 had nothing to
-// remap to, silently became c.hex = undefined, and permanently broke
-// every FUTURE call to this function (the next switch's own lookup calls
-// .toLowerCase() on that now-undefined value and throws, straight out of
-// an async function with nothing to catch it, so state.categoryPaletteId
-// — set further below — never updates again: the "picked Midnight, now
-// stuck" bug). Matching by nearest actual color instead of by index
-// sidesteps that whole class of bug — it always finds *some* match as
-// long as the new set isn't empty, regardless of either set's length.
+// color sits at that same slot index in the new set. A category not
+// currently showing one of the old set's colors — a custom wheel pick,
+// or one of state.customCategoryColors' own saved swatches — is left
+// alone, per the project owner's own explicit rule.
+//   This only works as a plain by-*value* lookup (oldColors.findIndex(...))
+// specifically because a category never stores *which slot* it was
+// picked from, only the literal hex — the simplest option that doesn't
+// touch the category data shape at all, and every other part of the app
+// that reads c.hex directly keeps working completely unchanged.
+//   A version of this briefly matched by nearest actual color instead of
+// by index (more robust on paper — works even if two sets are different
+// lengths), but the project owner explicitly called it out as a
+// regression: matching against a category's CURRENT color rather than a
+// fixed slot means the result can drift a little further off on every
+// hop, so switching to a palette and back doesn't reliably return you to
+// where you started. By-index switching is a clean no-op on A→B→A, which
+// is what matters here — the real fix for the length-mismatch bug this
+// was chasing is CATEGORY_PALETTE_SETS' own now-enforced invariant that
+// every set is exactly 12 colors, hand-ordered so index N is the same
+// hue family everywhere (see its own comment, 01-categories-theme.js) —
+// not a smarter remap. newSet.colors[idx] is still guarded here even so,
+// as cheap insurance against that invariant ever slipping.
 async function setCategoryPaletteSet(id){
   const newSet = CATEGORY_PALETTE_SETS[id];
   if(!newSet || state.categoryPaletteId === id) return;
   const oldColors = CATEGORY_PALETTE; // still the outgoing set at this point
   pushUndo(`Changed category colors to "${newSet.label}"`);
   state.categories.forEach(c=>{
-    if(oldColors.some(hex=>hex.toLowerCase()===c.hex.toLowerCase())){
-      c.hex = nearestPaletteColor(c.hex, newSet.colors);
-    }
+    const idx = oldColors.findIndex(hex=>hex.toLowerCase()===c.hex.toLowerCase());
+    if(idx !== -1 && newSet.colors[idx]) c.hex = newSet.colors[idx];
   });
   state.categoryPaletteId = id;
   rebuildCategoryPalette();

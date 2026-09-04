@@ -9,17 +9,23 @@
 // 09-settings.js), not just one fixed palette. Switching which set is
 // active (setCategoryPaletteSet(), 09-settings.js) remaps every category
 // currently showing a color from the *old* active set to whichever color
-// in the new set is the closest actual color match (nearestPaletteColor()
-// below) — not "the same array index," which used to be the mechanism
-// here and had two problems: it broke outright the moment two sets
-// weren't the same length (exactly what happened once the Dark Mode sets
-// below were added shorter than everything else), and even at matching
-// lengths it only worked because every set happened to already be
-// ordered the same way — a coincidence, not something the mechanism
-// itself guaranteed. Matching by actual color similarity means each
-// set's own internal order is now free to be whatever reads best on its
-// own (still hue-swept in every set below, purely because that's a nice
-// way to browse a picker, not because anything downstream depends on it).
+// sits at that SAME slot index in the new set — a plain by-index swap.
+// An earlier pass tried remapping by nearest actual color match instead
+// (more "correct" in isolation, and immune to sets being different
+// lengths), but the project owner explicitly called it out as a
+// regression: matching against whatever a category's color HAPPENS to be
+// right now, rather than a fixed slot, means the match can drift a
+// little further off on every hop, and switching to a palette and back
+// doesn't reliably land you back where you started. By-index switching
+// doesn't have that problem — going A→B→A is always a no-op — so it's
+// worth the real constraint it imposes in exchange: every set below MUST
+// be exactly 12 colors long, and MUST be hand-ordered so index N is the
+// same hue family in every set (rust at 0, brown at 1, gold at 2, and so
+// on through burgundy at 11 — see 'classic' below, which fixes that
+// order since it's the original/default set). 'classic' and 'pastel'
+// both already swept the wheel in that same order coincidentally; the
+// rest were deliberately reordered to match once this became a hard
+// requirement, not just a nice-to-have.
 const CATEGORY_PALETTE_SETS = {
   classic: {
     id: 'classic', label: 'Classic',
@@ -31,13 +37,17 @@ const CATEGORY_PALETTE_SETS = {
   // more washed-out) register actually reads better paired with THIS
   // set's own light Desk & Ledger papers, and the other register (see
   // 'noir') reads better against a genuinely dark card. Same colors
-  // 'noir' used to hold, not a fresh design — just relocated, plus 3 new
-  // entries (2 darker neutral/warm anchors + one cool slate) to reach
-  // the same 12-color count every other set here uses; the original 9
-  // skewed too pale on their own for enough range on light paper.
+  // 'noir' used to hold, not a fresh design — plus 3 new entries to
+  // reach 12 (the original 9 skewed too pale on their own for enough
+  // range on light paper), all arranged into the warm-taupe / neutral /
+  // cool-slate groups below to roughly echo 'classic'/'pastel's own
+  // warm→cool→warm-again sweep — an approximation at best (these colors
+  // don't carry enough real hue variation for a literal match the way
+  // 'midnight' below can), but consistently ordered the same way every
+  // other set here is.
   greyscale: {
     id: 'greyscale', label: 'Greyscale',
-    colors: ['#A0A0A0','#808080','#606060','#404040','#A89A88','#8C7F6C','#6E6052','#4A4034','#9098A0','#767C83','#5A6068','#3E4248']
+    colors: ['#A89A88','#8C7F6C','#6E6052','#4A4034','#A0A0A0','#808080','#606060','#9098A0','#767C83','#5A6068','#3E4248','#404040']
   },
   // A full hue sweep at pastel lightness/saturation (soft coral through
   // peach, yellow, green, mint, blue, lavender, to rose) — same "spread
@@ -65,6 +75,11 @@ const CATEGORY_PALETTE_SETS = {
   // BOTH light paper (as a dot) and, incidentally, why this register also
   // holds up against a dark one: a color roughly halfway between white
   // and black has real, if not maximal, contrast against either extreme.
+  // Ordered to match 'classic's own slot-by-slot hue (rust, brown, gold,
+  // olive, green, sage, teal, steel-blue, indigo, plum, rose, burgundy)
+  // exactly — Midnight spans the full wheel same as Classic/Pastel do
+  // (not just the cool half its own name suggests), just every hue
+  // rendered in this set's own darker, richer register.
   midnight: {
     id: 'midnight', label: 'Midnight',
     colors: ['#A85838','#8C6248','#A8842E','#8C821E','#487258','#647268','#2E8268','#2E6C92','#54609A','#7C5480','#A05C76','#AC3C50']
@@ -74,11 +89,17 @@ const CATEGORY_PALETTE_SETS = {
   // a dark mode the same way the original 'midnight' did, that's a
   // deliberate, deferred call, not an oversight. All 9 original colors
   // kept at their exact original values; 3 new ones (a deeper terracotta,
-  // a true olive-green, and an oxblood/maroon) fill out the hue sweep to
-  // 12 without touching what was already there.
+  // a true olive-green, and an oxblood/maroon) fill out a 12th-color hue
+  // sweep. Ember is warm-only by design (no greens/teals/blues/purples —
+  // that's the whole "Ember" identity), so unlike every other set here
+  // it CAN'T actually cover 'classic's full 12-slot hue spread — this is
+  // just ordered as its own smooth ascending sweep (red through gold
+  // through yellow-green, then wrapping to wine/maroon at the end,
+  // mirroring where 'classic' itself ends on plum/rose/burgundy) rather
+  // than forced into slots it has no real color for.
   ember: {
     id: 'ember', label: 'Ember',
-    colors: ['#C97244','#B8672E','#D9895A','#A6763E','#E0A458','#C6B15A','#9BAF5E','#7A8C4A','#B1546E','#8C3E42','#C15A5A','#C97D6E']
+    colors: ['#C15A5A','#C97D6E','#C97244','#D9895A','#B8672E','#A6763E','#E0A458','#C6B15A','#9BAF5E','#7A8C4A','#B1546E','#8C3E42']
   },
   // Was 'greyscale' above, until the project owner's own swap call — this
   // near-black-to-mid-gray register pairs better with an actually-dark
@@ -87,10 +108,14 @@ const CATEGORY_PALETTE_SETS = {
   // taupes) but nudged the four darkest entries up a bit — at their
   // original, even-darker values they measured under 1.5:1 contrast
   // against this set's own near-black Desk & Ledger papers, i.e.
-  // genuinely invisible as a category dot there, not just moody.
+  // genuinely invisible as a category dot there, not just moody. Same
+  // "warm-taupe / neutral" grouping approach as 'greyscale' above (dark
+  // to light within each group here, rather than light to dark, so the
+  // darkest — least visible against a dark card — entries land in the
+  // earlier slots and the lightest — most visible — land later).
   noir: {
     id: 'noir', label: 'Noir',
-    colors: ['#585858','#666666','#5E5E5E','#6E6E6E','#8A8A8A','#A8A8A8','#C4C4C4','#6E6052','#6B5D4F','#8C7B68','#A79A85','#D6D0C4']
+    colors: ['#6E6052','#6B5D4F','#8C7B68','#A79A85','#D6D0C4','#585858','#5E5E5E','#666666','#6E6E6E','#8A8A8A','#A8A8A8','#C4C4C4']
   }
 };
 // The currently-active set's own colors — a `let`, not a `const`, same
@@ -686,37 +711,6 @@ function hexToHsv(hex){
   }
   if(h < 0) h += 360;
   return { h, s: max===0 ? 0 : d/max, v: max };
-}
-
-// Picks whichever color in `candidates` is the closest actual match to
-// `hex` — used by setCategoryPaletteSet() (09-settings.js) to implement
-// "switching palettes lands a category on the closest color to what it
-// had," per the project owner's own explicit ask (their own example: a
-// green in Classic should land on whichever color is closest to that
-// green in Pastel, not just whatever happens to share its old array
-// index — the previous mechanism, which also broke outright whenever two
-// sets weren't the same length). Hue distance (circular, so 350° and 10°
-// are 20° apart, not 340°) is weighted by the LOWER of the two colors'
-// own saturation: hue is meaningless/unstable for a genuinely gray color
-// (s≈0), so two low-saturation colors are compared mostly by lightness
-// instead, while two saturated colors are compared mostly by hue — this
-// is what makes matching still work sensibly between a colorful set and
-// an achromatic one (Classic ↔ Greyscale/Noir), not just between two
-// colorful sets.
-function nearestPaletteColor(hex, candidates){
-  const src = hexToHsv(hex);
-  let best = candidates[0], bestDist = Infinity;
-  candidates.forEach(c => {
-    const cand = hexToHsv(c);
-    let dh = Math.abs(src.h - cand.h);
-    if(dh > 180) dh = 360 - dh;
-    const hueTerm = (dh / 180) * Math.min(src.s, cand.s);
-    const satTerm = Math.abs(src.s - cand.s);
-    const valTerm = Math.abs(src.v - cand.v);
-    const dist = hueTerm*2 + satTerm*0.6 + valTerm*0.8;
-    if(dist < bestDist){ bestDist = dist; best = c; }
-  });
-  return best;
 }
 
 function relLuminance(hex){
