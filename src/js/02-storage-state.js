@@ -778,6 +778,16 @@ function normalizeState(){
   // to 'ring' picks up the new icon automatically rather than pointing at
   // a glyph that no longer exists.
   state.categories.forEach(c => { if(c.icon === 'ring') c.icon = 'hexagon'; });
+  // Heals a category left with c.hex = undefined by the (now-fixed)
+  // setCategoryPaletteSet() bug — switching to a shorter palette set
+  // (the 9-color Dark Mode sets vs every 12-color light set) could wipe
+  // a category's color entirely for any category that had been sitting
+  // in one of the slots the shorter set doesn't have, and that bad value
+  // would already be saved to this account's real state by the time the
+  // fix landed. Falls back to FALLBACK_CATEGORY's own hex — the same
+  // color an orphaned (deleted-tab) task already renders under — rather
+  // than leaving an invalid CSS value in place.
+  state.categories.forEach(c => { if(!c.hex) c.hex = FALLBACK_CATEGORY.hex; });
   if(!Array.isArray(state.locations) || !state.locations.length) state.locations = defaultLocations();
   if(typeof state.locationEnabled !== 'boolean') state.locationEnabled = true;
   if(!state.theme) state.theme = defaultTheme();

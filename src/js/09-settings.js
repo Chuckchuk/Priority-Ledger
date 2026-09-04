@@ -923,8 +923,24 @@ async function setCategoryPaletteSet(id){
   const oldColors = CATEGORY_PALETTE; // still the outgoing set at this point
   pushUndo(`Changed category colors to "${newSet.label}"`);
   state.categories.forEach(c=>{
+    // newSet.colors[idx] guard — sets aren't all the same length any
+    // more (the Dark Mode sets are 9 colors, every light set is 12), so
+    // a category sitting at slot 9-11 of the outgoing set has no
+    // matching slot to remap to in a shorter incoming one. Without this
+    // guard that silently wrote c.hex = undefined, which didn't break
+    // anything immediately (a broken inline background on one category
+    // dot) but permanently broke every FUTURE call to this function —
+    // the very next switch attempt's own oldColors.findIndex() call
+    // reads c.hex.toLowerCase() on that now-undefined value and throws,
+    // straight out of an async function with nothing to catch it, so
+    // state.categoryPaletteId (set further below, after this loop) never
+    // updates — exactly the "picked Midnight, now stuck, can't switch to
+    // anything else" bug reported. A category this happens to just keeps
+    // its current (now slightly off-palette) color instead of silently
+    // breaking — see setUiPaletteSet()/setDeskPaletteSet() just below,
+    // which already guard their own same-index remap the same way.
     const idx = oldColors.findIndex(hex=>hex.toLowerCase()===c.hex.toLowerCase());
-    if(idx !== -1) c.hex = newSet.colors[idx];
+    if(idx !== -1 && newSet.colors[idx]) c.hex = newSet.colors[idx];
   });
   state.categoryPaletteId = id;
   rebuildCategoryPalette();

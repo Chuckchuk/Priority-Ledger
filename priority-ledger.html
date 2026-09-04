@@ -8008,6 +8008,16 @@ function normalizeState(){
   // to 'ring' picks up the new icon automatically rather than pointing at
   // a glyph that no longer exists.
   state.categories.forEach(c => { if(c.icon === 'ring') c.icon = 'hexagon'; });
+  // Heals a category left with c.hex = undefined by the (now-fixed)
+  // setCategoryPaletteSet() bug — switching to a shorter palette set
+  // (the 9-color Dark Mode sets vs every 12-color light set) could wipe
+  // a category's color entirely for any category that had been sitting
+  // in one of the slots the shorter set doesn't have, and that bad value
+  // would already be saved to this account's real state by the time the
+  // fix landed. Falls back to FALLBACK_CATEGORY's own hex — the same
+  // color an orphaned (deleted-tab) task already renders under — rather
+  // than leaving an invalid CSS value in place.
+  state.categories.forEach(c => { if(!c.hex) c.hex = FALLBACK_CATEGORY.hex; });
   if(!Array.isArray(state.locations) || !state.locations.length) state.locations = defaultLocations();
   if(typeof state.locationEnabled !== 'boolean') state.locationEnabled = true;
   if(!state.theme) state.theme = defaultTheme();
@@ -13140,8 +13150,24 @@ async function setCategoryPaletteSet(id){
   const oldColors = CATEGORY_PALETTE; // still the outgoing set at this point
   pushUndo(`Changed category colors to "${newSet.label}"`);
   state.categories.forEach(c=>{
+    // newSet.colors[idx] guard — sets aren't all the same length any
+    // more (the Dark Mode sets are 9 colors, every light set is 12), so
+    // a category sitting at slot 9-11 of the outgoing set has no
+    // matching slot to remap to in a shorter incoming one. Without this
+    // guard that silently wrote c.hex = undefined, which didn't break
+    // anything immediately (a broken inline background on one category
+    // dot) but permanently broke every FUTURE call to this function —
+    // the very next switch attempt's own oldColors.findIndex() call
+    // reads c.hex.toLowerCase() on that now-undefined value and throws,
+    // straight out of an async function with nothing to catch it, so
+    // state.categoryPaletteId (set further below, after this loop) never
+    // updates — exactly the "picked Midnight, now stuck, can't switch to
+    // anything else" bug reported. A category this happens to just keeps
+    // its current (now slightly off-palette) color instead of silently
+    // breaking — see setUiPaletteSet()/setDeskPaletteSet() just below,
+    // which already guard their own same-index remap the same way.
     const idx = oldColors.findIndex(hex=>hex.toLowerCase()===c.hex.toLowerCase());
-    if(idx !== -1) c.hex = newSet.colors[idx];
+    if(idx !== -1 && newSet.colors[idx]) c.hex = newSet.colors[idx];
   });
   state.categoryPaletteId = id;
   rebuildCategoryPalette();
