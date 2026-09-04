@@ -207,6 +207,17 @@ function dayChecklistRowHtml(t, dateStr){
   </li>`;
 }
 
+// Guards against dayQuickCategoryDraft (11-daily-core.js) pointing at a
+// category that's since been deleted — falls back to the first standard
+// category, same reasoning renderQuickCategory() validates the main
+// quick-add bar's own pick against standardCategoryEntries() each render.
+function dayQuickCategoryButtonHtml(){
+  const entries = standardCategoryEntries();
+  if(!entries.some(([k])=>k===dayQuickCategoryDraft)) dayQuickCategoryDraft = entries.length ? entries[0][0] : 'personal';
+  const cat = CATEGORIES[dayQuickCategoryDraft];
+  return cat ? `${categoryDotHtml(cat,'cdot')} ${escapeHtml(cat.label)}` : 'Category';
+}
+
 function renderDayDetail(dateStr){
   const allTasks = standardTasksForDay(dateStr);
   const sorted = applySortMode(allTasks).filter(t => !flaggedOnly || t.urgent);
@@ -300,15 +311,23 @@ function renderDayDetail(dateStr){
         </div>
       </div>
       ${isPast ? `<div class="lockednote"><span>🔒 This day has passed</span></div>` : ''}
+      <!-- Same compact "input dominates, small fixed controls, never
+           wraps" row (.quickaddrow1) the main quick-add bar uses
+           (06-tabs-render.js/16-task-crud.js) — Category here is the same
+           .quickfieldbtn + #ctxMenu popover pattern too ('daycategory'
+           kind, quickFieldMenuHtml()), not a plain native <select>. -->
       <div class="quickadd">
-        <input type="text" id="dayQuickInput" placeholder="Add a new task for this day…" onkeydown="if(event.key==='Enter') addDayTask('${dateStr}')">
-        <select id="dayQuickCategory">
-          ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${k==='personal'?'selected':''}>${v.label}</option>`).join('')}
-        </select>
-        <button class="addbtn" onclick="addDayTask('${dateStr}')">+</button>
+        <div class="quickaddrow1">
+          <input type="text" id="dayQuickInput" placeholder="Add a new task for this day…" onkeydown="if(event.key==='Enter') addDayTask('${dateStr}')">
+          <button type="button" class="quickfieldbtn" onclick="event.stopPropagation(); openQuickFieldMenu(this,'daycategory')">${dayQuickCategoryButtonHtml()}</button>
+          <button class="addbtn" onclick="addDayTask('${dateStr}')">+</button>
+        </div>
       </div>
-      ${renderAddToDayPicker(dateStr)}
+      <!-- Sort above "add an existing task" — per the explicit ask, so
+           the control that changes what order the list below is already
+           in comes before the picker that adds more to it, not after. -->
       <div class="sortrow">${sortControlHtml(true)}</div>
+      ${renderAddToDayPicker(dateStr)}
       ${emptyMsg}
       ${mainListHtml}
       ${checklistsBlock}

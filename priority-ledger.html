@@ -675,17 +675,32 @@
      everything else is a small fixed-size control, so there's always
      enough give in the title field alone to keep this on one line. */
   .quickaddrow1{ display:flex; gap:8px; align-items:center; }
-  /* .fabaddsheet input[type=text] — the same bottom-sheet text-field
+  /* .quickadd (not just .quickaddrow1) so this still styles every other
+     .quickadd-based form that never adopted the row1/row2 split — Daily's
+     own "add a new task for this day" row and Checklist's "name a new
+     list" row both just use a plain .quickadd directly, no nested row.
+     Narrowing this to .quickaddrow1-only when that split was introduced
+     was a real regression: both of those went back to looking like
+     unstyled native form controls the moment this rule stopped matching
+     them. .fabaddsheet input[type=text] — the same bottom-sheet text-field
      styling shared by any .fabaddsheet-based overlay, folded into this
      shared rule rather than duplicated, since it's the same "quick task
-     title" field look the main quick-add bar and Daily/checklist's own
-     already use. */
-  .quickaddrow1 input[type=text], .fabaddsheet input[type=text]{
+     title" field look every one of these already uses. */
+  .quickadd input[type=text], .fabaddsheet input[type=text]{
     flex:1; min-width: 80px; border:none; border-bottom: 1.5px solid var(--ink-soft);
     background:transparent; font-family:'Fraunces', serif; font-style:italic; font-size:1.02rem;
     padding: 6px 2px; color: var(--ink); outline:none;
   }
-  .quickaddrow1 input[type=text]::placeholder, .fabaddsheet input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
+  .quickadd input[type=text]::placeholder, .fabaddsheet input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
+  /* Safety net for any .quickadd-based <select> that isn't one of the
+     custom .quickfieldbtn triggers — nothing currently uses this (Daily's
+     own category field converted to a .quickfieldbtn below), but this is
+     exactly the rule whose removal broke Daily's old native <select> once
+     already, so it stays as a fallback rather than being deleted outright. */
+  .quickadd select{
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
+  }
   /* Row 2 (Timeframe/Priority — optional, advanced-mode-only fields, see
      renderQuickCategory()'s own comment) is allowed to wrap since it's
      secondary and never holds anything as wide as the title input;
@@ -9403,6 +9418,18 @@ function quickFieldMenuHtml(kind){
       `<button onclick="ctxMenuAction(()=>setQuickField('category','${k}'))">${categoryDotHtml(v,'cdot')} ${escapeHtml(v.label)}</button>`
     ).join('');
   }
+  // Daily's own "add a new task for this day" row (12-daily-tree.js) —
+  // same category list as above, but this one always has a real current
+  // value (dayQuickCategoryDraft, 11-daily-core.js, defaults to Personal
+  // rather than starting unset), so a ✓ on the active one is worth
+  // showing here even though the plain 'category' case above never has
+  // one to mark.
+  if(kind === 'daycategory'){
+    return standardCategoryEntries().map(([k,v]) => {
+      const active = k === dayQuickCategoryDraft;
+      return `<button class="${active?'current':''}" onclick="ctxMenuAction(()=>setQuickField('daycategory','${k}'))">${active?'✓ ':''}${categoryDotHtml(v,'cdot')} ${escapeHtml(v.label)}</button>`;
+    }).join('');
+  }
   const steps = kind === 'timeframe' ? TIMEFRAME_STEPS : PRIORITY_STEPS;
   const selId = kind === 'timeframe' ? 'quickTimeframe' : 'quickPriority';
   const curVal = document.getElementById(selId).value;
@@ -9435,6 +9462,11 @@ function openQuickFieldMenu(el, kind){
   renderQuickFieldMenu(kind, r.left, r.bottom + 6);
 }
 function setQuickField(kind, val){
+  if(kind === 'daycategory'){
+    dayQuickCategoryDraft = val;
+    renderDaily();
+    return;
+  }
   const selId = kind === 'category' ? 'quickCategory' : kind === 'timeframe' ? 'quickTimeframe' : 'quickPriority';
   document.getElementById(selId).value = val;
   if(kind === 'category' && val) clearQuickCategoryInvalid();
@@ -13278,6 +13310,21 @@ function setDailyLastView(view){
   localStorage.setItem('ledger-daily-view', view);
 }
 
+// "Add a new task for this day" row's own category pick — plain JS state
+// rather than reading a live <select>'s .value the way the main quick-add
+// bar's hidden select does, since renderDayDetail() (unlike
+// renderQuickCategory()) rebuilds this whole row's markup fresh from a
+// template string on every render() rather than patching one persistent
+// DOM node — a real <select> living inside that string would lose
+// whatever was picked the instant anything else on screen changed and
+// triggered a re-render, same class of bug renderQuickCategory() itself
+// had to fix (06-tabs-render.js) before switching to this draft-variable
+// approach here from the start instead. No forced reset after adding a
+// task (unlike the main quick-add bar's Category, which is a *required*
+// field there) — Personal is already a sensible default, and staying on
+// whatever was last picked is more convenient for adding several tasks
+// of the same category to one day in a row.
+let dayQuickCategoryDraft = 'personal';
 // "Add to this day" tree picker state — transient UI state, not
 // persisted, same idiom as expandedMonths above. Reset by
 // resetDayAddPicker() whenever a day is opened or closed.
@@ -14121,6 +14168,17 @@ function dayChecklistRowHtml(t, dateStr){
   </li>`;
 }
 
+// Guards against dayQuickCategoryDraft (11-daily-core.js) pointing at a
+// category that's since been deleted — falls back to the first standard
+// category, same reasoning renderQuickCategory() validates the main
+// quick-add bar's own pick against standardCategoryEntries() each render.
+function dayQuickCategoryButtonHtml(){
+  const entries = standardCategoryEntries();
+  if(!entries.some(([k])=>k===dayQuickCategoryDraft)) dayQuickCategoryDraft = entries.length ? entries[0][0] : 'personal';
+  const cat = CATEGORIES[dayQuickCategoryDraft];
+  return cat ? `${categoryDotHtml(cat,'cdot')} ${escapeHtml(cat.label)}` : 'Category';
+}
+
 function renderDayDetail(dateStr){
   const allTasks = standardTasksForDay(dateStr);
   const sorted = applySortMode(allTasks).filter(t => !flaggedOnly || t.urgent);
@@ -14214,15 +14272,23 @@ function renderDayDetail(dateStr){
         </div>
       </div>
       ${isPast ? `<div class="lockednote"><span>🔒 This day has passed</span></div>` : ''}
+      <!-- Same compact "input dominates, small fixed controls, never
+           wraps" row (.quickaddrow1) the main quick-add bar uses
+           (06-tabs-render.js/16-task-crud.js) — Category here is the same
+           .quickfieldbtn + #ctxMenu popover pattern too ('daycategory'
+           kind, quickFieldMenuHtml()), not a plain native <select>. -->
       <div class="quickadd">
-        <input type="text" id="dayQuickInput" placeholder="Add a new task for this day…" onkeydown="if(event.key==='Enter') addDayTask('${dateStr}')">
-        <select id="dayQuickCategory">
-          ${standardCategoryEntries().map(([k,v])=>`<option value="${k}" ${k==='personal'?'selected':''}>${v.label}</option>`).join('')}
-        </select>
-        <button class="addbtn" onclick="addDayTask('${dateStr}')">+</button>
+        <div class="quickaddrow1">
+          <input type="text" id="dayQuickInput" placeholder="Add a new task for this day…" onkeydown="if(event.key==='Enter') addDayTask('${dateStr}')">
+          <button type="button" class="quickfieldbtn" onclick="event.stopPropagation(); openQuickFieldMenu(this,'daycategory')">${dayQuickCategoryButtonHtml()}</button>
+          <button class="addbtn" onclick="addDayTask('${dateStr}')">+</button>
+        </div>
       </div>
-      ${renderAddToDayPicker(dateStr)}
+      <!-- Sort above "add an existing task" — per the explicit ask, so
+           the control that changes what order the list below is already
+           in comes before the picker that adds more to it, not after. -->
       <div class="sortrow">${sortControlHtml(true)}</div>
+      ${renderAddToDayPicker(dateStr)}
       ${emptyMsg}
       ${mainListHtml}
       ${checklistsBlock}
@@ -15310,7 +15376,7 @@ async function addDayTask(dateStr){
   const input = document.getElementById('dayQuickInput');
   const title = input.value.trim();
   if(!title) return;
-  const category = document.getElementById('dayQuickCategory').value;
+  const category = dayQuickCategoryDraft;
   pushUndo(`Added "${title}"`);
   await ensureDay(dateStr);
   state.tasks.unshift({

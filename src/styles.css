@@ -643,17 +643,32 @@
      everything else is a small fixed-size control, so there's always
      enough give in the title field alone to keep this on one line. */
   .quickaddrow1{ display:flex; gap:8px; align-items:center; }
-  /* .fabaddsheet input[type=text] — the same bottom-sheet text-field
+  /* .quickadd (not just .quickaddrow1) so this still styles every other
+     .quickadd-based form that never adopted the row1/row2 split — Daily's
+     own "add a new task for this day" row and Checklist's "name a new
+     list" row both just use a plain .quickadd directly, no nested row.
+     Narrowing this to .quickaddrow1-only when that split was introduced
+     was a real regression: both of those went back to looking like
+     unstyled native form controls the moment this rule stopped matching
+     them. .fabaddsheet input[type=text] — the same bottom-sheet text-field
      styling shared by any .fabaddsheet-based overlay, folded into this
      shared rule rather than duplicated, since it's the same "quick task
-     title" field look the main quick-add bar and Daily/checklist's own
-     already use. */
-  .quickaddrow1 input[type=text], .fabaddsheet input[type=text]{
+     title" field look every one of these already uses. */
+  .quickadd input[type=text], .fabaddsheet input[type=text]{
     flex:1; min-width: 80px; border:none; border-bottom: 1.5px solid var(--ink-soft);
     background:transparent; font-family:'Fraunces', serif; font-style:italic; font-size:1.02rem;
     padding: 6px 2px; color: var(--ink); outline:none;
   }
-  .quickaddrow1 input[type=text]::placeholder, .fabaddsheet input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
+  .quickadd input[type=text]::placeholder, .fabaddsheet input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
+  /* Safety net for any .quickadd-based <select> that isn't one of the
+     custom .quickfieldbtn triggers — nothing currently uses this (Daily's
+     own category field converted to a .quickfieldbtn below), but this is
+     exactly the rule whose removal broke Daily's old native <select> once
+     already, so it stays as a fallback rather than being deleted outright. */
+  .quickadd select{
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
+  }
   /* Row 2 (Timeframe/Priority — optional, advanced-mode-only fields, see
      renderQuickCategory()'s own comment) is allowed to wrap since it's
      secondary and never holds anything as wide as the title input;

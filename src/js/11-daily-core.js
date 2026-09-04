@@ -41,6 +41,21 @@ function setDailyLastView(view){
   localStorage.setItem('ledger-daily-view', view);
 }
 
+// "Add a new task for this day" row's own category pick — plain JS state
+// rather than reading a live <select>'s .value the way the main quick-add
+// bar's hidden select does, since renderDayDetail() (unlike
+// renderQuickCategory()) rebuilds this whole row's markup fresh from a
+// template string on every render() rather than patching one persistent
+// DOM node — a real <select> living inside that string would lose
+// whatever was picked the instant anything else on screen changed and
+// triggered a re-render, same class of bug renderQuickCategory() itself
+// had to fix (06-tabs-render.js) before switching to this draft-variable
+// approach here from the start instead. No forced reset after adding a
+// task (unlike the main quick-add bar's Category, which is a *required*
+// field there) — Personal is already a sensible default, and staying on
+// whatever was last picked is more convenient for adding several tasks
+// of the same category to one day in a row.
+let dayQuickCategoryDraft = 'personal';
 // "Add to this day" tree picker state — transient UI state, not
 // persisted, same idiom as expandedMonths above. Reset by
 // resetDayAddPicker() whenever a day is opened or closed.

@@ -2,7 +2,7 @@ async function addDayTask(dateStr){
   const input = document.getElementById('dayQuickInput');
   const title = input.value.trim();
   if(!title) return;
-  const category = document.getElementById('dayQuickCategory').value;
+  const category = dayQuickCategoryDraft;
   pushUndo(`Added "${title}"`);
   await ensureDay(dateStr);
   state.tasks.unshift({

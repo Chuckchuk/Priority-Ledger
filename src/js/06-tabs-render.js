@@ -1066,6 +1066,18 @@ function quickFieldMenuHtml(kind){
       `<button onclick="ctxMenuAction(()=>setQuickField('category','${k}'))">${categoryDotHtml(v,'cdot')} ${escapeHtml(v.label)}</button>`
     ).join('');
   }
+  // Daily's own "add a new task for this day" row (12-daily-tree.js) —
+  // same category list as above, but this one always has a real current
+  // value (dayQuickCategoryDraft, 11-daily-core.js, defaults to Personal
+  // rather than starting unset), so a ✓ on the active one is worth
+  // showing here even though the plain 'category' case above never has
+  // one to mark.
+  if(kind === 'daycategory'){
+    return standardCategoryEntries().map(([k,v]) => {
+      const active = k === dayQuickCategoryDraft;
+      return `<button class="${active?'current':''}" onclick="ctxMenuAction(()=>setQuickField('daycategory','${k}'))">${active?'✓ ':''}${categoryDotHtml(v,'cdot')} ${escapeHtml(v.label)}</button>`;
+    }).join('');
+  }
   const steps = kind === 'timeframe' ? TIMEFRAME_STEPS : PRIORITY_STEPS;
   const selId = kind === 'timeframe' ? 'quickTimeframe' : 'quickPriority';
   const curVal = document.getElementById(selId).value;
@@ -1098,6 +1110,11 @@ function openQuickFieldMenu(el, kind){
   renderQuickFieldMenu(kind, r.left, r.bottom + 6);
 }
 function setQuickField(kind, val){
+  if(kind === 'daycategory'){
+    dayQuickCategoryDraft = val;
+    renderDaily();
+    return;
+  }
   const selId = kind === 'category' ? 'quickCategory' : kind === 'timeframe' ? 'quickTimeframe' : 'quickPriority';
   document.getElementById(selId).value = val;
   if(kind === 'category' && val) clearQuickCategoryInvalid();
