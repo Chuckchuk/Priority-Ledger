@@ -75,9 +75,8 @@ function daySubLeafHtml(t, s, dateStr){
     </div>`;
 }
 
-// showListDates (Settings → Dev Settings) reuses the same .listdate class
-// checklistListRowHtml() uses for a list's created-date — always rendered,
-// just hidden by CSS unless that dev toggle is on, same idiom.
+// Reuses the same .listdate class checklistListRowHtml() uses for a
+// list's created-date.
 function dayTreeChecklistLeafHtml(t, dateStr){
   const planned = (t.plannedDates||[]).includes(dateStr);
   const key = 'cklist:'+t.id;

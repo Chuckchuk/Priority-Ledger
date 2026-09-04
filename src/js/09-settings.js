@@ -77,7 +77,7 @@ function renderSettings(){
         ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
         ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
       </div>
-      <div class="catdeletewrap">${deleteControls}</div>
+      ${deleteControls}
       ${locChecks}
     </div>`;
   }).join('');

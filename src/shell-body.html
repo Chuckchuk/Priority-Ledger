@@ -127,19 +127,13 @@
              position:absolute against #appCard so this empty div costs
              no layout space of its own when there's nothing to show. -->
         <div id="sharedTagSlot"></div>
-        <!-- Mobile UI Lab (quickAddMobileStyle) — the trigger is a fixed,
-             sticky bottom button whenever mobileui-active (see .quickaddtrigger
-             in <style>); the setting only picks what tapping it opens
-             (topsheet/bottomsheet/inline, via body[data-quickadd-mode]).
-             Inert (display:none) on desktop, same as the rest of this file's
-             Mobile UI Lab markup. -->
+        <!-- Mobile UI Lab — the trigger is a sticky button docked under
+             the tab bar whenever mobileui-active (see .quickaddtrigger in
+             <style>); tapping it expands the bar open in place, below it.
+             Inert (display:none) on desktop, same as the rest of this
+             file's Mobile UI Lab markup. -->
         <button class="quickaddtrigger" id="quickAddTrigger" onclick="toggleQuickAddSheet()">+ Add Task</button>
-        <div class="quickaddscrim" id="quickAddScrim" onclick="toggleQuickAddSheet(false)"></div>
         <div class="quickadd" id="quickAddBar">
-          <div class="quickaddsheethead">
-            <span class="quickaddsheetgrabber"></span>
-            <button class="quickaddsheetclose" onclick="toggleQuickAddSheet(false)" title="Close">×</button>
-          </div>
           <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
           <select id="quickCategory"></select>
           <!-- 'today'/'urgent' dropped from the selectable options (kept
@@ -204,28 +198,11 @@
   <div class="savestatus" id="saveStatus"></div>
   <div class="status-line"><button class="signoutbtn" onclick="refreshFromServer(true)" id="refreshBtn">Refresh</button></div>
 
-  <!-- Mobile UI Lab (floatingAddButton) — sits outside .leathercover/#appCard
-       on purpose so it stays reachable regardless of which tab/overlay is
-       showing inside them (see openFabAdd() in 16-task-crud.js); inert
-       (display:none) unless mobileui-active AND the dev setting is on. -->
-  <button class="fabaddbtn" id="fabAddBtn" onclick="openFabAdd()" title="Add a task">+</button>
-  <div class="fabaddscrim" id="fabAddScrim" onclick="closeFabAdd()"></div>
-  <div class="fabaddsheet" id="fabAddSheet">
-    <div class="quickaddsheethead">
-      <span class="quickaddsheetgrabber"></span>
-      <button class="quickaddsheetclose" onclick="closeFabAdd()" title="Close">×</button>
-    </div>
-    <input type="text" id="fabAddInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') submitFabAdd()">
-    <select id="fabAddCategory"></select>
-    <button class="addbtn" onclick="submitFabAdd()">+</button>
-  </div>
-
   <!-- taskLongPressMode 'split' (see openTaskSettingsSheet() in 08-render-
        core.js) — one shared sheet reused for whichever task was long-
-       pressed, same reasoning and reused .fabaddsheet/.fabaddscrim base
-       mechanics as the FAB's own sheet just above, gated by a different
-       body class (.tasksettings-open) since either can be open without
-       the other. -->
+       pressed, using the shared .fabaddsheet/.fabaddscrim bottom-sheet
+       mechanics (see <style>), gated by its own body class
+       (.tasksettings-open). -->
   <div class="fabaddscrim" id="taskSettingsScrim" onclick="closeTaskSettingsSheet()"></div>
   <div class="fabaddsheet tasksettingssheet" id="taskSettingsSheet">
     <div class="quickaddsheethead">
@@ -236,10 +213,9 @@
   </div>
 
   <!-- Shake-to-undo/redo (see 04-undo.js) — reuses the same bottom-sheet
-       mechanics as the FAB/long-press sheets above (.fabaddsheet/
-       .fabaddscrim), gated by its own body class since neither fab-open
-       nor tasksettings-open apply here. Always in the DOM, harmless at
-       rest, same idiom as those. -->
+       mechanics as the long-press sheet above (.fabaddsheet/.fabaddscrim),
+       gated by its own body class since tasksettings-open doesn't apply
+       here. Always in the DOM, harmless at rest, same idiom as that. -->
   <div class="fabaddscrim" id="shakeUndoScrim" onclick="closeShakeUndoMenu()"></div>
   <div class="fabaddsheet shakeundosheet" id="shakeUndoSheet">
     <div class="quickaddsheethead">

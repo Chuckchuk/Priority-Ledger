@@ -1823,15 +1823,11 @@ function switchTab(key){
   claudeView = null;
   setSettingsOpen(false);
   // A tab switch mid-add should close the quick-add sheet rather than
-  // leave it floating over whatever you just navigated to — the FAB
-  // modal (openFabAdd()) is deliberately NOT reset here, since its whole
-  // point is being reachable regardless of which tab you're on.
+  // leave it floating over whatever you just navigated to.
   if(quickAddOpen) toggleQuickAddSheet(false);
   // Same idea for the taskLongPressMode settings sheet — its task belongs
   // to whichever tab you were just on, so it shouldn't linger open over
-  // a different one (the FAB modal's own exemption above doesn't apply
-  // here: this sheet is tied to one specific task, not "reachable from
-  // anywhere" the way the FAB is).
+  // a different one.
   if(taskSettingsOpenId) closeTaskSettingsSheet();
   // Same idea again for taskLongPressMode 'detail's full-page task
   // detail — tied to one specific task from whichever tab you were on.
@@ -1840,10 +1836,10 @@ function switchTab(key){
   // content might be sitting on — a checklist list's own detail page
   // (selectedListId), its "all pending items" view (checklistPendingOpen),
   // or Daily's own day/task detail (selectedDay/taskDetailId,
-  // dayReturnToCalendar along with it). None of these get quickAddOpen's
-  // FAB exemption either: clicking any tab, including the one you're
-  // already on, should always land on that tab's own master view, not
-  // strand you on a drilldown left open from the last time you were there.
+  // dayReturnToCalendar along with it). Clicking any tab, including the
+  // one you're already on, should always land on that tab's own master
+  // view, not strand you on a drilldown left open from the last time you
+  // were there.
   selectedListId = null;
   checklistPendingOpen = false;
   selectedDay = null;

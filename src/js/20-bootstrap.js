@@ -45,10 +45,6 @@ document.addEventListener('keydown', (e) => {
     // everything, same reasoning as the Mobile UI Lab overlays checked
     // right below — it can pop up over any screen in the app.
     if(shakeUndoOpen){ closeShakeUndoMenu(); return; }
-    // Mobile UI Lab overlays (see 01-categories-theme.js/16-task-crud.js) —
-    // both float above literally everything else including Settings, so
-    // they're checked before any of it.
-    if(fabAddOpen){ closeFabAdd(); return; }
     if(shareImportId){ closeShareImportDialog(); return; }
     if(shareMenuTaskId){ closeShareMenu(); return; }
     if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId){ closeCtxMenu(); return; }

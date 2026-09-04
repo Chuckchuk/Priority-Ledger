@@ -610,13 +610,11 @@
     pointer-events: none;
   }
   .quickadd{ display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
-  /* .fabaddsheet input[type=text] (#fabAddInput, the floating-add-button
-     sheet's own quick-add field — see shell-body.html) had no styling of
-     its own at all before this, real text included — not just a missing
-     placeholder color, plain unstyled browser input. Folded into this
-     shared rule rather than duplicated, since it's the same "quick task
-     title" field the main quick-add bar and Daily/checklist's own already
-     are, just reached from the FAB instead. */
+  /* .fabaddsheet input[type=text] — the same bottom-sheet text-field
+     styling shared by the task long-press settings sheet and any other
+     .fabaddsheet-based overlay, folded into this shared rule rather than
+     duplicated, since it's the same "quick task title" field look the
+     main quick-add bar and Daily/checklist's own already use. */
   .quickadd input[type=text], .fabaddsheet input[type=text]{
     flex:1; min-width: 160px; border:none; border-bottom: 1.5px solid var(--ink-soft);
     background:transparent; font-family:'Fraunces', serif; font-style:italic; font-size:1.02rem;
@@ -1083,11 +1081,11 @@
      needed to. */
   body.mobileui-active .cdot{ margin-left:-6px; margin-right:-6px; }
   /* Groups .title + .meta into one flex:1 unit within .row, purely as a
-     CSS hook — in every mode except the Mobile UI Lab's taskRowMobile
-     "stacked" variant (see the body[data-taskrow-mobile] rules near the
-     end of this file) it behaves identically to .title/.meta sitting
+     CSS hook — on desktop it behaves identically to .title/.meta sitting
      directly in .row the way they used to (same flex:1/flex-shrink:0
-     roles, just one level deeper), so this changes nothing by default. */
+     roles, just one level deeper); on mobile (body.mobileui-active) it
+     switches to a column layout instead, see the rule near the end of
+     this file. */
   .titlewrap{ display:flex; align-items:baseline; gap:8px; flex:1; min-width:0; }
   /* min-width:0 (not the flex-item default of auto) — without it, .title
      refuses to shrink below its own longest unbreakable word's width
@@ -1101,15 +1099,10 @@
      min-width:0 a few hundred lines down. */
   .title{ flex:1; min-width:0; font-size:0.97rem; line-height:1.4; }
   .title.done{ text-decoration: line-through; color: var(--ink-soft); }
-  /* EXPERIMENTAL — Settings → Dev Settings. Always rendered by
-     checklistListRowHtml() (see .listdate there), just hidden by
-     default — visibility is a pure CSS toggle rather than conditional
-     HTML, matching how the other dev settings work. */
   .listdate{
     font-family:'IBM Plex Mono', monospace; font-size:0.6rem; color:var(--ink-soft);
-    opacity:0.7; margin-left:6px; display:none;
+    opacity:0.7; margin-left:6px; display:inline;
   }
-  body.devlist-dates .listdate{ display:inline; }
   .meta{ display:flex; gap:6px; align-items:center; flex-shrink:0; }
   /* Deliberately not .badge — no padding/background/border, just the
      glyph itself, so a flag-only .meta (no other badge on this task)
@@ -1131,24 +1124,12 @@
   .badge.shared{ background: var(--primary); color:white; }
   .expand{ margin: 10px 0 2px 28px; display:none; }
   .expand.open{ display:block; }
-  /* EXPERIMENTAL — see devSettingsFieldsHtml()'s "★ Quick-view steps
-     grouping" comment (01-categories-theme.js): a decision still pending,
-     not a settled default. Both variants answer the same question —
-     does a task's own inline .expand steps visually tie back to the row
+  /* Ties a task's own inline .expand steps visually back to the row
      above it once several tasks are open at once and a step or two has
-     wrapped across multiple lines, so the "whose steps am I looking at"
-     thread doesn't go cold a few lines down. 'none' is today's plain
-     28px indent from .expand above with nothing added, so it needs no
-     rule here. rail: a thin border down the steps, same idiom Daily's
-     own nested sub-rows (.daysubnested) already use — the more contained
-     of the two. tint: a soft background card around the whole block —
-     groups it more strongly, but is the louder change. */
-  body[data-expand-grouping="rail"] .expand.open{
+     wrapped across multiple lines — a thin border down the steps, same
+     idiom Daily's own nested sub-rows (.daysubnested) already use. */
+  .expand.open{
     padding-left:10px; border-left:2px solid var(--line);
-  }
-  body[data-expand-grouping="tint"] .expand.open{
-    padding:8px 10px 2px; margin-left:18px; border-radius:8px;
-    background: var(--card-bg-dim);
   }
   /* Notes: bigger (min-height went from 52px, which read as "suddenly
      tiny" next to everything else on the page, to a real writing area)
@@ -2671,12 +2652,6 @@
   }
   .catdeleteconfirm{ border-color: var(--estate); color: var(--estate); }
   .catdelete:disabled{ opacity:0.4; cursor:not-allowed; }
-  /* Groups the delete button (or its warning+confirm+cancel trio) into
-     one CSS hook, purely for the EXPERIMENTAL settingsRowMobileStyle
-     "grouped" variant near the end of this file — display:contents keeps
-     it invisible to layout otherwise, same trick as .expandactions
-     above, so this changes nothing by default. */
-  .catdeletewrap{ display:contents; }
   /* ---- Recently Deleted (trashSectionHtml(), 09-settings.js) ---- */
   .trashempty{ font-family:'Fraunces', serif; font-style:italic; color: var(--ink-soft); text-align:center; padding: 14px 10px; font-size:0.92rem; }
   .trashnote{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--ink-soft); padding:2px 2px 10px; }
@@ -3382,17 +3357,16 @@
     .locbadge{ width:44px; height:44px; top:-2px; }
   }
 
-  /* ================= Mobile UI Lab (EXPERIMENTAL) =================
-     2026-08 mobile-friendliness pass — see the long comment on
-     defaultDevSettings() in 02-storage-state.js for what each dev
-     setting means and why they're all gated behind mobileUiActive()
-     (01-categories-theme.js) rather than a plain viewport media query.
-     body.mobileui-active is that gate's own CSS mirror, toggled by
+  /* ================= Mobile UI Lab =================
+     2026-08 mobile-friendliness pass — see the comment on
+     defaultDevSettings() in 02-storage-state.js for what's still a dev
+     setting and why it's gated behind mobileUiActive() (01-categories-
+     theme.js) rather than a plain viewport media query. body.mobileui-
+     active is that gate's own CSS mirror, toggled by
      refreshMobileUiActive() on load, on every dev-setting change, and on
-     resize — everything below keys off it plus one of the
-     body[data-quickadd-mode]/[data-taskrow-mobile]/[data-taskdetail-mobile]
-     attributes or body.fab-on, so a variant picked in Settings has zero
-     effect on desktop unless "Preview on desktop" is also checked. */
+     resize — everything below keys off it, so a variant picked in
+     Settings (or an always-on mobile behavior below) has zero effect on
+     desktop unless "Preview on desktop" is also checked. */
 
   /* iOS Safari (and most mobile WebKit) auto-zooms the whole page the
      moment a focused text input/textarea/select computes to under 16px —
@@ -3418,15 +3392,9 @@
     font-size:16px;
   }
 
-  /* ---- quickAddMobileStyle: the sticky trigger + sheet ----
+  /* ---- The mobile quick-add trigger + expand-in-place sheet ----
      The trigger itself is no longer part of the category view's normal
-     static flow (that was the whole "Default (always-visible inline row)"
-     variant, now deleted — see the comment on quickAddMobileStyle in
-     defaultDevSettings(), 02-storage-state.js) — cosmetic properties
-     (color/shape/font) are shared by both quickAddTriggerPosition
-     variants below; position/anchor is NOT, split out per-variant since
-     "fixed to the bottom" and "sticky under the tabs" need genuinely
-     different CSS mechanisms, not just different offsets. */
+     static flow — it docks at the top of the page, under the tab bar. */
   .quickaddtrigger{
     display:none; align-items:center; justify-content:center; gap:8px;
     border:none; border-radius:10px; cursor:pointer;
@@ -3436,160 +3404,43 @@
     box-shadow: 0 6px 18px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.4);
   }
   body.mobileui-active .quickaddtrigger{ display:flex; }
-  /* 'bottom': position:fixed, unconditionally reachable without scrolling
-     back up to the top of a long list — the variant built for the
-     original "sticky" ask. 76px of extra #categoryView bottom padding
-     (bottom(16) + height(50) + a 10px gap) keeps the last task (or the
-     undo/redo row and Refresh link further down the page) from ending up
-     underneath it once scrolled all the way down; scoped to this one
-     variant since 'top' never covers anything below to begin with. */
-  body.mobileui-active[data-quickadd-trigger-pos="bottom"] .quickaddtrigger{
-    position:fixed; left:12px; right:12px; bottom:16px; z-index:50; max-width:480px; margin:0 auto;
-    height:50px; padding:0 14px;
-  }
-  body.mobileui-active[data-quickadd-trigger-pos="bottom"] #categoryView{ padding-bottom: 76px; }
-  /* 'top': restored to its original spot in the normal flow, right under
-     the tab bar — position:sticky (not fixed) is what keeps it there
-     without scrolling away, while still costing nothing extra in layout
-     terms (it reserves its own space same as any other in-flow element,
-     so no #categoryView padding compensation is needed the way 'bottom'
-     needs). top is env(safe-area-inset-top) plus a small gap, NOT a bare
-     0 — on an iPhone with a notch/Dynamic Island, a sticky element with
-     top:0 sticks flush to the true top of the viewport, which is the
-     unsafe area itself (reported: it was ending up underneath the
-     FaceTime camera). Anchoring to the safe-area inset instead means it
-     stops just clear of that, same idiom body's own top padding already
-     uses for the masthead. */
-  body.mobileui-active[data-quickadd-trigger-pos="top"] .quickaddtrigger{
+  /* Restored to its original spot in the normal flow, right under the tab
+     bar — position:sticky (not fixed) is what keeps it there without
+     scrolling away, while still costing nothing extra in layout terms (it
+     reserves its own space same as any other in-flow element). top is
+     env(safe-area-inset-top) plus a small gap, NOT a bare 0 — on an
+     iPhone with a notch/Dynamic Island, a sticky element with top:0 sticks
+     flush to the true top of the viewport, which is the unsafe area
+     itself (reported: it was ending up underneath the FaceTime camera).
+     Anchoring to the safe-area inset instead means it stops just clear of
+     that, same idiom body's own top padding already uses for the
+     masthead. */
+  body.mobileui-active .quickaddtrigger{
     position:sticky; top: calc(8px + env(safe-area-inset-top)); z-index:45; width:100%;
     padding:14px; margin-bottom:16px;
   }
-  /* Grabber + close row — only meaningful once #quickAddBar itself has
-     left its resting spot to float as a sheet/panel (topsheet/bottomsheet/
-     inline all now do, just to different spots — see below). */
-  .quickaddsheethead{ display:none; }
-  body.mobileui-active[data-quickadd-mode="topsheet"] .quickaddsheethead,
-  body.mobileui-active[data-quickadd-mode="bottomsheet"] .quickaddsheethead{
-    display:flex; align-items:center; justify-content:center; position:relative; margin-bottom:6px;
-  }
-  .quickaddsheetgrabber{ width:36px; height:4px; border-radius:2px; background:var(--ink-soft); opacity:0.4; }
-  .quickaddsheetclose{
-    position:absolute; right:0; top:-6px; background:none; border:none;
-    color:var(--ink-soft); font-size:1.3rem; line-height:1; cursor:pointer; padding:6px;
-  }
-  .quickaddscrim{ display:none; }
-  body.mobileui-active.quickadd-open[data-quickadd-mode="topsheet"] .quickaddscrim,
-  body.mobileui-active.quickadd-open[data-quickadd-mode="bottomsheet"] .quickaddscrim{
-    display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:55;
-  }
-  /* topsheet/bottomsheet: #quickAddBar leaves the document flow entirely
-     and floats "just above everything" — tabs included — per the
-     project owner's own framing of the ask. Column layout + full-width
-     fields (below) replace the cramped inline flex-wrap row for exactly
-     as long as the sheet is open. z-index:60 (above the scrim's 55, and
-     above the trigger's own 50) is what keeps the trigger from ever
-     poking out from underneath either — it doesn't need its own
-     open/closed visibility toggle as a result. */
-  body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar,
-  body.mobileui-active[data-quickadd-mode="bottomsheet"] #quickAddBar{
-    position:fixed; left:12px; right:12px; z-index:60; max-width:480px; margin:0 auto;
-    flex-direction:column; align-items:stretch; gap:12px;
-    background: var(--card-bg); padding:18px 16px 20px; box-shadow:0 12px 32px rgba(0,0,0,0.35);
-    transition: transform .28s cubic-bezier(.2,.8,.3,1), opacity .2s ease;
-  }
-  body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar{
-    top:12px; border-radius:14px 14px 20px 20px; transform:translateY(-140%);
-  }
-  body.mobileui-active[data-quickadd-mode="bottomsheet"] #quickAddBar{
-    bottom:12px; border-radius:20px 20px 14px 14px; transform:translateY(140%);
-  }
-  body.mobileui-active[data-quickadd-mode="topsheet"]:not(.quickadd-open) #quickAddBar,
-  body.mobileui-active[data-quickadd-mode="bottomsheet"]:not(.quickadd-open) #quickAddBar{
-    opacity:0; pointer-events:none;
-  }
-  body.mobileui-active.quickadd-open[data-quickadd-mode="topsheet"] #quickAddBar,
-  body.mobileui-active.quickadd-open[data-quickadd-mode="bottomsheet"] #quickAddBar{
-    transform:translateY(0); opacity:1;
-  }
-  /* inline: no dimming overlay either way — the bar grows open right next
-     to the (still-visible) trigger rather than behind a scrim. Which
-     direction depends on where the trigger itself is docked:
-       - 'bottom': the trigger is position:fixed with nothing below it to
-         push on, so the bar instead grows UP out of the gap just above
-         it. bottom:76px is the trigger's own bottom(16) + height(50) + a
-         10px gap — same math as its #categoryView padding-bottom above,
-         just anchoring this sheet instead of clearing content beneath
-         it. Growing via max-height with only `bottom` set (no `top`) is
-         what makes it expand upward instead of off the bottom of the
-         screen.
-       - 'top': the trigger is back in the normal flow (position:sticky),
-         so this can just be a normal-flow sibling again too, growing
-         DOWN and pushing the task list below it, the way it always did
-         pre-sticky-trigger.
-     Re-tapping the trigger is how this closes either way — it's never
-     covered by its own sheet in either variant, so no extra close
-     affordance was needed for that to keep working. */
-  body.mobileui-active[data-quickadd-trigger-pos="bottom"][data-quickadd-mode="inline"] #quickAddBar{
-    position:fixed; left:12px; right:12px; bottom:76px; z-index:45; max-width:480px; margin:0 auto;
-    flex-direction:column; align-items:stretch; gap:12px;
-    background: var(--card-bg); border-radius:14px; box-shadow:0 12px 32px rgba(0,0,0,0.35);
-    max-height:0; overflow:hidden; opacity:0; padding:0 16px;
-    transition: max-height .25s ease, opacity .2s ease, padding .25s ease;
-  }
-  body.mobileui-active.quickadd-open[data-quickadd-trigger-pos="bottom"][data-quickadd-mode="inline"] #quickAddBar{
-    max-height:360px; opacity:1; padding:18px 16px 20px;
-  }
-  body.mobileui-active[data-quickadd-trigger-pos="top"][data-quickadd-mode="inline"] #quickAddBar{
+  /* No dimming overlay — the bar grows open right below the (still-
+     visible, still in normal flow via position:sticky) trigger, pushing
+     the task list below it rather than floating over anything.
+     Re-tapping the trigger is how this closes. */
+  body.mobileui-active #quickAddBar{
     flex-direction:column; align-items:stretch; gap:12px;
     max-height:0; overflow:hidden; opacity:0; margin-bottom:0; padding:0;
     transition: max-height .25s ease, opacity .2s ease, margin-bottom .25s ease;
   }
-  body.mobileui-active.quickadd-open[data-quickadd-trigger-pos="top"][data-quickadd-mode="inline"] #quickAddBar{
+  body.mobileui-active.quickadd-open #quickAddBar{
     max-height:360px; opacity:1; margin-bottom:16px;
   }
-  body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar input[type=text],
-  body.mobileui-active[data-quickadd-mode="topsheet"] #quickAddBar select,
-  body.mobileui-active[data-quickadd-mode="bottomsheet"] #quickAddBar input[type=text],
-  body.mobileui-active[data-quickadd-mode="bottomsheet"] #quickAddBar select,
-  body.mobileui-active[data-quickadd-mode="inline"] #quickAddBar input[type=text],
-  body.mobileui-active[data-quickadd-mode="inline"] #quickAddBar select{
+  body.mobileui-active #quickAddBar input[type=text],
+  body.mobileui-active #quickAddBar select{
     width:100%; font-size:1.05rem; padding:11px 8px;
   }
 
-  /* ---- floatingAddButton: the always-reachable (+) and its own
-     lightweight "quick capture" sheet (openFabAdd() in 16-task-crud.js).
-     Lives outside #appCard/.leathercover in shell-body.html so it keeps
-     working no matter which tab or overlay is on screen underneath it. ---- */
-  .fabaddbtn{
-    display:none; position:fixed; right:20px; bottom:24px; z-index:70;
-    width:56px; height:56px; border-radius:50%; border:none; cursor:pointer;
-    background: radial-gradient(circle at 35% 30%, var(--primary-light), var(--primary) 70%);
-    color:#fff; font-size:1.7rem; line-height:1;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.35), inset 0 1px 1px rgba(255,255,255,0.4);
-    /* This is already meant to be pinned to the viewport regardless of
-       scroll — "the always-reachable (+)" above isn't aspirational, it's
-       the whole point of position:fixed here. iOS Safari/WKWebView has a
-       long-standing quirk where a plain position:fixed element can lag or
-       visibly detach during momentum-scroll on a long page instead of
-       tracking the viewport smoothly, unless it's promoted to its own
-       GPU-composited layer — translateZ(0) is the standard nudge for
-       that; backface-visibility is the usual accompanying hint some iOS
-       versions want too. Layout-wise this changes nothing (0px
-       translation) — purely a rendering-path hint. */
-    transform: translateZ(0);
-    backface-visibility: hidden;
-  }
-  body.mobileui-active.fab-on .fabaddbtn{ display:flex; align-items:center; justify-content:center; }
+  /* ---- .fabaddscrim/.fabaddsheet: shared bottom-sheet base rules ----
+     Hidden by default; each consumer (the taskLongPressMode 'split'
+     settings sheet below, plus Shake-to-undo further down) turns its own
+     instance visible via its own body class. */
   .fabaddscrim{ display:none; }
-  /* #fabAddScrim specifically, NOT the shared .fabaddscrim class — the
-     long-press settings sheet below (#taskSettingsScrim) also carries
-     that class, and a bare "body.fab-open .fabaddscrim" used to match
-     it too, popping the wrong scrim (and, via the same mistake on
-     .fabaddsheet below, the wrong sheet) on top of the FAB's own
-     whenever the FAB was opened — tapping what looked like the FAB's
-     scrim actually called closeTaskSettingsSheet(), which does nothing
-     for fabAddOpen, making the FAB read as stuck open. */
-  body.fab-open #fabAddScrim{ display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:65; }
   .fabaddsheet{
     display:flex; flex-direction:column; gap:12px;
     position:fixed; left:12px; right:12px; bottom:12px; z-index:70; max-width:480px; margin:0 auto;
@@ -3598,18 +3449,15 @@
     transform:translateY(140%); opacity:0; pointer-events:none;
     transition: transform .28s cubic-bezier(.2,.8,.3,1), opacity .2s ease;
   }
-  body.fab-open #fabAddSheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
   .fabaddsheet input[type=text], .fabaddsheet select{ width:100%; font-size:1.05rem; padding:11px 8px; }
 
   /* ---- taskLongPressMode 'split': the long-press settings sheet ----
      Reuses .fabaddsheet/.fabaddscrim's own hidden-by-default base rules
-     above (same bottom-sheet mechanics as the FAB's quick-capture sheet)
-     — only the *shown* state is gated by a different body class, since
-     the FAB sheet and this one are independent and either can be open
-     without the other. .tasksettingssheet adds the taller/scrollable
-     override this one needs — a task's full management fields (title,
-     category, due, flags, timeframe/priority, notes) run taller than the
-     FAB's plain title+category. */
+     above — only the *shown* state is gated by its own body class.
+     .tasksettingssheet adds the taller/scrollable override this one
+     needs — a task's full management fields (title, category, due,
+     flags, timeframe/priority, notes) run taller than a plain
+     title+category form would. */
   body.tasksettings-open #taskSettingsScrim{ display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:65; }
   body.tasksettings-open #taskSettingsSheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
   .tasksettingssheet{ max-height:80vh; overflow-y:auto; }
@@ -3617,8 +3465,8 @@
 
   /* ---- Shake-to-undo/redo (see 04-undo.js) ----
      Reuses .fabaddsheet/.fabaddscrim's own hidden-by-default base rules
-     above (same bottom-sheet mechanics as the FAB/long-press sheets) —
-     only the *shown* state is gated by its own body class. Deliberately
+     above (same bottom-sheet mechanics as the long-press sheet) — only
+     the *shown* state is gated by its own body class. Deliberately
      NOT scoped to body.mobileui-active: shaking a physical phone is a
      real device capability, independent of the Mobile UI Lab's viewport
      emulation, so this works (or doesn't, for lack of an accelerometer)
@@ -3637,100 +3485,20 @@
   .shakeundo-actions button:not(:disabled):hover{ border-color: var(--primary); }
   .shakeundo-actions button:disabled{ opacity:0.4; cursor:default; }
 
-  /* ---- taskRowMobileStyle: reflowing a task row's title vs. its badges ---- */
+  /* ---- Task row: reflowing a task row's title vs. its badges on mobile ---- */
   /* .titlewrap (wrapping .title+.meta, see the base rule above) switches
      from a side-by-side row to a column on mobile — the title takes the
      row's full width on its own line, and the priority/timeframe/due
      badges drop to a second, wrapping line right below it instead of
-     competing with the title for space on one line. Graduated from an
-     opt-in "stacked" dev-setting value to the real, always-on mobile
-     behavior (see taskRowMobileStyle's migration in 02-storage-state.js)
-     — side-by-side was squeezing the badges into whatever sliver of the
-     title's own column happened to be free, which for a wrapped 3-line
-     title read as the badges wrapping into their own narrow stack rather
-     than sitting in a normal full-width row. */
+     competing with the title for space on one line — side-by-side was
+     squeezing the badges into whatever sliver of the title's own column
+     happened to be free, which for a wrapped 3-line title read as the
+     badges wrapping into their own narrow stack rather than sitting in a
+     normal full-width row. */
   body.mobileui-active .titlewrap{
     flex-direction:column; align-items:flex-start; gap:3px;
   }
   body.mobileui-active .meta{ flex-wrap:wrap; }
-  /* minimal: reclaims width by dropping the two lowest-value elements on
-     a phone — the drag handle (touch drag-reorder is marginal to begin
-     with) and the category dot (redundant once you're already inside
-     that category's own tab; "All" still shows it, since there the dot
-     is the only thing saying which category a row belongs to). Scoped to
-     .row's own direct children so this can't also hit a subtask row's
-     .draghandle.sub or a task-detail-page header's .cdot. */
-  body.mobileui-active[data-taskrow-mobile="minimal"] .row > .draghandle,
-  body.mobileui-active[data-taskrow-mobile="minimal"] .row > .cdot{ display:none; }
-
-  /* ---- taskDetailMobileStyle: the expand-row's category/due/actions ---- */
-  /* stacked: every field (and the .expandactions group) gets its own
-     full-width line instead of wrapping wherever it happens to fit. */
-  body.mobileui-active[data-taskdetail-mobile="stacked"] .expand-row{
-    flex-direction:column; align-items:stretch; gap:8px;
-  }
-  body.mobileui-active[data-taskdetail-mobile="stacked"] .expand-row .catselect,
-  body.mobileui-active[data-taskdetail-mobile="stacked"] .expand-row .datefield{
-    width:100%;
-  }
-  body.mobileui-active[data-taskdetail-mobile="stacked"] .expandactions{
-    display:flex; gap:10px; justify-content:space-between; align-items:center; margin-top:2px;
-  }
-  body.mobileui-active[data-taskdetail-mobile="stacked"] .expandactions .remove{ margin-left:0; }
-  /* grouped: category + due date sit in an even two-column grid (their
-     text labels dropped — the field itself is self-explanatory once it's
-     not crammed against three other things), with the action buttons in
-     their own evenly-spaced row underneath. A middle ground between the
-     cramped default and fully-stacked. */
-  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row{
-    display:grid; grid-template-columns:1fr 1fr; gap:10px 12px; align-items:center;
-  }
-  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row .fieldlabel{ display:none; }
-  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row .catselect,
-  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row .datefield{
-    width:100%;
-  }
-  body.mobileui-active[data-taskdetail-mobile="grouped"] .expandactions{
-    grid-column:1 / -1; display:flex; justify-content:space-around; align-items:center; margin-top:4px;
-  }
-  body.mobileui-active[data-taskdetail-mobile="grouped"] .expandactions .remove{ margin-left:0; }
-  /* Glitch fix: this variant's 2-column grid was written back when
-     .catselect and .datefield always shared the row as its two columns.
-     The full detail page's own .expand-row (.hideactions — see
-     taskCoreFieldsRowHtml()'s own comment, 08-render-core.js) hides
-     .catselect entirely now, leaving .datefield as the row's only real
-     content — with nothing telling it to span both columns, it just sat
-     in column 1, claiming half the row's width and leaving column 2
-     visibly empty. */
-  body.mobileui-active[data-taskdetail-mobile="grouped"] .expand-row.hideactions .datefield{
-    grid-column: 1 / -1;
-  }
-
-  /* stickyTabBar (EXPERIMENTAL, see defaultDevSettings() in 02-storage-
-     state.js) — pins .tabswrap (and the .tabs row inside it) to the top of
-     the viewport instead of letting it scroll away with the rest of the
-     page, so Daily (or any tab) stays one tap away no matter how far down
-     a long task list you've scrolled. `top` reads the safe-area inset
-     directly rather than 0 so this respects the notch/status bar in
-     standalone "Add to Home Screen" mode the same way body's own padding
-     does (see the html/body safe-area comment near :root) — sticky's own
-     offset is measured against the viewport, not body's padding, so it
-     needs this independently. .tabs already carries a translucent shelf
-     background (see the comment above its own rule) which is enough to
-     read against whatever scrolls underneath once pinned; the added
-     box-shadow here is what actually sells "this is now floating above
-     the page" rather than just sitting in normal flow. z-index has to
-     clear #appCard's own z-index:1 (and everything inside it, including
-     any .stackedpage drilldown) so the pinned bar isn't scrolled-under by
-     Settings, a day's detail, etc. the moment one of those opens. */
-  body.dev-stickytabs .tabswrap{
-    position: sticky;
-    top: env(safe-area-inset-top, 0px);
-    z-index: 20;
-  }
-  body.dev-stickytabs .tabs{
-    box-shadow: 0 8px 14px rgba(0,0,0,0.35);
-  }
 
   /* ---- tabBarMobileStyle / tabBarDesktopStyle ----
      .appmain/.tabswrap (see shell-body.html) are plain unstyled wrappers
@@ -4733,28 +4501,6 @@
      whatever's tucked behind it. */
   body:not(.mobileui-active)[data-tabbar-desktop="overlap"] #appCard{
     box-shadow: 0 24px 55px rgba(0,0,0,0.4), 0 -10px 14px -6px rgba(0,0,0,0.5);
-  }
-
-  /* ---- settingsRowMobileStyle: separating identity from management ----
-     grouped: .catdeletewrap (see renderSettings() in 09-settings.js)
-     drops to its own right-aligned line instead of wrapping inline next
-     to the label — .catedit (flex:1) gets the whole top line (move
-     buttons + color/icon + label) to itself instead of splitting it with
-     Delete, and the resting Delete button is deliberately muted (quiet
-     until you actually reach for it) so it stops reading at the same
-     visual weight as the label you're editing. Only the plain "Delete"
-     trigger is muted this way — once tapped, .catdeleteconfirm/.catcancel
-     (siblings inside the same wrap) keep their normal, more prominent
-     styling, since a live confirm step should never be quiet. */
-  body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap{
-    display:flex; flex-basis:100%; flex-wrap:wrap; justify-content:flex-end; margin-top:4px;
-  }
-  body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap .catdelete{
-    opacity:0.5; border-color:transparent; background:none;
-  }
-  body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap .catdelete:not(:disabled):hover,
-  body.mobileui-active[data-settingsrow-mobile="grouped"] .catdeletewrap .catdelete:not(:disabled):active{
-    opacity:1; border-color:var(--line); background:var(--card-bg-dim);
   }
 
   /* ---- customContextMenu: a task's own right-click menu ----

@@ -703,7 +703,6 @@ function applyDevSettings(){
   document.body.dataset.desktopZoom = d.desktopZoom || '100';
   document.body.classList.toggle('devtag-seam', !!d.tagSeam);
   document.body.dataset.pendingTagStyle = d.pendingTagStyle || 'default';
-  document.body.classList.toggle('devlist-dates', !!d.showListDates);
   // Read by the --leather-* custom property overrides in <style> (see
   // :root and the body[data-leather-inset="…"] blocks) — 'classic' needs
   // no matching selector since its values are the plain :root defaults.
@@ -723,32 +722,13 @@ function applyDevSettings(){
   if(panel) panel.style.display = d.sidePanelEnabled ? '' : 'none';
   // Mobile UI Lab — see defaultDevSettings() for what each field means.
   // The style choices are plain data attributes (not classes) since CSS
-  // needs to key off the specific variant, not just "some variant is on";
-  // floatingAddButton is a class since it's a true on/off. All of them are
-  // additionally gated behind body.mobileui-active (refreshed below and on
-  // resize, see 19-bootstrap.js) so none has any effect until an actual
-  // phone-ish viewport — or mobileUiPreviewOnDesktop — makes it relevant.
-  document.body.dataset.quickaddMode = d.quickAddMobileStyle || 'bottomsheet';
-  // quickAddTriggerPosition: 'bottom' (default) is the fixed, always-
-  // reachable bar built for the "sticky" ask; 'top' instead restores the
-  // trigger to its original spot in the normal flow, right under the tab
-  // bar, but held there via position:sticky (see the [data-quickadd-
-  // trigger-pos] rules in <style>) rather than the plain static
-  // positioning it had before any of this — so it's still "sticky" in
-  // the sense asked for, just anchored at the top of the screen instead
-  // of the bottom, for whichever placement reads better in daily use.
-  document.body.dataset.quickaddTriggerPos = d.quickAddTriggerPosition || 'bottom';
-  document.body.dataset.taskrowMobile = d.taskRowMobileStyle || 'default';
-  document.body.dataset.taskdetailMobile = d.taskDetailMobileStyle || 'default';
-  document.body.classList.toggle('fab-on', !!d.floatingAddButton);
+  // needs to key off the specific variant, not just "some variant is on".
+  // All of them are additionally gated behind body.mobileui-active
+  // (refreshed below and on resize, see 19-bootstrap.js) so none has any
+  // effect until an actual phone-ish viewport — or mobileUiPreviewOnDesktop
+  // — makes it relevant.
   document.body.dataset.tabbarMobile = d.tabBarMobileStyle || 'default';
   document.body.dataset.tabbarDesktop = d.tabBarDesktopStyle || 'default';
-  // stickyTabBar (EXPERIMENTAL) — see the body.dev-stickytabs rule in
-  // <style>. Not gated by mobileUiActive(): "Daily scrolled out of reach"
-  // is just as real a complaint on a tall desktop window with many tasks
-  // on screen, so this applies everywhere once turned on, same reasoning
-  // as fieldPickerStyle above.
-  document.body.classList.toggle('dev-stickytabs', !!d.stickyTabBar);
   // Read by the .tab:hover rules in <style> — 'ranked' mode's hovered tab
   // must NOT jump to a blanket top z-index the way 'hover' mode's does: a
   // fixed order is the whole point of 'ranked' (see tabImportanceRank()),
@@ -764,18 +744,10 @@ function applyDevSettings(){
   // 'random'/'iconstyle' cases.
   document.body.dataset.sidetabsAppearance = d.sidetabsAppearance || 'color';
   document.body.dataset.sidetabsShape = d.sidetabsShape || 'pagetab';
-  document.body.dataset.settingsrowMobile = d.settingsRowMobileStyle || 'default';
   // Not gated by mobileui-active (see the comment on fieldPickerStyle in
   // defaultDevSettings()) — read directly by fieldPickerHtml() in
   // 08-render-core.js as plain state, and by <style> for the atmax pulse.
   document.body.dataset.fieldpickerStyle = d.fieldPickerStyle || 'default';
-  // EXPERIMENTAL, starred in Settings as a decision still pending (see
-  // devSettingsFieldsHtml()'s own comment) — how a task row's inline
-  // quick-view steps (.expand.open, taskSubtasksHtml()) visually tie back
-  // to the task they belong to. Read by the body[data-expand-grouping=…]
-  // rules in <style>; 'none' needs no matching selector since it's just
-  // today's plain indent with nothing added.
-  document.body.dataset.expandGrouping = d.expandGroupingStyle || 'rail';
   // EXPERIMENTAL, starred in Settings — a few alternate spots for the
   // urgent-flag/today-pin pair in the full Task Detail page's header (see
   // the body[data-taskdetail-actions=…] rules in <style>). 'side' (the
@@ -788,9 +760,8 @@ function applyDevSettings(){
 // mobileUiPreviewOnDesktop forces it — the single shared gate every
 // Mobile UI Lab feature checks (see defaultDevSettings() in
 // 02-storage-state.js) before doing anything. Kept as a real function
-// rather than only a body class so JS that has to branch on markup
-// (openFabAdd(), for instance) can ask the same question CSS is asking
-// via body.mobileui-active.
+// rather than only a body class so JS that has to branch on markup can
+// ask the same question CSS is asking via body.mobileui-active.
 function mobileUiActive(){
   const d = state.devSettings || {};
   return !!d.mobileUiPreviewOnDesktop || window.matchMedia('(max-width:680px), (pointer:coarse)').matches;
@@ -834,38 +805,6 @@ async function setDevLeatherInset(val){
 async function setDevStackedPageInset(val){
   pushUndo(`Changed dev stacked-page size to "${val}"`);
   state.devSettings.stackedPageInsetPreset = val;
-  applyDevSettings();
-  render();
-  queueSave();
-}
-
-async function setDevQuickAddMobileStyle(val){
-  pushUndo(`Changed dev quick-add mobile style to "${val}"`);
-  state.devSettings.quickAddMobileStyle = val;
-  applyDevSettings();
-  render();
-  queueSave();
-}
-
-async function setDevQuickAddTriggerPosition(val){
-  pushUndo(`Changed dev quick-add trigger position to "${val}"`);
-  state.devSettings.quickAddTriggerPosition = val;
-  applyDevSettings();
-  render();
-  queueSave();
-}
-
-async function setDevTaskRowMobileStyle(val){
-  pushUndo(`Changed dev task row mobile style to "${val}"`);
-  state.devSettings.taskRowMobileStyle = val;
-  applyDevSettings();
-  render();
-  queueSave();
-}
-
-async function setDevTaskDetailMobileStyle(val){
-  pushUndo(`Changed dev task detail mobile style to "${val}"`);
-  state.devSettings.taskDetailMobileStyle = val;
   applyDevSettings();
   render();
   queueSave();
@@ -921,14 +860,6 @@ async function setDevSidetabsShape(val){
   queueSave();
 }
 
-async function setDevSettingsRowMobileStyle(val){
-  pushUndo(`Changed dev settings row mobile style to "${val}"`);
-  state.devSettings.settingsRowMobileStyle = val;
-  applyDevSettings();
-  render();
-  queueSave();
-}
-
 async function setDevFieldPickerStyle(val){
   pushUndo(`Changed dev field picker style to "${val}"`);
   state.devSettings.fieldPickerStyle = val;
@@ -948,13 +879,6 @@ async function setDevCheckGuideAnimationStyle(val){
 async function setDevCategoryLabelStyle(val){
   pushUndo(`Changed dev category label style to "${val}"`);
   state.devSettings.categoryLabelStyle = val;
-  render();
-  queueSave();
-}
-async function setDevExpandGroupingStyle(val){
-  pushUndo(`Changed dev quick-view steps grouping to "${val}"`);
-  state.devSettings.expandGroupingStyle = val;
-  applyDevSettings();
   render();
   queueSave();
 }
@@ -1040,13 +964,6 @@ function devGroupHtml(key, title, bodyHtml){
 //   MOBILE  — the "Mobile UI Lab": only visible/active when
 //     mobileUiActive() is true (phone-width or coarse-pointer, or
 //     mobileUiPreviewOnDesktop forcing it) — see mobileUiActive() above.
-// One field moved groups in the process, worth calling out:
-// stickyTabBar lived under "Mobile UI Lab" before, but its own CSS
-// (body.dev-stickytabs, not scoped inside .mobileui-active) was never
-// actually gated to mobile — it works, and reads just as useful, at any
-// width. It's in General now, not because it was moved for this pass,
-// but because that's where its real behavior always put it; the old
-// grouping had just been wrong about it.
 // tabBarMobileStyle (Mobile) and tabBarDesktopStyle (Desktop) are the
 // one pair genuinely worth keeping mentally linked despite being split
 // across groups — they're two independent, per-viewport answers to the
@@ -1120,12 +1037,6 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       ['booktab','Left edge, overlapping up into the tab row']
     ], 'setDevPendingTagStyle')}
 
-    ${devSectionHeadHtml('Checklist')}
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.showListDates?'checked':''} onchange="toggleDevSetting('showListDates', this.checked)">
-      Show a faded created-date next to each checklist's title
-    </label>
-
     ${devSectionHeadHtml('Cover & Page Sizing')}
     ${devField('Leather cover size', dev.leatherInsetPreset, [
       ['classic','Default'],
@@ -1166,22 +1077,6 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       ['tab','Colored tab (default)'],
       ['tape','Washi tape']
     ], 'setDevCategoryLabelStyle')}
-    <!-- Starred the same way the Timeframe/Priority picker field above is
-         — a real, live option to compare against "none," not a settled
-         choice yet. Ties a task row's own inline .expand steps (Steps
-         only, quick-view — see taskSubtasksHtml()'s own comment) back to
-         the task they belong to once a few rows are open at once and a
-         couple of steps have wrapped to multiple lines each; without
-         either the parent task reads as "lost" a few lines down. Left
-         border is the more contained of the two (a thin rail down the
-         steps, same idiom Daily's own nested sub-rows already use);
-         background tint groups the whole block more strongly but is the
-         louder change of the two. -->
-    ${devField('<span title="Comparing against doing nothing here — decide which (if either) actually solves the \'parent task gets lost\' problem once there\'s more real usage to judge it against.">★ Quick-view steps grouping</span>', dev.expandGroupingStyle, [
-      ['rail','Left border rail (default)'],
-      ['tint','Subtle background tint'],
-      ['none','None (today\'s plain indent)']
-    ], 'setDevExpandGroupingStyle')}
     <!-- Starred, same "not settled yet" reasoning as the field above —
          a spot to try the urgent-flag/today-pin pair in besides the
          current default. 'side' (today's spot, beside the checkbox) was
@@ -1199,12 +1094,6 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       ['topleft','Top-left corner, under the Back tag'],
       ['headerline','Resting on the title\'s own underline']
     ], 'setDevTaskDetailActionsPosition')}
-
-    ${devSectionHeadHtml('Tab Bar')}
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.stickyTabBar?'checked':''} onchange="toggleDevSetting('stickyTabBar', this.checked)">
-      Sticky tab bar — pins the tabs (and the Daily tab within them) to the top of the screen while scrolling
-    </label>
   `;
 
   const desktopBody = `
@@ -1272,27 +1161,7 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       Preview everything below on desktop too (it's phone/touch-only by default)
     </label>
 
-    ${devSectionHeadHtml('Quick-Add Bar')}
-    ${devField('"+ Add Task" button position', dev.quickAddTriggerPosition||'bottom', [
-      ['bottom','Bottom of the screen (sticky)'],
-      ['top','Top of the page, under the tabs (sticky)']
-    ], 'setDevQuickAddTriggerPosition')}
-    ${devField('"+ Add Task" button opens…', dev.quickAddMobileStyle, [
-      ['topsheet','"+ Add Task" button opens a top sheet'],
-      ['bottomsheet','"+ Add Task" button opens a bottom sheet'],
-      ['inline','"+ Add Task" button expands it in place']
-    ], 'setDevQuickAddMobileStyle')}
-
     ${devSectionHeadHtml('Task Rows & Detail')}
-    ${devField('Task row layout', dev.taskRowMobileStyle, [
-      ['default','Default'],
-      ['minimal','Minimal — hide drag handle & category dot']
-    ], 'setDevTaskRowMobileStyle')}
-    ${devField('Task detail fields', dev.taskDetailMobileStyle, [
-      ['default','Default (one cramped wrapping row)'],
-      ['stacked','Stacked — one full-width field per row'],
-      ['grouped','Grouped — 2-column fields + an even action row']
-    ], 'setDevTaskDetailMobileStyle')}
     <!-- Only affects mobile's long-press, and mobile's tap under
          'detail' — every other tap (desktop always, mobile under
          'default'/'split') opens the inline Steps-only quick view
@@ -1304,24 +1173,12 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       ['default','Classic — tap opens Steps; no long-press action']
     ], 'setDevTaskLongPressMode')}
 
-    ${devSectionHeadHtml('Quick Capture')}
-    <label class="${rowClass}">
-      <input type="checkbox" ${dev.floatingAddButton?'checked':''} onchange="toggleDevSetting('floatingAddButton', this.checked)">
-      Floating (+) button to add a task from any tab
-    </label>
-
     ${devSectionHeadHtml('Tab Bar')}
     ${devField('Tab bar style', dev.tabBarMobileStyle, [
       ['default','Default (wraps to a 2nd row)'],
       ['scroll','Scrolls sideways, one row']
     ], 'setDevTabBarMobileStyle')}
     <div class="devgroupnote">See also Tab Bar under Desktop — this is the same underlying choice, answered separately per viewport.</div>
-
-    ${devSectionHeadHtml('Settings Panel')}
-    ${devField('Settings category rows', dev.settingsRowMobileStyle, [
-      ['default','Default (everything one flat row)'],
-      ['grouped','Grouped — Delete moves to its own quiet row']
-    ], 'setDevSettingsRowMobileStyle')}
   `;
 
   return `
@@ -1489,7 +1346,6 @@ const DEV_ELEMENT_NAME_RULES = [
   { sel: '.checkcircle' },
   { sel: '.pegpivot' },
   { sel: '.progressring' },
-  { sel: '.listdate' },
   // Daily
   { sel: '.daynavrow' },
   { sel: '.navarrow' },

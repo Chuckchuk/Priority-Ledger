@@ -145,11 +145,10 @@ let pendingDeleteLocationId = null;
 // tabsSection() in renderSettings()), same "start fresh for the next
 // one" reasoning that clearing the text input already followed.
 let newCatTypeDraft = 'standard';
-// Mobile UI Lab overlay state (see defaultDevSettings() above and
-// toggleQuickAddSheet()/openFabAdd() in 16-task-crud.js) — pure UI chrome,
-// never persisted, same as the other open/closed flags on this page.
+// Quick-add bar open/closed state (see toggleQuickAddSheet() in
+// 16-task-crud.js) — pure UI chrome, never persisted, same as the other
+// open/closed flags on this page.
 let quickAddOpen = false;
-let fabAddOpen = false;
 // taskLongPressMode's "split" variant (see defaultDevSettings() below and
 // taskPressStart()/openTaskSettingsSheet() in 08-render-core.js) — which
 // task (if any) has its management-fields sheet open, plus the shared
@@ -458,69 +457,26 @@ function defaultDevSettings(){
   // labeled plainly as that instead, since it's no longer the one picked
   // automatically.
   // ---- "Mobile UI Lab" (2026-08 mobile-friendliness pass) ----
-  // quickAddMobileStyle/taskRowMobileStyle/taskDetailMobileStyle/
-  // floatingAddButton are all gated behind mobileUiActive() (see
-  // 01-categories-theme.js) rather than a plain body class each reads
-  // directly — every one of them exists to fix a *phone-width* cramming
-  // problem (the quick-add bar wrapping into three rows, a task row's
-  // badges squeezing its title, the expand-row reading like a dense
-  // form), so by default they stay completely inert on desktop even when
-  // turned on. mobileUiPreviewOnDesktop is the one shared escape hatch —
-  // it forces mobileUiActive() true regardless of viewport/pointer, so
-  // the project owner can preview any of these on a desktop browser
-  // without narrowing the window. One shared flag rather than a
-  // per-feature "also on desktop" checkbox, since the ask was to preview
-  // the whole lab on desktop, not any one piece of it in isolation.
-  // quickAddMobileStyle: how the main category quick-add bar (the
-  // 6-control row that wraps into three lines on a phone) is reached on
-  // mobile — always via a single "+ Add Task" trigger now (see
-  // .quickaddtrigger in <style>), never the old always-visible inline
-  // row: that 'default' variant is gone entirely (see the removed option
-  // in devSettingsFieldsHtml(), 01-categories-theme.js, and its migration
-  // in normalizeState() below), replaced by the sticky trigger itself
-  // (position depends on quickAddTriggerPosition just below) — per the
-  // project owner's own ask, rather than scrolling away at the top of
-  // the list the way the inline row always did. This setting now only
-  // controls what tapping that trigger actually opens: 'topsheet'/
-  // 'bottomsheet' open the real bar as a full-width overlay sheet sliding
-  // in from that edge, with a dimming scrim behind it; 'inline' instead
-  // grows the bar open right next to the trigger with no scrim — which
-  // direction it grows (up, if the trigger is docked at the bottom; down,
-  // if it's docked at the top) follows quickAddTriggerPosition too, see
-  // the [data-quickadd-trigger-pos][data-quickadd-mode="inline"] rules in
-  // <style>.
-  // quickAddTriggerPosition: where that trigger docks — 'bottom' (the
-  // default) pins it position:fixed to the bottom of the screen, which is
-  // what "sticky" originally meant here; 'top' instead restores it to its
-  // pre-sticky spot in the normal flow, right under the tab bar, but held
-  // there via position:sticky rather than plain static positioning, so it
-  // no longer scrolls away with the list either — both are genuinely
-  // sticky, just anchored at opposite ends of the screen. Added as a
-  // choice (not a straight replacement) once it turned out "at the
-  // bottom" wasn't what the project owner actually had in mind by
-  // "sticky" — the original ask was for the top-docked trigger to stop
-  // scrolling away, not to relocate it.
-  // taskRowMobileStyle: 'default' leaves a task row's title fighting its
-  // priority/timeframe/due badges for space on one line; 'stacked' moves
-  // the badges onto their own line below the title (see .titlewrap in
-  // taskRowHtml) so the title always gets the row's full width; 'minimal'
-  // instead reclaims width by hiding the drag handle and category dot on
-  // a row (touch drag-reorder is marginal anyway, and the dot is
-  // redundant once you're already inside that category's own tab).
-  // taskDetailMobileStyle: 'default' leaves the expand-row's category
-  // select/due date/action buttons crammed into one wrapping line;
-  // 'stacked' puts each field on its own full-width line with the three
-  // action buttons (urgent/today-pin/remove) grouped into their own even
-  // row via .expandactions; 'grouped' instead grids category+due date
-  // into an even two-column row (dropping their text labels) with the
-  // action buttons in a second, evenly-spaced row — a middle ground
-  // between the cramped default and fully stacked.
-  // floatingAddButton: a persistent (+) button, always on screen
-  // regardless of which tab is active (Daily, checklist, Settings,
-  // everywhere) — a lightweight "quick capture" (title + category only,
-  // see openFabAdd()/submitFabAdd() in 16-task-crud.js), not the full
-  // quick-add bar, since it has to make sense from views that don't have
-  // a quick-add bar of their own at all.
+  // tabBarMobileStyle is gated behind mobileUiActive() (see
+  // 01-categories-theme.js) rather than a plain body class it reads
+  // directly — it exists to fix a *phone-width* cramming problem (the tab
+  // bar wrapping to a second row), so by default it stays completely inert
+  // on desktop even when turned on. mobileUiPreviewOnDesktop is the shared
+  // escape hatch — it forces mobileUiActive() true regardless of
+  // viewport/pointer, so the project owner can preview it on a desktop
+  // browser without narrowing the window.
+  // The main category quick-add bar (the 6-control row that wraps into
+  // three lines on a phone) is reached on mobile via a single "+ Add Task"
+  // trigger (see .quickaddtrigger in <style>), docked at the top of the
+  // page under the tab bar via position:sticky so it never scrolls away.
+  // Tapping it grows the bar open right in place, below the trigger,
+  // pushing the task list down rather than opening as an overlay sheet.
+  // A task row on mobile stacks its priority/timeframe/due badges onto
+  // their own line below the title (see .titlewrap in taskRowHtml) so the
+  // title always gets the row's full width; the task detail page's own
+  // category/due date/action fields keep their default cramped-wrapping
+  // layout — alternate stacked/grouped mobile layouts for both were tried
+  // and dropped.
   // tabBarMobileStyle: 'default' leaves the tab bar wrapping to a second
   // row once there isn't room for every tab (see renderTabRowLines() in
   // 06-tabs-render.js) — real chrome height spent before any task is on
@@ -544,16 +500,6 @@ function defaultDevSettings(){
   // renderTabs()) and a slight per-tab height stagger, so it reads more
   // like protruding book-index tabs than flat pills, with zero change to
   // click/wrap behavior.
-  // settingsRowMobileStyle: 'default' leaves a category row in Settings
-  // as one flat wrapping line — reorder buttons, the color/icon picker,
-  // the label you're editing, and the destructive Delete button all at
-  // the same visual weight, competing with the label for the row's
-  // ~120px-min-width floor on a phone (see .catedit). 'grouped' moves
-  // Delete (or its warning+confirm+cancel trio, via .catdeletewrap in
-  // 09-settings.js) onto its own right-aligned line and mutes its resting
-  // look — the label gets the whole top line to itself, and the one
-  // dangerous control on the row reads as deliberately secondary instead
-  // of same-weight as everything else.
   // fieldPickerStyle: 'default' keeps the plain <select> for Timeframe/
   // Priority (both in the main quick-add bar and a task's own detail
   // fields — see fieldPickerHtml() in 08-render-core.js). 'buttons' swaps
@@ -665,7 +611,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', showListDates:false, sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddMobileStyle:'bottomsheet', quickAddTriggerPosition:'bottom', taskRowMobileStyle:'default', taskDetailMobileStyle:'default', floatingAddButton:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', settingsRowMobileStyle:'default', fieldPickerStyle:'default', taskLongPressMode:'detail', stickyTabBar:false, checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', expandGroupingStyle:'rail', taskDetailActionsPosition:'side', desktopZoom:'100' };
+  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', taskLongPressMode:'detail', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100' };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -855,24 +801,10 @@ function normalizeState(){
   // that had it selected falls back to 'default' rather than pointing at
   // a style nothing renders any more.
   if(state.devSettings.pendingTagStyle === 'cornerpeek') state.devSettings.pendingTagStyle = 'default';
-  if(typeof state.devSettings.showListDates !== 'boolean') state.devSettings.showListDates = false;
   if(typeof state.devSettings.sidePanelEnabled !== 'boolean') state.devSettings.sidePanelEnabled = false;
   if(typeof state.devSettings.leatherInsetPreset !== 'string') state.devSettings.leatherInsetPreset = 'classic';
   if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'leftheavy';
   if(typeof state.devSettings.mobileUiPreviewOnDesktop !== 'boolean') state.devSettings.mobileUiPreviewOnDesktop = false;
-  // 'default' (the old always-visible inline row) is no longer a valid
-  // value — see the quickAddMobileStyle comment above — so an account
-  // saved before this change migrates to the new floor behavior's own
-  // default, same as a genuinely missing/malformed value would.
-  if(typeof state.devSettings.quickAddMobileStyle !== 'string' || state.devSettings.quickAddMobileStyle === 'default') state.devSettings.quickAddMobileStyle = 'bottomsheet';
-  if(typeof state.devSettings.quickAddTriggerPosition !== 'string') state.devSettings.quickAddTriggerPosition = 'bottom';
-  // 'stacked' graduated to the real, always-on mobile behavior (see the
-  // body.mobileui-active .titlewrap rule in <style>) — no longer a
-  // distinct option, so an account saved with it selected migrates back
-  // to 'default', same idiom as quickAddMobileStyle's own migration above.
-  if(typeof state.devSettings.taskRowMobileStyle !== 'string' || state.devSettings.taskRowMobileStyle === 'stacked') state.devSettings.taskRowMobileStyle = 'default';
-  if(typeof state.devSettings.taskDetailMobileStyle !== 'string') state.devSettings.taskDetailMobileStyle = 'default';
-  if(typeof state.devSettings.floatingAddButton !== 'boolean') state.devSettings.floatingAddButton = false;
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
   if(typeof state.devSettings.desktopZoom !== 'string') state.devSettings.desktopZoom = '100';
@@ -886,10 +818,8 @@ function normalizeState(){
   // renders" idea as the calendar-type migration above.
   if(state.devSettings.sidetabsAppearance === 'textured') state.devSettings.sidetabsAppearance = 'color';
   if(typeof state.devSettings.sidetabsShape !== 'string') state.devSettings.sidetabsShape = 'pagetab';
-  if(typeof state.devSettings.settingsRowMobileStyle !== 'string') state.devSettings.settingsRowMobileStyle = 'default';
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
   if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'detail';
-  if(typeof state.devSettings.stickyTabBar !== 'boolean') state.devSettings.stickyTabBar = false;
   if(typeof state.devSettings.checkGuideAnimationStyle !== 'string') state.devSettings.checkGuideAnimationStyle = 'radialping';
   // 'spin' (a rotating conic-gradient square behind the checkbox) was
   // replaced by 'wiggle' (the checkbox itself rotating back and forth) —
@@ -901,7 +831,6 @@ function normalizeState(){
   if(state.devSettings.checkGuideAnimationStyle === 'spin') state.devSettings.checkGuideAnimationStyle = 'wiggle';
   if(typeof state.devSettings.developmentMode !== 'boolean') state.devSettings.developmentMode = false;
   if(typeof state.devSettings.categoryLabelStyle !== 'string') state.devSettings.categoryLabelStyle = 'tab';
-  if(typeof state.devSettings.expandGroupingStyle !== 'string') state.devSettings.expandGroupingStyle = 'rail';
   if(typeof state.devSettings.taskDetailActionsPosition !== 'string') state.devSettings.taskDetailActionsPosition = 'side';
   state.tasks.forEach(t=>{
     if(t.subtasks===undefined) t.subtasks = [];
