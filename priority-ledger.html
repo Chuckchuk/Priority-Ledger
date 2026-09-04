@@ -11173,16 +11173,30 @@ function currentTabBodyHtml(){
 // the underline is ALWAYS genuinely empty regardless of the title's
 // length or line count — this can just bottom-anchor unconditionally.
 const HEADERLINE_GAP_PX = 4;
+// renderTaskDetailPage() is shared by two entry points — a plain tap on
+// any category tab's row (openGenericTaskDetail(), into
+// #genericTaskDetailView) and Daily's own taskDetailId
+// (openTaskDetailFromDay(), into #dailyView) — but only one is ever
+// actually on screen at a time (render()'s own view-swapping keeps the
+// other hidden/emptied). Checking both roots in order, rather than
+// hardcoding #genericTaskDetailView alone, is what makes this function
+// actually do anything when a task detail was opened from Daily — it
+// used to silently no-op there (title/stackedpage never found), leaving
+// the buttons stuck at the CSS fallback `top` forever regardless of the
+// real title's own length, which is exactly the "buttons in the wrong
+// place, big empty gap" bug this was supposed to have already fixed for
+// the generic view.
 function positionHeaderlineActions(){
   if((state.devSettings||{}).taskDetailActionsPosition !== 'headerline') return;
-  const title = document.querySelector('#genericTaskDetailView .titleedit.bigtitle');
+  const title = document.querySelector('#genericTaskDetailView .titleedit.bigtitle')
+    || document.querySelector('#dailyView .titleedit.bigtitle');
   const stackedpage = title && title.closest('.stackedpage');
   if(!title || !stackedpage) return;
   const titleRect = title.getBoundingClientRect();
   const containerTop = stackedpage.getBoundingClientRect().top;
   const relTitleBottom = titleRect.bottom - containerTop;
   ['titleactions', 'taskdetailshare'].forEach(cls => {
-    const el = document.querySelector(`#genericTaskDetailView .${cls}`);
+    const el = stackedpage.querySelector(`.${cls}`);
     if(!el) return;
     el.style.top = (relTitleBottom - HEADERLINE_GAP_PX - el.offsetHeight) + 'px';
   });
