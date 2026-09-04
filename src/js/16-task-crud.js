@@ -17,11 +17,40 @@ function toggleQuickAddSheet(force){
   }
 }
 
+// The category button's own brief "you have to pick one" flash — a
+// CSS animation class, removed after it finishes (see .quickfieldbtn.
+// invalid in <style>) rather than left on, so tapping it again while
+// still flashing (fixing the mistake right away) can re-trigger the
+// same animation from a clean state next time it's needed instead of a
+// stale class silently doing nothing.
+let quickCategoryFlashTimer = null;
+function flashQuickCategoryInvalid(){
+  const btn = document.getElementById('quickCategoryBtn');
+  clearTimeout(quickCategoryFlashTimer);
+  btn.classList.remove('invalid');
+  // Force a reflow so re-adding the class restarts the animation even
+  // if it was already mid-flash from a previous attempt.
+  void btn.offsetWidth;
+  btn.classList.add('invalid');
+  quickCategoryFlashTimer = setTimeout(() => btn.classList.remove('invalid'), 500);
+}
+function clearQuickCategoryInvalid(){
+  clearTimeout(quickCategoryFlashTimer);
+  document.getElementById('quickCategoryBtn').classList.remove('invalid');
+}
+
 async function addTask(){
   const input = document.getElementById('quickInput');
   const title = input.value.trim();
   if(!title) return;
   const category = activeTab==='all' ? document.getElementById('quickCategory').value : activeTab;
+  // Only meaningful on the All tab — every other tab already implies its
+  // own category (see the line above). No default/first-option fallback
+  // any more (renderQuickCategory(), 06-tabs-render.js) — an unset
+  // category on All is a real, required-but-missing state, flashed red
+  // rather than silently filed under whichever category happened to
+  // render first.
+  if(activeTab==='all' && !category){ flashQuickCategoryInvalid(); return; }
   const timeframe = document.getElementById('quickTimeframe').value;
   const priority = parseInt(document.getElementById('quickPriority').value, 10) || 0;
   pushUndo(`Added "${title}"`);
@@ -38,6 +67,10 @@ async function addTask(){
   document.getElementById('urgentToggle').classList.remove('on');
   document.getElementById('quickTimeframe').value = '';
   document.getElementById('quickPriority').value = '0';
+  // Reset to unset too, same as every other draft field here — the next
+  // task typed on All has to get its own category chosen again rather
+  // than silently inheriting whatever the last one used.
+  if(activeTab==='all') document.getElementById('quickCategory').value = '';
   render();
   queueSave();
 }

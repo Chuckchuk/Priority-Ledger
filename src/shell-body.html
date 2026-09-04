@@ -134,40 +134,60 @@
              file's Mobile UI Lab markup. -->
         <button class="quickaddtrigger" id="quickAddTrigger" onclick="toggleQuickAddSheet()">+ Add Task</button>
         <div class="quickadd" id="quickAddBar">
-          <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
-          <select id="quickCategory"></select>
-          <!-- 'today'/'urgent' dropped from the selectable options (kept
-               only in TIMEFRAME_LABELS, 02-storage-state.js, for any task
-               that already has one saved) — same reasoning as
-               TIMEFRAME_STEPS's own comment there: both already duplicated
-               a separate existing concept (this same row's own "Mark
-               urgent" flag toggle right below, and the "add to today" pin)
-               rather than adding anything Short/Medium/Long doesn't
-               already cover. This select has to stay in sync with
-               TIMEFRAME_STEPS by hand — it's static shell markup, not
-               generated from that array, since it's the "real value
-               source" even when a custom fieldPickerStyle is on (see the
-               comment just below). -->
-          <select id="quickTimeframe" title="Timeframe">
-            <option value="">Timeframe</option>
-            <option value="short">Short</option>
-            <option value="medium">Medium</option>
-            <option value="long">Long</option>
-          </select>
-          <!-- fieldPickerStyle (see defaultDevSettings() in 02-storage-
-               state.js) — the select above stays the real value source
-               either way (addTask() reads it directly); renderQuickCategory()
-               just hides it and fills this instead when a custom style is on. -->
-          <div class="fieldpicker" id="quickTimeframePicker" style="display:none;"></div>
-          <select id="quickPriority" title="Priority">
-            <option value="0">Priority</option>
-            <option value="1">Low</option>
-            <option value="2">Medium</option>
-            <option value="3">High</option>
-          </select>
-          <div class="fieldpicker" id="quickPriorityPicker" style="display:none;"></div>
-          <button class="flagbtn" id="urgentToggle" onclick="toggleUrgentDraft()" title="Mark urgent">⚑</button>
-          <button class="addbtn" onclick="addTask()">+</button>
+          <!-- Row 1 is the whole point: the title input is most of the
+               space, and everything else here is either required
+               (Category, only on the All tab — see renderQuickCategory(),
+               06-tabs-render.js) or a single small fixed-size control, so
+               this row never has anything to wrap onto a second line —
+               per the explicit "+ should never end up on its own line"
+               ask. Timeframe/Priority (optional, advanced-mode-only
+               fields) live on their own secondary row below instead of
+               competing with title-entry for attention here. -->
+          <div class="quickaddrow1">
+            <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
+            <!-- The real value source, same idiom fieldPickerStyle's custom
+                 pickers already used elsewhere (addTask() reads these
+                 directly) — always hidden now, since quickCategoryBtn/
+                 quickTimeframeBtn/quickPriorityBtn (below and in row 2)
+                 are the only UI for all three, everywhere, not just under
+                 an opt-in dev setting. 'today'/'urgent' stay dropped from
+                 the Timeframe options (kept only in TIMEFRAME_LABELS,
+                 02-storage-state.js, for any task that already has one
+                 saved) — both already duplicate a separate existing
+                 concept (this row's own "Mark urgent" toggle, and the
+                 "add to today" pin) rather than adding anything Short/
+                 Medium/Long doesn't already cover. -->
+            <select id="quickCategory" style="display:none"></select>
+            <select id="quickTimeframe" style="display:none" title="Timeframe">
+              <option value="">Timeframe</option>
+              <option value="short">Short</option>
+              <option value="medium">Medium</option>
+              <option value="long">Long</option>
+            </select>
+            <select id="quickPriority" style="display:none" title="Priority">
+              <option value="0">Priority</option>
+              <option value="1">Low</option>
+              <option value="2">Medium</option>
+              <option value="3">High</option>
+            </select>
+            <!-- Only shown on the All tab (renderQuickCategory() hides it
+                 everywhere else, same as the old <select> did) — a real
+                 category tab already implies its own category, nothing to
+                 pick. No default selection there: addTask() flashes this
+                 red and refuses to create the task rather than silently
+                 picking whichever category happened to render first. -->
+            <button type="button" class="quickfieldbtn" id="quickCategoryBtn" onclick="event.stopPropagation(); openQuickFieldMenu(this,'category')"></button>
+            <button class="flagbtn" id="urgentToggle" onclick="toggleUrgentDraft()" title="Mark urgent">⚑</button>
+            <button class="addbtn" onclick="addTask()">+</button>
+          </div>
+          <!-- Row 2: Timeframe/Priority, only when advancedTaskFields is on
+               (renderQuickCategory() toggles this row's own display) —
+               secondary, optional fields get their own smaller, lower-
+               emphasis row rather than crowding row 1. -->
+          <div class="quickaddrow2" id="quickAddRow2">
+            <button type="button" class="quickfieldbtn secondary" id="quickTimeframeBtn" onclick="event.stopPropagation(); openQuickFieldMenu(this,'timeframe')">Timeframe</button>
+            <button type="button" class="quickfieldbtn secondary" id="quickPriorityBtn" onclick="event.stopPropagation(); openQuickFieldMenu(this,'priority')">Priority</button>
+          </div>
         </div>
         <div class="sortrow" id="sortRow"></div>
         <ul class="tasks" id="taskList"></ul>

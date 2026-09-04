@@ -993,51 +993,114 @@ function renderTabRowLines(){
   });
 }
 
+// Category/Timeframe/Priority in the quick-add bar are all driven by the
+// same small pattern now: a hidden native <select> stays the one real
+// value source (addTask() reads it directly, unchanged) while a compact
+// .quickfieldbtn shows its current value and opens a #ctxMenu-style
+// popover to change it (openQuickFieldMenu()/quickFieldMenuHtml()/
+// setQuickField() below) — the same custom-menu language every other
+// "pick one of a few things" control in this app already uses (Sort,
+// "Move to" category), replacing both the plain <select> Category used
+// to be and the EXPERIMENTAL fieldPickerStyle pill/progress pickers
+// Timeframe/Priority used to opt into here (fieldPickerHtml() itself is
+// untouched and still backs the task detail page's own Timeframe/
+// Priority fields under that dev setting — this is a separate, permanent
+// replacement scoped to just the quick-add bar, not a change to that
+// system). No "None" pill to tap for Timeframe/Priority either — same
+// click-to-clear idiom as everywhere else: picking the already-active
+// option clears it back to unset (quickFieldMenuHtml() below).
 function renderQuickCategory(){
   const sel = document.getElementById('quickCategory');
+  const btn = document.getElementById('quickCategoryBtn');
   if(activeTab !== 'all'){
-    sel.style.display = 'none';
+    btn.style.display = 'none';
     sel.value = activeTab;
   } else {
-    sel.style.display = '';
-    sel.innerHTML = standardCategoryEntries().map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
+    btn.style.display = '';
+    // Rebuilding a <select>'s innerHTML always re-selects its first
+    // <option> as a side effect, even if .value was already something
+    // else — renderQuickCategory() runs on every render() (any unrelated
+    // edit anywhere in the app), so without capturing/restoring the
+    // in-progress pick across that rebuild, choosing a category would
+    // get silently wiped back to "whichever one happens to render first"
+    // the instant anything else changed on screen. A real leading empty
+    // option is what actually lets "unset" survive the rebuild at all —
+    // an unset category is real, required state here (see addTask()'s
+    // own validation, 16-task-crud.js), not just "whichever option
+    // happened to render first" the way a bare native <select> would
+    // otherwise silently default to.
+    const entries = standardCategoryEntries();
+    const prevVal = entries.some(([k])=>k===sel.value) ? sel.value : '';
+    sel.innerHTML = `<option value=""></option>` + entries.map(([k,v])=>`<option value="${k}">${escapeHtml(v.label)}</option>`).join('');
+    sel.value = prevVal;
+    const cat = sel.value ? CATEGORIES[sel.value] : null;
+    btn.innerHTML = cat ? `${categoryDotHtml(cat,'cdot')} ${escapeHtml(cat.label)}` : 'Category';
+    btn.classList.toggle('unset', !cat);
   }
   document.getElementById('quickInput').placeholder =
     activeTab==='household' ? 'Log a household task…' :
     activeTab==='work' ? 'Add a work task…' :
     activeTab==='personal' ? 'Add a personal to-do…' : 'What needs doing?';
-  // fieldPickerStyle (see defaultDevSettings() in 02-storage-state.js):
-  // the native <select>s stay in the DOM either way (addTask() reads
-  // their .value directly, see 16-task-crud.js) — 'default' shows them
-  // as always; a custom style hides them and shows a synced picker next
-  // to each instead (syncQuickField() below writes back to the hidden
-  // select so addTask() needs no changes at all).
   const showAdvanced = state.advancedTaskFields;
-  const pickerStyle = (state.devSettings && state.devSettings.fieldPickerStyle) || 'default';
-  const useCustomPicker = showAdvanced && pickerStyle !== 'default';
-  const tfSel = document.getElementById('quickTimeframe');
-  const prSel = document.getElementById('quickPriority');
-  const tfPicker = document.getElementById('quickTimeframePicker');
-  const prPicker = document.getElementById('quickPriorityPicker');
-  tfSel.style.display = showAdvanced && !useCustomPicker ? '' : 'none';
-  prSel.style.display = showAdvanced && !useCustomPicker ? '' : 'none';
-  tfPicker.style.display = useCustomPicker ? '' : 'none';
-  prPicker.style.display = useCustomPicker ? '' : 'none';
-  if(useCustomPicker){
-    tfPicker.innerHTML = fieldPickerHtml('timeframe', tfSel.value, v=>`syncQuickField('timeframe','${v}')`);
-    prPicker.innerHTML = fieldPickerHtml('priority', prSel.value, v=>`syncQuickField('priority','${v}')`);
+  document.getElementById('quickAddRow2').style.display = showAdvanced ? '' : 'none';
+  if(showAdvanced){
+    const tfVal = document.getElementById('quickTimeframe').value;
+    const prVal = document.getElementById('quickPriority').value;
+    const tfBtn = document.getElementById('quickTimeframeBtn');
+    const prBtn = document.getElementById('quickPriorityBtn');
+    tfBtn.textContent = tfVal ? TIMEFRAME_STEPS.find(s=>s.v===tfVal).label : 'Timeframe';
+    tfBtn.classList.toggle('unset', !tfVal);
+    prBtn.textContent = prVal && prVal!=='0' ? PRIORITY_STEPS.find(s=>s.v===prVal).label : 'Priority';
+    prBtn.classList.toggle('unset', !prVal || prVal==='0');
   }
 }
 
-// fieldPickerStyle's custom pickers write straight back to the hidden
-// native <select> (whichever addTask()/renderQuickCategory() already
-// treat as the real value) rather than keeping their own parallel piece
-// of state — one source of truth, and addTask() needed zero changes.
-// Re-renders just the two picker containers (not a full render()) so
-// picking a step doesn't touch anything else on screen.
-function syncQuickField(kind, val){
+// Which quick-add field's popover (if any) is currently open — same
+// "reuse the shared #ctxMenu, track just enough to know which flavor of
+// content it's showing" idiom ctxMenuSortOpen etc. already use, checked
+// alongside those in the outside-click/scroll/Esc handlers (20-bootstrap.js).
+let ctxMenuQuickFieldKind = null;
+function quickFieldMenuHtml(kind){
+  if(kind === 'category'){
+    return standardCategoryEntries().map(([k,v]) =>
+      `<button onclick="ctxMenuAction(()=>setQuickField('category','${k}'))">${categoryDotHtml(v,'cdot')} ${escapeHtml(v.label)}</button>`
+    ).join('');
+  }
+  const steps = kind === 'timeframe' ? TIMEFRAME_STEPS : PRIORITY_STEPS;
   const selId = kind === 'timeframe' ? 'quickTimeframe' : 'quickPriority';
+  const curVal = document.getElementById(selId).value;
+  // Steps past the first ("None") only — tapping the one that's already
+  // active clears it back to "None" instead of needing a separate pill
+  // for that, same idiom fieldPickerHtml()'s own 'buttons' style uses.
+  return steps.slice(1).map(s => {
+    const active = s.v === curVal;
+    const nextVal = active ? steps[0].v : s.v;
+    return `<button class="${active?'current':''}" onclick="ctxMenuAction(()=>setQuickField('${kind}','${nextVal}'))">${active ? '✓ ' : ''}${escapeHtml(s.label)}</button>`;
+  }).join('');
+}
+function renderQuickFieldMenu(kind, x, y){
+  ctxMenuQuickFieldKind = kind;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = quickFieldMenuHtml(kind);
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
+  });
+}
+function openQuickFieldMenu(el, kind){
+  const r = el.getBoundingClientRect();
+  renderQuickFieldMenu(kind, r.left, r.bottom + 6);
+}
+function setQuickField(kind, val){
+  const selId = kind === 'category' ? 'quickCategory' : kind === 'timeframe' ? 'quickTimeframe' : 'quickPriority';
   document.getElementById(selId).value = val;
+  if(kind === 'category' && val) clearQuickCategoryInvalid();
   renderQuickCategory();
 }
 

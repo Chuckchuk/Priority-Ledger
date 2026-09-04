@@ -609,21 +609,64 @@
     clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), 50% 100%, 0 calc(100% - 16px));
     pointer-events: none;
   }
-  .quickadd{ display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+  /* Column, not one big wrapping row of every field — row1 (title/
+     Category/flag/+) and row2 (Timeframe/Priority) are each their own
+     flex row inside this (see .quickaddrow1/.quickaddrow2 below), so the
+     two never intermix — which is what let the + button end up
+     stranded alone on whatever line happened to overflow onto, back
+     when every field was a sibling in one wrapping row. */
+  .quickadd{ display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  /* Row 1 never wraps (no flex-wrap here) — the input is the only
+     flexible child (flex:1, with room to actually shrink via min-width),
+     everything else is a small fixed-size control, so there's always
+     enough give in the title field alone to keep this on one line. */
+  .quickaddrow1{ display:flex; gap:8px; align-items:center; }
   /* .fabaddsheet input[type=text] — the same bottom-sheet text-field
-     styling shared by the task long-press settings sheet and any other
-     .fabaddsheet-based overlay, folded into this shared rule rather than
-     duplicated, since it's the same "quick task title" field look the
-     main quick-add bar and Daily/checklist's own already use. */
-  .quickadd input[type=text], .fabaddsheet input[type=text]{
-    flex:1; min-width: 160px; border:none; border-bottom: 1.5px solid var(--ink-soft);
+     styling shared by any .fabaddsheet-based overlay, folded into this
+     shared rule rather than duplicated, since it's the same "quick task
+     title" field look the main quick-add bar and Daily/checklist's own
+     already use. */
+  .quickaddrow1 input[type=text], .fabaddsheet input[type=text]{
+    flex:1; min-width: 80px; border:none; border-bottom: 1.5px solid var(--ink-soft);
     background:transparent; font-family:'Fraunces', serif; font-style:italic; font-size:1.02rem;
     padding: 6px 2px; color: var(--ink); outline:none;
   }
-  .quickadd input[type=text]::placeholder, .fabaddsheet input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
-  .quickadd select{
-    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
-    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
+  .quickaddrow1 input[type=text]::placeholder, .fabaddsheet input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
+  /* Row 2 (Timeframe/Priority — optional, advanced-mode-only fields, see
+     renderQuickCategory()'s own comment) is allowed to wrap since it's
+     secondary and never holds anything as wide as the title input;
+     margin-top separates it a little further from row 1 than row 1's own
+     internal gap, reading as a distinctly lower-emphasis line rather
+     than a third field crowded onto the primary row. */
+  .quickaddrow2{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:2px; }
+  /* Category/Timeframe/Priority's shared trigger-button look — compact,
+     same monospace/uppercase language every other small control here
+     already uses, sized to its own label rather than a fixed width so
+     "Category"/"Business"/"Timeframe"/"Short" all read naturally instead
+     of truncating or leaving dead space. */
+  .quickfieldbtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.03em;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:6px; padding:7px 10px;
+    color:var(--ink); cursor:pointer; white-space:nowrap; flex-shrink:0;
+    display:inline-flex; align-items:center; gap:4px;
+  }
+  .quickfieldbtn:hover{ border-color: var(--primary); }
+  /* No value picked yet — reads as a placeholder (dimmer, no border
+     emphasis) rather than a real, already-set value like "Business" or
+     "Short" would. */
+  .quickfieldbtn.unset{ color: var(--ink-soft); }
+  /* Row 2's own pair reads a size down from row 1's Category button —
+     secondary fields, secondary weight. */
+  .quickfieldbtn.secondary{ font-size:0.66rem; padding:5px 9px; }
+  /* The "you have to pick one" flash (flashQuickCategoryInvalid(),
+     16-task-crud.js) — a border+text pulse to --estate and back, not a
+     static red state left sitting there, since the moment a category
+     *is* picked the button goes back to its normal "set" look anyway
+     (renderQuickCategory() already handles that half). */
+  .quickfieldbtn.invalid{ animation: quickfield-invalid-pulse 0.5s ease; }
+  @keyframes quickfield-invalid-pulse{
+    0%, 100%{ border-color: var(--line); color: var(--ink-soft); }
+    25%, 75%{ border-color: var(--estate); color: var(--estate); }
   }
   /* One consistent icon-button size across every small square control on
      a task — the urgent flag, the today pin (both its full-field version
@@ -3431,10 +3474,16 @@
   body.mobileui-active.quickadd-open #quickAddBar{
     max-height:360px; opacity:1; margin-bottom:16px;
   }
-  body.mobileui-active #quickAddBar input[type=text],
-  body.mobileui-active #quickAddBar select{
-    width:100%; font-size:1.05rem; padding:11px 8px;
+  /* Row 1 stays the same compact "input + small buttons, never wraps"
+     layout on mobile as desktop now (just a bigger touch target on the
+     buttons) — not stretched to full width/stacked one-per-line the way
+     the old native <select>s were, which is exactly the layout that let
+     the + button end up stranded alone before this pass. */
+  body.mobileui-active #quickAddBar input[type=text]{
+    font-size:1.05rem; padding:11px 8px;
   }
+  body.mobileui-active #quickAddBar .quickfieldbtn{ padding:9px 12px; font-size:0.76rem; }
+  body.mobileui-active #quickAddBar .quickfieldbtn.secondary{ font-size:0.7rem; padding:7px 10px; }
 
   /* ---- .fabaddscrim/.fabaddsheet: shared bottom-sheet base rules ----
      Hidden by default; each consumer (the taskLongPressMode 'split'

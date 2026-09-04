@@ -1,13 +1,14 @@
 // EXPERIMENTAL — fieldPickerStyle (see defaultDevSettings() in
 // 02-storage-state.js). Drop-in replacement for a plain <select> when
-// stepping through TIMEFRAME_STEPS/PRIORITY_STEPS (02-storage-state.js).
-// `onClickFor(v)` returns the onclick handler string for stepping to
-// value v — the two call sites need different targets (a task's own
-// updateTimeframe/updatePriority vs. the quick-add bar's hidden <select>,
-// see syncQuickField() in 06-tabs-render.js), so the caller decides what
-// clicking a step actually does; this only renders the control. Returns
-// '' for 'default' — callers keep showing their own native <select> in
-// that case rather than this function rendering one too.
+// stepping through TIMEFRAME_STEPS/PRIORITY_STEPS (02-storage-state.js),
+// gating the task detail page's own Timeframe/Priority fields — the
+// quick-add bar's own Timeframe/Priority now go through a separate,
+// permanent replacement instead (quickFieldMenuHtml() etc.,
+// 06-tabs-render.js), not this dev setting. `onClickFor(v)` returns the
+// onclick handler string for stepping to value v, so the caller decides
+// what clicking a step actually does; this only renders the control.
+// Returns '' for 'default' — callers keep showing their own native
+// <select> in that case rather than this function rendering one too.
 // Plain SVG pin icon, not the 📌 emoji it replaces in every .flagbtn.daybtn
 // button below (and .rowpin — see taskRowHtml()'s own use of this same
 // constant) — an emoji glyph ignores CSS `color` entirely and always
@@ -274,9 +275,7 @@ function taskAdvancedFieldsRowHtml(t){
   // happened. .timeframewrap wraps whichever picker markup actually
   // rendered above (a plain <select>, .fieldbuttons, or .fieldprogress,
   // depending on fieldPickerStyle) rather than threading a class through
-  // fieldPickerHtml() itself, since that function is also shared by the
-  // quick-add bar's own timeframe field (syncQuickField(),
-  // 06-tabs-render.js), which this flash has no business touching.
+  // fieldPickerHtml() itself, which this flash has no business touching.
   const timeframeFlash = timeframeFlashTaskId === t.id
     ? (timeframeFlashKind === 'conflict' ? ' timeframe-flash-conflict' : ' timeframe-flash-auto')
     : '';
@@ -1064,6 +1063,7 @@ function closeCtxMenu(){
   ctxMenuDayStr = null;
   ctxMenuMoveTaskId = null;
   ctxMenuSortOpen = false;
+  ctxMenuQuickFieldKind = null;
   document.getElementById('ctxMenu').classList.remove('open');
 }
 // Every menu item (task or day) routes through this — closes the menu

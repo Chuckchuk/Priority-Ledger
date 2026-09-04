@@ -47,7 +47,7 @@ document.addEventListener('keydown', (e) => {
     if(shakeUndoOpen){ closeShakeUndoMenu(); return; }
     if(shareImportId){ closeShareImportDialog(); return; }
     if(shareMenuTaskId){ closeShareMenu(); return; }
-    if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId){ closeCtxMenu(); return; }
+    if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen || ctxMenuQuickFieldKind){ closeCtxMenu(); return; }
     if(taskSettingsOpenId){ closeTaskSettingsSheet(); return; }
     if(quickAddOpen){ toggleQuickAddSheet(false); return; }
     if(claudeView){ closeClaudeView(); return; }
@@ -768,9 +768,9 @@ document.addEventListener('contextmenu', (e) => {
 // closes it via ctxMenuAction()) doesn't also trip this a second time
 // pointlessly.
 document.addEventListener('click', (e) => {
-  if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen) && !e.target.closest('#ctxMenu')) closeCtxMenu();
+  if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen || ctxMenuQuickFieldKind) && !e.target.closest('#ctxMenu')) closeCtxMenu();
 });
-document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen) closeCtxMenu(); }, { capture:true, passive:true });
+document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen || ctxMenuQuickFieldKind) closeCtxMenu(); }, { capture:true, passive:true });
 // The note hover tip (08-render-core.js) has no per-instance id to check
 // the way #ctxMenu's ctxMenuTaskId/etc. do — noteHoverEnd() is always
 // safe to call regardless of whether anything's actually showing, so a

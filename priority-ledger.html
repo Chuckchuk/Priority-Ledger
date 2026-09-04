@@ -641,21 +641,64 @@
     clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), 50% 100%, 0 calc(100% - 16px));
     pointer-events: none;
   }
-  .quickadd{ display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+  /* Column, not one big wrapping row of every field — row1 (title/
+     Category/flag/+) and row2 (Timeframe/Priority) are each their own
+     flex row inside this (see .quickaddrow1/.quickaddrow2 below), so the
+     two never intermix — which is what let the + button end up
+     stranded alone on whatever line happened to overflow onto, back
+     when every field was a sibling in one wrapping row. */
+  .quickadd{ display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  /* Row 1 never wraps (no flex-wrap here) — the input is the only
+     flexible child (flex:1, with room to actually shrink via min-width),
+     everything else is a small fixed-size control, so there's always
+     enough give in the title field alone to keep this on one line. */
+  .quickaddrow1{ display:flex; gap:8px; align-items:center; }
   /* .fabaddsheet input[type=text] — the same bottom-sheet text-field
-     styling shared by the task long-press settings sheet and any other
-     .fabaddsheet-based overlay, folded into this shared rule rather than
-     duplicated, since it's the same "quick task title" field look the
-     main quick-add bar and Daily/checklist's own already use. */
-  .quickadd input[type=text], .fabaddsheet input[type=text]{
-    flex:1; min-width: 160px; border:none; border-bottom: 1.5px solid var(--ink-soft);
+     styling shared by any .fabaddsheet-based overlay, folded into this
+     shared rule rather than duplicated, since it's the same "quick task
+     title" field look the main quick-add bar and Daily/checklist's own
+     already use. */
+  .quickaddrow1 input[type=text], .fabaddsheet input[type=text]{
+    flex:1; min-width: 80px; border:none; border-bottom: 1.5px solid var(--ink-soft);
     background:transparent; font-family:'Fraunces', serif; font-style:italic; font-size:1.02rem;
     padding: 6px 2px; color: var(--ink); outline:none;
   }
-  .quickadd input[type=text]::placeholder, .fabaddsheet input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
-  .quickadd select{
-    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase;
-    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:5px; padding:7px 6px; color:var(--ink);
+  .quickaddrow1 input[type=text]::placeholder, .fabaddsheet input[type=text]::placeholder{ color: var(--ink-soft); opacity:0.8; }
+  /* Row 2 (Timeframe/Priority — optional, advanced-mode-only fields, see
+     renderQuickCategory()'s own comment) is allowed to wrap since it's
+     secondary and never holds anything as wide as the title input;
+     margin-top separates it a little further from row 1 than row 1's own
+     internal gap, reading as a distinctly lower-emphasis line rather
+     than a third field crowded onto the primary row. */
+  .quickaddrow2{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:2px; }
+  /* Category/Timeframe/Priority's shared trigger-button look — compact,
+     same monospace/uppercase language every other small control here
+     already uses, sized to its own label rather than a fixed width so
+     "Category"/"Business"/"Timeframe"/"Short" all read naturally instead
+     of truncating or leaving dead space. */
+  .quickfieldbtn{
+    font-family:'IBM Plex Mono', monospace; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.03em;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:6px; padding:7px 10px;
+    color:var(--ink); cursor:pointer; white-space:nowrap; flex-shrink:0;
+    display:inline-flex; align-items:center; gap:4px;
+  }
+  .quickfieldbtn:hover{ border-color: var(--primary); }
+  /* No value picked yet — reads as a placeholder (dimmer, no border
+     emphasis) rather than a real, already-set value like "Business" or
+     "Short" would. */
+  .quickfieldbtn.unset{ color: var(--ink-soft); }
+  /* Row 2's own pair reads a size down from row 1's Category button —
+     secondary fields, secondary weight. */
+  .quickfieldbtn.secondary{ font-size:0.66rem; padding:5px 9px; }
+  /* The "you have to pick one" flash (flashQuickCategoryInvalid(),
+     16-task-crud.js) — a border+text pulse to --estate and back, not a
+     static red state left sitting there, since the moment a category
+     *is* picked the button goes back to its normal "set" look anyway
+     (renderQuickCategory() already handles that half). */
+  .quickfieldbtn.invalid{ animation: quickfield-invalid-pulse 0.5s ease; }
+  @keyframes quickfield-invalid-pulse{
+    0%, 100%{ border-color: var(--line); color: var(--ink-soft); }
+    25%, 75%{ border-color: var(--estate); color: var(--estate); }
   }
   /* One consistent icon-button size across every small square control on
      a task — the urgent flag, the today pin (both its full-field version
@@ -3463,10 +3506,16 @@
   body.mobileui-active.quickadd-open #quickAddBar{
     max-height:360px; opacity:1; margin-bottom:16px;
   }
-  body.mobileui-active #quickAddBar input[type=text],
-  body.mobileui-active #quickAddBar select{
-    width:100%; font-size:1.05rem; padding:11px 8px;
+  /* Row 1 stays the same compact "input + small buttons, never wraps"
+     layout on mobile as desktop now (just a bigger touch target on the
+     buttons) — not stretched to full width/stacked one-per-line the way
+     the old native <select>s were, which is exactly the layout that let
+     the + button end up stranded alone before this pass. */
+  body.mobileui-active #quickAddBar input[type=text]{
+    font-size:1.05rem; padding:11px 8px;
   }
+  body.mobileui-active #quickAddBar .quickfieldbtn{ padding:9px 12px; font-size:0.76rem; }
+  body.mobileui-active #quickAddBar .quickfieldbtn.secondary{ font-size:0.7rem; padding:7px 10px; }
 
   /* ---- .fabaddscrim/.fabaddsheet: shared bottom-sheet base rules ----
      Hidden by default; each consumer (the taskLongPressMode 'split'
@@ -5015,40 +5064,60 @@
              file's Mobile UI Lab markup. -->
         <button class="quickaddtrigger" id="quickAddTrigger" onclick="toggleQuickAddSheet()">+ Add Task</button>
         <div class="quickadd" id="quickAddBar">
-          <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
-          <select id="quickCategory"></select>
-          <!-- 'today'/'urgent' dropped from the selectable options (kept
-               only in TIMEFRAME_LABELS, 02-storage-state.js, for any task
-               that already has one saved) — same reasoning as
-               TIMEFRAME_STEPS's own comment there: both already duplicated
-               a separate existing concept (this same row's own "Mark
-               urgent" flag toggle right below, and the "add to today" pin)
-               rather than adding anything Short/Medium/Long doesn't
-               already cover. This select has to stay in sync with
-               TIMEFRAME_STEPS by hand — it's static shell markup, not
-               generated from that array, since it's the "real value
-               source" even when a custom fieldPickerStyle is on (see the
-               comment just below). -->
-          <select id="quickTimeframe" title="Timeframe">
-            <option value="">Timeframe</option>
-            <option value="short">Short</option>
-            <option value="medium">Medium</option>
-            <option value="long">Long</option>
-          </select>
-          <!-- fieldPickerStyle (see defaultDevSettings() in 02-storage-
-               state.js) — the select above stays the real value source
-               either way (addTask() reads it directly); renderQuickCategory()
-               just hides it and fills this instead when a custom style is on. -->
-          <div class="fieldpicker" id="quickTimeframePicker" style="display:none;"></div>
-          <select id="quickPriority" title="Priority">
-            <option value="0">Priority</option>
-            <option value="1">Low</option>
-            <option value="2">Medium</option>
-            <option value="3">High</option>
-          </select>
-          <div class="fieldpicker" id="quickPriorityPicker" style="display:none;"></div>
-          <button class="flagbtn" id="urgentToggle" onclick="toggleUrgentDraft()" title="Mark urgent">⚑</button>
-          <button class="addbtn" onclick="addTask()">+</button>
+          <!-- Row 1 is the whole point: the title input is most of the
+               space, and everything else here is either required
+               (Category, only on the All tab — see renderQuickCategory(),
+               06-tabs-render.js) or a single small fixed-size control, so
+               this row never has anything to wrap onto a second line —
+               per the explicit "+ should never end up on its own line"
+               ask. Timeframe/Priority (optional, advanced-mode-only
+               fields) live on their own secondary row below instead of
+               competing with title-entry for attention here. -->
+          <div class="quickaddrow1">
+            <input type="text" id="quickInput" placeholder="What needs doing?" onkeydown="if(event.key==='Enter') addTask()">
+            <!-- The real value source, same idiom fieldPickerStyle's custom
+                 pickers already used elsewhere (addTask() reads these
+                 directly) — always hidden now, since quickCategoryBtn/
+                 quickTimeframeBtn/quickPriorityBtn (below and in row 2)
+                 are the only UI for all three, everywhere, not just under
+                 an opt-in dev setting. 'today'/'urgent' stay dropped from
+                 the Timeframe options (kept only in TIMEFRAME_LABELS,
+                 02-storage-state.js, for any task that already has one
+                 saved) — both already duplicate a separate existing
+                 concept (this row's own "Mark urgent" toggle, and the
+                 "add to today" pin) rather than adding anything Short/
+                 Medium/Long doesn't already cover. -->
+            <select id="quickCategory" style="display:none"></select>
+            <select id="quickTimeframe" style="display:none" title="Timeframe">
+              <option value="">Timeframe</option>
+              <option value="short">Short</option>
+              <option value="medium">Medium</option>
+              <option value="long">Long</option>
+            </select>
+            <select id="quickPriority" style="display:none" title="Priority">
+              <option value="0">Priority</option>
+              <option value="1">Low</option>
+              <option value="2">Medium</option>
+              <option value="3">High</option>
+            </select>
+            <!-- Only shown on the All tab (renderQuickCategory() hides it
+                 everywhere else, same as the old <select> did) — a real
+                 category tab already implies its own category, nothing to
+                 pick. No default selection there: addTask() flashes this
+                 red and refuses to create the task rather than silently
+                 picking whichever category happened to render first. -->
+            <button type="button" class="quickfieldbtn" id="quickCategoryBtn" onclick="event.stopPropagation(); openQuickFieldMenu(this,'category')"></button>
+            <button class="flagbtn" id="urgentToggle" onclick="toggleUrgentDraft()" title="Mark urgent">⚑</button>
+            <button class="addbtn" onclick="addTask()">+</button>
+          </div>
+          <!-- Row 2: Timeframe/Priority, only when advancedTaskFields is on
+               (renderQuickCategory() toggles this row's own display) —
+               secondary, optional fields get their own smaller, lower-
+               emphasis row rather than crowding row 1. -->
+          <div class="quickaddrow2" id="quickAddRow2">
+            <button type="button" class="quickfieldbtn secondary" id="quickTimeframeBtn" onclick="event.stopPropagation(); openQuickFieldMenu(this,'timeframe')">Timeframe</button>
+            <button type="button" class="quickfieldbtn secondary" id="quickPriorityBtn" onclick="event.stopPropagation(); openQuickFieldMenu(this,'priority')">Priority</button>
+          </div>
         </div>
         <div class="sortrow" id="sortRow"></div>
         <ul class="tasks" id="taskList"></ul>
@@ -9163,51 +9232,114 @@ function renderTabRowLines(){
   });
 }
 
+// Category/Timeframe/Priority in the quick-add bar are all driven by the
+// same small pattern now: a hidden native <select> stays the one real
+// value source (addTask() reads it directly, unchanged) while a compact
+// .quickfieldbtn shows its current value and opens a #ctxMenu-style
+// popover to change it (openQuickFieldMenu()/quickFieldMenuHtml()/
+// setQuickField() below) — the same custom-menu language every other
+// "pick one of a few things" control in this app already uses (Sort,
+// "Move to" category), replacing both the plain <select> Category used
+// to be and the EXPERIMENTAL fieldPickerStyle pill/progress pickers
+// Timeframe/Priority used to opt into here (fieldPickerHtml() itself is
+// untouched and still backs the task detail page's own Timeframe/
+// Priority fields under that dev setting — this is a separate, permanent
+// replacement scoped to just the quick-add bar, not a change to that
+// system). No "None" pill to tap for Timeframe/Priority either — same
+// click-to-clear idiom as everywhere else: picking the already-active
+// option clears it back to unset (quickFieldMenuHtml() below).
 function renderQuickCategory(){
   const sel = document.getElementById('quickCategory');
+  const btn = document.getElementById('quickCategoryBtn');
   if(activeTab !== 'all'){
-    sel.style.display = 'none';
+    btn.style.display = 'none';
     sel.value = activeTab;
   } else {
-    sel.style.display = '';
-    sel.innerHTML = standardCategoryEntries().map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');
+    btn.style.display = '';
+    // Rebuilding a <select>'s innerHTML always re-selects its first
+    // <option> as a side effect, even if .value was already something
+    // else — renderQuickCategory() runs on every render() (any unrelated
+    // edit anywhere in the app), so without capturing/restoring the
+    // in-progress pick across that rebuild, choosing a category would
+    // get silently wiped back to "whichever one happens to render first"
+    // the instant anything else changed on screen. A real leading empty
+    // option is what actually lets "unset" survive the rebuild at all —
+    // an unset category is real, required state here (see addTask()'s
+    // own validation, 16-task-crud.js), not just "whichever option
+    // happened to render first" the way a bare native <select> would
+    // otherwise silently default to.
+    const entries = standardCategoryEntries();
+    const prevVal = entries.some(([k])=>k===sel.value) ? sel.value : '';
+    sel.innerHTML = `<option value=""></option>` + entries.map(([k,v])=>`<option value="${k}">${escapeHtml(v.label)}</option>`).join('');
+    sel.value = prevVal;
+    const cat = sel.value ? CATEGORIES[sel.value] : null;
+    btn.innerHTML = cat ? `${categoryDotHtml(cat,'cdot')} ${escapeHtml(cat.label)}` : 'Category';
+    btn.classList.toggle('unset', !cat);
   }
   document.getElementById('quickInput').placeholder =
     activeTab==='household' ? 'Log a household task…' :
     activeTab==='work' ? 'Add a work task…' :
     activeTab==='personal' ? 'Add a personal to-do…' : 'What needs doing?';
-  // fieldPickerStyle (see defaultDevSettings() in 02-storage-state.js):
-  // the native <select>s stay in the DOM either way (addTask() reads
-  // their .value directly, see 16-task-crud.js) — 'default' shows them
-  // as always; a custom style hides them and shows a synced picker next
-  // to each instead (syncQuickField() below writes back to the hidden
-  // select so addTask() needs no changes at all).
   const showAdvanced = state.advancedTaskFields;
-  const pickerStyle = (state.devSettings && state.devSettings.fieldPickerStyle) || 'default';
-  const useCustomPicker = showAdvanced && pickerStyle !== 'default';
-  const tfSel = document.getElementById('quickTimeframe');
-  const prSel = document.getElementById('quickPriority');
-  const tfPicker = document.getElementById('quickTimeframePicker');
-  const prPicker = document.getElementById('quickPriorityPicker');
-  tfSel.style.display = showAdvanced && !useCustomPicker ? '' : 'none';
-  prSel.style.display = showAdvanced && !useCustomPicker ? '' : 'none';
-  tfPicker.style.display = useCustomPicker ? '' : 'none';
-  prPicker.style.display = useCustomPicker ? '' : 'none';
-  if(useCustomPicker){
-    tfPicker.innerHTML = fieldPickerHtml('timeframe', tfSel.value, v=>`syncQuickField('timeframe','${v}')`);
-    prPicker.innerHTML = fieldPickerHtml('priority', prSel.value, v=>`syncQuickField('priority','${v}')`);
+  document.getElementById('quickAddRow2').style.display = showAdvanced ? '' : 'none';
+  if(showAdvanced){
+    const tfVal = document.getElementById('quickTimeframe').value;
+    const prVal = document.getElementById('quickPriority').value;
+    const tfBtn = document.getElementById('quickTimeframeBtn');
+    const prBtn = document.getElementById('quickPriorityBtn');
+    tfBtn.textContent = tfVal ? TIMEFRAME_STEPS.find(s=>s.v===tfVal).label : 'Timeframe';
+    tfBtn.classList.toggle('unset', !tfVal);
+    prBtn.textContent = prVal && prVal!=='0' ? PRIORITY_STEPS.find(s=>s.v===prVal).label : 'Priority';
+    prBtn.classList.toggle('unset', !prVal || prVal==='0');
   }
 }
 
-// fieldPickerStyle's custom pickers write straight back to the hidden
-// native <select> (whichever addTask()/renderQuickCategory() already
-// treat as the real value) rather than keeping their own parallel piece
-// of state — one source of truth, and addTask() needed zero changes.
-// Re-renders just the two picker containers (not a full render()) so
-// picking a step doesn't touch anything else on screen.
-function syncQuickField(kind, val){
+// Which quick-add field's popover (if any) is currently open — same
+// "reuse the shared #ctxMenu, track just enough to know which flavor of
+// content it's showing" idiom ctxMenuSortOpen etc. already use, checked
+// alongside those in the outside-click/scroll/Esc handlers (20-bootstrap.js).
+let ctxMenuQuickFieldKind = null;
+function quickFieldMenuHtml(kind){
+  if(kind === 'category'){
+    return standardCategoryEntries().map(([k,v]) =>
+      `<button onclick="ctxMenuAction(()=>setQuickField('category','${k}'))">${categoryDotHtml(v,'cdot')} ${escapeHtml(v.label)}</button>`
+    ).join('');
+  }
+  const steps = kind === 'timeframe' ? TIMEFRAME_STEPS : PRIORITY_STEPS;
   const selId = kind === 'timeframe' ? 'quickTimeframe' : 'quickPriority';
+  const curVal = document.getElementById(selId).value;
+  // Steps past the first ("None") only — tapping the one that's already
+  // active clears it back to "None" instead of needing a separate pill
+  // for that, same idiom fieldPickerHtml()'s own 'buttons' style uses.
+  return steps.slice(1).map(s => {
+    const active = s.v === curVal;
+    const nextVal = active ? steps[0].v : s.v;
+    return `<button class="${active?'current':''}" onclick="ctxMenuAction(()=>setQuickField('${kind}','${nextVal}'))">${active ? '✓ ' : ''}${escapeHtml(s.label)}</button>`;
+  }).join('');
+}
+function renderQuickFieldMenu(kind, x, y){
+  ctxMenuQuickFieldKind = kind;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = quickFieldMenuHtml(kind);
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
+  });
+}
+function openQuickFieldMenu(el, kind){
+  const r = el.getBoundingClientRect();
+  renderQuickFieldMenu(kind, r.left, r.bottom + 6);
+}
+function setQuickField(kind, val){
+  const selId = kind === 'category' ? 'quickCategory' : kind === 'timeframe' ? 'quickTimeframe' : 'quickPriority';
   document.getElementById(selId).value = val;
+  if(kind === 'category' && val) clearQuickCategoryInvalid();
   renderQuickCategory();
 }
 
@@ -9414,14 +9546,15 @@ function reorderSubtask(taskId, draggedSubId, targetSubId, before){
 }
 // EXPERIMENTAL — fieldPickerStyle (see defaultDevSettings() in
 // 02-storage-state.js). Drop-in replacement for a plain <select> when
-// stepping through TIMEFRAME_STEPS/PRIORITY_STEPS (02-storage-state.js).
-// `onClickFor(v)` returns the onclick handler string for stepping to
-// value v — the two call sites need different targets (a task's own
-// updateTimeframe/updatePriority vs. the quick-add bar's hidden <select>,
-// see syncQuickField() in 06-tabs-render.js), so the caller decides what
-// clicking a step actually does; this only renders the control. Returns
-// '' for 'default' — callers keep showing their own native <select> in
-// that case rather than this function rendering one too.
+// stepping through TIMEFRAME_STEPS/PRIORITY_STEPS (02-storage-state.js),
+// gating the task detail page's own Timeframe/Priority fields — the
+// quick-add bar's own Timeframe/Priority now go through a separate,
+// permanent replacement instead (quickFieldMenuHtml() etc.,
+// 06-tabs-render.js), not this dev setting. `onClickFor(v)` returns the
+// onclick handler string for stepping to value v, so the caller decides
+// what clicking a step actually does; this only renders the control.
+// Returns '' for 'default' — callers keep showing their own native
+// <select> in that case rather than this function rendering one too.
 // Plain SVG pin icon, not the 📌 emoji it replaces in every .flagbtn.daybtn
 // button below (and .rowpin — see taskRowHtml()'s own use of this same
 // constant) — an emoji glyph ignores CSS `color` entirely and always
@@ -9688,9 +9821,7 @@ function taskAdvancedFieldsRowHtml(t){
   // happened. .timeframewrap wraps whichever picker markup actually
   // rendered above (a plain <select>, .fieldbuttons, or .fieldprogress,
   // depending on fieldPickerStyle) rather than threading a class through
-  // fieldPickerHtml() itself, since that function is also shared by the
-  // quick-add bar's own timeframe field (syncQuickField(),
-  // 06-tabs-render.js), which this flash has no business touching.
+  // fieldPickerHtml() itself, which this flash has no business touching.
   const timeframeFlash = timeframeFlashTaskId === t.id
     ? (timeframeFlashKind === 'conflict' ? ' timeframe-flash-conflict' : ' timeframe-flash-auto')
     : '';
@@ -10478,6 +10609,7 @@ function closeCtxMenu(){
   ctxMenuDayStr = null;
   ctxMenuMoveTaskId = null;
   ctxMenuSortOpen = false;
+  ctxMenuQuickFieldKind = null;
   document.getElementById('ctxMenu').classList.remove('open');
 }
 // Every menu item (task or day) routes through this — closes the menu
@@ -15452,11 +15584,40 @@ function toggleQuickAddSheet(force){
   }
 }
 
+// The category button's own brief "you have to pick one" flash — a
+// CSS animation class, removed after it finishes (see .quickfieldbtn.
+// invalid in <style>) rather than left on, so tapping it again while
+// still flashing (fixing the mistake right away) can re-trigger the
+// same animation from a clean state next time it's needed instead of a
+// stale class silently doing nothing.
+let quickCategoryFlashTimer = null;
+function flashQuickCategoryInvalid(){
+  const btn = document.getElementById('quickCategoryBtn');
+  clearTimeout(quickCategoryFlashTimer);
+  btn.classList.remove('invalid');
+  // Force a reflow so re-adding the class restarts the animation even
+  // if it was already mid-flash from a previous attempt.
+  void btn.offsetWidth;
+  btn.classList.add('invalid');
+  quickCategoryFlashTimer = setTimeout(() => btn.classList.remove('invalid'), 500);
+}
+function clearQuickCategoryInvalid(){
+  clearTimeout(quickCategoryFlashTimer);
+  document.getElementById('quickCategoryBtn').classList.remove('invalid');
+}
+
 async function addTask(){
   const input = document.getElementById('quickInput');
   const title = input.value.trim();
   if(!title) return;
   const category = activeTab==='all' ? document.getElementById('quickCategory').value : activeTab;
+  // Only meaningful on the All tab — every other tab already implies its
+  // own category (see the line above). No default/first-option fallback
+  // any more (renderQuickCategory(), 06-tabs-render.js) — an unset
+  // category on All is a real, required-but-missing state, flashed red
+  // rather than silently filed under whichever category happened to
+  // render first.
+  if(activeTab==='all' && !category){ flashQuickCategoryInvalid(); return; }
   const timeframe = document.getElementById('quickTimeframe').value;
   const priority = parseInt(document.getElementById('quickPriority').value, 10) || 0;
   pushUndo(`Added "${title}"`);
@@ -15473,6 +15634,10 @@ async function addTask(){
   document.getElementById('urgentToggle').classList.remove('on');
   document.getElementById('quickTimeframe').value = '';
   document.getElementById('quickPriority').value = '0';
+  // Reset to unset too, same as every other draft field here — the next
+  // task typed on All has to get its own category chosen again rather
+  // than silently inheriting whatever the last one used.
+  if(activeTab==='all') document.getElementById('quickCategory').value = '';
   render();
   queueSave();
 }
@@ -17024,7 +17189,7 @@ document.addEventListener('keydown', (e) => {
     if(shakeUndoOpen){ closeShakeUndoMenu(); return; }
     if(shareImportId){ closeShareImportDialog(); return; }
     if(shareMenuTaskId){ closeShareMenu(); return; }
-    if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId){ closeCtxMenu(); return; }
+    if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen || ctxMenuQuickFieldKind){ closeCtxMenu(); return; }
     if(taskSettingsOpenId){ closeTaskSettingsSheet(); return; }
     if(quickAddOpen){ toggleQuickAddSheet(false); return; }
     if(claudeView){ closeClaudeView(); return; }
@@ -17745,9 +17910,9 @@ document.addEventListener('contextmenu', (e) => {
 // closes it via ctxMenuAction()) doesn't also trip this a second time
 // pointlessly.
 document.addEventListener('click', (e) => {
-  if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen) && !e.target.closest('#ctxMenu')) closeCtxMenu();
+  if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen || ctxMenuQuickFieldKind) && !e.target.closest('#ctxMenu')) closeCtxMenu();
 });
-document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen) closeCtxMenu(); }, { capture:true, passive:true });
+document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen || ctxMenuQuickFieldKind) closeCtxMenu(); }, { capture:true, passive:true });
 // The note hover tip (08-render-core.js) has no per-instance id to check
 // the way #ctxMenu's ctxMenuTaskId/etc. do — noteHoverEnd() is always
 // safe to call regardless of whether anything's actually showing, so a
