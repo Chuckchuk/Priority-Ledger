@@ -615,9 +615,12 @@ document.addEventListener('touchcancel', swipeEnd);
 // and if there IS an unsaved edit in flight, reload() still triggers the
 // beforeunload prompt below same as any other navigation would, so it
 // can't silently eat one either way.
-// Independent of the swipeGesture system above: that system already
-// bails ("hand off to native scroll") the moment a touch locks onto the
-// vertical axis, so there's no shared state to coordinate with here.
+// Mostly independent of the swipeGesture system above — that system
+// already bails ("hand off to native scroll") the moment a touch locks
+// onto the vertical axis, so there's normally no shared state to
+// coordinate with here. The one exception is pullRefreshEligible() below,
+// which opts out entirely of a touch that starts in one of
+// classifySwipeZone()'s own zones — see its own comment for why.
 const PULL_REFRESH_TRIGGER_PX = 96;
 const PULL_REFRESH_DRAG_MAX_PX = 80; // how far #appShell itself visually drags down, damped
 // { baseY, dy, armed } while a touch is potentially pulling, or null once
@@ -639,6 +642,19 @@ function pullRefreshEligible(target){
   const appShell = document.getElementById('appShell');
   if(!appShell || appShell.style.display === 'none') return false;
   if(target.closest && target.closest('input, textarea, select')) return false;
+  // A touch that starts in one of classifySwipeZone()'s own zones (day-
+  // nav, month-nav, or a drilldown's own back-swipe area) shouldn't also
+  // be able to arm a pull-to-refresh — per the explicit ask, starting a
+  // swipe there was sometimes also visibly dragging #appShell down toward
+  // a refresh at the same time, since this system and the one above
+  // otherwise react to the exact same touch independently (see this
+  // function's own header comment on why that used to be fine: it
+  // assumed the two could never meaningfully conflict, which held right
+  // up until a swipe zone specifically was involved). Re-derives the zone
+  // rather than reading the swipeGesture global directly, so this stays
+  // correct regardless of which of the two touchstart listeners happens
+  // to run first.
+  if(classifySwipeZone(target)) return false;
   return true;
 }
 

@@ -1942,9 +1942,27 @@
      steady across both cases so the arrows don't shift vertically either.
      "Further out" than sitting flush against the label, but not all the
      way to the page's own edges — still reads as one row at a glance. */
+  /* touch-action:pan-y on the three classifySwipeZone() roots (this,
+     .calnav, .stackedpage — 20-bootstrap.js) per the explicit ask: our own
+     touchmove listener there already calls preventDefault() once a drag
+     locks onto the horizontal axis, but only from that point on — in the
+     brief window before SWIPE_AXIS_PX is crossed, and on a fast diagonal
+     flick, the browser's own native gesture recognizer can start acting
+     on the touch (a rubber-band scroll, or — on some Android browsers — a
+     one-finger double-tap-drag zoom) before JS ever gets a chance to
+     intervene, which is what a purely JS-side preventDefault() can't
+     reliably head off no matter how early it runs. pan-y tells the
+     browser itself, upfront, that this element only ever wants native
+     vertical panning — horizontal panning and zoom gestures are declared
+     off the table here from the start, leaving JS free to handle the
+     horizontal case however it wants without a race against the
+     browser's own recognizer. Vertical scroll (the "hand off to native
+     scroll" case in classifySwipeZone()'s own comment) is untouched
+     either way, since that's exactly what pan-y still allows. */
   .daynavrow{
     display:grid; grid-template-columns: 34px 1fr 34px; align-items:center;
     gap:10px; margin:2px 0 10px; min-height:34px;
+    touch-action: pan-y;
   }
   .daynavrow .navarrow{ justify-self:center; }
   /* Plain text for Yesterday/Tomorrow/a weekday name; Today gets its own
@@ -2055,6 +2073,9 @@
     padding: 54px 14px 10px;
     margin: var(--stackpage-margin-top) var(--stackpage-margin-right) var(--stackpage-margin-bottom) var(--stackpage-margin-left);
     position: relative;
+    /* See the touch-action comment on .daynavrow above — same reasoning,
+       one of classifySwipeZone()'s (20-bootstrap.js) three zone roots. */
+    touch-action: pan-y;
   }
   /* The content-shaped stand-in page behind a .stackedpage mid back-swipe
      (see swipeBackGhostShow()/swipeApplyDrag() in 19-bootstrap.js) — sized
@@ -2067,18 +2088,31 @@
      offset-positioned version did to read as "a page" at all — it reads
      as one now just by being the right size in the right place, so it
      keeps whichever real frame's own background/shadow instead (see
-     .toplevelghost right below for the other one). overflow:hidden
-     clips real content to that box in case its natural height doesn't
-     exactly match #appCard's own. Real destination content (see
+     .toplevelghost right below for the other one). overflow-y:hidden
+     clips real content to that box vertically in case its natural height
+     doesn't exactly match #appCard's own. Real destination content (see
      swipeBackPreviewHtml() in 19-bootstrap.js) is inserted with no extra
      layout override — it's built by the actual page's own render
      function, so it already carries correct spacing via the real
      classes it uses. .skeleton is the content-shaped *fallback* only
      (swipeBackGhostContentHtml()'s fixed label/heading/rows list) —
      display:flex/column there since that markup has no layout of its
-     own otherwise. */
+     own otherwise.
+     overflow-x is deliberately left alone (NOT also hidden, the way a
+     plain `overflow:hidden` shorthand did before) — a page tag
+     (pageTagHtml(), see the Page Tag/Compact Tag note in CLAUDE.md) is
+     meant to jut out past its page's own left edge against the real
+     #appCard, and the ghost is sized and positioned to that exact same
+     rect, so a tag inside it needs that same overhang allowed or it gets
+     clipped mid-word right at the ghost's edge — the literal "Calendar"
+     tag reading as "alendar" bug this was. Per the CSS spec, setting only
+     one axis to `hidden` computes the other (left at its `visible`
+     default) to `auto` instead of leaving it truly `visible` — harmless
+     here since the ghost is `pointer-events:none` (nothing can ever
+     actually scroll it to reveal a scrollbar) and typically hidden by the
+     time it would matter anyway. */
   .swipebackghost{
-    overflow:hidden;
+    overflow-y:hidden;
   }
   /* The other frame a swipe-back ghost can wear — for when the real page
      underneath is a master view (a category tab's own body, the day
@@ -3292,7 +3326,10 @@
   /* Same idea as .daynavrow above, reusing .navarrow — see the comment
      there for why the two share one button style instead of each
      defining a near-identical one. */
-  .calnav{ display:flex; align-items:center; justify-content:center; gap:16px; margin:2px 0 10px; }
+  /* See the touch-action comment on .daynavrow (near the top of <style>)
+     — same reasoning, one of classifySwipeZone()'s (20-bootstrap.js)
+     three zone roots. */
+  .calnav{ display:flex; align-items:center; justify-content:center; gap:16px; margin:2px 0 10px; touch-action: pan-y; }
   .calmonthlabel{
     position:relative; overflow:hidden; height:26px; line-height:26px;
     font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.15rem; color:var(--ink);
@@ -3373,6 +3410,18 @@
     .masthead h1{ font-size:1.9rem; }
     .card{ padding: 18px 14px 10px; }
     .locbadge{ width:44px; height:44px; top:-2px; }
+    /* .toplevelghost (the swipe-back ghost's frame for a master-view
+       destination — see the comment on that rule) hardcodes the same
+       padding .card normally uses, so it needs this exact same override
+       at the same width or the two drift apart: content inside the ghost
+       (built by the real destination's own render function, e.g.
+       renderDayList()) was landing a few px further right than the same
+       content does once the real #appCard — actually subject to this
+       query — takes over, reading as everything shifting the instant the
+       swipe finishes. Page tags/compact tags are unaffected (see
+       .swipebackghost's own overflow-x note) since they're positioned
+       against the ghost's own edges either way, not this padding. */
+    .toplevelghost{ padding: 18px 14px 10px; }
   }
 
   /* ================= Mobile UI Lab =================
