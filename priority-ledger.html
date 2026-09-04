@@ -5503,34 +5503,40 @@
 // plain id-keyed object (via rebuildCategoriesIndex) so the many existing
 // `CATEGORIES[key]` / `Object.entries(CATEGORIES)` call sites didn't need
 // to change when categories became dynamic.
-// Three whole 12-color sets to choose between (Settings → a category's
-// own color popover — see its own little tab row in categoryPickerHtml(),
-// 09-settings.js), not just one fixed palette — 'classic' is the original
-// set (unchanged), 'greyscale' and 'pastel' are two entirely different
-// moods. Each set is ordered by hue the same way 'classic' always was
-// (see its own comment below) — sage/stone-type "muted" entries sit with
-// their nearest real hue family rather than being pulled out as their
-// own category. Switching which set is active (setCategoryPaletteSet(),
-// 09-settings.js) remaps every category currently showing a color from
-// the *old* active set to the same slot index in the new one — see that
-// function's own comment for why a plain by-value swap (not a stored
-// index) is what actually implements that.
+// Six whole 12-color sets to choose between (Settings → a category's own
+// color popover — see its own little tab row in categoryPickerHtml(),
+// 09-settings.js), not just one fixed palette. Switching which set is
+// active (setCategoryPaletteSet(), 09-settings.js) remaps every category
+// currently showing a color from the *old* active set to whichever color
+// in the new set is the closest actual color match (nearestPaletteColor()
+// below) — not "the same array index," which used to be the mechanism
+// here and had two problems: it broke outright the moment two sets
+// weren't the same length (exactly what happened once the Dark Mode sets
+// below were added shorter than everything else), and even at matching
+// lengths it only worked because every set happened to already be
+// ordered the same way — a coincidence, not something the mechanism
+// itself guaranteed. Matching by actual color similarity means each
+// set's own internal order is now free to be whatever reads best on its
+// own (still hue-swept in every set below, purely because that's a nice
+// way to browse a picker, not because anything downstream depends on it).
 const CATEGORY_PALETTE_SETS = {
   classic: {
     id: 'classic', label: 'Classic',
     colors: ['#9C4530','#6B4226','#A9782F','#8C7A1E','#3C5A45','#5B6560','#2F6B5E','#2C5C7A','#3E4A6B','#7A4B6B','#B5677A','#7A2E35']
   },
-  // "Moody whites/blacks/grays/browns... sterile" per the project
-  // owner's own brief — a plain lightness ramp of neutral grays (near-
-  // black to pale silver) followed by a parallel ramp of warm-neutral
-  // browns/taupes (dark espresso to sandy greige), ending on one true
-  // off-white so there's a "lightest" entry to match 'classic' having
-  // brass as its brightest. Deliberately NOT colorful at all — that's
-  // what makes it read as its own distinct mood, not a desaturated
-  // version of 'classic'.
+  // Was "Moody whites/blacks/grays/browns... sterile" (a dark-to-light
+  // neutral ramp) — swapped with 'noir' below per the project owner's
+  // own call after seeing both Dark Mode sets in place: this (lighter,
+  // more washed-out) register actually reads better paired with THIS
+  // set's own light Desk & Ledger papers, and the other register (see
+  // 'noir') reads better against a genuinely dark card. Same colors
+  // 'noir' used to hold, not a fresh design — just relocated, plus 3 new
+  // entries (2 darker neutral/warm anchors + one cool slate) to reach
+  // the same 12-color count every other set here uses; the original 9
+  // skewed too pale on their own for enough range on light paper.
   greyscale: {
     id: 'greyscale', label: 'Greyscale',
-    colors: ['#1F1F1F','#3A3A3A','#545454','#6E6E6E','#8A8A8A','#A8A8A8','#C4C4C4','#4A3F38','#6B5D4F','#8C7B68','#A79A85','#D6D0C4']
+    colors: ['#A0A0A0','#808080','#606060','#404040','#A89A88','#8C7F6C','#6E6052','#4A4034','#9098A0','#767C83','#5A6068','#3E4248']
   },
   // A full hue sweep at pastel lightness/saturation (soft coral through
   // peach, yellow, green, mint, blue, lavender, to rose) — same "spread
@@ -5545,27 +5551,45 @@ const CATEGORY_PALETTE_SETS = {
   // matching Dark Mode sets in UI_COLOR_PRESET_SETS/DESK_PAPER_PRESET_SETS
   // below (same "pick Pastel everywhere for one coordinated look" idea
   // pastel's own comment already established, just for dark moods
-  // instead). Only 9 colors each rather than the 12 every light set
-  // uses — plenty for a real hue sweep without the extra authoring/
-  // upkeep a full dozen would need per mood. Deliberately more saturated
-  // than the light sets' own colors: a muted tone that reads fine
-  // against cream paper goes flat/lifeless against a near-black one, so
-  // these lean brighter/more vivid to actually pop there. midnight =
-  // cool (blue/teal/indigo/violet), ember = warm (red/rust/amber/olive),
-  // noir = near-monochrome grays/taupes/slates (the dark counterpart to
-  // 'greyscale' above) — same three-way split in mood 'classic'/
-  // 'greyscale'/'pastel' already use, just for dark surfaces.
+  // instead). midnight = cool (blue/teal/indigo/violet), ember = warm
+  // (red/rust/amber/olive), noir = near-monochrome grays/taupes/slates —
+  // same three-way split 'classic'/'greyscale'/'pastel' already use, for
+  // dark surfaces instead.
+  //   A first pass at 'midnight' used bright, highly-saturated colors —
+  // reads fine as a dot on a dark card in isolation, but sat oddly next
+  // to that set's own genuinely moody Desk & Ledger/UI colors, per the
+  // project owner's own callout. Re-picked as deep, richly saturated
+  // jewel tones instead (~40-55% HSV value) — the same register 'classic'
+  // itself already uses, which is what lets 'classic' read fine against
+  // BOTH light paper (as a dot) and, incidentally, why this register also
+  // holds up against a dark one: a color roughly halfway between white
+  // and black has real, if not maximal, contrast against either extreme.
   midnight: {
     id: 'midnight', label: 'Midnight',
-    colors: ['#3FBDB0','#5AC79A','#5CACD9','#6F93D9','#8B7FE0','#A87DE0','#C77DD1','#D97C9E','#E0A458']
+    colors: ['#A85838','#8C6248','#A8842E','#8C821E','#487258','#647268','#2E8268','#2E6C92','#54609A','#7C5480','#A05C76','#AC3C50']
   },
+  // Unchanged from the first pass, per the project owner's own explicit
+  // "keep Ember as-is for now" — even though it reads a little bright for
+  // a dark mode the same way the original 'midnight' did, that's a
+  // deliberate, deferred call, not an oversight. All 9 original colors
+  // kept at their exact original values; 3 new ones (a deeper terracotta,
+  // a true olive-green, and an oxblood/maroon) fill out the hue sweep to
+  // 12 without touching what was already there.
   ember: {
     id: 'ember', label: 'Ember',
-    colors: ['#C15A5A','#C97244','#D9895A','#E0A458','#C6B15A','#9BAF5E','#C97D6E','#B1546E','#A6763E']
+    colors: ['#C97244','#B8672E','#D9895A','#A6763E','#E0A458','#C6B15A','#9BAF5E','#7A8C4A','#B1546E','#8C3E42','#C15A5A','#C97D6E']
   },
+  // Was 'greyscale' above, until the project owner's own swap call — this
+  // near-black-to-mid-gray register pairs better with an actually-dark
+  // card than the lighter one that now lives at 'greyscale' does. Kept
+  // the original array's own character (plain neutrals, then warm
+  // taupes) but nudged the four darkest entries up a bit — at their
+  // original, even-darker values they measured under 1.5:1 contrast
+  // against this set's own near-black Desk & Ledger papers, i.e.
+  // genuinely invisible as a category dot there, not just moody.
   noir: {
     id: 'noir', label: 'Noir',
-    colors: ['#E0E0E0','#C0C0C0','#A0A0A0','#808080','#D8CDBE','#B0A38F','#8C7F6C','#A8ADB4','#767C83']
+    colors: ['#585858','#666666','#5E5E5E','#6E6E6E','#8A8A8A','#A8A8A8','#C4C4C4','#6E6052','#6B5D4F','#8C7B68','#A79A85','#D6D0C4']
   }
 };
 // The currently-active set's own colors — a `let`, not a `const`, same
@@ -6161,6 +6185,37 @@ function hexToHsv(hex){
   }
   if(h < 0) h += 360;
   return { h, s: max===0 ? 0 : d/max, v: max };
+}
+
+// Picks whichever color in `candidates` is the closest actual match to
+// `hex` — used by setCategoryPaletteSet() (09-settings.js) to implement
+// "switching palettes lands a category on the closest color to what it
+// had," per the project owner's own explicit ask (their own example: a
+// green in Classic should land on whichever color is closest to that
+// green in Pastel, not just whatever happens to share its old array
+// index — the previous mechanism, which also broke outright whenever two
+// sets weren't the same length). Hue distance (circular, so 350° and 10°
+// are 20° apart, not 340°) is weighted by the LOWER of the two colors'
+// own saturation: hue is meaningless/unstable for a genuinely gray color
+// (s≈0), so two low-saturation colors are compared mostly by lightness
+// instead, while two saturated colors are compared mostly by hue — this
+// is what makes matching still work sensibly between a colorful set and
+// an achromatic one (Classic ↔ Greyscale/Noir), not just between two
+// colorful sets.
+function nearestPaletteColor(hex, candidates){
+  const src = hexToHsv(hex);
+  let best = candidates[0], bestDist = Infinity;
+  candidates.forEach(c => {
+    const cand = hexToHsv(c);
+    let dh = Math.abs(src.h - cand.h);
+    if(dh > 180) dh = 360 - dh;
+    const hueTerm = (dh / 180) * Math.min(src.s, cand.s);
+    const satTerm = Math.abs(src.s - cand.s);
+    const valTerm = Math.abs(src.v - cand.v);
+    const dist = hueTerm*2 + satTerm*0.6 + valTerm*0.8;
+    if(dist < bestDist){ bestDist = dist; best = c; }
+  });
+  return best;
 }
 
 function relLuminance(hex){
@@ -13129,45 +13184,38 @@ async function setCategoryColor(id, hex){
 
 // Switches which of CATEGORY_PALETTE_SETS is active (01-categories-
 // theme.js) — a global choice, not per-category — and remaps every
-// category currently showing one of the *old* set's 12 colors to
-// whichever color sits at that same slot index in the new set. A
-// category not currently showing one of the old set's colors — a custom
-// wheel pick, or one of state.customCategoryColors' own saved swatches —
-// is left alone, per the project owner's own explicit rule.
-//   This only works as a plain by-*value* lookup (oldColors.indexOf(...))
-// specifically because a category never stores *which slot* it was
-// picked from, only the literal hex — the simplest option that doesn't
-// touch the category data shape at all, and every other part of the app
-// that reads c.hex directly keeps working completely unchanged. The
-// trade-off: if two categories' current colors happened to collide with
-// the same old-set value by coincidence (they normally can't — setColor
-// always writes one of the 12 literal palette hexes, or a custom one —
-// so the only way in is manually editing state), both would still remap
-// together correctly, since the lookup is per-category, not shared.
+// category currently showing one of the *old* set's colors to whichever
+// color in the new set is the closest actual match (nearestPaletteColor(),
+// 01-categories-theme.js), per the project owner's own explicit ask: a
+// green category in Classic should land on whichever color is closest to
+// that green in Pastel, not just whatever happened to share its old
+// array index. A category not currently showing one of the old set's
+// colors — a custom wheel pick, or one of state.customCategoryColors'
+// own saved swatches — is left alone, per the project owner's own
+// explicit rule; oldColors.some(...) below is just what tells the two
+// cases apart, same by-*value* lookup this always used (a category never
+// stores *which slot* it was picked from, only the literal hex).
+//   This used to remap by same-index instead (newSet.colors[idx]), which
+// broke outright the moment two sets weren't the same length — exactly
+// what happened once the Dark Mode sets were added at 9 colors against
+// every light set's 12: a category sitting in slot 9-11 had nothing to
+// remap to, silently became c.hex = undefined, and permanently broke
+// every FUTURE call to this function (the next switch's own lookup calls
+// .toLowerCase() on that now-undefined value and throws, straight out of
+// an async function with nothing to catch it, so state.categoryPaletteId
+// — set further below — never updates again: the "picked Midnight, now
+// stuck" bug). Matching by nearest actual color instead of by index
+// sidesteps that whole class of bug — it always finds *some* match as
+// long as the new set isn't empty, regardless of either set's length.
 async function setCategoryPaletteSet(id){
   const newSet = CATEGORY_PALETTE_SETS[id];
   if(!newSet || state.categoryPaletteId === id) return;
   const oldColors = CATEGORY_PALETTE; // still the outgoing set at this point
   pushUndo(`Changed category colors to "${newSet.label}"`);
   state.categories.forEach(c=>{
-    // newSet.colors[idx] guard — sets aren't all the same length any
-    // more (the Dark Mode sets are 9 colors, every light set is 12), so
-    // a category sitting at slot 9-11 of the outgoing set has no
-    // matching slot to remap to in a shorter incoming one. Without this
-    // guard that silently wrote c.hex = undefined, which didn't break
-    // anything immediately (a broken inline background on one category
-    // dot) but permanently broke every FUTURE call to this function —
-    // the very next switch attempt's own oldColors.findIndex() call
-    // reads c.hex.toLowerCase() on that now-undefined value and throws,
-    // straight out of an async function with nothing to catch it, so
-    // state.categoryPaletteId (set further below, after this loop) never
-    // updates — exactly the "picked Midnight, now stuck, can't switch to
-    // anything else" bug reported. A category this happens to just keeps
-    // its current (now slightly off-palette) color instead of silently
-    // breaking — see setUiPaletteSet()/setDeskPaletteSet() just below,
-    // which already guard their own same-index remap the same way.
-    const idx = oldColors.findIndex(hex=>hex.toLowerCase()===c.hex.toLowerCase());
-    if(idx !== -1 && newSet.colors[idx]) c.hex = newSet.colors[idx];
+    if(oldColors.some(hex=>hex.toLowerCase()===c.hex.toLowerCase())){
+      c.hex = nearestPaletteColor(c.hex, newSet.colors);
+    }
   });
   state.categoryPaletteId = id;
   rebuildCategoryPalette();

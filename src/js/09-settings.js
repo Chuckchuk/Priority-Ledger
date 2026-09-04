@@ -902,45 +902,38 @@ async function setCategoryColor(id, hex){
 
 // Switches which of CATEGORY_PALETTE_SETS is active (01-categories-
 // theme.js) — a global choice, not per-category — and remaps every
-// category currently showing one of the *old* set's 12 colors to
-// whichever color sits at that same slot index in the new set. A
-// category not currently showing one of the old set's colors — a custom
-// wheel pick, or one of state.customCategoryColors' own saved swatches —
-// is left alone, per the project owner's own explicit rule.
-//   This only works as a plain by-*value* lookup (oldColors.indexOf(...))
-// specifically because a category never stores *which slot* it was
-// picked from, only the literal hex — the simplest option that doesn't
-// touch the category data shape at all, and every other part of the app
-// that reads c.hex directly keeps working completely unchanged. The
-// trade-off: if two categories' current colors happened to collide with
-// the same old-set value by coincidence (they normally can't — setColor
-// always writes one of the 12 literal palette hexes, or a custom one —
-// so the only way in is manually editing state), both would still remap
-// together correctly, since the lookup is per-category, not shared.
+// category currently showing one of the *old* set's colors to whichever
+// color in the new set is the closest actual match (nearestPaletteColor(),
+// 01-categories-theme.js), per the project owner's own explicit ask: a
+// green category in Classic should land on whichever color is closest to
+// that green in Pastel, not just whatever happened to share its old
+// array index. A category not currently showing one of the old set's
+// colors — a custom wheel pick, or one of state.customCategoryColors'
+// own saved swatches — is left alone, per the project owner's own
+// explicit rule; oldColors.some(...) below is just what tells the two
+// cases apart, same by-*value* lookup this always used (a category never
+// stores *which slot* it was picked from, only the literal hex).
+//   This used to remap by same-index instead (newSet.colors[idx]), which
+// broke outright the moment two sets weren't the same length — exactly
+// what happened once the Dark Mode sets were added at 9 colors against
+// every light set's 12: a category sitting in slot 9-11 had nothing to
+// remap to, silently became c.hex = undefined, and permanently broke
+// every FUTURE call to this function (the next switch's own lookup calls
+// .toLowerCase() on that now-undefined value and throws, straight out of
+// an async function with nothing to catch it, so state.categoryPaletteId
+// — set further below — never updates again: the "picked Midnight, now
+// stuck" bug). Matching by nearest actual color instead of by index
+// sidesteps that whole class of bug — it always finds *some* match as
+// long as the new set isn't empty, regardless of either set's length.
 async function setCategoryPaletteSet(id){
   const newSet = CATEGORY_PALETTE_SETS[id];
   if(!newSet || state.categoryPaletteId === id) return;
   const oldColors = CATEGORY_PALETTE; // still the outgoing set at this point
   pushUndo(`Changed category colors to "${newSet.label}"`);
   state.categories.forEach(c=>{
-    // newSet.colors[idx] guard — sets aren't all the same length any
-    // more (the Dark Mode sets are 9 colors, every light set is 12), so
-    // a category sitting at slot 9-11 of the outgoing set has no
-    // matching slot to remap to in a shorter incoming one. Without this
-    // guard that silently wrote c.hex = undefined, which didn't break
-    // anything immediately (a broken inline background on one category
-    // dot) but permanently broke every FUTURE call to this function —
-    // the very next switch attempt's own oldColors.findIndex() call
-    // reads c.hex.toLowerCase() on that now-undefined value and throws,
-    // straight out of an async function with nothing to catch it, so
-    // state.categoryPaletteId (set further below, after this loop) never
-    // updates — exactly the "picked Midnight, now stuck, can't switch to
-    // anything else" bug reported. A category this happens to just keeps
-    // its current (now slightly off-palette) color instead of silently
-    // breaking — see setUiPaletteSet()/setDeskPaletteSet() just below,
-    // which already guard their own same-index remap the same way.
-    const idx = oldColors.findIndex(hex=>hex.toLowerCase()===c.hex.toLowerCase());
-    if(idx !== -1 && newSet.colors[idx]) c.hex = newSet.colors[idx];
+    if(oldColors.some(hex=>hex.toLowerCase()===c.hex.toLowerCase())){
+      c.hex = nearestPaletteColor(c.hex, newSet.colors);
+    }
   });
   state.categoryPaletteId = id;
   rebuildCategoryPalette();
