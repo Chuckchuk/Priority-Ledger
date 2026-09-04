@@ -900,32 +900,23 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 // The Fraunces/IBM Plex <link> in shell-head.html loads with
-// `display=swap` (see that comment there), so on a cold cache the title
-// textarea's autogrowTextarea() call inside render() almost always runs
-// against a temporary FALLBACK font (Arial/generic serif) before the
-// real webfont has arrived — its line-height/glyph metrics differ enough
-// from Fraunces that the textarea's height (an explicit inline px value
-// autogrowTextarea() sets from scrollHeight, not `height:auto` — it
-// doesn't recompute itself) gets locked in at the WRONG size. When
-// Fraunces then swaps in and the text re-flows inside that now-stale
-// fixed-height box, the visible glyphs shift without the box (or
-// anything measured against it, notably positionHeaderlineActions() —
-// see its own comment, 08-render-core.js) ever knowing to remeasure —
-// this is what actually produced the "title isn't resting on the
-// underline, there's a gap above the flag/pin/share buttons" reports:
-// positionHeaderlineActions() was correctly measuring an honestly wrong
-// (pre-swap) box. document.fonts.ready resolves once every requested
-// face has actually loaded and applied; re-running both functions then
-// (in that order — autogrow first so the height is right before the
-// buttons measure against it) catches the swap whenever it happens to
-// land. Calling .then() on an already-resolved Promise (the common case
-// once a face is warm in cache) still fires the callback on the next
-// microtask, so this is harmless — not just a cold-cache-only fix — and
-// both functions already no-op safely if their target isn't on screen.
+// `display=swap` (see that comment there), so on a cold cache an
+// autogrowTextarea() call inside render() can run against a temporary
+// FALLBACK font before the real webfont arrives — its line-height/glyph
+// metrics differ enough from Fraunces that the textarea's height (an
+// explicit inline px value set from scrollHeight, not `height:auto` — it
+// doesn't recompute itself) can get locked in at the wrong size. When the
+// real font then swaps in and the text re-flows inside that now-stale
+// fixed-height box, the visible glyphs shift without anything prompting
+// a remeasure. document.fonts.ready resolves once every requested face
+// has actually loaded and applied; re-running autogrow then catches the
+// swap whenever it happens to land. Calling .then() on an
+// already-resolved Promise (the common case once a face is warm in
+// cache) still fires the callback on the next microtask, so this is
+// harmless — not just a cold-cache-only fix.
 if(document.fonts && document.fonts.ready){
   document.fonts.ready.then(() => {
     document.querySelectorAll('.autogrowtext').forEach(autogrowTextarea);
-    positionHeaderlineActions();
   });
 }
 

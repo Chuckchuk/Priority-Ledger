@@ -2421,8 +2421,7 @@
      would) without needing anything hidden to balance against, unlike the
      old flex approach. */
   body[data-taskdetail-actions="corner"] .taskdetailhead .titleactions,
-  body[data-taskdetail-actions="topleft"] .taskdetailhead .titleactions,
-  body[data-taskdetail-actions="headerline"] .taskdetailhead .titleactions{
+  body[data-taskdetail-actions="topleft"] .taskdetailhead .titleactions{
     position:absolute; z-index:3;
   }
   /* corner: an actual swap with .categorylabel — flag/pin take its exact
@@ -2455,77 +2454,50 @@
   body[data-taskdetail-actions="topleft"] .taskdetailhead .taskdetailshare{
     position:absolute; z-index:3; top:54px; right:14px;
   }
-  /* headerline: rests both groups right on top of the title's own
-     underline (.titleedit.bigtitle's border-bottom — see that rule near
-     the top of <style>) rather than up in the checkbox row — the explicit
-     ask being a spot that doesn't touch the title field's own padding/
-     margin/width at all, which position:absolute (same mechanism every
-     other variant here already uses) guarantees for free: the title keeps
-     the exact box it always had, these just sit on top of it.
-     "Resting ON TOP of the line" means the button's own BOTTOM edge sits
-     a few px above the line, not the line bisecting it — an earlier pass
-     centered the button ON the line instead (top:144px, so the line ran
-     straight through the button's own middle), which is the opposite of
-     "resting on top" and was called out for it. top:125px is measured,
-     not derived from any live layout math (same as every other fixed
-     offset on this page — corner/topleft's own top:14/54/82 are exactly
-     as fixed): 159px is .titleedit.bigtitle's own border-bottom position
-     under the DEFAULT header (no .sharedbadge line), and 125px puts a
-     30px-tall .flagbtn/.sharebtn's (see that rule in <style>) own bottom
-     edge at 155px — a 4px gap above the 159px line, "resting on top...
-     with a teeny bit of padding so it's not actually touching," per the
-     project owner's own wording. A task with .sharedbadge showing (see
-     renderTaskDetailPage()) pushes the title down and out of alignment
-     with this fixed number, same caveat every other fixed-offset variant
-     here already carries. */
-  body[data-taskdetail-actions="headerline"] .taskdetailhead .titleactions,
-  body[data-taskdetail-actions="headerline"] .taskdetailhead .taskdetailshare{
-    top:125px;
+  /* headerline: unlike corner/topleft (which just CSS-reposition
+     .titleactions/.taskdetailshare while they stay children of
+     .taskdetailhead), renderTaskDetailPage() actually moves them in the
+     markup for this variant — they're real children of .titleheadline,
+     right next to the title field, not floated somewhere else on the
+     page via position:absolute. That's what makes "the title in the
+     same line as the buttons" and "the title wraps before overlapping
+     the buttons" both fall out of plain flexbox for free: the button
+     groups are flex-shrink:0 (their own width is non-negotiable), so the
+     title's flex:1 column is only ever however much ROW WIDTH is left
+     over, and text wraps inside that column the same way it wraps inside
+     any other box that's narrower than its content — no JS measurement,
+     no fixed offsets, no zoom/webfont-timing edge cases to chase, unlike
+     the position:absolute + JS-measured-top approach this replaced (see
+     the comment above positionHeaderlineActions() used to sit,
+     08-render-core.js, now just a short paragraph explaining why it's
+     gone). align-items:flex-end bottom-aligns every child's margin box
+     to the row's tallest child (the title, whenever it wraps to more
+     than one line) — since .titleedit's own border-bottom sits at ITS
+     bottom edge, and the border-bottom below belongs to the row as a
+     whole (not the title field — see the child override further down),
+     that shared bottom edge IS the underline, so "buttons in the same
+     line as the title, resting on the underline" is just "everyone's
+     bottom-aligned to a row that has a border-bottom." */
+  body[data-taskdetail-actions="headerline"] .titleheadline{
+    display:flex; align-items:flex-end; gap:10px;
+    border-bottom: 1.5px solid var(--ink-soft);
+    margin-bottom:6px; padding-bottom:6px;
   }
-  /* Per the explicit ask: 125px is a desktop measurement (see above) —
-     mobile's own title/header sizing puts the underline at a different Y
-     than desktop's, so reusing that number there landed the buttons'
-     bottom edge a few px PAST the line instead of resting a few px above
-     it (an actual overlap, not just a smaller gap). Measured directly
-     against a real mobile-viewport render (not derived from the desktop
-     number by some conversion factor) the same way the desktop value
-     itself was: title's own border-bottom sits at 374px down a task
-     detail page with no .sharedbadge showing, and .titleactions/
-     .taskdetailshare are 30-32px tall there, so 340px puts a 30px-tall
-     button's bottom edge 4px above that line — same gap desktop targets,
-     just mobile's own correct number instead of desktop's. Carries the
-     exact same .sharedbadge caveat desktop's own value does: a shared
-     task pushes the title (and therefore the real line position) down,
-     out of alignment with this fixed number, same as every other
-     fixed-offset variant here already accepts. */
-  body.mobileui-active[data-taskdetail-actions="headerline"] .taskdetailhead .titleactions,
-  body.mobileui-active[data-taskdetail-actions="headerline"] .taskdetailhead .taskdetailshare{
-    top:116px;
+  /* The button groups get their own small padding-bottom so their
+     bottom edge — what align-items:flex-end above actually aligns to
+     the row's shared bottom — sits a few px above the line instead of
+     flush on top of it ("resting ON TOP of the line", not the line
+     cutting through them — the same distinction the old fixed-offset
+     version of this setting was built around). The title field itself
+     gets its border-bottom/margin-bottom zeroed out here specifically so
+     only ONE line shows (the row's own, above) instead of a second one
+     from the field's own base .titleedit style directly behind it. */
+  body[data-taskdetail-actions="headerline"] .titleheadline .titleactions,
+  body[data-taskdetail-actions="headerline"] .titleheadline .taskdetailshare{
+    flex-shrink:0; padding-bottom:4px;
   }
-  body[data-taskdetail-actions="headerline"] .taskdetailhead .titleactions{
-    left:14px;
-  }
-  body[data-taskdetail-actions="headerline"] .taskdetailhead .taskdetailshare{
-    position:absolute; z-index:3; right:14px;
-  }
-  /* Reserves the room these buttons actually need below the title's OWN
-     text, rather than hoping there happens to be enough slack in
-     .titleedit's ordinary padding-bottom (8px — nowhere near a ~30px
-     button plus gap) and falling back to some other spot when there
-     isn't. A single-line title's box is only ~41px tall total, so without
-     this, positionHeaderlineActions() (08-render-core.js) almost always
-     found the "rest on the underline" spot would overlap the title's own
-     last line and fell back to resting above the title instead — reading
-     as "the buttons just sit up by the checkbox, same as every other
-     variant" rather than the headerline look this setting is supposed to
-     be. Adding dedicated padding-bottom here means that spot is ALWAYS
-     genuinely empty, for a title of any length/line count, so the JS
-     never needs to fall back at all. 38px = a 30px button + 4px gap above
-     the underline + 4px gap below the text — same two 4px gaps
-     positionHeaderlineActions() already targets, just guaranteed by the
-     title's own box instead of hoped for. */
-  body[data-taskdetail-actions="headerline"] #genericTaskDetailView .titleedit.bigtitle{
-    padding-bottom: 38px;
+  body[data-taskdetail-actions="headerline"] .titleheadline .titleedit.bigtitle{
+    flex:1; min-width:0; border-bottom:none; margin-bottom:0; padding-bottom:0;
   }
   /* A row, not a stack — the date on the left, progress + the "move
      incomplete" button (when there's something to move) on the right.

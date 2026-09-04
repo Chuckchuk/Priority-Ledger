@@ -117,9 +117,7 @@ function fieldPickerHtml(kind, currentValue, onClickFor){
 // call) — the last one is what lets every one of these fields start at
 // rows="1" rather than needing a taller fixed baseline "just in case": a
 // genuinely short value now actually measures short (rows="1"'s real
-// height), which taskDetailActionsPosition's 'headerline' variant
-// (positionHeaderlineActions() below) depends on to tell a short title
-// apart from a long one in the first place.
+// height) rather than needing a taller fixed baseline "just in case".
 function autogrowTextarea(el){
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
@@ -1338,10 +1336,9 @@ function openSortMenu(el, includeCategory){
 // be two separate call sites (Daily had its own taskDetailId, rendered
 // via renderDaily() directly instead of the real render()) for no actual
 // difference besides that back-label string — collapsed into one per the
-// explicit ask, which also fixed a real bug as a side effect:
-// renderDaily() never scheduled positionHeaderlineActions() the way
-// render() does, so a Daily-opened task's headerline-mode buttons never
-// got their own JS position correction at all.
+// explicit ask, which also sidestepped a real bug: renderDaily() used to
+// render its own separate copy of this page with no guarantee it'd match
+// the one true version's layout logic.
 function renderTaskDetailPage(taskId, backOnclick, backLabel){
   const t = state.tasks.find(t=>t.id===taskId);
   // Always true. Used to be gated to t.category==='misc', a category id
@@ -1375,12 +1372,30 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
   const leftActionsHtml = `
     <button class="flagbtn ${t.urgent?'on':''}" onclick="toggleUrgent('${t.id}')" title="Toggle flag">⚑</button>
     <button class="flagbtn daybtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="toggleTaskToday('${t.id}')" title="${taskTodayTitle(t)}">${DAYPIN_ICON_SVG}</button>`;
+  const shareHtml = shareButtonHtml(t.id);
+  // headerline (EXPERIMENTAL taskDetailActionsPosition, starred in
+  // Settings): unlike 'side'/'corner'/'topleft' — which all keep
+  // .titleactions/.taskdetailshare as .taskdetailhead's own children and
+  // just CSS-reposition them elsewhere on the page — headerline puts them
+  // in a genuinely different spot in the actual markup, flanking the
+  // title field itself inside .titleheadline (see that rule in <style>),
+  // rather than up in the checkbox row. That's a real layout difference
+  // ("buttons in the same line as the title, bottom-aligned with its own
+  // underline, title wrapping narrower to stay clear of them" — the
+  // explicit ask), not just a different resting spot for the same row, so
+  // it needs the buttons to actually live next to the title in the DOM
+  // for a plain flexbox row to line them up — no live measurement (an
+  // earlier version of this used to JS-measure the title's rendered
+  // height every render to fake this alignment; a real flex row lining
+  // up real siblings does it for free, at any title length, any zoom
+  // level, regardless of when a webfont happens to finish loading).
+  const headerlineMode = (state.devSettings||{}).taskDetailActionsPosition === 'headerline';
   return `
     <div class="stackedpage">
       ${pageTagHtml(backOnclick, backLabel)}
       ${categoryLabelHtml(t)}
       <div class="taskdetailhead">
-        <div class="titleactions">${leftActionsHtml}</div>
+        ${headerlineMode ? '' : `<div class="titleactions">${leftActionsHtml}</div>`}
         <div class="checkwrap">
           <!-- Right-click/long-press here reuses the exact same task
                context menu the row-list version opens — per the explicit
@@ -1398,10 +1413,17 @@ function renderTaskDetailPage(taskId, backOnclick, backLabel){
             onmousedown="taskDetailCheckPressStart(event,'${t.id}')" onmouseup="taskDetailCheckPressEnd()" onmouseleave="taskDetailCheckPressEnd()"></div>
           ${subProgressHtml(subs)}
         </div>
-        <div class="taskdetailshare">${shareButtonHtml(t.id)}</div>
+        ${headerlineMode ? '' : `<div class="taskdetailshare">${shareHtml}</div>`}
       </div>
       ${t.sharedImport ? `<div class="sharedbadge inline">Shared</div>` : ''}
-      ${taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle', true)}
+      ${headerlineMode ? `
+      <div class="titleheadline">
+        <div class="titleactions">${leftActionsHtml}</div>
+        ${taskTitleFieldHtml(t, 'bigtitle')}
+        <div class="taskdetailshare">${shareHtml}</div>
+      </div>
+      ${taskCoreFieldsRowHtml(t, canRemoveHere, true, true)}${taskAdvancedFieldsRowHtml(t)}${taskSubtasksHtml(t)}${taskNotesAndMetaHtml(t)}
+      ` : taskExpandFieldsHtml(t, canRemoveHere, 'bigtitle', true)}
       <!-- Moved down here from .expandactions (see taskCoreFieldsRowHtml()'s
            own comment) and renamed from "Remove" to match the checklist
            detail page's own "Delete list" — same .footer-row/.remove
@@ -1560,77 +1582,17 @@ function currentTabBodyHtml(){
   return categoryListHtml();
 }
 
-// 'headerline' (EXPERIMENTAL taskDetailActionsPosition, see
-// devSettingsFieldsHtml()'s own comment in 01-categories-theme.js) rests
-// the flag/pin/share buttons a few px above the title's own underline —
-// unlike corner/topleft (anchored to #appCard's own fixed corners, which
-// never move), that line's actual Y position is exactly as variable as
-// the title text above it: a long title wrapping to 3-4 lines pushes it
-// much further down than a short one- or two-line title does. The old
-// fixed CSS `top` (one number for desktop, one for mobile — see the
-// body[data-taskdetail-actions="headerline"] rules in <style>) was
-// measured against a short test title, so a genuinely long one left the
-// buttons overlapping mid-title instead of resting below it — exactly
-// the "buttons lost behind the title, looks unclean" bug reported. This
-// measures the title's actual current bottom edge after every render
-// (regardless of how many lines it wrapped to) and repositions both
-// buttons relative to that, in JS, rather than trying to keep guessing a
-// better fixed number. The CSS values remain as the pre-JS fallback (so
-// there's no flash of unpositioned buttons before this first runs).
-// No overlap fallback needed here any more: .titleedit.bigtitle gets a
-// dedicated padding-bottom under headerline mode specifically (see that
-// rule in <style>, right next to the CSS fallback `top` values) sized to
-// fit exactly this gap + a button's own height, so the spot right above
-// the underline is ALWAYS genuinely empty regardless of the title's
-// length or line count — this can just bottom-anchor unconditionally.
-const HEADERLINE_GAP_PX = 4;
-// renderTaskDetailPage() has one mount point (#genericTaskDetailView) —
-// Daily used to render its own copy directly into #dailyView via
-// renderDaily(), which meant this function had to know about (and find
-// nothing in, silently no-opping) two different roots, and worse,
-// renderDaily() never scheduled this function to run at all (only
-// render()'s own requestAnimationFrame does), so a Daily-opened task's
-// headerline buttons never got JS-corrected in the first place. Both
-// entry points go through genericTaskDetailId/openGenericTaskDetail()
-// now (see that variable's own comment, 11-daily-core.js), so there's
-// only ever one place to look.
-function positionHeaderlineActions(){
-  if((state.devSettings||{}).taskDetailActionsPosition !== 'headerline') return;
-  const title = document.querySelector('#genericTaskDetailView .titleedit.bigtitle');
-  const stackedpage = title && title.closest('.stackedpage');
-  if(!title || !stackedpage) return;
-  // getBoundingClientRect() always reports post-zoom viewport pixels —
-  // fine for the *difference* below (titleRect.bottom and containerTop
-  // are both inside the same zoomed #appShell subtree, so the zoom
-  // factor cancels out of relTitleBottom on its own), but the result then
-  // gets assigned to `top`, a real layout property that CSS `zoom` on an
-  // ancestor scales AGAIN when the browser lays this element out — the
-  // same double-scaling the "Desktop zoom" dev setting's own comment
-  // documents for position:fixed popovers, just reached here through
-  // reading a post-zoom measurement and writing it back as a pre-zoom
-  // layout value instead. Dividing by zoomFactor() right before
-  // assignment (same idiom every other JS-positioned element in this app
-  // already uses) is what keeps the buttons resting on the line at any
-  // zoom level instead of drifting further off it the higher the zoom.
-  // el.getBoundingClientRect().height, not el.offsetHeight — confirmed
-  // empirically that offsetHeight/offsetWidth do NOT reflect CSS `zoom`
-  // at all (they report the element's un-zoomed 30px design height
-  // regardless of zoom level), unlike getBoundingClientRect() (37.5px at
-  // 125% zoom). Mixing the two in the same formula was the second half of
-  // this bug: dividing a post-zoom relTitleBottom together with a
-  // pre-zoom offsetHeight by zf overcorrected the height component,
-  // landing the buttons *past* the line instead of just short of it.
-  const zf = zoomFactor();
-  const titleRect = title.getBoundingClientRect();
-  const containerTop = stackedpage.getBoundingClientRect().top;
-  const relTitleBottom = titleRect.bottom - containerTop;
-  ['titleactions', 'taskdetailshare'].forEach(cls => {
-    const el = stackedpage.querySelector(`.${cls}`);
-    if(!el) return;
-    const elHeight = el.getBoundingClientRect().height;
-    el.style.top = ((relTitleBottom - HEADERLINE_GAP_PX - elHeight) / zf) + 'px';
-  });
-}
+// 'headerline' (EXPERIMENTAL taskDetailActionsPosition) puts the flag/
+// pin/share buttons directly in the title's own row (.titleheadline, see
+// that rule in <style> and renderTaskDetailPage()'s own comment) — a
+// plain flexbox row, not JS-measured positioning. An earlier version of
+// this JS-measured the title's rendered height every render and set the
+// buttons' `top` from that, which chased three separate bugs in turn
+// (CSS `zoom` double-scaling the result, offsetHeight not reflecting
+// zoom at all, a title-textarea height that could go stale until a
+// late-arriving webfont's `document.fonts.ready` fired) without ever
+// being as reliable as just making the buttons real flex siblings of the
+// title and letting the browser line them up.
 
 function render(){
   // Sizes every mobile autogrowTextarea() field (a task/list's own title,
@@ -1641,12 +1603,9 @@ function render(){
   // several early `return`s below for different views, so a single tail
   // call at the end of render() itself wouldn't run for most of them.
   // Cheap even when nothing needs it: 0 matches on desktop, and a plain
-  // querySelectorAll the rest of the time. positionHeaderlineActions()
-  // rides along on the same next-frame pass for the same reason (needs
-  // the title's post-render, post-autogrow layout to measure against).
+  // querySelectorAll the rest of the time.
   requestAnimationFrame(() => {
     document.querySelectorAll('.autogrowtext').forEach(autogrowTextarea);
-    positionHeaderlineActions();
   });
   renderDevPanel();
   renderDevBreadcrumb();
@@ -1690,23 +1649,10 @@ function render(){
     cldView.innerHTML = '';
     applyDevElementNames();
     // Synchronous, not left to this function's own requestAnimationFrame
-    // below — that rAF call is what taskDetailActionsPosition 'headerline'
-    // has depended on since it was introduced, but it turns out to be an
-    // unreliable way to guarantee this specific correction actually runs:
-    // whatever the exact cause (this app can't reproduce a real focused/
-    // visible tab's rAF timing in its own dev tooling to isolate it
-    // further), the buttons were landing at the CSS fallback position —
-    // wrong for anything but a short single-line title — far more often
-    // in practice than the rAF path alone ever showed in testing. Calling
-    // both functions directly, right here, right after the real DOM is
-    // in place, has no such dependency: by the time this line runs, the
-    // textarea and the elements positionHeaderlineActions() reads are
-    // already the final ones, no future frame required. The rAF call
-    // below still fires on top of this and is harmless (idempotent) —
-    // left in place as a fallback for the one thing it still uniquely
-    // covers, other .autogrowtext fields elsewhere in the app.
+    // below — a freshly re-rendered <textarea> only knows its correct
+    // autogrow height once asked, so this can't wait a frame or the
+    // title would flash at the wrong height first.
     document.querySelectorAll('#genericTaskDetailView .autogrowtext').forEach(autogrowTextarea);
-    positionHeaderlineActions();
     return;
   }
   gtdView.style.display = 'none';
