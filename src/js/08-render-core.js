@@ -1605,13 +1605,36 @@ function positionHeaderlineActions(){
     || document.querySelector('#dailyView .titleedit.bigtitle');
   const stackedpage = title && title.closest('.stackedpage');
   if(!title || !stackedpage) return;
+  // getBoundingClientRect() always reports post-zoom viewport pixels —
+  // fine for the *difference* below (titleRect.bottom and containerTop
+  // are both inside the same zoomed #appShell subtree, so the zoom
+  // factor cancels out of relTitleBottom on its own), but the result then
+  // gets assigned to `top`, a real layout property that CSS `zoom` on an
+  // ancestor scales AGAIN when the browser lays this element out — the
+  // same double-scaling the "Desktop zoom" dev setting's own comment
+  // documents for position:fixed popovers, just reached here through
+  // reading a post-zoom measurement and writing it back as a pre-zoom
+  // layout value instead. Dividing by zoomFactor() right before
+  // assignment (same idiom every other JS-positioned element in this app
+  // already uses) is what keeps the buttons resting on the line at any
+  // zoom level instead of drifting further off it the higher the zoom.
+  // el.getBoundingClientRect().height, not el.offsetHeight — confirmed
+  // empirically that offsetHeight/offsetWidth do NOT reflect CSS `zoom`
+  // at all (they report the element's un-zoomed 30px design height
+  // regardless of zoom level), unlike getBoundingClientRect() (37.5px at
+  // 125% zoom). Mixing the two in the same formula was the second half of
+  // this bug: dividing a post-zoom relTitleBottom together with a
+  // pre-zoom offsetHeight by zf overcorrected the height component,
+  // landing the buttons *past* the line instead of just short of it.
+  const zf = zoomFactor();
   const titleRect = title.getBoundingClientRect();
   const containerTop = stackedpage.getBoundingClientRect().top;
   const relTitleBottom = titleRect.bottom - containerTop;
   ['titleactions', 'taskdetailshare'].forEach(cls => {
     const el = stackedpage.querySelector(`.${cls}`);
     if(!el) return;
-    el.style.top = (relTitleBottom - HEADERLINE_GAP_PX - el.offsetHeight) + 'px';
+    const elHeight = el.getBoundingClientRect().height;
+    el.style.top = ((relTitleBottom - HEADERLINE_GAP_PX - elHeight) / zf) + 'px';
   });
 }
 
