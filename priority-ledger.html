@@ -5499,6 +5499,32 @@ const CATEGORY_PALETTE_SETS = {
   pastel: {
     id: 'pastel', label: 'Pastel',
     colors: ['#E8998D','#F0B27A','#F0DC82','#C9DB8C','#A8D8A8','#9EDBC8','#93C9D0','#97BEE0','#A3AEE0','#C3A8E0','#E0A8CC','#E8AEB7']
+  },
+  // Three Dark Mode sets, per the project owner's own ask — paired with
+  // matching Dark Mode sets in UI_COLOR_PRESET_SETS/DESK_PAPER_PRESET_SETS
+  // below (same "pick Pastel everywhere for one coordinated look" idea
+  // pastel's own comment already established, just for dark moods
+  // instead). Only 9 colors each rather than the 12 every light set
+  // uses — plenty for a real hue sweep without the extra authoring/
+  // upkeep a full dozen would need per mood. Deliberately more saturated
+  // than the light sets' own colors: a muted tone that reads fine
+  // against cream paper goes flat/lifeless against a near-black one, so
+  // these lean brighter/more vivid to actually pop there. midnight =
+  // cool (blue/teal/indigo/violet), ember = warm (red/rust/amber/olive),
+  // noir = near-monochrome grays/taupes/slates (the dark counterpart to
+  // 'greyscale' above) — same three-way split in mood 'classic'/
+  // 'greyscale'/'pastel' already use, just for dark surfaces.
+  midnight: {
+    id: 'midnight', label: 'Midnight',
+    colors: ['#3FBDB0','#5AC79A','#5CACD9','#6F93D9','#8B7FE0','#A87DE0','#C77DD1','#D97C9E','#E0A458']
+  },
+  ember: {
+    id: 'ember', label: 'Ember',
+    colors: ['#C15A5A','#C97244','#D9895A','#E0A458','#C6B15A','#9BAF5E','#C97D6E','#B1546E','#A6763E']
+  },
+  noir: {
+    id: 'noir', label: 'Noir',
+    colors: ['#E0E0E0','#C0C0C0','#A0A0A0','#808080','#D8CDBE','#B0A38F','#8C7F6C','#A8ADB4','#767C83']
   }
 };
 // The currently-active set's own colors — a `let`, not a `const`, same
@@ -5764,6 +5790,54 @@ const UI_COLOR_PRESET_SETS = {
       { id:'lavenderbutter',  label:'Lavender & Butter',  primary:'#9B85C4', primaryLight:'#B7A4D8', secondary:'#D9C367', secondaryLight:'#E8D98C' },
       { id:'orchidsky',       label:'Orchid & Sky',       primary:'#C48BB0', primaryLight:'#D6A9C6', secondary:'#7EB2D6', secondaryLight:'#A0C8E2' }
     ]
+  },
+  // Three Dark Mode sets — see CATEGORY_PALETTE_SETS' own comment above
+  // for the midnight/ember/noir mood split, shared across all three
+  // palette systems. Unlike that set (and unlike a first pass at this
+  // one), these are NOT brighter/lighter than the light sets' own —
+  // primary/secondary do double duty as both a small icon/text color
+  // read directly against the (now dark) card AND a solid button
+  // background with fixed light text on top (--ink is a flat #F1EAD9 in
+  // dark mode, see applyThemeObject() below; .flagbtn.on/.daybtn.on use
+  // white directly) — a light, bright accent has great contrast for the
+  // first role and terrible contrast for the second, which a first pass
+  // at these values got backwards (checked against both a representative
+  // dark card and that fixed ink color; several pairs came out under
+  // 2:1). Mid-value, richly saturated jewel tones — similar overall
+  // lightness to the light sets' own colors, actually — balance
+  // reasonably against both extremes, the same way Classic's own colors
+  // already do in light mode (a mid-dark tone reads fine as an icon on
+  // light paper AND behind light text, because it's roughly the same
+  // "medium" distance from both).
+  midnight: {
+    id: 'midnight', label: 'Midnight',
+    presets: [
+      { id:'iceamber',       label:'Ice & Amber',        primary:'#3E72A8', primaryLight:'#5B8FC2', secondary:'#A87526', secondaryLight:'#C99A4E' },
+      { id:'skyrose',        label:'Sky & Rose',         primary:'#2E7DA8', primaryLight:'#4C9BC2', secondary:'#B85068', secondaryLight:'#D07890' },
+      { id:'mintviolet',     label:'Mint & Violet',      primary:'#2E9478', primaryLight:'#4CAF94', secondary:'#7A5FC4', secondaryLight:'#9884DA' },
+      { id:'periwinklegold', label:'Periwinkle & Gold',  primary:'#5B63C4', primaryLight:'#7B82D6', secondary:'#A87E26', secondaryLight:'#C9A048' },
+      { id:'tealcoral',      label:'Teal & Coral',       primary:'#237A72', primaryLight:'#3F968D', secondary:'#C25A44', secondaryLight:'#DA7C67' }
+    ]
+  },
+  ember: {
+    id: 'ember', label: 'Ember',
+    presets: [
+      { id:'rustgold',     label:'Rust & Gold',        primary:'#B85A2E', primaryLight:'#D0794E', secondary:'#A87E26', secondaryLight:'#C9A048' },
+      { id:'emberclay',    label:'Ember & Clay',       primary:'#B84A32', primaryLight:'#D06A52', secondary:'#A8703E', secondaryLight:'#C49267' },
+      { id:'winerose',     label:'Wine & Rose',        primary:'#963548', primaryLight:'#B85567', secondary:'#B8654E', secondaryLight:'#D0876F' },
+      { id:'copperolive',  label:'Copper & Olive',     primary:'#B8702E', primaryLight:'#D0904E', secondary:'#697A36', secondaryLight:'#879657' },
+      { id:'brickbrass',   label:'Brick & Brass',      primary:'#96322A', primaryLight:'#B85449', secondary:'#A0782A', secondaryLight:'#C29A4C' }
+    ]
+  },
+  noir: {
+    id: 'noir', label: 'Noir',
+    presets: [
+      { id:'silverash',     label:'Silver & Ash',      primary:'#6E6E6E', primaryLight:'#8C8C8C', secondary:'#787878', secondaryLight:'#969696' },
+      { id:'pearlgraphite', label:'Pearl & Graphite',  primary:'#8A8578', primaryLight:'#A6A296', secondary:'#78715F', secondaryLight:'#968F7C' },
+      { id:'platinumsmoke', label:'Platinum & Smoke',  primary:'#7E828A', primaryLight:'#9A9EA5', secondary:'#6D7378', secondaryLight:'#8C9196' },
+      { id:'boneink',       label:'Bone & Ink',        primary:'#9A9078', primaryLight:'#B5AC96', secondary:'#6E6555', secondaryLight:'#8C8371' },
+      { id:'chromeslate',   label:'Chrome & Slate',    primary:'#6E747A', primaryLight:'#8C9298', secondary:'#5D6368', secondaryLight:'#7B8186' }
+    ]
   }
 };
 // Reassignable pointer into the active set's presets — every call site
@@ -5929,6 +6003,50 @@ const DESK_PAPER_PRESET_SETS = {
       { id:'periwinklepowder',  label:'Periwinkle & Powder',   bg:'#5E6B93', paper:'#E7ECF6' },
       { id:'lilaccloud',        label:'Lilac & Cloud',         bg:'#7C6690', paper:'#F0E7F2' },
       { id:'dustyrose',         label:'Dusty Rose & Petal',    bg:'#8C5B67', paper:'#F7E3DE' }
+    ]
+  },
+  // Three Dark Mode sets — see CATEGORY_PALETTE_SETS' own comment above
+  // for the midnight/ember/noir mood split. The real enabler of an
+  // actual dark *mode* (not just another moody desk under the same
+  // always-light paper every set above uses): paper itself goes dark
+  // here, for the first time — applyThemeObject() already derives
+  // --ink/--ink-soft/--line from `relLuminance(t.paper) < 0.5` (see its
+  // own comment, further down this file) and flips to a light, legible
+  // ink automatically whenever that's true, so a dark paper "just
+  // works" through the exact same mechanism a custom dark pick already
+  // would have. paper stays only a little lighter than its own bg in
+  // every entry here (unlike every light set's huge bg/paper contrast)
+  // — enough for the card to still visibly sit on the desk as its own
+  // surface, without one of them reading as a stray light patch against
+  // an otherwise dark page.
+  midnight: {
+    id: 'midnight', label: 'Midnight',
+    presets: [
+      { id:'inksteel',       label:'Ink & Steel',         bg:'#0B0F14', paper:'#1B2229' },
+      { id:'abyssdenim',     label:'Abyss & Denim',       bg:'#0A141F', paper:'#152436' },
+      { id:'twilightplum',   label:'Twilight & Plum',     bg:'#130B1D', paper:'#221730' },
+      { id:'deeppine',       label:'Deep Teal & Pine',    bg:'#0A1714', paper:'#132621' },
+      { id:'obsidianindigo', label:'Obsidian & Indigo',   bg:'#0D0A18', paper:'#1C172B' }
+    ]
+  },
+  ember: {
+    id: 'ember', label: 'Ember',
+    presets: [
+      { id:'charember',    label:'Char & Ember',        bg:'#170D0A', paper:'#2A1912' },
+      { id:'coalrust',     label:'Coal & Rust',         bg:'#140C08', paper:'#271710' },
+      { id:'smolderumber', label:'Smolder & Umber',     bg:'#190F08', paper:'#2E1C0E' },
+      { id:'midnightwine', label:'Midnight & Wine',     bg:'#170A0D', paper:'#2A131A' },
+      { id:'cocoacopper',  label:'Cocoa & Copper',      bg:'#140D08', paper:'#26180E' }
+    ]
+  },
+  noir: {
+    id: 'noir', label: 'Noir',
+    presets: [
+      { id:'onyxcharcoal', label:'Onyx & Charcoal',     bg:'#0A0A0A', paper:'#1E1E1E' },
+      { id:'ironslate',    label:'Iron & Slate',        bg:'#0F1012', paper:'#212326' },
+      { id:'jetgraphite',  label:'Jet & Graphite',      bg:'#050505', paper:'#181818' },
+      { id:'basaltash',    label:'Basalt & Ash',        bg:'#111111', paper:'#242424' },
+      { id:'voidstone',    label:'Void & Stone',        bg:'#0C0C0C', paper:'#1C1B19' }
     ]
   }
 };
