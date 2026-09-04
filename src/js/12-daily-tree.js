@@ -174,7 +174,7 @@ function daySubtaskRowHtml(task, sub, dateStr, nested){
   const subCtxMenuAttr = ` oncontextmenu="return handleSubtaskContextMenu(event,'${task.id}','${sub.id}')"`;
   return `
   <li class="task ${nested ? 'daysubnested' : ''}">
-    <div class="row"${subCtxMenuAttr} onclick="openTaskDetailFromDay('${task.id}')">
+    <div class="row"${subCtxMenuAttr} onclick="openGenericTaskDetail('${task.id}')">
       ${spacer}
       <div class="checkwrap daysub" onclick="event.stopPropagation()">
         <div class="subcheck ${sub.done?'done':''}" onclick="toggleSubtask('${task.id}','${sub.id}')"></div>

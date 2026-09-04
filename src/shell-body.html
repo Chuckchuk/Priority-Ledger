@@ -205,11 +205,11 @@
       <div id="checklistView" style="display:none;"></div>
       <div id="settingsView" style="display:none;"></div>
       <div id="claudeView" style="display:none;"></div>
-      <!-- The same full-page task detail Daily's own taskDetailId uses
-           (see openGenericTaskDetail() in 08-render-core.js), reachable
-           from any category tab's row — via its own always-visible ⛶
-           button, the desktop right-click menu, or a plain tap on mobile
-           — instead of just from within Daily. -->
+      <!-- The one full-page task detail mount point (openGenericTaskDetail(),
+           08-render-core.js) — reachable from any category tab's row (its
+           own always-visible ⛶ button, the desktop right-click menu, or a
+           plain tap on mobile) and from a task/step within Daily alike;
+           see genericTaskDetailId's own comment in 11-daily-core.js. -->
       <div id="genericTaskDetailView" style="display:none;"></div>
       <!-- The "Shared N" compact tag's own drilldown (openSharedItems(),
            19-sharing.js) — same top-tier overlay pattern as

@@ -1272,7 +1272,6 @@ function resolvePageTagDest(el){
   if(oc.includes('closeClaudeView(')) return 'renderSettings()';
   if(oc.includes('closeChecklistPending(')) return 'renderChecklistOverview()';
   if(oc.includes('closeChecklistList(')) return checklistReturnDay ? 'renderDayDetail()' : 'renderChecklistOverview()';
-  if(oc.includes('closeTaskDetail(')) return 'renderDayDetail()';
   if(oc.includes('closeGenericTaskDetail(')) return 'currentTabBodyHtml()';
   return null;
 }
@@ -1294,7 +1293,7 @@ function resolveTabDest(el){
 function resolveTaskRowDest(el){
   const oc = el.getAttribute('onclick') || '';
   if(oc.includes('openChecklistList(')) return 'renderChecklistDetail()';
-  if(oc.includes('openTaskDetailFromDay(')) return 'renderTaskDetailPage()';
+  if(oc.includes('openGenericTaskDetail(')) return 'renderTaskDetailPage()';
   return null; // taskRowTap(): usually toggles the inline .expand in place, not a real navigation
 }
 // A right-click/long-press menu button (renderTaskContextMenu(),

@@ -58,7 +58,6 @@ document.addEventListener('keydown', (e) => {
     if(selectedListId){ closeChecklistList(); return; }
     if(genericTaskDetailId){ closeGenericTaskDetail(); return; }
     if(sharedItemsOpen){ closeSharedItems(); return; }
-    if(taskDetailId){ closeTaskDetail(); return; }
     if(selectedDay){ closeDay(); return; }
     if(dailyCalendarOpen){ closeDailyCalendar(); return; }
     const openExpand = document.querySelector('.expand.open');
@@ -77,8 +76,8 @@ document.addEventListener('keydown', (e) => {
 
   // Left/right steps to the adjacent logged day, mirroring the .navarrow
   // pair in .daynavrow — gated on that row actually being on screen
-  // (rather than enumerating every overlay flag — settingsOpen, taskDetailId,
-  // selectedListId, dailyCalendarOpen, etc. — that could otherwise be
+  // (rather than enumerating every overlay flag — settingsOpen,
+  // genericTaskDetailId, selectedListId, dailyCalendarOpen, etc. — that could otherwise be
   // hiding the day-detail page even while selectedDay is still set from
   // before) so the keys only ever act on the day you're actually looking
   // at. goToAdjacentDay() itself already no-ops at either end of your
@@ -318,10 +317,12 @@ function unwrapStackedPage(html){
 // own back-swipe") so it always matches what render() itself treats as
 // "behind" that specific container:
 //   #settingsView / #genericTaskDetailView -> currentTabBodyHtml()
-//     (both float over activeTab's own view unchanged underneath)
-//   #dailyView -> a task detail (taskDetailId set) backs to its day's
-//     own detail page; the day detail itself backs to the day list or
-//     the calendar, matching dayReturnToCalendar exactly like closeDay()
+//     (both float over activeTab's own view unchanged underneath — a
+//     task detail opened from within Daily also lands here now, backing
+//     to currentTabBodyHtml()'s own selectedDay check, i.e. the day
+//     detail it was opened from, same as every other tab)
+//   #dailyView -> the day detail itself backs to the day list or the
+//     calendar, matching dayReturnToCalendar exactly like closeDay()
 //   #checklistView -> a list opened from a specific day (checklistReturnDay,
 //     see openChecklistListFromDay()) backs to that day; otherwise back
 //     to the category's own checklist overview
@@ -338,7 +339,6 @@ function swipeBackPreviewHtml(card){
     return currentTabBodyHtml();
   }
   if(containerId === 'dailyView'){
-    if(taskDetailId) return renderDayDetail(selectedDay);
     return dayReturnToCalendar ? renderDailyCalendar() : renderDayList();
   }
   if(containerId === 'checklistView'){

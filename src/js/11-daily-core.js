@@ -52,11 +52,21 @@ let dayTreeExpanded = new Set(); // open nodes, keyed 'cat:<id>' / 'task:<id>' /
 // (which recreates the row's DOM node from scratch) doesn't replay it.
 let dayTreeFlashKey = null;
 
-// Which task's full-page detail view (opened from clicking a task or step
-// within Daily — see openTaskDetailFromDay()) is showing on top of the
-// current day's detail, if any. Transient UI state, reset the same places
-// dayAddOpen/dayTreeExpanded are.
-let taskDetailId = null;
+// Clicking a task or step within Daily used to set its own taskDetailId
+// and go through renderDaily() directly, a second full-page task-detail
+// path parallel to genericTaskDetailId's (openGenericTaskDetail(), used
+// by every other tab) — same shared renderTaskDetailPage() markup either
+// way, just two different tracking variables and DOM mount points for no
+// real reason, which is exactly why a JS fix that needed to find "the"
+// task detail page (positionHeaderlineActions(), 08-render-core.js) had
+// to go looking in two places instead of one. Per the explicit ask,
+// Daily now just reuses genericTaskDetailId/openGenericTaskDetail()
+// directly (see taskRowHtml()/daySubLeafHtml()) — activeTab is already
+// 'daily' the whole time you're browsing a day, so closing it needs no
+// special "return to Daily" tracking of its own: render()'s own
+// genericTaskDetailId branch already computes the right back label from
+// activeTab, and closing it just re-renders whatever activeTab/
+// selectedDay already say, which was always Daily's own day detail.
 
 function monthLabel(key){
   const [y,m] = key.split('-').map(Number);
@@ -304,7 +314,7 @@ function resetDayAddPicker(){
   dayAddOpen = false;
   dayTreeExpanded = new Set();
   dayTreeFlashKey = null;
-  taskDetailId = null;
+  genericTaskDetailId = null;
 }
 
 // `fromCalendar` is optional — only openCalendarDay() (and goToAdjacentDay(),
@@ -413,11 +423,8 @@ function toggleMonthGroup(key){
 
 function renderDaily(){
   const el = document.getElementById('dailyView');
-  if(taskDetailId && !state.tasks.find(t=>t.id===taskDetailId)) taskDetailId = null;
   if(dailyCalendarOpen){
     el.innerHTML = renderDailyCalendar();
-  } else if(selectedDay && taskDetailId){
-    el.innerHTML = renderTaskDetailPage(taskDetailId, 'closeTaskDetail()', 'Daily');
   } else {
     el.innerHTML = selectedDay ? renderDayDetail(selectedDay) : renderDayList();
   }

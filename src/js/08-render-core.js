@@ -546,16 +546,17 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   const dragHandle = draggableMain
     ? `<span class="draghandle" onpointerdown="taskHandlePointerDown(event,'${t.id}')" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>`
     : '';
-  // Within Daily, clicking a task opens its own full page (see
-  // openTaskDetailFromDay/renderTaskDetailPage) rather than expanding
-  // inline — everywhere else it's routed through taskRowTap(), which
-  // toggles the inline .expand on desktop (there's no long-press gesture
-  // to reach the full page with there) and jumps straight to the full
-  // page on mobile (a plain tap works like a home-screen icon there,
+  // Within Daily, clicking a task opens its own full page (same
+  // openGenericTaskDetail()/renderTaskDetailPage() every other tab uses —
+  // see genericTaskDetailId's own comment, 11-daily-core.js) rather than
+  // expanding inline — everywhere else it's routed through taskRowTap(),
+  // which toggles the inline .expand on desktop (there's no long-press
+  // gesture to reach the full page with there) and jumps straight to the
+  // full page on mobile (a plain tap works like a home-screen icon there,
   // since swipe-back makes returning cheap), and also swallows the click
   // a touchend/mouseup produces right after a long-press just fired
   // rather than double-handling it.
-  const rowClick = inDaily ? `openTaskDetailFromDay('${t.id}')` : `taskRowTap(event,'${t.id}')`;
+  const rowClick = inDaily ? `openGenericTaskDetail('${t.id}')` : `taskRowTap(event,'${t.id}')`;
   // The long-press gesture (opens a quick-actions menu, see
   // taskPressStart() below) only applies outside Daily — a Daily row
   // already opens its own full page on a plain tap, so there's no gesture
@@ -579,10 +580,11 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // (rowClick above) are different events, so there's no actual conflict
   // wiring this up regardless of inDaily; per the explicit ask, a Daily
   // row should offer Mark complete/Mark as Cancelled/etc. the same way
-  // every other row does. "Edit details" still routes to
-  // openGenericTaskDetail() here too (not Daily's own taskDetailId) —
-  // its own "Back" tag rather than "Daily" is a pre-existing, harmless
-  // quirk of that path, not something inDaily introduces.
+  // every other row does. "Edit details" also routes to
+  // openGenericTaskDetail() (same as rowClick above now) — its back tag
+  // correctly reads "Daily" here too, since that's computed from
+  // activeTab centrally (render()'s own genericTaskDetailId branch), not
+  // from which click handler happened to open it.
   const ctxMenuAttr = ` oncontextmenu="return handleTaskContextMenu(event,'${t.id}')"`;
   // Hover-preview of a task's own Notes — only wired up at all when there
   // are actually notes to show, so a task without any never pays for (or
@@ -1328,12 +1330,18 @@ function openSortMenu(el, includeCategory){
 // Full-page task detail — same shared fields as the inline .expand,
 // wrapped in the "stacked page" pattern with a page tag back to wherever
 // it was opened from, rather than expanding inline the way it does
-// everywhere else. Two call sites share this: clicking a task or step
-// within Daily (openTaskDetailFromDay, backs to "Daily") and a plain tap
-// on any category tab's row on mobile (openGenericTaskDetail below, backs
-// to "Back" — there's no single named destination since it could be any
-// tab). backOnclick/backLabel are passed in rather than hardcoded so the
-// two never have to fork this function to get their own back tag.
+// everywhere else. One call site now (genericTaskDetailId/
+// openGenericTaskDetail() below), reached by clicking a task or step from
+// ANY tab, Daily included — render() itself computes backLabel from
+// activeTab ("Daily" while browsing a day, "Back" everywhere else) rather
+// than this function forking on where it was opened from. This used to
+// be two separate call sites (Daily had its own taskDetailId, rendered
+// via renderDaily() directly instead of the real render()) for no actual
+// difference besides that back-label string — collapsed into one per the
+// explicit ask, which also fixed a real bug as a side effect:
+// renderDaily() never scheduled positionHeaderlineActions() the way
+// render() does, so a Daily-opened task's headerline-mode buttons never
+// got their own JS position correction at all.
 function renderTaskDetailPage(taskId, backOnclick, backLabel){
   const t = state.tasks.find(t=>t.id===taskId);
   // Always true. Used to be gated to t.category==='misc', a category id
@@ -1435,21 +1443,12 @@ function categoryLabelHtml(t){
   return `<button class="categorylabel${tape ? ' categorylabel-tape' : ''}" style="--catlabel-hex:${cat.hex}; --catlabel-text:${textColor}" onclick="event.stopPropagation(); openCategoryMoveMenu(this,'${t.id}')" title="Move to another category">${glyph} ${escapeHtml(cat.label)}</button>`;
 }
 
-function openTaskDetailFromDay(taskId){
-  taskDetailId = taskId;
-  renderDaily();
-}
-function closeTaskDetail(){
-  taskDetailId = null;
-  renderDaily();
-}
-
-// Opened by a plain tap on mobile (see taskRowTap() above), not the
-// long-press (that opens the quick-actions menu instead,
-// openTaskContextMenuForRow()). A separate flag from Daily's own
-// taskDetailId since this one has to work from any category tab (no
-// selectedDay/dailyView to hang off of) and needs its own generic "Back"
-// rather than "Daily".
+// Opened by a plain tap on any category tab's row, or a plain tap on a
+// task/step within Daily (taskRowHtml()/daySubLeafHtml() both call this
+// directly now — see this variable's own comment in 11-daily-core.js for
+// why there's no separate Daily-only version any more). render() itself
+// computes the right back label ("Daily" vs "Back") from activeTab, so
+// this one variable and one open/close pair covers every entry point.
 let genericTaskDetailId = null;
 function openGenericTaskDetail(taskId){
   genericTaskDetailId = taskId;
@@ -1550,7 +1549,6 @@ function pageTagHtml(onclick, label, compact){
 function currentTabBodyHtml(){
   if(activeTab === 'daily'){
     if(dailyCalendarOpen) return renderDailyCalendar();
-    if(selectedDay && taskDetailId) return renderTaskDetailPage(taskDetailId, 'closeTaskDetail()', 'Daily');
     if(selectedDay) return renderDayDetail(selectedDay);
     return renderDayList();
   }
@@ -1586,23 +1584,19 @@ function currentTabBodyHtml(){
 // the underline is ALWAYS genuinely empty regardless of the title's
 // length or line count — this can just bottom-anchor unconditionally.
 const HEADERLINE_GAP_PX = 4;
-// renderTaskDetailPage() is shared by two entry points — a plain tap on
-// any category tab's row (openGenericTaskDetail(), into
-// #genericTaskDetailView) and Daily's own taskDetailId
-// (openTaskDetailFromDay(), into #dailyView) — but only one is ever
-// actually on screen at a time (render()'s own view-swapping keeps the
-// other hidden/emptied). Checking both roots in order, rather than
-// hardcoding #genericTaskDetailView alone, is what makes this function
-// actually do anything when a task detail was opened from Daily — it
-// used to silently no-op there (title/stackedpage never found), leaving
-// the buttons stuck at the CSS fallback `top` forever regardless of the
-// real title's own length, which is exactly the "buttons in the wrong
-// place, big empty gap" bug this was supposed to have already fixed for
-// the generic view.
+// renderTaskDetailPage() has one mount point (#genericTaskDetailView) —
+// Daily used to render its own copy directly into #dailyView via
+// renderDaily(), which meant this function had to know about (and find
+// nothing in, silently no-opping) two different roots, and worse,
+// renderDaily() never scheduled this function to run at all (only
+// render()'s own requestAnimationFrame does), so a Daily-opened task's
+// headerline buttons never got JS-corrected in the first place. Both
+// entry points go through genericTaskDetailId/openGenericTaskDetail()
+// now (see that variable's own comment, 11-daily-core.js), so there's
+// only ever one place to look.
 function positionHeaderlineActions(){
   if((state.devSettings||{}).taskDetailActionsPosition !== 'headerline') return;
-  const title = document.querySelector('#genericTaskDetailView .titleedit.bigtitle')
-    || document.querySelector('#dailyView .titleedit.bigtitle');
+  const title = document.querySelector('#genericTaskDetailView .titleedit.bigtitle');
   const stackedpage = title && title.closest('.stackedpage');
   if(!title || !stackedpage) return;
   // getBoundingClientRect() always reports post-zoom viewport pixels —
@@ -1667,12 +1661,13 @@ function render(){
   const cldView = document.getElementById('claudeView');
   const gtdView = document.getElementById('genericTaskDetailView');
   // See openGenericTaskDetail() below — a full-page task detail reachable
-  // from a plain tap on ANY category tab's row, not just Daily's own
-  // taskDetailId. Highest priority of the
-  // view-swapping branches here, same tier as claudeView/settingsOpen
-  // (replaces the whole app body, not a floating overlay on top of it —
-  // those live outside #appCard entirely, see the Esc handler's Mobile UI
-  // Lab overlay comment in 19-bootstrap.js).
+  // from a plain tap on ANY category tab's row, Daily included (see
+  // genericTaskDetailId's own comment, 11-daily-core.js, for why Daily
+  // doesn't have its own separate version of this any more). Highest
+  // priority of the view-swapping branches here, same tier as
+  // claudeView/settingsOpen (replaces the whole app body, not a floating
+  // overlay on top of it — those live outside #appCard entirely, see the
+  // Esc handler's Mobile UI Lab overlay comment in 19-bootstrap.js).
   if(genericTaskDetailId && !state.tasks.find(x=>x.id===genericTaskDetailId)) genericTaskDetailId = null;
   if(genericTaskDetailId){
     catView.style.display = 'none';
@@ -1681,7 +1676,12 @@ function render(){
     setView.style.display = 'none';
     cldView.style.display = 'none';
     gtdView.style.display = '';
-    gtdView.innerHTML = renderTaskDetailPage(genericTaskDetailId, 'closeGenericTaskDetail()', 'Back');
+    // "Daily" while activeTab is still Daily underneath this overlay
+    // (browsing a task from within a day — see taskRowHtml()/
+    // daySubLeafHtml()), a generic "Back" everywhere else, since there's
+    // no single named destination for every other tab.
+    const backLabel = activeTab === 'daily' ? 'Daily' : 'Back';
+    gtdView.innerHTML = renderTaskDetailPage(genericTaskDetailId, 'closeGenericTaskDetail()', backLabel);
     document.getElementById('taskList').innerHTML = ''; // avoid stale duplicate ids
     dayView.innerHTML = '';
     chkView.innerHTML = '';
@@ -1807,15 +1807,13 @@ function switchTab(key){
   // ...and once more for whichever stackedpage drilldown a tab's own
   // content might be sitting on — a checklist list's own detail page
   // (selectedListId), its "all pending items" view (checklistPendingOpen),
-  // or Daily's own day/task detail (selectedDay/taskDetailId,
-  // dayReturnToCalendar along with it). Clicking any tab, including the
-  // one you're already on, should always land on that tab's own master
-  // view, not strand you on a drilldown left open from the last time you
-  // were there.
+  // or Daily's own day detail (selectedDay, dayReturnToCalendar along
+  // with it). Clicking any tab, including the one you're already on,
+  // should always land on that tab's own master view, not strand you on
+  // a drilldown left open from the last time you were there.
   selectedListId = null;
   checklistPendingOpen = false;
   selectedDay = null;
-  taskDetailId = null;
   dayReturnToCalendar = false;
   // dailyCalendarOpen is the one exception to "always the master view" —
   // Daily has *two* peer master views (the day list and the calendar, see
