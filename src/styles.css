@@ -945,21 +945,27 @@
     0%{ transform:scale(0.3); opacity:0.9; }
     100%{ transform:scale(1.7); opacity:0; }
   }
-  /* grid, not flex, for the N-equal-columns layout — flexbox's flex:1
-     rounds each item's fractional share of the 18px bar independently,
-     and tends to dump the leftover remainder pixel onto the last
-     item(s), which reads as inconsistent sizing between the first few
-     pips and the last few (worse at non-100% browser zoom, since that
-     rescales the already-fractional division against a new pixel
-     grid). CSS Grid's `fr` unit distributes that same remainder more
-     evenly across tracks instead of concentrating it at one end.
-     grid-auto-columns (not a hardcoded grid-template-columns) is what
-     lets this still work without knowing the pip count in advance —
-     one auto column per child, all sized equally. */
-  .substack{ width:18px; height:5px; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:1.5px; flex-shrink:0; }
-  .subpip{ min-width:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px; opacity:0.55; }
-  .subpip.filled{ background: var(--ink); border-color: var(--ink); opacity:1; }
-  .substack.bar{ gap:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:2px; overflow:hidden; }
+  /* SVG, not CSS Grid/flex <span> children — an earlier version used
+     flex:1 (each item's fractional share of the 18px bar rounded
+     independently, dumping the leftover remainder pixel onto the last
+     item), then CSS Grid's `fr` unit (distributes that remainder more
+     evenly across tracks instead of concentrating it at one end). Both
+     are still N *independent* HTML boxes though, each rounding its own
+     edges to whatever device pixel it lands on — at a non-integer
+     browser (or the "Desktop zoom" dev setting's CSS `zoom`) level that
+     per-box rounding doesn't stay in sync across pips, which is what
+     kept reading as "inconsistent sizing"/pips of "varying lengths" no
+     matter which layout mode drew them. subProgressHtml() (06-tabs-
+     render.js) now draws one <svg> instead, with each rect's own x/width
+     computed from real fractional math up front rather than left to the
+     browser's box-layout rounding — a single vector rasterization pass
+     scales as one unit under any zoom, the same fix already applied to
+     the checklist ring's own pegs (checklistProgressHtml(), 13-checklist.js)
+     for the identical underlying reason. */
+  .substack{ width:18px; height:5px; display:block; flex-shrink:0; overflow:visible; shape-rendering: geometricPrecision; }
+  .subpip{ fill: var(--card-bg-dim); stroke: var(--ink-soft); stroke-width:1; opacity:0.55; }
+  .subpip.filled{ fill: var(--ink); stroke: var(--ink); opacity:1; }
+  .substack.bar{ display:block; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:2px; overflow:hidden; }
   .substack.bar .subfill{ height:100%; background: var(--ink); }
   /* Checklist-category list rows: a round checkbox (vs. the square .check
      used everywhere else) with its items shown around it — as fixed-size

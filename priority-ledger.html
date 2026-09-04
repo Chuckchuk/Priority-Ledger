@@ -977,21 +977,27 @@
     0%{ transform:scale(0.3); opacity:0.9; }
     100%{ transform:scale(1.7); opacity:0; }
   }
-  /* grid, not flex, for the N-equal-columns layout — flexbox's flex:1
-     rounds each item's fractional share of the 18px bar independently,
-     and tends to dump the leftover remainder pixel onto the last
-     item(s), which reads as inconsistent sizing between the first few
-     pips and the last few (worse at non-100% browser zoom, since that
-     rescales the already-fractional division against a new pixel
-     grid). CSS Grid's `fr` unit distributes that same remainder more
-     evenly across tracks instead of concentrating it at one end.
-     grid-auto-columns (not a hardcoded grid-template-columns) is what
-     lets this still work without knowing the pip count in advance —
-     one auto column per child, all sized equally. */
-  .substack{ width:18px; height:5px; display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:1.5px; flex-shrink:0; }
-  .subpip{ min-width:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:1px; opacity:0.55; }
-  .subpip.filled{ background: var(--ink); border-color: var(--ink); opacity:1; }
-  .substack.bar{ gap:0; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:2px; overflow:hidden; }
+  /* SVG, not CSS Grid/flex <span> children — an earlier version used
+     flex:1 (each item's fractional share of the 18px bar rounded
+     independently, dumping the leftover remainder pixel onto the last
+     item), then CSS Grid's `fr` unit (distributes that remainder more
+     evenly across tracks instead of concentrating it at one end). Both
+     are still N *independent* HTML boxes though, each rounding its own
+     edges to whatever device pixel it lands on — at a non-integer
+     browser (or the "Desktop zoom" dev setting's CSS `zoom`) level that
+     per-box rounding doesn't stay in sync across pips, which is what
+     kept reading as "inconsistent sizing"/pips of "varying lengths" no
+     matter which layout mode drew them. subProgressHtml() (06-tabs-
+     render.js) now draws one <svg> instead, with each rect's own x/width
+     computed from real fractional math up front rather than left to the
+     browser's box-layout rounding — a single vector rasterization pass
+     scales as one unit under any zoom, the same fix already applied to
+     the checklist ring's own pegs (checklistProgressHtml(), 13-checklist.js)
+     for the identical underlying reason. */
+  .substack{ width:18px; height:5px; display:block; flex-shrink:0; overflow:visible; shape-rendering: geometricPrecision; }
+  .subpip{ fill: var(--card-bg-dim); stroke: var(--ink-soft); stroke-width:1; opacity:0.55; }
+  .subpip.filled{ fill: var(--ink); stroke: var(--ink); opacity:1; }
+  .substack.bar{ display:block; background: var(--card-bg-dim); border:1px solid var(--ink-soft); border-radius:2px; overflow:hidden; }
   .substack.bar .subfill{ height:100%; background: var(--ink); }
   /* Checklist-category list rows: a round checkbox (vs. the square .check
      used everywhere else) with its items shown around it — as fixed-size
@@ -9566,6 +9572,12 @@ function syncQuickField(kind, val){
   renderQuickCategory();
 }
 
+// Gap between adjacent pips, in the same 1-unit-per-px viewBox
+// subProgressHtml() below draws in. Tightened from the old CSS Grid
+// version's 1.5px gap for less visible padding between pips, per the
+// explicit "remove some padding... more filled out and wider" ask.
+const SUBPIP_GAP = 1;
+
 function subProgressHtml(subs){
   if(!subs.length) return '';
   const done = subs.filter(s=>s.done).length;
@@ -9576,8 +9588,25 @@ function subProgressHtml(subs){
   // linear-bar component (.substack/.subpip, not the checklist's curved
   // SVG peg ring), the two limits are meant to line up conceptually.
   if(total <= 8){
-    const pips = subs.map(s=>`<span class="subpip ${s.done?'filled':''}"></span>`).join('');
-    return `<div class="substack" title="${done}/${total} steps done">${pips}</div>`;
+    // SVG rects, not individually laid-out CSS Grid <span> children (the
+    // old version) — each pip used to be its own independent HTML box,
+    // and a plain grid/flex layout rounds every box's own edges to
+    // whatever device pixel it lands on, independently of its neighbors.
+    // At a non-integer browser (or the "Desktop zoom" dev setting's CSS
+    // `zoom`) level, that per-box rounding doesn't stay in sync across
+    // pips, so a row meant to read as evenly spaced could visibly drift —
+    // pips of "varying lengths," gaps that don't quite match, depending
+    // on zoom and on how many pips there were to divide 18px's worth of
+    // grid tracks across. One <svg>, rendered as a single vector
+    // rasterization pass with real fractional math for each rect's own
+    // x/width, doesn't have that problem — same fix already applied to
+    // the checklist ring's own pegs, for the same underlying reason.
+    const pipW = (18 - SUBPIP_GAP * (total - 1)) / total;
+    const pips = subs.map((s,i) => {
+      const x = (i * (pipW + SUBPIP_GAP)).toFixed(3);
+      return `<rect class="subpip ${s.done?'filled':''}" x="${x}" y="0" width="${pipW.toFixed(3)}" height="5" rx="1"></rect>`;
+    }).join('');
+    return `<svg class="substack" viewBox="0 0 18 5" title="${done}/${total} steps done">${pips}</svg>`;
   }
   const pct = Math.round(done/total*100);
   return `<div class="substack bar" title="${done}/${total} steps done"><div class="subfill" style="width:${pct}%"></div></div>`;
@@ -14429,15 +14458,14 @@ function renderChecklistOverview(categoryId){
 // one shared "8" during an earlier pass of this feature; the project
 // owner's own follow-up split them back into two independent numbers.
 const CHECKLIST_PEG_LIMIT = 12;
+const PEG_SLOT_DEG = 360 / CHECKLIST_PEG_LIMIT;
 // Both the first peg slot and the progress ring's 0% point start here:
-// top-left rather than dead center-top, matching the "25° left of top"
-// look originally asked for. Shared by both the discrete-peg ring and
-// the smooth conic-gradient fallback below purely so the two read as
-// the same ring rotated the same way when a list crosses the threshold
-// between them — pegs are now spaced dynamically per the real item
-// count (see checklistProgressHtml() below), so this no longer needs to
-// land on a cardinal axis the way it did back when every list shared
-// one fixed 12-slot grid.
+// top-left rather than dead center-top. Kept as a multiple of
+// PEG_SLOT_DEG (30°) on purpose — since 90° (the gap between the four
+// cardinal directions) is exactly 3 slots, that's what guarantees the
+// slots nearest top/right/bottom/left land exactly on those axes
+// instead of sitting at an off-angle. -25 (nearer the "25° left of top"
+// originally asked for) would have thrown that off.
 const PEG_START_DEG = -30;
 
 // At or under the threshold: one fixed-size .peg per item, in list
@@ -14496,40 +14524,22 @@ function pegArcPath(cx, cy, rInner, rOuter, halfWidthDeg){
        + `L ${r3(ix2)} ${r3(iy2)} A ${rInner} ${rInner} 0 0 0 ${r3(ix1)} ${r3(iy1)} Z`;
 }
 // Same radial span the old flat peg used (outer edge 14px out from
-// center, inner edge 9px out — a 5px-thick band).
+// center, inner edge 9px out — a 5px-thick band). Half-width widened
+// from 12° to 13.5° at the same 30° slot size (CHECKLIST_PEG_LIMIT back
+// at 12) — less padding between adjacent pegs, per the explicit ask,
+// while keeping each one easily visible: 13.5° half-width is 27° of
+// actual peg out of each 30° slot (90% fill) vs. the old 12°-of-30°
+// (80% fill) — a bit fuller, not just carried over unchanged.
 const PEG_R_OUTER = 14;
 const PEG_R_INNER = 9;
-// Fraction of each slot's own angular width a peg actually fills — the
-// rest is the visible gap to its neighbor. Applied against a slot size
-// that's now *derived from the real item count* (see checklistProgressHtml()
-// below), not the old fixed 30° (CHECKLIST_PEG_LIMIT slots, always,
-// however few items there actually were). A short list previously still
-// only claimed as many of those fixed 30°-apart slots as it had items —
-// 4 items sat clustered in one ~120° wedge, leaving the rest of the ring
-// visibly bare, which read as "jetting out"/sparse rather than a real
-// ring, and got worse the fewer items there were. Spreading `total`
-// pegs evenly across the *whole* 360° instead means a short list's pegs
-// end up wider and evenly spaced around the full circle rather than
-// bunched together — per the explicit ask, this also makes the ring's
-// actual look stop depending on how many items happen to be in it (it
-// was never really about zoom itself; a half-empty cluster just reads
-// as more obviously "off" at some zoom levels than others). This trades
-// away the previous design's one guarantee — an item's own peg staying
-// at the same fixed slot for the life of the list — since evenly
-// respacing means every peg's angle shifts slightly whenever an item is
-// added or removed anywhere in the list. That trade is deliberate: a
-// ring that actually looks like a ring at any item count is what was
-// asked for now. 0.92 (up from the old fixed-slot version's 0.9) per
-// "remove some padding... more filled out."
-const PEG_FILL_RATIO = 0.92;
+const PEG_HALF_WIDTH_DEG = 13.5;
+const PEG_PATH_AT_ZERO = pegArcPath(17, 17, PEG_R_INNER, PEG_R_OUTER, PEG_HALF_WIDTH_DEG);
 
 function checklistProgressHtml(subs){
   if(!subs.length) return '';
   const done = subs.filter(s=>s.done).length;
   const total = subs.length;
   if(total <= CHECKLIST_PEG_LIMIT){
-    const slotDeg = 360 / total;
-    const pegPath = pegArcPath(17, 17, PEG_R_INNER, PEG_R_OUTER, slotDeg * PEG_FILL_RATIO / 2);
     // Painted in "unfilled first, filled last" order (not slot order) so
     // a filled peg always paints over an unfilled neighbor at their
     // slightly-overlapping corners — SVG has no z-index to lean on here
@@ -14539,8 +14549,8 @@ function checklistProgressHtml(subs){
     // position in this reordered list, so sorting doesn't move anything.
     const ordered = subs.map((s,i)=>({s,i})).sort((a,b)=>(a.s.done?1:0)-(b.s.done?1:0));
     const pegs = ordered.map(({s,i})=>{
-      const angle = PEG_START_DEG + i*slotDeg;
-      return `<path class="peg ${s.done?'filled':''}" d="${pegPath}" transform="rotate(${angle} 17 17)"></path>`;
+      const angle = PEG_START_DEG + i*PEG_SLOT_DEG;
+      return `<path class="peg ${s.done?'filled':''}" d="${PEG_PATH_AT_ZERO}" transform="rotate(${angle} 17 17)"></path>`;
     }).join('');
     return `<svg class="pegring" viewBox="0 0 34 34">${pegs}</svg>`;
   }

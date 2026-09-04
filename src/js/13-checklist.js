@@ -101,15 +101,14 @@ function renderChecklistOverview(categoryId){
 // one shared "8" during an earlier pass of this feature; the project
 // owner's own follow-up split them back into two independent numbers.
 const CHECKLIST_PEG_LIMIT = 12;
+const PEG_SLOT_DEG = 360 / CHECKLIST_PEG_LIMIT;
 // Both the first peg slot and the progress ring's 0% point start here:
-// top-left rather than dead center-top, matching the "25° left of top"
-// look originally asked for. Shared by both the discrete-peg ring and
-// the smooth conic-gradient fallback below purely so the two read as
-// the same ring rotated the same way when a list crosses the threshold
-// between them — pegs are now spaced dynamically per the real item
-// count (see checklistProgressHtml() below), so this no longer needs to
-// land on a cardinal axis the way it did back when every list shared
-// one fixed 12-slot grid.
+// top-left rather than dead center-top. Kept as a multiple of
+// PEG_SLOT_DEG (30°) on purpose — since 90° (the gap between the four
+// cardinal directions) is exactly 3 slots, that's what guarantees the
+// slots nearest top/right/bottom/left land exactly on those axes
+// instead of sitting at an off-angle. -25 (nearer the "25° left of top"
+// originally asked for) would have thrown that off.
 const PEG_START_DEG = -30;
 
 // At or under the threshold: one fixed-size .peg per item, in list
@@ -168,40 +167,22 @@ function pegArcPath(cx, cy, rInner, rOuter, halfWidthDeg){
        + `L ${r3(ix2)} ${r3(iy2)} A ${rInner} ${rInner} 0 0 0 ${r3(ix1)} ${r3(iy1)} Z`;
 }
 // Same radial span the old flat peg used (outer edge 14px out from
-// center, inner edge 9px out — a 5px-thick band).
+// center, inner edge 9px out — a 5px-thick band). Half-width widened
+// from 12° to 13.5° at the same 30° slot size (CHECKLIST_PEG_LIMIT back
+// at 12) — less padding between adjacent pegs, per the explicit ask,
+// while keeping each one easily visible: 13.5° half-width is 27° of
+// actual peg out of each 30° slot (90% fill) vs. the old 12°-of-30°
+// (80% fill) — a bit fuller, not just carried over unchanged.
 const PEG_R_OUTER = 14;
 const PEG_R_INNER = 9;
-// Fraction of each slot's own angular width a peg actually fills — the
-// rest is the visible gap to its neighbor. Applied against a slot size
-// that's now *derived from the real item count* (see checklistProgressHtml()
-// below), not the old fixed 30° (CHECKLIST_PEG_LIMIT slots, always,
-// however few items there actually were). A short list previously still
-// only claimed as many of those fixed 30°-apart slots as it had items —
-// 4 items sat clustered in one ~120° wedge, leaving the rest of the ring
-// visibly bare, which read as "jetting out"/sparse rather than a real
-// ring, and got worse the fewer items there were. Spreading `total`
-// pegs evenly across the *whole* 360° instead means a short list's pegs
-// end up wider and evenly spaced around the full circle rather than
-// bunched together — per the explicit ask, this also makes the ring's
-// actual look stop depending on how many items happen to be in it (it
-// was never really about zoom itself; a half-empty cluster just reads
-// as more obviously "off" at some zoom levels than others). This trades
-// away the previous design's one guarantee — an item's own peg staying
-// at the same fixed slot for the life of the list — since evenly
-// respacing means every peg's angle shifts slightly whenever an item is
-// added or removed anywhere in the list. That trade is deliberate: a
-// ring that actually looks like a ring at any item count is what was
-// asked for now. 0.92 (up from the old fixed-slot version's 0.9) per
-// "remove some padding... more filled out."
-const PEG_FILL_RATIO = 0.92;
+const PEG_HALF_WIDTH_DEG = 13.5;
+const PEG_PATH_AT_ZERO = pegArcPath(17, 17, PEG_R_INNER, PEG_R_OUTER, PEG_HALF_WIDTH_DEG);
 
 function checklistProgressHtml(subs){
   if(!subs.length) return '';
   const done = subs.filter(s=>s.done).length;
   const total = subs.length;
   if(total <= CHECKLIST_PEG_LIMIT){
-    const slotDeg = 360 / total;
-    const pegPath = pegArcPath(17, 17, PEG_R_INNER, PEG_R_OUTER, slotDeg * PEG_FILL_RATIO / 2);
     // Painted in "unfilled first, filled last" order (not slot order) so
     // a filled peg always paints over an unfilled neighbor at their
     // slightly-overlapping corners — SVG has no z-index to lean on here
@@ -211,8 +192,8 @@ function checklistProgressHtml(subs){
     // position in this reordered list, so sorting doesn't move anything.
     const ordered = subs.map((s,i)=>({s,i})).sort((a,b)=>(a.s.done?1:0)-(b.s.done?1:0));
     const pegs = ordered.map(({s,i})=>{
-      const angle = PEG_START_DEG + i*slotDeg;
-      return `<path class="peg ${s.done?'filled':''}" d="${pegPath}" transform="rotate(${angle} 17 17)"></path>`;
+      const angle = PEG_START_DEG + i*PEG_SLOT_DEG;
+      return `<path class="peg ${s.done?'filled':''}" d="${PEG_PATH_AT_ZERO}" transform="rotate(${angle} 17 17)"></path>`;
     }).join('');
     return `<svg class="pegring" viewBox="0 0 34 34">${pegs}</svg>`;
   }

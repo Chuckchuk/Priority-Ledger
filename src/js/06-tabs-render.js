@@ -1041,6 +1041,12 @@ function syncQuickField(kind, val){
   renderQuickCategory();
 }
 
+// Gap between adjacent pips, in the same 1-unit-per-px viewBox
+// subProgressHtml() below draws in. Tightened from the old CSS Grid
+// version's 1.5px gap for less visible padding between pips, per the
+// explicit "remove some padding... more filled out and wider" ask.
+const SUBPIP_GAP = 1;
+
 function subProgressHtml(subs){
   if(!subs.length) return '';
   const done = subs.filter(s=>s.done).length;
@@ -1051,8 +1057,25 @@ function subProgressHtml(subs){
   // linear-bar component (.substack/.subpip, not the checklist's curved
   // SVG peg ring), the two limits are meant to line up conceptually.
   if(total <= 8){
-    const pips = subs.map(s=>`<span class="subpip ${s.done?'filled':''}"></span>`).join('');
-    return `<div class="substack" title="${done}/${total} steps done">${pips}</div>`;
+    // SVG rects, not individually laid-out CSS Grid <span> children (the
+    // old version) — each pip used to be its own independent HTML box,
+    // and a plain grid/flex layout rounds every box's own edges to
+    // whatever device pixel it lands on, independently of its neighbors.
+    // At a non-integer browser (or the "Desktop zoom" dev setting's CSS
+    // `zoom`) level, that per-box rounding doesn't stay in sync across
+    // pips, so a row meant to read as evenly spaced could visibly drift —
+    // pips of "varying lengths," gaps that don't quite match, depending
+    // on zoom and on how many pips there were to divide 18px's worth of
+    // grid tracks across. One <svg>, rendered as a single vector
+    // rasterization pass with real fractional math for each rect's own
+    // x/width, doesn't have that problem — same fix already applied to
+    // the checklist ring's own pegs, for the same underlying reason.
+    const pipW = (18 - SUBPIP_GAP * (total - 1)) / total;
+    const pips = subs.map((s,i) => {
+      const x = (i * (pipW + SUBPIP_GAP)).toFixed(3);
+      return `<rect class="subpip ${s.done?'filled':''}" x="${x}" y="0" width="${pipW.toFixed(3)}" height="5" rx="1"></rect>`;
+    }).join('');
+    return `<svg class="substack" viewBox="0 0 18 5" title="${done}/${total} steps done">${pips}</svg>`;
   }
   const pct = Math.round(done/total*100);
   return `<div class="substack bar" title="${done}/${total} steps done"><div class="subfill" style="width:${pct}%"></div></div>`;
