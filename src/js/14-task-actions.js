@@ -175,6 +175,7 @@ async function updateTimeframe(id, val){
   const t = state.tasks.find(t=>t.id===id);
   if(!t || val === t.timeframe) return;
   pushUndo(`Set timeframe for "${t.title}"`);
+  touchTask(t);
   t.timeframe = val;
   t.timeframeManual = val !== '';
   if(val === 'today'){
@@ -193,6 +194,7 @@ async function updatePriority(id, val){
   const p = parseInt(val, 10) || 0;
   if(p === t.priority) return;
   pushUndo(`Set priority for "${t.title}"`);
+  touchTask(t);
   t.priority = p;
   render();
   reopen(id);

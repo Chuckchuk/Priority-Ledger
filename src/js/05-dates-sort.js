@@ -193,7 +193,14 @@ let sortMode = 'default';
 // instead of a date/timeframe/category field. Distinct from flaggedOnly
 // below: this only ever REORDERS (flagged tasks float to the top, nothing
 // is ever hidden), consistent with every other sort mode here.
-const SORT_MODE_LABELS = { default:'My Order', flagged:'Flagged First', mixed:'Mixed', timeframe:'Timeframe', newest:'Newest First', timestamp:'Oldest First', priority:'Priority', category:'Category' };
+// 'recent' reads t.updatedAt (touchTask(), 16-task-crud.js) — bumped by
+// every function that represents a genuine content edit (title/notes/
+// due date/priority/timeframe/urgent/category/status, and the same on a
+// subtask or checklist item), not by pure navigation/reorder actions. A
+// task that's never been individually edited since creation has no
+// updatedAt yet, so it falls back to createdAt right in the comparator
+// below rather than needing every creation call site to set one too.
+const SORT_MODE_LABELS = { default:'My Order', flagged:'Flagged First', mixed:'Mixed', timeframe:'Timeframe', newest:'Newest First', timestamp:'Oldest First', recent:'Recently Edited', priority:'Priority', category:'Category' };
 const TIMEFRAME_ORDER = { urgent:0, today:1, short:2, medium:3, long:4, '':5 };
 
 function setSortMode(val){
@@ -209,6 +216,7 @@ function applySortMode(list){
     case 'timeframe': return list.slice().sort((a,b)=> doneLast(a,b) || (TIMEFRAME_ORDER[a.timeframe||''] - TIMEFRAME_ORDER[b.timeframe||'']));
     case 'timestamp': return list.slice().sort((a,b)=> doneLast(a,b) || (new Date(a.createdAt) - new Date(b.createdAt)));
     case 'newest': return list.slice().sort((a,b)=> doneLast(a,b) || (new Date(b.createdAt) - new Date(a.createdAt)));
+    case 'recent': return list.slice().sort((a,b)=> doneLast(a,b) || (new Date(b.updatedAt||b.createdAt) - new Date(a.updatedAt||a.createdAt)));
     case 'priority': return list.slice().sort((a,b)=> doneLast(a,b) || ((b.priority||0) - (a.priority||0)));
     case 'category': {
       const order = state.categories.map(c=>c.id);
@@ -260,19 +268,28 @@ function toggleFlaggedOnly(){
 
 // The whole "SORT [button ▾] [flag toggle]" row — one shared definition
 // (matching shareButtonHtml()'s own "one place, not per-call-site copies"
-// reasoning, 19-sharing.js) so renderList()'s category/All-tab list and
-// renderDayDetail()'s own day list (08-render-core.js/12-daily-tree.js —
-// the two places a flat task list has its own sort control at all; the
-// "add existing task to this day" tree picker doesn't sort linearly, so
-// it never had one) can't drift apart. The sort button's own label always
-// leads with ⚑ when 'flagged' is the active mode, same as the menu's own
-// leading glyph for that option.
-function sortControlHtml(includeCategory){
+// reasoning, 19-sharing.js) so renderList()'s category/All-tab list,
+// renderDayDetail()'s own day list, and renderChecklistOverview()'s list
+// of lists (08-render-core.js/12-daily-tree.js/13-checklist.js) can't
+// drift apart. The sort button's own label always leads with ⚑ when
+// 'flagged' is the active mode, same as the menu's own leading glyph for
+// that option. `includeFlagFilter` (default true) drops just the
+// separate flag-filter toggle button — not a sort option, a bolt-on
+// filter — for checklistOverviewHtml's own call: a checklist "list"
+// never sets t.urgent (see this file's own CLAUDE.md-documented "no due
+// date/priority/timeframe" note), so toggling that filter there could
+// only ever hide every list, never actually filter anything. The 'Flagged
+// First' sort MODE stays offered everywhere for parity even so — it's
+// merely a no-op reorder for checklists (every list ties, same as it
+// would for any task that never got flagged), not a broken control the
+// way the toggle would be.
+function sortControlHtml(includeCategory, includeFlagFilter){
   const label = (sortMode==='flagged' ? '⚑ ' : '') + (SORT_MODE_LABELS[sortMode] || SORT_MODE_LABELS.default);
+  const showFlagFilter = includeFlagFilter !== false;
   return `
     <label class="fieldlabel">SORT</label>
     <button class="sortbtn" onclick="event.stopPropagation(); openSortMenu(this, ${includeCategory})">${label} <span class="sortcaret">▾</span></button>
-    <button class="flagfilterbtn ${flaggedOnly?'on':''}" onclick="toggleFlaggedOnly()" title="${flaggedOnly ? 'Show all tasks' : 'Show flagged tasks only'}">⚑</button>
+    ${showFlagFilter ? `<button class="flagfilterbtn ${flaggedOnly?'on':''}" onclick="toggleFlaggedOnly()" title="${flaggedOnly ? 'Show all tasks' : 'Show flagged tasks only'}">⚑</button>` : ''}
   `;
 }
 

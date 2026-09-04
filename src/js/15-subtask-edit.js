@@ -30,6 +30,7 @@ function startEditSubtask(el, taskId, subId){
     const val = input.value.replace(/\s*\n+\s*/g, ' ').trim();
     if(val && val !== s.text){
       pushUndo(`Renamed step to "${val}"`);
+      touchTask(t);
       s.text = val;
       queueSave();
     }
@@ -95,6 +96,7 @@ async function updateSubtaskDueDate(taskId, subId, dueDate){
   const s = t && (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
   pushUndo(dueDate ? `Dated step "${s.text}"` : `Cleared date for step "${s.text}"`);
+  touchTask(t);
   s.dueDate = dueDate;
   if(dueDate && isDueWithinDays(dueDate, 3) && !s.done && !s.cancelled){
     if(!s.plannedDates) s.plannedDates = [];

@@ -32,8 +32,19 @@ function renderChecklist(){
   }
 }
 
+// Sort-mode aware (applySortMode(), 05-dates-sort.js) rather than the
+// fixed sortTasks() this used to call unconditionally — same shared
+// sortMode global every other list view (category tabs, Daily) already
+// reads, per the explicit ask for checklists to get the same SORT
+// control with full parity rather than a checklist-only copy of it.
+// Most modes degrade harmlessly for a checklist list specifically (no
+// due date/priority/timeframe/urgent ever get set on one — see this
+// file's own top comment — so 'timeframe'/'priority'/'flagged' just tie
+// every list and fall back to array order); 'default'/'mixed'/'newest'/
+// 'timestamp'/'recent' all still meaningfully reorder. Every consumer
+// (the overview, the cross-list Pending view) picks this up for free.
 function checklistLists(categoryId){
-  return sortTasks(state.tasks.filter(t=>t.category===categoryId));
+  return applySortMode(state.tasks.filter(t=>t.category===categoryId));
 }
 
 // A list marked done overrides its items' individual done flags for
@@ -75,6 +86,12 @@ function renderChecklistOverview(categoryId){
     <div class="checklisttemplateslink">
       <button onclick="openChecklistTemplates('${categoryId}')">Templates${templateCount ? ` (${templateCount})` : ''}</button>
     </div>
+    <!-- false, false: no "by Category" option (a single checklist tab's
+         own lists are all already this one category, same reasoning a
+         non-All standard tab omits it — see sortMenuButtonsHtml()'s own
+         comment) and no flag-filter toggle (see sortControlHtml()'s own
+         comment on why that specific control would be broken here). -->
+    <div class="sortrow">${sortControlHtml(false, false)}</div>
     <ul class="tasks">
       ${visible.length ? visible.map(t=>checklistListRowHtml(t)).join('') : `<div class="empty">${cat ? `No lists in ${escapeHtml(cat.label)} yet.` : 'No lists yet.'} Add one above.</div>`}
     </ul>

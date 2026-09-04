@@ -93,6 +93,20 @@ async function addTask(){
 // innerHTML from scratch.
 let celebrateCheckTaskId = null;
 
+// Bumps a task's own "last edited" timestamp — read by sortMode 'recent'
+// (applySortMode(), 05-dates-sort.js). Called from every function below
+// (and in 14-task-actions.js/15-subtask-edit.js/13-checklist.js) that
+// represents a genuine content edit — title/notes/due date/priority/
+// timeframe/urgent/category/status, and any of the above on a subtask or
+// checklist item, since both are plain state.tasks mutations under the
+// hood — not from pure navigation, drag-reorder, or day-planning actions.
+// A task that's never been touched by this just falls back to its own
+// createdAt in the sort itself (see applySortMode()'s own comment), so
+// this never needs to be set at creation time too.
+function touchTask(t){
+  t.updatedAt = new Date().toISOString();
+}
+
 // Completing a task stamps completedAt; reopening it clears that stamp
 // entirely rather than keeping a history of past completions — the undo
 // stack is already this app's history mechanism for "what did this used
@@ -102,6 +116,7 @@ async function toggleStatus(id){
   if(!t) return;
   const willBeDone = t.status !== 'done';
   pushUndo(willBeDone ? `Completed "${t.title}"` : `Reopened "${t.title}"`);
+  touchTask(t);
   t.status = willBeDone ? 'done' : 'open';
   t.completedAt = willBeDone ? todayStr() : '';
   // Reopening a cancelled task (this checkbox is its only way back to
@@ -143,6 +158,7 @@ async function markTaskCancelled(id){
   const t = state.tasks.find(t=>t.id===id);
   if(!t) return;
   pushUndo(`Marked "${t.title}" cancelled`);
+  touchTask(t);
   t.status = 'done';
   t.cancelled = true;
   t.completedAt = todayStr();
@@ -166,6 +182,7 @@ async function uncancelTaskToComplete(id){
   const t = state.tasks.find(t=>t.id===id);
   if(!t || !t.cancelled) return;
   pushUndo(`Marked "${t.title}" complete`);
+  touchTask(t);
   t.cancelled = false;
   render();
   queueSave();
@@ -231,6 +248,7 @@ async function toggleUrgent(id){
   if(!t) return;
   const willBeUrgent = !t.urgent;
   pushUndo(willBeUrgent ? `Flagged "${t.title}" urgent` : `Unflagged "${t.title}"`);
+  touchTask(t);
   t.urgent = willBeUrgent;
   render();
   reopen(id);
@@ -266,6 +284,7 @@ async function updateDueDate(id, val){
   if(!t) return;
   if(val === t.dueDate) return;
   pushUndo(`Changed due date for "${t.title}"`);
+  touchTask(t);
   t.dueDate = val;
   if(val && isDueWithinDays(val, 3) && t.status!=='done' && !t.cancelled){
     if(!t.plannedDates) t.plannedDates = [];
@@ -317,6 +336,7 @@ async function updateTitle(id, val){
   const newVal = val.replace(/\s*\n+\s*/g, ' ').trim();
   if(newVal && newVal !== t.title){
     pushUndo(`Renamed task to "${newVal}"`);
+    touchTask(t);
     t.title = newVal;
     queueSave();
   }
@@ -330,6 +350,7 @@ async function updateCategory(id, val){
   if(val === t.category) return;
   const label = (CATEGORIES[val] || FALLBACK_CATEGORY).label;
   pushUndo(`Moved "${t.title}" to ${label}`);
+  touchTask(t);
   t.category = val;
   render();
   reopen(id);
@@ -356,6 +377,7 @@ async function addSubtask(taskId, text){
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
   pushUndo(`Added step to "${t.title}"`);
+  touchTask(t);
   if(!t.subtasks) t.subtasks = [];
   t.subtasks.push({ id: newId('sub'), text: val, done:false, dueDate:'', plannedDates:[] });
   render();
@@ -370,6 +392,7 @@ async function toggleSubtask(taskId, subId){
   const s = (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
   pushUndo(s.done ? `Unchecked step in "${t.title}"` : `Checked step in "${t.title}"`);
+  touchTask(t);
   s.done = !s.done;
   // Same reasoning as toggleStatus()'s own reopen case — unchecking a
   // cancelled step is its only way back to not-done, so it stops being
@@ -392,6 +415,7 @@ async function markSubtaskCancelled(taskId, subId){
   const s = (t.subtasks||[]).find(s=>s.id===subId);
   if(!s) return;
   pushUndo(`Marked a step in "${t.title}" cancelled`);
+  touchTask(t);
   s.done = true;
   s.cancelled = true;
   render();
@@ -408,6 +432,7 @@ async function uncancelSubtaskToComplete(taskId, subId){
   const s = (t.subtasks||[]).find(s=>s.id===subId);
   if(!s || !s.cancelled) return;
   pushUndo(`Marked a step in "${t.title}" complete`);
+  touchTask(t);
   s.cancelled = false;
   render();
   reopen(taskId);
@@ -418,6 +443,7 @@ async function deleteSubtask(taskId, subId){
   const t = state.tasks.find(t=>t.id===taskId);
   if(!t) return;
   pushUndo(`Deleted step from "${t.title}"`);
+  touchTask(t);
   t.subtasks = (t.subtasks||[]).filter(s=>s.id!==subId);
   render();
   reopen(taskId);
@@ -429,6 +455,7 @@ async function updateNotes(id, val){
   if(!t) return;
   if(val === t.notes) return;
   pushUndo(`Edited notes for "${t.title}"`);
+  touchTask(t);
   t.notes = val;
   queueSave();
 }
