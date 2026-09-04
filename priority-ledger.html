@@ -6257,6 +6257,33 @@ function relLuminance(hex){
   return 0.2126*r + 0.7152*g + 0.0722*b;
 }
 
+// Used by applyThemeObject()'s dark-mode inkFromUi branch: starting from
+// startV, nudges an HSV color's value up in small steps until its actual
+// rendered luminance clears bgLum (a relLuminance() reading) by
+// targetContrast, or ceil is reached — whichever comes first. Deliberately
+// directional (fg luminance vs. bg, not the symmetric max/min WCAG
+// formula) — the symmetric version can't tell "brighter than the
+// background" from "darker than it by the same ratio," so a candidate
+// that had drifted darker than an already-fairly-dark paper could pass
+// undetected, rendering as a near-black smudge rather than legible light
+// text. Also why this exists instead of a flat value floor: HSV value
+// alone doesn't track perceived brightness across hues (relLuminance()
+// weights green ~10x more than blue), so a flat floor still left some
+// hues reading as barely-there against a very dark paper even once
+// "floored" by V alone. A source already above the target needs no lift
+// at all, which is what lets an already-legible color keep its own
+// natural darkness (the "moody colored text" ask) instead of every
+// dark-mode combination getting flattened to one same bright tone.
+function liftValueForContrast(h, s, startV, bgLum, targetContrast, ceil){
+  let v = Math.max(0, Math.min(startV, ceil));
+  for(let i=0; i<40; i++){
+    const lum = relLuminance(hsvToHex(h, s, v));
+    if((lum + 0.05) / (bgLum + 0.05) >= targetContrast || v >= ceil) break;
+    v = Math.min(v + 0.02, ceil);
+  }
+  return v;
+}
+
 // Applies a theme object to the live page via CSS custom properties, plus
 // the texture classes on #appCard. Takes a plain object (not necessarily
 // state.theme) so signOut() can restore the classic look without needing
@@ -6348,20 +6375,68 @@ function applyThemeObject(t){
   // this stayed color-only — the formula/constants themselves are
   // unchanged from the Pastel-only version, just no longer gated on any
   // palette being Pastel.
-  const inkFromUi = !dark && !!t.inkFromUi;
+  //   Originally gated to `!dark` entirely — a dark Ledger's own paper is
+  // already so dark that the light-mode formula's low value (0.34) read as
+  // "lost," so it silently fell back to the flat cream ink instead. Now
+  // handled with its own dark-mode branch below rather than disabled: see
+  // its own comment for the value-floor idea that keeps it legible without
+  // just forcing every dark-mode combination up to one bright, samey tone.
+  const inkFromUi = !!t.inkFromUi;
   if(inkFromUi){
     const sourceHex = t.inkFromUiSource === 'secondary' ? ui.secondary : ui.primary;
     const sourceHsv = hexToHsv(sourceHex);
     const tintSat = Math.min(0.15 + sourceHsv.s * 1.0, 0.62);
-    // Value (0.34/0.58) bumped up from an initial 0.22/0.48 — at 0.22 the
-    // result still read as "nearly black" regardless of hue (the project
-    // owner's own words) since a color that dark loses most of its
-    // perceptible hue no matter how saturated; brighter keeps the same
-    // hue/saturation math but actually lets the color read as a color.
-    const inkHex = hsvToHex(sourceHsv.h, tintSat, 0.34);
-    root.setProperty('--ink', inkHex);
-    root.setProperty('--ink-soft', hsvToHex(sourceHsv.h, tintSat, 0.58));
-    root.setProperty('--line', hexToRgba(inkHex, 0.16));
+    if(dark){
+      // Dark Ledger: needs the opposite move from light mode — LIGHT
+      // enough to read against a dark paper, not light mode's deliberately
+      // dark ink. Simply flipping to a high fixed value (mirroring light
+      // mode's fixed 0.34) would flatten every dark-mode combination to
+      // one same bright tone regardless of the source color's own
+      // character — per the explicit ask, a source that's already
+      // reasonably light (or a moody-but-legible dark one, see Photo 1)
+      // should keep close to its own natural value instead of being
+      // pushed all the way up.
+      //   "Capped to a certain darkness level" is measured as actual
+      // contrast against the paper (relLuminance()), not raw HSV value —
+      // value alone doesn't track perceived brightness across hues (a
+      // saturated red/brown reads noticeably darker than a yellow/green at
+      // the same V, since luminance weights green ~10x more than blue),
+      // so an early flat-V-floor version still left some hues reading as
+      // barely-there (~2:1 contrast) against a very dark paper even once
+      // "floored." liftValueForContrast() below instead nudges V up in
+      // small steps until the actual rendered color clears a target
+      // contrast ratio, capped at inkValueCeil so it still stops short of
+      // full-bright for a source that was already legible from the start.
+      // The saturation boost (darkBoost, the "should go up a bit if the
+      // UI color is especially dark" ask) is applied first, since raising
+      // V afterward without it is what washes a naturally-dark, saturated
+      // color out toward gray.
+      const inkValueCeil = 0.94, softValueCeil = 0.86;
+      const darkBoost = Math.max(0, 0.5 - sourceHsv.v) * 0.6;
+      const darkSat = Math.min(tintSat + darkBoost, 0.85);
+      const paperLum = relLuminance(t.paper);
+      const inkV = liftValueForContrast(sourceHsv.h, darkSat, sourceHsv.v, paperLum, 3.2, inkValueCeil);
+      // ink-soft sits a little closer to the (dark) paper than ink itself
+      // — same "less prominent, more muted" relationship light mode's own
+      // ink/ink-soft pair has, just mirrored since paper's own lightness
+      // is at the opposite end here — hence the lower target contrast and
+      // a slightly darker starting point.
+      const softV = liftValueForContrast(sourceHsv.h, darkSat, sourceHsv.v - 0.12, paperLum, 2.1, softValueCeil);
+      const inkHex = hsvToHex(sourceHsv.h, darkSat, inkV);
+      root.setProperty('--ink', inkHex);
+      root.setProperty('--ink-soft', hsvToHex(sourceHsv.h, darkSat, softV));
+      root.setProperty('--line', hexToRgba(inkHex, 0.22));
+    } else {
+      // Value (0.34/0.58) bumped up from an initial 0.22/0.48 — at 0.22 the
+      // result still read as "nearly black" regardless of hue (the project
+      // owner's own words) since a color that dark loses most of its
+      // perceptible hue no matter how saturated; brighter keeps the same
+      // hue/saturation math but actually lets the color read as a color.
+      const inkHex = hsvToHex(sourceHsv.h, tintSat, 0.34);
+      root.setProperty('--ink', inkHex);
+      root.setProperty('--ink-soft', hsvToHex(sourceHsv.h, tintSat, 0.58));
+      root.setProperty('--line', hexToRgba(inkHex, 0.16));
+    }
   } else {
     root.setProperty('--ink', dark ? '#F1EAD9' : '#2A2318');
     root.setProperty('--ink-soft', dark ? 'rgba(241,234,217,0.65)' : '#7A6E58');
