@@ -1215,16 +1215,23 @@ function copyPrimaryToSecondary(){
 
 // Seeds dualColorDraft from whatever's live right now — the actual bg/
 // paper for Desk & Ledger (already free-form fields, no separate "custom"
-// storage needed), or the existing customUi pair if there is one for UI
-// Colors, falling back to Brass & Rust as a reasonable starting point
-// otherwise (state.theme.customUi is null until a custom pair is
-// actually confirmed once).
+// storage needed), or uiColorPreset(state.theme.uiPreset) for UI Colors,
+// which resolves to whatever's actually active: a named preset's own
+// primary/secondary, or (if state.theme.uiPreset is already 'custom')
+// state.theme.customUi itself. Per the explicit ask — pick a preset you
+// like, hit Custom to nudge it, and the wheel should open already
+// showing that preset's own colors, not some unrelated starting point —
+// this used to fall back to a hardcoded Brass & Rust seed whenever
+// customUi hadn't been set yet, which is exactly the common case (any
+// account that's only ever picked named presets, never saved a custom
+// one): opening Custom from, say, Sky & Rose silently dropped you onto
+// Brass & Rust instead of Sky & Rose's own colors.
 function openDualColorCustom(){
   if(deskPaperPickerOpen){
     dualColorDraft = { bg: hexToHsv(state.theme.bg), paper: hexToHsv(state.theme.paper) };
     dualColorField = 'bg';
   } else if(uiColorPickerOpen){
-    const seed = state.theme.customUi || uiColorPreset('rust');
+    const seed = uiColorPreset(state.theme.uiPreset);
     dualColorDraft = { primary: hexToHsv(seed.primary), secondary: hexToHsv(seed.secondary) };
     dualColorField = 'primary';
   } else {

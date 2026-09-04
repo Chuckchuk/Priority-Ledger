@@ -69,20 +69,27 @@ const CATEGORY_PALETTE_SETS = {
   //   A first pass at 'midnight' used bright, highly-saturated colors —
   // reads fine as a dot on a dark card in isolation, but sat oddly next
   // to that set's own genuinely moody Desk & Ledger/UI colors, per the
-  // project owner's own callout. Re-picked as deep, richly saturated
-  // jewel tones instead (~40-55% HSV value) — the same register 'classic'
-  // itself already uses, which is what lets 'classic' read fine against
-  // BOTH light paper (as a dot) and, incidentally, why this register also
-  // holds up against a dark one: a color roughly halfway between white
-  // and black has real, if not maximal, contrast against either extreme.
-  // Ordered to match 'classic's own slot-by-slot hue (rust, brown, gold,
-  // olive, green, sage, teal, steel-blue, indigo, plum, rose, burgundy)
-  // exactly — Midnight spans the full wheel same as Classic/Pastel do
-  // (not just the cool half its own name suggests), just every hue
-  // rendered in this set's own darker, richer register.
+  // project owner's own callout. A second pass tried deep, richly
+  // saturated jewel tones ordered to match 'classic's own slot-by-slot
+  // hue exactly (rust, brown, gold, olive, ... burgundy), spanning the
+  // full wheel the same way 'classic'/'pastel' do — but at matching hue
+  // AND matching (dark, rich) value, several slots landed close enough
+  // to 'classic's own actual color to barely read as a different
+  // palette at all (gold and olive in particular were nearly identical
+  // hex values), which the project owner called out directly. Rebuilt a
+  // third time as blue/teal/green/violet/purple ONLY, per their own
+  // explicit ask — no warm rust/brown/gold/olive/red at all, so nothing
+  // here can accidentally converge on a 'classic' color the way the full
+  // -wheel version did, and Midnight actually reads as its own distinct
+  // cool mood rather than "classic, recolored." Not ordered to match
+  // 'classic's own 12 slots any more (there's no warm hue here to put in
+  // the rust/brown/gold/olive slots) — a deliberate trade-off, since
+  // by-index palette switching (see setCategoryPaletteSet(),
+  // 09-settings.js) means Midnight won't feel as "related" to Classic
+  // slot-for-slot as the other sets do, but that's the explicit ask.
   midnight: {
     id: 'midnight', label: 'Midnight',
-    colors: ['#A85838','#8C6248','#A8842E','#8C821E','#487258','#647268','#2E8268','#2E6C92','#54609A','#7C5480','#A05C76','#AC3C50']
+    colors: ['#2E6E4A','#1E7A5E','#1E7A78','#2E7E9A','#3A6C9A','#4258A0','#4E4CA0','#5E48A0','#6E48A0','#8248A0','#8C4880','#804466']
   },
   // Unchanged from the first pass, per the project owner's own explicit
   // "keep Ember as-is for now" — even though it reads a little bright for
@@ -400,24 +407,43 @@ const UI_COLOR_PRESET_SETS = {
   // already do in light mode (a mid-dark tone reads fine as an icon on
   // light paper AND behind light text, because it's roughly the same
   // "medium" distance from both).
+  // 'skyrose' and 'tealcoral' are unchanged from the first pass — the
+  // project owner explicitly singled both out as already reading right,
+  // "just not the mood problem the other three have" — so those two are
+  // left exactly as they were rather than darkened along with the rest.
+  // The other three (iceamber/mintviolet/periwinklegold) still read as
+  // "a little too bright for a dark mode" even after the first
+  // brightness pass — mostly the amber/gold and violet secondary/
+  // primary tones specifically, which read visually "louder" than a
+  // blue/teal/rose of the same raw HSV value does. Darkened further
+  // (lower V, and — for the amber/gold entries — slightly lower S too,
+  // since a fully-saturated gold reads as more of a "warning" color than
+  // a moody accent), re-checked against both the fixed dark-mode ink
+  // color and a representative dark card the same way the first pass
+  // was, so this doesn't just reintroduce the opposite (invisible-icon)
+  // problem the first pass was fixing.
   midnight: {
     id: 'midnight', label: 'Midnight',
     presets: [
-      { id:'iceamber',       label:'Ice & Amber',        primary:'#3E72A8', primaryLight:'#5B8FC2', secondary:'#A87526', secondaryLight:'#C99A4E' },
+      { id:'iceamber',       label:'Ice & Amber',        primary:'#335880', primaryLight:'#4D79A9', secondary:'#7A5B2B', secondaryLight:'#A37E44' },
       { id:'skyrose',        label:'Sky & Rose',         primary:'#2E7DA8', primaryLight:'#4C9BC2', secondary:'#B85068', secondaryLight:'#D07890' },
-      { id:'mintviolet',     label:'Mint & Violet',      primary:'#2E9478', primaryLight:'#4CAF94', secondary:'#7A5FC4', secondaryLight:'#9884DA' },
-      { id:'periwinklegold', label:'Periwinkle & Gold',  primary:'#5B63C4', primaryLight:'#7B82D6', secondary:'#A87E26', secondaryLight:'#C9A048' },
+      { id:'mintviolet',     label:'Mint & Violet',      primary:'#26705C', primaryLight:'#3E9980', secondary:'#624C9E', secondaryLight:'#836AC7' },
+      { id:'periwinklegold', label:'Periwinkle & Gold',  primary:'#4A5094', primaryLight:'#686FBD', secondary:'#7A612B', secondaryLight:'#A38544' },
       { id:'tealcoral',      label:'Teal & Coral',       primary:'#237A72', primaryLight:'#3F968D', secondary:'#C25A44', secondaryLight:'#DA7C67' }
     ]
   },
+  // Same darkening pass as Midnight's above, applied across the whole
+  // set here (no exceptions singled out for Ember) — same reasoning,
+  // same before/after contrast checks against the fixed dark-mode ink
+  // color and Ember's own dark papers.
   ember: {
     id: 'ember', label: 'Ember',
     presets: [
-      { id:'rustgold',     label:'Rust & Gold',        primary:'#B85A2E', primaryLight:'#D0794E', secondary:'#A87E26', secondaryLight:'#C9A048' },
-      { id:'emberclay',    label:'Ember & Clay',       primary:'#B84A32', primaryLight:'#D06A52', secondary:'#A8703E', secondaryLight:'#C49267' },
-      { id:'winerose',     label:'Wine & Rose',        primary:'#963548', primaryLight:'#B85567', secondary:'#B8654E', secondaryLight:'#D0876F' },
-      { id:'copperolive',  label:'Copper & Olive',     primary:'#B8702E', primaryLight:'#D0904E', secondary:'#697A36', secondaryLight:'#879657' },
-      { id:'brickbrass',   label:'Brick & Brass',      primary:'#96322A', primaryLight:'#B85449', secondary:'#A0782A', secondaryLight:'#C29A4C' }
+      { id:'rustgold',     label:'Rust & Gold',        primary:'#804124', primaryLight:'#A95E3C', secondary:'#755D29', secondaryLight:'#9E8142' },
+      { id:'emberclay',    label:'Ember & Clay',       primary:'#803726', primaryLight:'#A9523E', secondary:'#7A5331', secondaryLight:'#A3744B' },
+      { id:'winerose',     label:'Wine & Rose',        primary:'#8F3C4D', primaryLight:'#B8586B', secondary:'#854B3C', secondaryLight:'#AE6A58' },
+      { id:'copperolive',  label:'Copper & Olive',     primary:'#805024', primaryLight:'#A9703C', secondary:'#58662F', secondaryLight:'#7D8F4A' },
+      { id:'brickbrass',   label:'Brick & Brass',      primary:'#8F3832', primaryLight:'#B8534C', secondary:'#755A23', secondaryLight:'#9E7D3A' }
     ]
   },
   noir: {
