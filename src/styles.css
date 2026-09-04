@@ -147,10 +147,32 @@
      "whatever the user's chosen background looks like at the screen's
      edges" (see applyThemeObject() in 01-categories-theme.js) so this
      tracks their own customization automatically, not a hardcoded value. */
-  html{ background: var(--desk-dark); }
+  /* overflow-x:hidden on both html and body per an explicit swipe-glitch
+     report: a back-swipe drags/rotates a .stackedpage (swipeApplyDrag(),
+     20-bootstrap.js) via `transform: translateX(...) rotate(...)`, and a
+     ROTATED box's own axis-aligned bounding box is wider than its
+     unrotated one — for a nearly-full-width, nearly-full-height page even
+     a few degrees of rotation (reached quickly on a fast drag, since the
+     rotation itself scales with drag distance) can push its right edge
+     past the actual viewport. Neither #appCard nor .card has
+     overflow:hidden (both deliberately, so the grain/pages/leather
+     textures can poke past the CARD's own edge — see the theming notes in
+     CLAUDE.md), so with nothing capping it further up the tree either, a
+     transform like that was growing the whole document's own scrollable
+     width, which mobile browsers respond to with exactly the reported
+     symptom: a sudden, uneven "zoom out"/extra padding on the right, worse
+     the faster (i.e. the further, i.e. the more rotated) the drag. This
+     never needs to be conditional on an active swipe specifically — nothing
+     else in the app ever intentionally needs horizontal viewport scroll,
+     so leaving it on permanently is both simpler and safe: it only ever
+     clips a page mid-drag from going somewhere it was headed off-screen
+     anyway (see swipeFlyAway()'s own comment), never something meant to
+     stay visible. */
+  html{ background: var(--desk-dark); overflow-x:hidden; }
   body{
     margin:0;
     min-height:100vh;
+    overflow-x:hidden; /* see the matching rule/comment on html above */
     /* Center sits ON-screen (was 50% -10%, off the top edge entirely) and
        the falloff runs the full 100% to the farthest corner (was 75%,
        fully dark well before reaching most edges) — the previous numbers
@@ -1942,27 +1964,9 @@
      steady across both cases so the arrows don't shift vertically either.
      "Further out" than sitting flush against the label, but not all the
      way to the page's own edges — still reads as one row at a glance. */
-  /* touch-action:pan-y on the three classifySwipeZone() roots (this,
-     .calnav, .stackedpage — 20-bootstrap.js) per the explicit ask: our own
-     touchmove listener there already calls preventDefault() once a drag
-     locks onto the horizontal axis, but only from that point on — in the
-     brief window before SWIPE_AXIS_PX is crossed, and on a fast diagonal
-     flick, the browser's own native gesture recognizer can start acting
-     on the touch (a rubber-band scroll, or — on some Android browsers — a
-     one-finger double-tap-drag zoom) before JS ever gets a chance to
-     intervene, which is what a purely JS-side preventDefault() can't
-     reliably head off no matter how early it runs. pan-y tells the
-     browser itself, upfront, that this element only ever wants native
-     vertical panning — horizontal panning and zoom gestures are declared
-     off the table here from the start, leaving JS free to handle the
-     horizontal case however it wants without a race against the
-     browser's own recognizer. Vertical scroll (the "hand off to native
-     scroll" case in classifySwipeZone()'s own comment) is untouched
-     either way, since that's exactly what pan-y still allows. */
   .daynavrow{
     display:grid; grid-template-columns: 34px 1fr 34px; align-items:center;
     gap:10px; margin:2px 0 10px; min-height:34px;
-    touch-action: pan-y;
   }
   .daynavrow .navarrow{ justify-self:center; }
   /* Plain text for Yesterday/Tomorrow/a weekday name; Today gets its own
@@ -2073,9 +2077,6 @@
     padding: 54px 14px 10px;
     margin: var(--stackpage-margin-top) var(--stackpage-margin-right) var(--stackpage-margin-bottom) var(--stackpage-margin-left);
     position: relative;
-    /* See the touch-action comment on .daynavrow above — same reasoning,
-       one of classifySwipeZone()'s (20-bootstrap.js) three zone roots. */
-    touch-action: pan-y;
   }
   /* The content-shaped stand-in page behind a .stackedpage mid back-swipe
      (see swipeBackGhostShow()/swipeApplyDrag() in 19-bootstrap.js) — sized
@@ -3326,10 +3327,7 @@
   /* Same idea as .daynavrow above, reusing .navarrow — see the comment
      there for why the two share one button style instead of each
      defining a near-identical one. */
-  /* See the touch-action comment on .daynavrow (near the top of <style>)
-     — same reasoning, one of classifySwipeZone()'s (20-bootstrap.js)
-     three zone roots. */
-  .calnav{ display:flex; align-items:center; justify-content:center; gap:16px; margin:2px 0 10px; touch-action: pan-y; }
+  .calnav{ display:flex; align-items:center; justify-content:center; gap:16px; margin:2px 0 10px; }
   .calmonthlabel{
     position:relative; overflow:hidden; height:26px; line-height:26px;
     font-family:'Fraunces', serif; font-style:italic; font-weight:500; font-size:1.15rem; color:var(--ink);
