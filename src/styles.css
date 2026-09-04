@@ -1360,12 +1360,12 @@
   .subrow.listdone{ opacity:0.5; }
   .subrow.listdone .subtext{ text-decoration: line-through; }
   /* display:contents (same trick as .expandactions above it) — invisible
-     to layout by default, so .datefield/the pin button/.subdel stay direct
-     participants of .subrow's own single-line flex row exactly as if
-     this wrapper weren't there. Only becomes a real element on mobile
-     (see body.mobileui-active .subrowactions below), where a longer
-     step's own text was splitting awkwardly around these three controls
-     on the same line instead of getting the row's full width to itself. */
+     to layout by default, so .datefield/the pin button/.subdel (or, for a
+     checklist item, Move/×) stay direct participants of .subrow's own
+     single-line flex row exactly as if this wrapper weren't there. Only
+     becomes a real flex group on mobile (see body.mobileui-active
+     .subrowactions below), where it shares the first line with a short
+     item's text but drops to its own line once that text wraps. */
   .subrowactions{ display:contents; }
   /* align-items:flex-start (not the base rule's center) — once .subtext
      wraps to two-plus lines the row itself grows taller, and centering
@@ -1389,9 +1389,22 @@
      flex-grow (the "1" in "1 1 0") expands it to fill the remaining
      width and min-width:0 lets it shrink/wrap internally there. */
   body.mobileui-active .subrow .subtext{ flex:1 1 0%; min-width:0; }
+  /* width:auto + align-self:flex-end (not the row's own inherited
+     flex-start, and not a forced width:100%) is what lets this share the
+     first line with a short item's text instead of always dropping to its
+     own line below regardless of length — same "date chip sits inline
+     with a short step" fix as .stepsactions below, generalized to the
+     bare class so a checklist item's Move/× (13-checklist.js) gets it
+     too, not just a standard task's own steps. flex-wrap on .subrow
+     itself (above) still pushes this down onto its own line once
+     .subtext actually wraps to two-plus lines — see .subtext's own
+     flex-basis:0 comment for why a long item forces that wrap in the
+     first place — and align-self:flex-end then lands it level with the
+     LAST line of that wrapped text rather than floating up next to just
+     the first line. */
   body.mobileui-active .subrow .subrowactions{
     display:flex; align-items:center; gap:8px; justify-content:flex-end;
-    width:100%; margin-top:2px;
+    width:auto; margin-top:0; align-self:flex-end;
   }
   /* Per the explicit ask: a standard task's own step row was always
      forcing this whole line — Date pill + pin + remove, all three —
@@ -1436,28 +1449,6 @@
      see above), per the explicit ask it needed to give back a little of
      the room it costs sitting there permanently. */
   body.mobileui-active .subrow .stepsactions .subdel{ font-size:0.72rem; padding:0 2px; }
-  /* Per the explicit follow-up ask: once Pin/Remove were gone, the lone
-     remaining Date chip still always dropped to its own full-width line
-     below the text (the general .subrowactions rule above), which for a
-     short step read as an emptyish second line for no reason. This lets
-     it share the first line instead, WITHOUT touching .subtext's own
-     flex:1 1 0% (see that rule's own comment above for exactly why that
-     basis can't become 'auto' — reintroducing that regresses the
-     documented "checkmark and drag handle move away from the text" bug):
-     flex-wrap already keeps everything on one flex line regardless of
-     text length (a 0-basis item never itself forces a wrap), so all this
-     needs is to stop forcing its own width and let it size to its own
-     content instead — align-self:flex-end (not the row's own inherited
-     flex-start) is what then makes a LONG step's wrapped text actually
-     read as "date moved down": the chip sits at the bottom of the row's
-     line box, level with the last line of wrapped text, rather than
-     floating up alongside just the first line while the rest of the step
-     wraps on below it. A short, single-line step has no meaningful gap
-     between its one line's top and bottom, so flex-end vs flex-start is
-     invisible there — the chip just reads as sitting inline. */
-  body.mobileui-active .subrow .stepsactions{
-    width:auto; margin-top:0; align-self:flex-end;
-  }
   .subdropend{ height:10px; }
   .subdropend.dragover{ border-top: 2px solid var(--primary); }
   /* The task's own due-date field claims the whole row on the full detail
