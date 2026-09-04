@@ -795,6 +795,60 @@
   .flagfilterbtn.on{ background: var(--secondary); color:white; border-color: var(--secondary); }
   ul.tasks{ list-style:none; margin:0; padding:0; }
   li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
+  /* EXPERIMENTAL — Swipe Actions (swipeActionsEnabled dev setting,
+     01-categories-theme.js/20-bootstrap.js). :has() scopes this to only
+     the rows that actually render a .swipeactions sibling (taskRowHtml()/
+     checklistListRowHtml()'s own useSwipeActions gate) — every other row
+     is completely untouched, rather than needing a second modifier class
+     threaded through just for this. position:relative gives .swipeactions
+     below something to anchor against; overflow:hidden is what actually
+     hides it until .row (a sibling, painted after it and so on top at
+     rest) slides left on top of it via rowSwipeStart()/etc. — without
+     this the "revealed" content would just always show past the row's
+     own right edge. */
+  li.task:has(> .swipeactions){ position:relative; overflow:hidden; }
+  .swipeactions{
+    position:absolute; inset:0; z-index:0;
+    display:flex; align-items:stretch; justify-content:flex-end; gap:1px;
+  }
+  /* .row itself has to be explicitly promoted to its own positioned,
+     stacked layer — a positioned box (.swipeactions here) always paints
+     ABOVE a plain static one regardless of DOM order, so without this,
+     .swipeactions would sit on top of .row at rest instead of hidden
+     behind it (only .task's own overflow:hidden, above, would then be
+     hiding it, which stops working the instant .row itself slides and
+     stops covering the same area). Scoped to just a swipe-enabled row's
+     own .row (not the bare class everywhere else it's reused — the Daily
+     tree picker rows, 12-daily-tree.js) since this is the one place that
+     needs it. */
+  li.task:has(> .swipeactions) > .row{ position:relative; z-index:1; background:var(--card-bg); }
+  .swipeactions-task{ width:138px; } /* must match ROWSWIPE_ACTION_WIDTH.task, 20-bootstrap.js */
+  .swipeactions-checklist{ width:92px; } /* must match ROWSWIPE_ACTION_WIDTH.checklist */
+  .swipeactionbtn{
+    flex:1; display:flex; align-items:center; justify-content:center;
+    border:none; background: var(--card-bg-dim); color: var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace; font-size:1.15rem; text-transform:uppercase;
+    cursor:pointer;
+  }
+  .swipeactionbtn.on{ background: var(--primary); color:white; }
+  /* Delete specifically is text, not an icon (see checklistSwipeActionsHtml(),
+     13-checklist.js) — the base rule's 1.15rem reads fine for the flag
+     glyph/pin SVG alongside it but was oversized for a whole word once
+     "Confirm?" needed to fit the same button width without wrapping. */
+  .swipeactionbtn.danger{ background: var(--estate); color:white; font-size:0.72rem; }
+  /* The armed "tap again to actually delete" state (confirmSwipeDeleteChecklist(),
+     13-checklist.js) reads as more urgent than the resting Delete button
+     it replaces, not just relabeled — a plain re-tap on an unchanged-
+     looking button is easy to do without registering that anything about
+     it just changed. */
+  .swipeactionbtn.confirming{ background: color-mix(in srgb, var(--estate) 75%, black 25%); font-weight:600; }
+  /* .sharebtn (shareButtonHtml(), 19-sharing.js) sits directly inside
+     .swipeactions as one of its flex children alongside .swipeactionbtn —
+     it needs the same flex:1/equal-share sizing those get by default, but
+     its OWN rule (further down in <style>) sets a fixed width sized for
+     its usual spot (a task detail page's header), which would otherwise
+     leave it a fixed-width island next to .swipeactionbtn's flexed ones. */
+  .swipeactions > .sharebtn{ flex:1; width:auto; }
   li.task.dragging{ opacity:0.4; }
   li.task.dragover{ border-top: 2px solid var(--primary); }
   /* A just-completed task's own collapse-and-leave, once its

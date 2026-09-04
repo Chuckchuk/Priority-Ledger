@@ -602,6 +602,133 @@ function swipeEnd(){
 document.addEventListener('touchend', swipeEnd);
 document.addEventListener('touchcancel', swipeEnd);
 
+// ---------- Swipe-left row actions (task/checklist master-view rows) ----------
+// EXPERIMENTAL — swipeActionsEnabled dev setting (02-storage-state.js),
+// mobile-only like every other Mobile UI Lab setting. Same idea as
+// swipe-to-archive in a mail app: dragging a row left slides its own
+// content out of the way to reveal a few quick actions underneath,
+// entirely independent of that row's normal tap (which opens the task/
+// list, or — for a step/list item, NOT wired up here yet, see the note on
+// ROWSWIPE_ACTION_WIDTH below — toggles it done). A completely separate
+// gesture system from the page-level back-swipe above: that one drags a
+// whole .stackedpage to reveal the page behind it; this one drags one
+// row's own .row child sideways to reveal a sibling .swipeactions div
+// that was sitting behind it (under it in paint order, not in flow) the
+// whole time — see taskRowHtml()'s (08-render-core.js) and
+// checklistListRowHtml()'s (13-checklist.js) own comments on that
+// markup. Only one row open at a time, like the real thing.
+//
+// ROWSWIPE_ACTION_WIDTH is keyed by "kind" (a task's own 3 actions vs a
+// checklist's 2) rather than measured live off the actual rendered
+// .swipeactions width — has to match the CSS driving that div's real
+// width (see .swipeactions/.swipeactions-task/.swipeactions-checklist in
+// <style>) exactly, or the row either stops short of fully covering its
+// own actions or overshoots into empty space past them. Not yet extended
+// to a task's own steps or a checklist's own items — noted for later,
+// per the project owner's own explicit "hold off for now."
+const ROWSWIPE_AXIS_PX = 10;
+const ROWSWIPE_ACTION_WIDTH = { task: 138, checklist: 92 };
+const ROWSWIPE_COMMIT_FRACTION = 0.4; // fraction of the full reveal a drag has to pass to snap open on release
+let rowSwipeOpenId = null;   // data-task-id of the one row (if any) currently revealed
+let rowSwipeOpenKind = null; // 'task' | 'checklist' — which ROWSWIPE_ACTION_WIDTH applies, needed by reapplyRowSwipeState() (08-render-core.js) since a fresh render() rebuilds the row from scratch with no transform of its own
+let rowSwipeGesture = null;  // { id, kind, row, startX, startY, axis, currentTotal } while a touch is dragging one
+// A checklist's swipe-revealed Delete needs a second, deliberate tap
+// before it actually deletes anything — per the explicit ask that this
+// one specifically shouldn't be easy to trigger by accident, unlike
+// Flag/Pin/Share which are all harmlessly reversible. Set by
+// confirmSwipeDeleteChecklist() (13-checklist.js) on the first tap
+// (re-rendering that one row's own .swipeactions to show "Confirm?"
+// instead of "Delete"), cleared by closeRowSwipe() above so an armed
+// delete can never survive its own row closing back up.
+let swipeDeleteConfirmId = null;
+
+function rowSwipeRowEl(taskId){
+  const li = document.querySelector(`.task[data-task-id="${taskId}"]`);
+  return li && li.querySelector(':scope > .row');
+}
+
+// Snaps the currently-open row back closed — called on its own tap (see
+// the rowSwipeOpenId guard atop taskRowTap()/checklistRowTap()), on
+// opening a DIFFERENT row, and after any swipe-revealed action runs.
+// Also clears swipeDeleteConfirmId (08-render-core.js) — a pending
+// "tap again to actually delete" arm shouldn't survive the row it belongs
+// to closing back up, since there'd be nothing left on screen showing it
+// was ever armed.
+function closeRowSwipe(){
+  if(rowSwipeOpenId == null) return;
+  const row = rowSwipeRowEl(rowSwipeOpenId);
+  rowSwipeOpenId = null;
+  rowSwipeOpenKind = null;
+  swipeDeleteConfirmId = null;
+  if(row){
+    row.style.transition = 'transform 180ms ease';
+    row.style.transform = '';
+    setTimeout(() => { row.style.transition = ''; }, 180);
+  }
+}
+
+function rowSwipeStart(e, taskId, kind){
+  if(!mobileUiActive() || !(state.devSettings||{}).swipeActionsEnabled) return;
+  const row = e.currentTarget.querySelector(':scope > .row');
+  if(!row) return;
+  const pt = e.touches ? e.touches[0] : e;
+  rowSwipeGesture = {
+    id: taskId, kind, row, startX: pt.clientX, startY: pt.clientY, axis: null,
+    // Starting drag distance already accounts for this same row already
+    // being open (a drag on an open row adjusts it, doesn't have to
+    // start over from 0) — everything else starts fresh.
+    currentTotal: rowSwipeOpenId === taskId ? -ROWSWIPE_ACTION_WIDTH[kind] : 0,
+  };
+}
+function rowSwipeMove(e){
+  const g = rowSwipeGesture;
+  if(!g) return;
+  const pt = e.touches ? e.touches[0] : e;
+  const dx = pt.clientX - g.startX;
+  const dy = pt.clientY - g.startY;
+  if(g.axis === null){
+    if(Math.abs(dx) < ROWSWIPE_AXIS_PX && Math.abs(dy) < ROWSWIPE_AXIS_PX) return;
+    g.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    if(g.axis === 'y'){ rowSwipeGesture = null; return; } // hand off to native scroll, same as the page-level system
+    if(rowSwipeOpenId != null && rowSwipeOpenId !== g.id) closeRowSwipe();
+  }
+  if(g.axis !== 'x') return;
+  e.preventDefault();
+  const maxOpen = -ROWSWIPE_ACTION_WIDTH[g.kind];
+  // Clamped to [maxOpen, 0] — no rubber-band past fully open or back past
+  // fully closed, unlike the page-level back-swipe's own eased overshoot;
+  // there's nothing further to reveal past "all the actions are visible."
+  const total = Math.max(maxOpen, Math.min(0, g.currentTotal + dx));
+  g.row.style.transition = 'none';
+  g.row.style.transform = `translateX(${total}px)`;
+  g.liveTotal = total;
+}
+function rowSwipeEnd(){
+  const g = rowSwipeGesture;
+  rowSwipeGesture = null;
+  if(!g || g.axis !== 'x') return;
+  const maxOpen = -ROWSWIPE_ACTION_WIDTH[g.kind];
+  const shouldOpen = (g.liveTotal||0) < maxOpen * ROWSWIPE_COMMIT_FRACTION;
+  g.row.style.transition = 'transform 180ms ease';
+  g.row.style.transform = shouldOpen ? `translateX(${maxOpen}px)` : '';
+  setTimeout(() => { g.row.style.transition = ''; }, 180);
+  if(shouldOpen){ rowSwipeOpenId = g.id; rowSwipeOpenKind = g.kind; }
+  else if(rowSwipeOpenId === g.id) closeRowSwipe();
+}
+document.addEventListener('touchend', rowSwipeEnd);
+document.addEventListener('touchcancel', rowSwipeEnd);
+// Tapping literally anywhere outside the currently-open row closes it —
+// same "outside click dismisses" idiom every other popover in the app
+// already follows (color wheels, the share menu, etc.), just via
+// touchstart instead of click since this only ever matters on mobile.
+// Capture phase so this runs (and can close the row) BEFORE whatever the
+// tapped element's own touchstart/onclick would otherwise do.
+document.addEventListener('touchstart', (e) => {
+  if(rowSwipeOpenId == null) return;
+  if(e.target.closest && e.target.closest(`.task[data-task-id="${rowSwipeOpenId}"]`)) return;
+  closeRowSwipe();
+}, { capture: true, passive: true });
+
 // ---------- Pull-to-refresh ----------
 // The standalone "Add to Home Screen" install (manifest.json/shell-head.html)
 // has no browser chrome at all — no reload button, no pull-to-refresh of

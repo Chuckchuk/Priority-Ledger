@@ -827,6 +827,60 @@
   .flagfilterbtn.on{ background: var(--secondary); color:white; border-color: var(--secondary); }
   ul.tasks{ list-style:none; margin:0; padding:0; }
   li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
+  /* EXPERIMENTAL — Swipe Actions (swipeActionsEnabled dev setting,
+     01-categories-theme.js/20-bootstrap.js). :has() scopes this to only
+     the rows that actually render a .swipeactions sibling (taskRowHtml()/
+     checklistListRowHtml()'s own useSwipeActions gate) — every other row
+     is completely untouched, rather than needing a second modifier class
+     threaded through just for this. position:relative gives .swipeactions
+     below something to anchor against; overflow:hidden is what actually
+     hides it until .row (a sibling, painted after it and so on top at
+     rest) slides left on top of it via rowSwipeStart()/etc. — without
+     this the "revealed" content would just always show past the row's
+     own right edge. */
+  li.task:has(> .swipeactions){ position:relative; overflow:hidden; }
+  .swipeactions{
+    position:absolute; inset:0; z-index:0;
+    display:flex; align-items:stretch; justify-content:flex-end; gap:1px;
+  }
+  /* .row itself has to be explicitly promoted to its own positioned,
+     stacked layer — a positioned box (.swipeactions here) always paints
+     ABOVE a plain static one regardless of DOM order, so without this,
+     .swipeactions would sit on top of .row at rest instead of hidden
+     behind it (only .task's own overflow:hidden, above, would then be
+     hiding it, which stops working the instant .row itself slides and
+     stops covering the same area). Scoped to just a swipe-enabled row's
+     own .row (not the bare class everywhere else it's reused — the Daily
+     tree picker rows, 12-daily-tree.js) since this is the one place that
+     needs it. */
+  li.task:has(> .swipeactions) > .row{ position:relative; z-index:1; background:var(--card-bg); }
+  .swipeactions-task{ width:138px; } /* must match ROWSWIPE_ACTION_WIDTH.task, 20-bootstrap.js */
+  .swipeactions-checklist{ width:92px; } /* must match ROWSWIPE_ACTION_WIDTH.checklist */
+  .swipeactionbtn{
+    flex:1; display:flex; align-items:center; justify-content:center;
+    border:none; background: var(--card-bg-dim); color: var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace; font-size:1.15rem; text-transform:uppercase;
+    cursor:pointer;
+  }
+  .swipeactionbtn.on{ background: var(--primary); color:white; }
+  /* Delete specifically is text, not an icon (see checklistSwipeActionsHtml(),
+     13-checklist.js) — the base rule's 1.15rem reads fine for the flag
+     glyph/pin SVG alongside it but was oversized for a whole word once
+     "Confirm?" needed to fit the same button width without wrapping. */
+  .swipeactionbtn.danger{ background: var(--estate); color:white; font-size:0.72rem; }
+  /* The armed "tap again to actually delete" state (confirmSwipeDeleteChecklist(),
+     13-checklist.js) reads as more urgent than the resting Delete button
+     it replaces, not just relabeled — a plain re-tap on an unchanged-
+     looking button is easy to do without registering that anything about
+     it just changed. */
+  .swipeactionbtn.confirming{ background: color-mix(in srgb, var(--estate) 75%, black 25%); font-weight:600; }
+  /* .sharebtn (shareButtonHtml(), 19-sharing.js) sits directly inside
+     .swipeactions as one of its flex children alongside .swipeactionbtn —
+     it needs the same flex:1/equal-share sizing those get by default, but
+     its OWN rule (further down in <style>) sets a fixed width sized for
+     its usual spot (a task detail page's header), which would otherwise
+     leave it a fixed-width island next to .swipeactionbtn's flexed ones. */
+  .swipeactions > .sharebtn{ flex:1; width:auto; }
   li.task.dragging{ opacity:0.4; }
   li.task.dragover{ border-top: 2px solid var(--primary); }
   /* A just-completed task's own collapse-and-leave, once its
@@ -6576,6 +6630,12 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <input type="checkbox" ${dev.stackedTabsEnabled?'checked':''} onchange="toggleDevSetting('stackedTabsEnabled', this.checked)">
       ★ Stacked Tabs: collapse every unpinned category of the same type (standard/checklist/etc.) into one shared tab — tap goes to whichever is on top, long-press picks a different one. Pin a category in the list above to always give it its own tab instead. Works alongside the tab bar style above, not instead of it.
     </label>
+
+    ${devSectionHeadHtml('Rows')}
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.swipeActionsEnabled?'checked':''} onchange="toggleDevSetting('swipeActionsEnabled', this.checked)">
+      ★ Swipe Actions: dragging a task or checklist row left, in its own category's list, reveals quick actions (flag/pin/share for a task; share/delete for a checklist) — same idea as swipe-to-archive in a mail app. Not yet wired up for a task's own steps or a checklist's own items.
+    </label>
   `;
 
   return `
@@ -7600,7 +7660,7 @@ function defaultDevSettings(){
   // the setting off) sees. A type with no entry yet just falls back to its
   // first member in state.categories order — see stackGroupsForTabs() in
   // 06-tabs-render.js.
-  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddBarStyle:'top', tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100', stackedTabsEnabled:false, stackedTabsTop:{} };
+  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddBarStyle:'top', tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100', stackedTabsEnabled:false, stackedTabsTop:{}, swipeActionsEnabled:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -7796,6 +7856,7 @@ function normalizeState(){
   if(typeof state.devSettings.mobileUiPreviewOnDesktop !== 'boolean') state.devSettings.mobileUiPreviewOnDesktop = false;
   if(typeof state.devSettings.stackedTabsEnabled !== 'boolean') state.devSettings.stackedTabsEnabled = false;
   if(typeof state.devSettings.stackedTabsTop !== 'object' || !state.devSettings.stackedTabsTop) state.devSettings.stackedTabsTop = {};
+  if(typeof state.devSettings.swipeActionsEnabled !== 'boolean') state.devSettings.swipeActionsEnabled = false;
   if(state.devSettings.quickAddBarStyle !== 'top' && state.devSettings.quickAddBarStyle !== 'bottom') state.devSettings.quickAddBarStyle = 'top';
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
@@ -10586,8 +10647,24 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // only reasoning.
   const noteHoverAttrs = t.notes ? ` onmouseenter="noteHoverStart(event,'${t.id}')" onmouseleave="noteHoverEnd()"` : '';
   const onMoveTarget = inDaily && (t.plannedDates||[]).includes(moveForwardTarget(dayDate));
+  // EXPERIMENTAL — swipeActionsEnabled (see its own dev-panel comment,
+  // 01-categories-theme.js). Scoped to a category's own master-view list
+  // specifically (!inDaily) per the explicit ask — Daily's own rows
+  // already spend their row-width on .movenext/.dayremove above, and
+  // "swipe left to reveal quick actions" would have nothing left to
+  // reveal there anyway. .swipeactions is emitted as a sibling BEFORE
+  // .row in the DOM, sitting still while .row itself (see rowSwipeStart()
+  // etc., 20-bootstrap.js) slides left on top of it — <li> is what clips
+  // that reveal to the row's own bounds (position:relative;
+  // overflow:hidden, see .task in <style>) and gives .swipeactions
+  // something to anchor position:absolute against.
+  const useSwipeActions = !inDaily && mobileUiActive() && (state.devSettings||{}).swipeActionsEnabled;
+  const swipeAttrs = useSwipeActions
+    ? ` ontouchstart="rowSwipeStart(event,'${t.id}','task')" ontouchmove="rowSwipeMove(event)" ontouchend="rowSwipeEnd()" ontouchcancel="rowSwipeEnd()" onmousedown="rowSwipeStart(event,'${t.id}','task')" onmousemove="rowSwipeMove(event)" onmouseup="rowSwipeEnd()"`
+    : '';
   return `
-  <li class="task" data-task-id="${t.id}">
+  <li class="task"${swipeAttrs} data-task-id="${t.id}">
+    ${useSwipeActions ? taskSwipeActionsHtml(t) : ''}
     <div class="row"${pressAttrs}${ctxMenuAttr}${noteHoverAttrs} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
@@ -10610,6 +10687,36 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
     </div>
     ${inDaily ? '' : `<div class="expand ${expandedTaskIds.has(t.id)?'open':''}" id="exp-${t.id}">${expandInner}</div>`}
   </li>`;
+}
+
+// A standard task's own swipe-revealed row (see the useSwipeActions
+// comment above) — Flag/Pin match .rowflag/.rowpin exactly (same toggle,
+// same "on" look) but close the reveal afterward (closeRowSwipe(),
+// 20-bootstrap.js), since toggling one is a complete action with nothing
+// left to look at once it's done. Share is the one exception: it opens
+// its own popover (shareButtonHtml(), 19-sharing.js, unmodified — already
+// carries its own stopPropagation), so leaving the row visibly open
+// behind it reads as "still mid-action," not stale.
+function taskSwipeActionsHtml(t){
+  return `<div class="swipeactions swipeactions-task">
+    <button class="swipeactionbtn ${t.urgent?'on':''}" onclick="event.stopPropagation(); toggleUrgent('${t.id}'); closeRowSwipe();" title="Toggle flag">⚑</button>
+    <button class="swipeactionbtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleTaskToday('${t.id}'); closeRowSwipe();" title="${taskTodayTitle(t)}">${DAYPIN_ICON_SVG}</button>
+    ${shareButtonHtml(t.id)}
+  </div>`;
+}
+
+// Re-establishes an open swipe row's revealed transform after a fresh
+// render() rebuilds it from scratch (see the rAF tail in render() itself)
+// — render() always regenerates a row's whole innerHTML, which has no
+// memory of the plain inline `transform` rowSwipeEnd() (20-bootstrap.js)
+// applied a moment ago. No transition here (a snap, not an animation):
+// this is reapplying state that was already true a frame ago, not a new
+// user-driven reveal that should visibly ease open.
+function reapplyRowSwipeState(){
+  if(rowSwipeOpenId == null) return;
+  const row = rowSwipeRowEl(rowSwipeOpenId);
+  if(!row){ rowSwipeOpenId = null; rowSwipeOpenKind = null; return; } // the row itself is gone (e.g. deleted, or scrolled off the active tab)
+  row.style.transform = `translateX(${-ROWSWIPE_ACTION_WIDTH[rowSwipeOpenKind]}px)`;
 }
 
 // ---------- mobile long-press gesture ----------
@@ -10693,6 +10800,12 @@ function taskPressEnd(){
 const ROW_DOUBLE_TAP_MS = 280;
 let lastRowTap = null; // { taskId, time } | null — the most recent single tap's own taskRowTap() call, for comparing against the next one
 function taskRowTap(e, taskId){
+  // A tap while this row's own swipe actions are revealed (swipeActionsEnabled
+  // dev setting) closes them instead of opening the task — same as tapping
+  // a revealed row in a mail app dismisses it rather than opening the
+  // message underneath. Checked before the long-press/double-tap handling
+  // below since none of that should run either once the row's in this state.
+  if(rowSwipeOpenId === taskId){ closeRowSwipe(); return; }
   if(taskLongPressFired){ taskLongPressFired = false; e.preventDefault(); return; }
   const now = Date.now();
   if(lastRowTap && lastRowTap.taskId === taskId && now - lastRowTap.time < ROW_DOUBLE_TAP_MS){
@@ -11602,6 +11715,7 @@ function render(){
   // querySelectorAll the rest of the time.
   requestAnimationFrame(() => {
     document.querySelectorAll('.autogrowtext').forEach(autogrowTextarea);
+    reapplyRowSwipeState();
   });
   renderDevPanel();
   renderDevBreadcrumb();
@@ -14860,17 +14974,49 @@ function checklistCheckcircleHtml(t, subtle){
   </div>`;
 }
 
+// EXPERIMENTAL — swipeActionsEnabled (see its own dev-panel comment,
+// 01-categories-theme.js), same feature as taskRowHtml()'s own
+// useSwipeActions (08-render-core.js) — see that comment for the general
+// .swipeactions/.row markup reasoning, identical here. The one wrinkle
+// specific to this row: touchstart/move/end here were ALREADY spoken for
+// by checklistPressStart()/Move()/End() (the long-press-to-context-menu
+// gesture) below, so a swipe-enabled row calls both in sequence rather
+// than picking one — checklistPressMove()'s own TASK_LONG_PRESS_TOLERANCE_PX
+// cancellation already kills that timer the moment a real drag (this
+// one included) moves far enough, so the two don't fight in practice.
 function checklistListRowHtml(t){
+  const useSwipeActions = mobileUiActive() && (state.devSettings||{}).swipeActionsEnabled;
+  const swipeAttrs = useSwipeActions
+    ? ` ontouchstart="checklistPressStart(event,'${t.id}'); rowSwipeStart(event,'${t.id}','checklist')" ontouchmove="checklistPressMove(event); rowSwipeMove(event)" ontouchend="checklistPressEnd(); rowSwipeEnd()" ontouchcancel="checklistPressEnd(); rowSwipeEnd()" onmousedown="checklistPressStart(event,'${t.id}'); rowSwipeStart(event,'${t.id}','checklist')" onmousemove="rowSwipeMove(event)" onmouseup="checklistPressEnd(); rowSwipeEnd()" onmouseleave="checklistPressEnd()"`
+    : ` ontouchstart="checklistPressStart(event,'${t.id}')" ontouchmove="checklistPressMove(event)" ontouchend="checklistPressEnd()" ontouchcancel="checklistPressEnd()" onmousedown="checklistPressStart(event,'${t.id}')" onmouseup="checklistPressEnd()" onmouseleave="checklistPressEnd()"`;
   return `
   <li class="task" data-task-id="${t.id}" onclick="checklistRowTap(event,'${t.id}')"
-    oncontextmenu="return handleChecklistContextMenu(event,'${t.id}')"
-    ontouchstart="checklistPressStart(event,'${t.id}')" ontouchmove="checklistPressMove(event)" ontouchend="checklistPressEnd()" ontouchcancel="checklistPressEnd()"
-    onmousedown="checklistPressStart(event,'${t.id}')" onmouseup="checklistPressEnd()" onmouseleave="checklistPressEnd()">
+    oncontextmenu="return handleChecklistContextMenu(event,'${t.id}')"${swipeAttrs}>
+    ${useSwipeActions ? checklistSwipeActionsHtml(t) : ''}
     <div class="row">
       ${checklistCheckcircleHtml(t, true)}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.sharedImport ? ' <span class="badge shared">Shared</span>' : ''}<span class="listdate">${fmtDate(t.createdAt)}</span></div>
     </div>
   </li>`;
+}
+// Share is identical to a standard task's own (shareButtonHtml(),
+// 19-sharing.js — a checklist "list" is a plain task under the hood, see
+// this file's own top comment, so sharing is the exact same operation).
+// Delete needs a second, deliberate tap before it does anything — see
+// swipeDeleteConfirmId's own comment (20-bootstrap.js) for why this one
+// specifically isn't a single-tap action the way Flag/Pin/Share are.
+function checklistSwipeActionsHtml(t){
+  const confirming = swipeDeleteConfirmId === t.id;
+  return `<div class="swipeactions swipeactions-checklist">
+    ${shareButtonHtml(t.id)}
+    <button class="swipeactionbtn danger ${confirming?'confirming':''}" onclick="event.stopPropagation(); confirmSwipeDeleteChecklist('${t.id}')">${confirming?'Confirm?':'Delete'}</button>
+  </div>`;
+}
+function confirmSwipeDeleteChecklist(id){
+  if(swipeDeleteConfirmId !== id){ swipeDeleteConfirmId = id; render(); return; }
+  swipeDeleteConfirmId = null;
+  closeRowSwipe();
+  deleteChecklistList(id);
 }
 
 // ---------- a checklist list's own right-click/long-press menu ----------
@@ -14973,6 +15119,9 @@ function checklistPressEnd(){
 // opened the menu — same "was this actually a long-press just now"
 // pattern taskRowTap() (08-render-core.js) uses for the standard row.
 function checklistRowTap(e, taskId){
+  // Same swipe-open guard as taskRowTap() (08-render-core.js) — see its
+  // own comment.
+  if(rowSwipeOpenId === taskId){ closeRowSwipe(); return; }
   if(checklistLongPressFired){ checklistLongPressFired = false; e.preventDefault(); return; }
   openChecklistList(taskId);
 }
@@ -18221,6 +18370,133 @@ function swipeEnd(){
 
 document.addEventListener('touchend', swipeEnd);
 document.addEventListener('touchcancel', swipeEnd);
+
+// ---------- Swipe-left row actions (task/checklist master-view rows) ----------
+// EXPERIMENTAL — swipeActionsEnabled dev setting (02-storage-state.js),
+// mobile-only like every other Mobile UI Lab setting. Same idea as
+// swipe-to-archive in a mail app: dragging a row left slides its own
+// content out of the way to reveal a few quick actions underneath,
+// entirely independent of that row's normal tap (which opens the task/
+// list, or — for a step/list item, NOT wired up here yet, see the note on
+// ROWSWIPE_ACTION_WIDTH below — toggles it done). A completely separate
+// gesture system from the page-level back-swipe above: that one drags a
+// whole .stackedpage to reveal the page behind it; this one drags one
+// row's own .row child sideways to reveal a sibling .swipeactions div
+// that was sitting behind it (under it in paint order, not in flow) the
+// whole time — see taskRowHtml()'s (08-render-core.js) and
+// checklistListRowHtml()'s (13-checklist.js) own comments on that
+// markup. Only one row open at a time, like the real thing.
+//
+// ROWSWIPE_ACTION_WIDTH is keyed by "kind" (a task's own 3 actions vs a
+// checklist's 2) rather than measured live off the actual rendered
+// .swipeactions width — has to match the CSS driving that div's real
+// width (see .swipeactions/.swipeactions-task/.swipeactions-checklist in
+// <style>) exactly, or the row either stops short of fully covering its
+// own actions or overshoots into empty space past them. Not yet extended
+// to a task's own steps or a checklist's own items — noted for later,
+// per the project owner's own explicit "hold off for now."
+const ROWSWIPE_AXIS_PX = 10;
+const ROWSWIPE_ACTION_WIDTH = { task: 138, checklist: 92 };
+const ROWSWIPE_COMMIT_FRACTION = 0.4; // fraction of the full reveal a drag has to pass to snap open on release
+let rowSwipeOpenId = null;   // data-task-id of the one row (if any) currently revealed
+let rowSwipeOpenKind = null; // 'task' | 'checklist' — which ROWSWIPE_ACTION_WIDTH applies, needed by reapplyRowSwipeState() (08-render-core.js) since a fresh render() rebuilds the row from scratch with no transform of its own
+let rowSwipeGesture = null;  // { id, kind, row, startX, startY, axis, currentTotal } while a touch is dragging one
+// A checklist's swipe-revealed Delete needs a second, deliberate tap
+// before it actually deletes anything — per the explicit ask that this
+// one specifically shouldn't be easy to trigger by accident, unlike
+// Flag/Pin/Share which are all harmlessly reversible. Set by
+// confirmSwipeDeleteChecklist() (13-checklist.js) on the first tap
+// (re-rendering that one row's own .swipeactions to show "Confirm?"
+// instead of "Delete"), cleared by closeRowSwipe() above so an armed
+// delete can never survive its own row closing back up.
+let swipeDeleteConfirmId = null;
+
+function rowSwipeRowEl(taskId){
+  const li = document.querySelector(`.task[data-task-id="${taskId}"]`);
+  return li && li.querySelector(':scope > .row');
+}
+
+// Snaps the currently-open row back closed — called on its own tap (see
+// the rowSwipeOpenId guard atop taskRowTap()/checklistRowTap()), on
+// opening a DIFFERENT row, and after any swipe-revealed action runs.
+// Also clears swipeDeleteConfirmId (08-render-core.js) — a pending
+// "tap again to actually delete" arm shouldn't survive the row it belongs
+// to closing back up, since there'd be nothing left on screen showing it
+// was ever armed.
+function closeRowSwipe(){
+  if(rowSwipeOpenId == null) return;
+  const row = rowSwipeRowEl(rowSwipeOpenId);
+  rowSwipeOpenId = null;
+  rowSwipeOpenKind = null;
+  swipeDeleteConfirmId = null;
+  if(row){
+    row.style.transition = 'transform 180ms ease';
+    row.style.transform = '';
+    setTimeout(() => { row.style.transition = ''; }, 180);
+  }
+}
+
+function rowSwipeStart(e, taskId, kind){
+  if(!mobileUiActive() || !(state.devSettings||{}).swipeActionsEnabled) return;
+  const row = e.currentTarget.querySelector(':scope > .row');
+  if(!row) return;
+  const pt = e.touches ? e.touches[0] : e;
+  rowSwipeGesture = {
+    id: taskId, kind, row, startX: pt.clientX, startY: pt.clientY, axis: null,
+    // Starting drag distance already accounts for this same row already
+    // being open (a drag on an open row adjusts it, doesn't have to
+    // start over from 0) — everything else starts fresh.
+    currentTotal: rowSwipeOpenId === taskId ? -ROWSWIPE_ACTION_WIDTH[kind] : 0,
+  };
+}
+function rowSwipeMove(e){
+  const g = rowSwipeGesture;
+  if(!g) return;
+  const pt = e.touches ? e.touches[0] : e;
+  const dx = pt.clientX - g.startX;
+  const dy = pt.clientY - g.startY;
+  if(g.axis === null){
+    if(Math.abs(dx) < ROWSWIPE_AXIS_PX && Math.abs(dy) < ROWSWIPE_AXIS_PX) return;
+    g.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    if(g.axis === 'y'){ rowSwipeGesture = null; return; } // hand off to native scroll, same as the page-level system
+    if(rowSwipeOpenId != null && rowSwipeOpenId !== g.id) closeRowSwipe();
+  }
+  if(g.axis !== 'x') return;
+  e.preventDefault();
+  const maxOpen = -ROWSWIPE_ACTION_WIDTH[g.kind];
+  // Clamped to [maxOpen, 0] — no rubber-band past fully open or back past
+  // fully closed, unlike the page-level back-swipe's own eased overshoot;
+  // there's nothing further to reveal past "all the actions are visible."
+  const total = Math.max(maxOpen, Math.min(0, g.currentTotal + dx));
+  g.row.style.transition = 'none';
+  g.row.style.transform = `translateX(${total}px)`;
+  g.liveTotal = total;
+}
+function rowSwipeEnd(){
+  const g = rowSwipeGesture;
+  rowSwipeGesture = null;
+  if(!g || g.axis !== 'x') return;
+  const maxOpen = -ROWSWIPE_ACTION_WIDTH[g.kind];
+  const shouldOpen = (g.liveTotal||0) < maxOpen * ROWSWIPE_COMMIT_FRACTION;
+  g.row.style.transition = 'transform 180ms ease';
+  g.row.style.transform = shouldOpen ? `translateX(${maxOpen}px)` : '';
+  setTimeout(() => { g.row.style.transition = ''; }, 180);
+  if(shouldOpen){ rowSwipeOpenId = g.id; rowSwipeOpenKind = g.kind; }
+  else if(rowSwipeOpenId === g.id) closeRowSwipe();
+}
+document.addEventListener('touchend', rowSwipeEnd);
+document.addEventListener('touchcancel', rowSwipeEnd);
+// Tapping literally anywhere outside the currently-open row closes it —
+// same "outside click dismisses" idiom every other popover in the app
+// already follows (color wheels, the share menu, etc.), just via
+// touchstart instead of click since this only ever matters on mobile.
+// Capture phase so this runs (and can close the row) BEFORE whatever the
+// tapped element's own touchstart/onclick would otherwise do.
+document.addEventListener('touchstart', (e) => {
+  if(rowSwipeOpenId == null) return;
+  if(e.target.closest && e.target.closest(`.task[data-task-id="${rowSwipeOpenId}"]`)) return;
+  closeRowSwipe();
+}, { capture: true, passive: true });
 
 // ---------- Pull-to-refresh ----------
 // The standalone "Add to Home Screen" install (manifest.json/shell-head.html)

@@ -591,8 +591,24 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // only reasoning.
   const noteHoverAttrs = t.notes ? ` onmouseenter="noteHoverStart(event,'${t.id}')" onmouseleave="noteHoverEnd()"` : '';
   const onMoveTarget = inDaily && (t.plannedDates||[]).includes(moveForwardTarget(dayDate));
+  // EXPERIMENTAL — swipeActionsEnabled (see its own dev-panel comment,
+  // 01-categories-theme.js). Scoped to a category's own master-view list
+  // specifically (!inDaily) per the explicit ask — Daily's own rows
+  // already spend their row-width on .movenext/.dayremove above, and
+  // "swipe left to reveal quick actions" would have nothing left to
+  // reveal there anyway. .swipeactions is emitted as a sibling BEFORE
+  // .row in the DOM, sitting still while .row itself (see rowSwipeStart()
+  // etc., 20-bootstrap.js) slides left on top of it — <li> is what clips
+  // that reveal to the row's own bounds (position:relative;
+  // overflow:hidden, see .task in <style>) and gives .swipeactions
+  // something to anchor position:absolute against.
+  const useSwipeActions = !inDaily && mobileUiActive() && (state.devSettings||{}).swipeActionsEnabled;
+  const swipeAttrs = useSwipeActions
+    ? ` ontouchstart="rowSwipeStart(event,'${t.id}','task')" ontouchmove="rowSwipeMove(event)" ontouchend="rowSwipeEnd()" ontouchcancel="rowSwipeEnd()" onmousedown="rowSwipeStart(event,'${t.id}','task')" onmousemove="rowSwipeMove(event)" onmouseup="rowSwipeEnd()"`
+    : '';
   return `
-  <li class="task" data-task-id="${t.id}">
+  <li class="task"${swipeAttrs} data-task-id="${t.id}">
+    ${useSwipeActions ? taskSwipeActionsHtml(t) : ''}
     <div class="row"${pressAttrs}${ctxMenuAttr}${noteHoverAttrs} onclick="${rowClick}">
       ${dragHandle}
       <div class="checkwrap" onclick="event.stopPropagation()">
@@ -615,6 +631,36 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
     </div>
     ${inDaily ? '' : `<div class="expand ${expandedTaskIds.has(t.id)?'open':''}" id="exp-${t.id}">${expandInner}</div>`}
   </li>`;
+}
+
+// A standard task's own swipe-revealed row (see the useSwipeActions
+// comment above) — Flag/Pin match .rowflag/.rowpin exactly (same toggle,
+// same "on" look) but close the reveal afterward (closeRowSwipe(),
+// 20-bootstrap.js), since toggling one is a complete action with nothing
+// left to look at once it's done. Share is the one exception: it opens
+// its own popover (shareButtonHtml(), 19-sharing.js, unmodified — already
+// carries its own stopPropagation), so leaving the row visibly open
+// behind it reads as "still mid-action," not stale.
+function taskSwipeActionsHtml(t){
+  return `<div class="swipeactions swipeactions-task">
+    <button class="swipeactionbtn ${t.urgent?'on':''}" onclick="event.stopPropagation(); toggleUrgent('${t.id}'); closeRowSwipe();" title="Toggle flag">⚑</button>
+    <button class="swipeactionbtn ${hasCurrentPlan(t.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleTaskToday('${t.id}'); closeRowSwipe();" title="${taskTodayTitle(t)}">${DAYPIN_ICON_SVG}</button>
+    ${shareButtonHtml(t.id)}
+  </div>`;
+}
+
+// Re-establishes an open swipe row's revealed transform after a fresh
+// render() rebuilds it from scratch (see the rAF tail in render() itself)
+// — render() always regenerates a row's whole innerHTML, which has no
+// memory of the plain inline `transform` rowSwipeEnd() (20-bootstrap.js)
+// applied a moment ago. No transition here (a snap, not an animation):
+// this is reapplying state that was already true a frame ago, not a new
+// user-driven reveal that should visibly ease open.
+function reapplyRowSwipeState(){
+  if(rowSwipeOpenId == null) return;
+  const row = rowSwipeRowEl(rowSwipeOpenId);
+  if(!row){ rowSwipeOpenId = null; rowSwipeOpenKind = null; return; } // the row itself is gone (e.g. deleted, or scrolled off the active tab)
+  row.style.transform = `translateX(${-ROWSWIPE_ACTION_WIDTH[rowSwipeOpenKind]}px)`;
 }
 
 // ---------- mobile long-press gesture ----------
@@ -698,6 +744,12 @@ function taskPressEnd(){
 const ROW_DOUBLE_TAP_MS = 280;
 let lastRowTap = null; // { taskId, time } | null — the most recent single tap's own taskRowTap() call, for comparing against the next one
 function taskRowTap(e, taskId){
+  // A tap while this row's own swipe actions are revealed (swipeActionsEnabled
+  // dev setting) closes them instead of opening the task — same as tapping
+  // a revealed row in a mail app dismisses it rather than opening the
+  // message underneath. Checked before the long-press/double-tap handling
+  // below since none of that should run either once the row's in this state.
+  if(rowSwipeOpenId === taskId){ closeRowSwipe(); return; }
   if(taskLongPressFired){ taskLongPressFired = false; e.preventDefault(); return; }
   const now = Date.now();
   if(lastRowTap && lastRowTap.taskId === taskId && now - lastRowTap.time < ROW_DOUBLE_TAP_MS){
@@ -1607,6 +1659,7 @@ function render(){
   // querySelectorAll the rest of the time.
   requestAnimationFrame(() => {
     document.querySelectorAll('.autogrowtext').forEach(autogrowTextarea);
+    reapplyRowSwipeState();
   });
   renderDevPanel();
   renderDevBreadcrumb();

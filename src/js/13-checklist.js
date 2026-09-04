@@ -245,17 +245,49 @@ function checklistCheckcircleHtml(t, subtle){
   </div>`;
 }
 
+// EXPERIMENTAL — swipeActionsEnabled (see its own dev-panel comment,
+// 01-categories-theme.js), same feature as taskRowHtml()'s own
+// useSwipeActions (08-render-core.js) — see that comment for the general
+// .swipeactions/.row markup reasoning, identical here. The one wrinkle
+// specific to this row: touchstart/move/end here were ALREADY spoken for
+// by checklistPressStart()/Move()/End() (the long-press-to-context-menu
+// gesture) below, so a swipe-enabled row calls both in sequence rather
+// than picking one — checklistPressMove()'s own TASK_LONG_PRESS_TOLERANCE_PX
+// cancellation already kills that timer the moment a real drag (this
+// one included) moves far enough, so the two don't fight in practice.
 function checklistListRowHtml(t){
+  const useSwipeActions = mobileUiActive() && (state.devSettings||{}).swipeActionsEnabled;
+  const swipeAttrs = useSwipeActions
+    ? ` ontouchstart="checklistPressStart(event,'${t.id}'); rowSwipeStart(event,'${t.id}','checklist')" ontouchmove="checklistPressMove(event); rowSwipeMove(event)" ontouchend="checklistPressEnd(); rowSwipeEnd()" ontouchcancel="checklistPressEnd(); rowSwipeEnd()" onmousedown="checklistPressStart(event,'${t.id}'); rowSwipeStart(event,'${t.id}','checklist')" onmousemove="rowSwipeMove(event)" onmouseup="checklistPressEnd(); rowSwipeEnd()" onmouseleave="checklistPressEnd()"`
+    : ` ontouchstart="checklistPressStart(event,'${t.id}')" ontouchmove="checklistPressMove(event)" ontouchend="checklistPressEnd()" ontouchcancel="checklistPressEnd()" onmousedown="checklistPressStart(event,'${t.id}')" onmouseup="checklistPressEnd()" onmouseleave="checklistPressEnd()"`;
   return `
   <li class="task" data-task-id="${t.id}" onclick="checklistRowTap(event,'${t.id}')"
-    oncontextmenu="return handleChecklistContextMenu(event,'${t.id}')"
-    ontouchstart="checklistPressStart(event,'${t.id}')" ontouchmove="checklistPressMove(event)" ontouchend="checklistPressEnd()" ontouchcancel="checklistPressEnd()"
-    onmousedown="checklistPressStart(event,'${t.id}')" onmouseup="checklistPressEnd()" onmouseleave="checklistPressEnd()">
+    oncontextmenu="return handleChecklistContextMenu(event,'${t.id}')"${swipeAttrs}>
+    ${useSwipeActions ? checklistSwipeActionsHtml(t) : ''}
     <div class="row">
       ${checklistCheckcircleHtml(t, true)}
       <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.sharedImport ? ' <span class="badge shared">Shared</span>' : ''}<span class="listdate">${fmtDate(t.createdAt)}</span></div>
     </div>
   </li>`;
+}
+// Share is identical to a standard task's own (shareButtonHtml(),
+// 19-sharing.js — a checklist "list" is a plain task under the hood, see
+// this file's own top comment, so sharing is the exact same operation).
+// Delete needs a second, deliberate tap before it does anything — see
+// swipeDeleteConfirmId's own comment (20-bootstrap.js) for why this one
+// specifically isn't a single-tap action the way Flag/Pin/Share are.
+function checklistSwipeActionsHtml(t){
+  const confirming = swipeDeleteConfirmId === t.id;
+  return `<div class="swipeactions swipeactions-checklist">
+    ${shareButtonHtml(t.id)}
+    <button class="swipeactionbtn danger ${confirming?'confirming':''}" onclick="event.stopPropagation(); confirmSwipeDeleteChecklist('${t.id}')">${confirming?'Confirm?':'Delete'}</button>
+  </div>`;
+}
+function confirmSwipeDeleteChecklist(id){
+  if(swipeDeleteConfirmId !== id){ swipeDeleteConfirmId = id; render(); return; }
+  swipeDeleteConfirmId = null;
+  closeRowSwipe();
+  deleteChecklistList(id);
 }
 
 // ---------- a checklist list's own right-click/long-press menu ----------
@@ -358,6 +390,9 @@ function checklistPressEnd(){
 // opened the menu — same "was this actually a long-press just now"
 // pattern taskRowTap() (08-render-core.js) uses for the standard row.
 function checklistRowTap(e, taskId){
+  // Same swipe-open guard as taskRowTap() (08-render-core.js) — see its
+  // own comment.
+  if(rowSwipeOpenId === taskId){ closeRowSwipe(); return; }
   if(checklistLongPressFired){ checklistLongPressFired = false; e.preventDefault(); return; }
   openChecklistList(taskId);
 }
