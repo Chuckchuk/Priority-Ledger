@@ -1486,6 +1486,21 @@
      about the ROW's own 3 children (draghandle/subcheck/subtextwrap)
      ever needs to move to a second flex line. */
   body.mobileui-active .subrow{ align-items:flex-start; }
+  /* flex-start above aligns to the very TOP of the row's cross-axis, not
+     the first line of text's own vertical center the way align-items:
+     center (desktop's default) naturally would for a single-line item —
+     per an explicit report, .subcheck (14px) was reading as sitting
+     visibly higher than .subtext's first line (line-height ~18px at the
+     default 0.84rem), not level with it. This nudges it down by exactly
+     that gap (measured directly: (18-14)/2 = 2px... rounded up slightly
+     since a checkbox reads better a touch low than a touch high against
+     text) rather than reverting to align-items:center, which would
+     reintroduce the original "checkbox drifts down the middle of
+     multi-line wrapped text" bug align-items:flex-start was added to fix
+     in the first place. .draghandle needed no equivalent nudge — its own
+     glyph's rendered box already lands within ~1px of centered on the
+     first line as-is. */
+  body.mobileui-active .subrow .subcheck{ margin-top:4px; }
   /* Promotes .subtextwrap from invisible (display:contents, above) to a
      real block box — a flex item of .subrow, sized the same way .subtext
      itself used to be (flex:1 1 0%; min-width:0 — see the "0 basis, not
