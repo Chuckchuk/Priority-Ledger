@@ -11364,6 +11364,24 @@ function render(){
     setView.innerHTML = '';
     cldView.innerHTML = '';
     applyDevElementNames();
+    // Synchronous, not left to this function's own requestAnimationFrame
+    // below — that rAF call is what taskDetailActionsPosition 'headerline'
+    // has depended on since it was introduced, but it turns out to be an
+    // unreliable way to guarantee this specific correction actually runs:
+    // whatever the exact cause (this app can't reproduce a real focused/
+    // visible tab's rAF timing in its own dev tooling to isolate it
+    // further), the buttons were landing at the CSS fallback position —
+    // wrong for anything but a short single-line title — far more often
+    // in practice than the rAF path alone ever showed in testing. Calling
+    // both functions directly, right here, right after the real DOM is
+    // in place, has no such dependency: by the time this line runs, the
+    // textarea and the elements positionHeaderlineActions() reads are
+    // already the final ones, no future frame required. The rAF call
+    // below still fires on top of this and is harmless (idempotent) —
+    // left in place as a fallback for the one thing it still uniquely
+    // covers, other .autogrowtext fields elsewhere in the app.
+    document.querySelectorAll('#genericTaskDetailView .autogrowtext').forEach(autogrowTextarea);
+    positionHeaderlineActions();
     return;
   }
   gtdView.style.display = 'none';
