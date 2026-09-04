@@ -16033,8 +16033,26 @@ async function updateDueDate(id, val){
   queueSave();
 }
 
+// Called after ~20 different mutations (subtask add/edit/toggle, due
+// date/category/title updates, drag reorder, etc.) to keep a task's
+// inline .expand open across the render() each of them does — render()
+// rebuilds every row's markup from scratch, which would otherwise
+// silently collapse whatever expand you were mid-edit inside back to
+// closed. Only meaningful when that expand was ALREADY open, though:
+// every one of those ~20 call sites is "I just edited something inside
+// (or that affects) the currently-open expand, keep it open," never
+// "force this closed row open" — but two of them (toggleUrgent()/
+// toggleTaskToday() above) are also reachable from a row's own always-
+// visible .rowflag/.rowpin quick buttons, which work fine on a row
+// whose expand is closed. Without this guard, tapping either of those
+// quick buttons forced the row's quickview open as a side effect of a
+// totally unrelated toggle — expandedTaskIds.has(id) is exactly the
+// "was it already open" check that fixes that, and it's a no-op for
+// every other call site (they only ever run while the expand they're
+// reopening is the one you're actively editing inside, i.e. already
+// open) so this doesn't change behavior anywhere else.
 function reopen(id){
-  expandedTaskIds.add(id);
+  if(!expandedTaskIds.has(id)) return;
   const exp = document.getElementById('exp-' + id);
   if(exp) exp.classList.add('open');
 }
