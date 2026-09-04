@@ -522,17 +522,35 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // this isn't a triage field someone opted into, it's just a fact about
   // where the task came from.
   const sharedBadge = t.sharedImport ? `<span class="badge shared">Shared</span>` : '';
-  // Leads .meta rather than sitting inline after the title text — per the
-  // explicit ask, a flagged task's own flag should read as the first of
-  // this row's badges, not a suffix on the title itself. Its own
-  // .metaflag class (not .badge) is what keeps a flag-only row from
-  // costing as much vertical space as a real badge would: .meta's height
-  // is driven by its tallest child, and .badge's own vertical padding is
-  // what makes a real badge tall — a bare, unpadded glyph here is short
-  // enough that a flag-only row barely grows past the title's own line,
-  // while still sitting flush at normal badge height (align-items:center)
-  // whenever a real badge actually is present alongside it.
-  const flagMeta = (t.urgent && t.status!=='done') ? `<span class="metaflag">⚑</span>` : '';
+  // Flag/pin indicators — passive read-only markers of state (t.urgent /
+  // hasCurrentPlan), NOT the actual toggle controls (those are the
+  // always-visible .rowflag/.rowpin buttons at the row's far end below).
+  // Two different spots depending on platform, per the explicit ask:
+  // leading .meta's badge row on mobile (flag first, then pin — the .meta
+  // row reads left-to-right as "markers, then real badges"), a suffix
+  // right after the title text itself on desktop (pin first, then flag —
+  // reversed order from mobile, per that same ask). This used to be
+  // .meta-only on both platforms, but on desktop's much wider row the
+  // marker ended up "lost way on the other side of the text" from the
+  // title it's describing — worth the vertical-space tradeoff on mobile
+  // (where .meta is right under a short, usually one-line title) but not
+  // on desktop, where a title can run most of the row's width.
+  // .metaflag/.metapin are unpadded spans (not .badge) so a flag-only
+  // .meta row barely grows past the title's own line height — .meta's
+  // height is driven by its tallest child, and .badge's own vertical
+  // padding is what makes a real badge tall. .titleflag/.titlepin are
+  // sized to sit inline with the title text itself instead. Pin uses
+  // --primary, flag keeps --secondary (unchanged) — see their own rules
+  // in <style>.
+  const flagOn = t.urgent && t.status!=='done';
+  const pinOn = hasCurrentPlan(t.plannedDates);
+  const isMobileRow = mobileUiActive();
+  const metaFlagsHtml = isMobileRow
+    ? `${flagOn ? '<span class="metaflag">⚑</span>' : ''}${pinOn ? `<span class="metapin">${DAYPIN_ICON_SVG}</span>` : ''}`
+    : '';
+  const titleFlagsHtml = isMobileRow
+    ? ''
+    : `${pinOn ? `<span class="titlepin">${DAYPIN_ICON_SVG}</span>` : ''}${flagOn ? '<span class="titleflag">⚑</span>' : ''}`;
   const dotHtml = showDot ? categoryDotHtml(cat, 'cdot') : '';
   const subs = t.subtasks || [];
   // Drag-to-reorder is only meaningful in 'default' sort mode — every
@@ -617,8 +635,8 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
       </div>
       ${dotHtml}
       <div class="titlewrap">
-        <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}</div>
-        <div class="meta">${flagMeta}${priorityBadge}${timeframeBadge}${sharedBadge}${badge}</div>
+        <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${titleFlagsHtml}</div>
+        <div class="meta">${metaFlagsHtml}${priorityBadge}${timeframeBadge}${sharedBadge}${badge}</div>
       </div>
       ${inDaily ? `
         <button class="movenext" ${onMoveTarget?'disabled':''} onclick="event.stopPropagation(); moveTaskForward('${t.id}','${dayDate}')" title="${onMoveTarget ? (dayDate<todayStr()?'Already planned for today':'Already planned for tomorrow') : (dayDate<todayStr()?'Also plan for today':'Also plan for tomorrow')}">→</button>
