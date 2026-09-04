@@ -3302,6 +3302,17 @@
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; line-height:1.35;
     letter-spacing:0.02em; color: var(--ink-soft); margin-bottom:12px;
   }
+  /* "Copy Selected Dev Settings" (copyDevSettingsToClipboard(),
+     01-categories-theme.js) — sits right under the dev-mode/side-panel
+     toggles, above every collapsible group, so it's in the same spot
+     regardless of which sections happen to be open. */
+  .devsettingscopybtn{
+    display:block; width:100%; margin:10px 0 4px;
+    font-family:'IBM Plex Mono', monospace; font-size:0.64rem; letter-spacing:0.03em; text-transform:uppercase;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:6px; padding:8px;
+    color: var(--ink); cursor:pointer;
+  }
+  .devsettingscopybtn:hover{ border-color: var(--primary); color: var(--primary); }
   .devpanelrow input{ cursor:pointer; margin-top:2px; flex-shrink:0; }
   .devpanelselect{
     display:block; width:100%; font-family:'IBM Plex Mono', monospace; font-size:0.62rem;

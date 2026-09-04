@@ -1011,6 +1011,11 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <input type="checkbox" ${dev.sidePanelEnabled?'checked':''} onchange="toggleDevSetting('sidePanelEnabled', this.checked)">
       Show the floating dev panel (left edge, desktop only)
     </label>`;
+  // See copyDevSettingsToClipboard()/devSettingsDiffFromDefault() below —
+  // one line, only the settings that actually differ from default, so
+  // this is quick to paste into a message rather than a wall of text.
+  const copyDevSettingsHtml = `
+    <button type="button" class="devsettingscopybtn" onclick="copyDevSettingsToClipboard(this)">Copy Selected Dev Settings</button>`;
 
   const generalBody = `
     ${devSectionHeadHtml('Page Tags')}
@@ -1186,10 +1191,54 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
   return `
     ${devModeToggleHtml}
     ${sidePanelToggleHtml}
+    ${copyDevSettingsHtml}
     ${devGroupHtml('dev-general', 'General', generalBody)}
     ${devGroupHtml('dev-desktop', 'Desktop', desktopBody)}
     ${devGroupHtml('dev-mobile', 'Mobile', mobileBody)}
   `;
+}
+
+// ---------- "Copy Selected Dev Settings" (copyDevSettingsHtml above) ----------
+// The project owner's own ask: a quick way to hand over exactly which
+// dev settings are active without pasting a wall of text, so a fresh
+// conversation (or a later message in this one) knows what's actually
+// being tested without asking. Diffs the live state.devSettings against
+// defaultDevSettings() rather than listing every key — most of the
+// ~20-odd settings sit at their default for any given account at any
+// given time, and the ones that don't are the only ones actually worth
+// reporting; a full dump of all of them would be exactly the "huge wall
+// of text" this was asked to avoid. Reading the key list generically off
+// defaultDevSettings() (rather than a separate hand-maintained list of
+// "settings worth exporting") is also what keeps this needing zero
+// upkeep when a new dev setting is added later — it's covered
+// automatically the moment it exists, nothing to remember to update here.
+// developmentMode is the one deliberate exclusion: it's always true the
+// moment this button is even visible to click, so including it would
+// just be a fixed "developmentMode=true" on every single export, adding
+// no actual information.
+const DEV_SETTINGS_EXPORT_EXCLUDE = new Set(['developmentMode']);
+function devSettingsDiffFromDefault(){
+  const dev = state.devSettings || {};
+  const defaults = defaultDevSettings();
+  return Object.keys(defaults)
+    .filter(k => !DEV_SETTINGS_EXPORT_EXCLUDE.has(k) && dev[k] !== undefined && dev[k] !== defaults[k])
+    .map(k => `${k}=${dev[k]}`);
+}
+// One line, always — a short "Copied!"/"Copy failed" swap on the button
+// itself is the only feedback (reverted after a beat, same one-shot
+// timeout idiom as flashQuickCategoryInvalid(), 16-task-crud.js), rather
+// than a toast or modal that would be overkill for a plain clipboard copy.
+async function copyDevSettingsToClipboard(btn){
+  const diffs = devSettingsDiffFromDefault();
+  const text = 'Dev Settings: ' + (diffs.length ? diffs.join(', ') : '(all defaults)');
+  const original = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = 'Copied!';
+  } catch(e){
+    btn.textContent = 'Copy failed';
+  }
+  setTimeout(() => { btn.textContent = original; }, 1500);
 }
 
 // ---------- Development mode: element-name tooltips ----------
