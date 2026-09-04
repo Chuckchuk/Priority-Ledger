@@ -396,21 +396,35 @@ function taskSubtasksHtml(t){
           <div class="subrow" data-sub-id="${s.id}">
             <span class="draghandle sub" onpointerdown="subHandlePointerDown(event,'${t.id}','${s.id}')" title="Drag to reorder">⠿</span>
             <div class="subcheck ${s.done?'done':''}${s.cancelled?' cancelled':''}" onclick="toggleSubtask('${t.id}','${s.id}')"></div>
-            <div class="subtext ${s.done?'done':''}${s.cancelled?' cancelled':''}"${subMenuAttrs} onclick="subtextTap(event,this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
-            <!-- stepsactions (see body.mobileui-active .stepsactions in
-                 <style>) — the modifier that lets the mobile-only rule
-                 below hide just the pin/remove buttons here, now that
-                 they're also reachable from this row's own long-press menu
-                 (subtaskContextMenuHtml() above), without touching a
-                 checklist item's own .subrowactions (13-checklist.js),
-                 which never had a pin button and still needs its inline
-                 "×" since it has no long-press "Pin to Today" of its own
-                 to make Remove Item feel any less like its one obvious
-                 delete affordance. -->
-            <div class="subrowactions stepsactions">
-              <div class="datefield ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
-              <button class="flagbtn daybtn ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">${DAYPIN_ICON_SVG}</button>
-              <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
+            <!-- subtextwrap: display:contents on desktop (see that rule in
+                 <style>) — invisible to layout there, so .subtext and
+                 .subrowactions stay direct participants in .subrow's own
+                 flex row exactly as before this wrapper existed. On mobile
+                 it becomes a real block box instead, which is what lets
+                 .subrowactions float against .subtext's own text (see the
+                 body.mobileui-active rules in <style>) rather than always
+                 claiming a full row of its own regardless of how short the
+                 text is — a long step's text can now flow right up to
+                 wherever Date/Remove actually sit on their shared last
+                 line, instead of stopping short everywhere just to leave
+                 them a clear lane down the whole height of the row. -->
+            <div class="subtextwrap">
+              <div class="subtext ${s.done?'done':''}${s.cancelled?' cancelled':''}"${subMenuAttrs} onclick="subtextTap(event,this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
+              <!-- stepsactions (see body.mobileui-active .stepsactions in
+                   <style>) — the modifier that lets the mobile-only rule
+                   below hide just the pin/remove buttons here, now that
+                   they're also reachable from this row's own long-press menu
+                   (subtaskContextMenuHtml() above), without touching a
+                   checklist item's own .subrowactions (13-checklist.js),
+                   which never had a pin button and still needs its inline
+                   "×" since it has no long-press "Pin to Today" of its own
+                   to make Remove Item feel any less like its one obvious
+                   delete affordance. -->
+              <div class="subrowactions stepsactions">
+                <div class="datefield ${s.dueDate?'':'empty'}" onclick="startEditSubtaskDate(this,'${t.id}','${s.id}')">${s.dueDate ? fmtDateShort(s.dueDate) : 'Date'}</div>
+                <button class="flagbtn daybtn ${hasCurrentPlan(s.plannedDates)?'on':''}" onclick="event.stopPropagation(); toggleSubtaskToday('${t.id}','${s.id}')" title="${subTodayTitle}">${DAYPIN_ICON_SVG}</button>
+                <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
+              </div>
             </div>
           </div>`;
         }).join('')}
@@ -710,13 +724,19 @@ function taskRowTap(e, taskId){
 // Returned directly from a row's oncontextmenu attribute (see taskRowHtml()
 // above) — `return false` there is the inline-handler equivalent of
 // e.preventDefault(), which is what actually keeps the browser's native
-// menu from also showing. Desktop-only: on an actual touch device
-// there's no right-click to intercept in the first place, and
-// mobileUiActive() already covers "acting like a phone" for
-// mobileUiPreviewOnDesktop too. Was a dev setting (customContextMenu);
-// graduated to the real, always-on behavior.
+// menu from also showing. The app's own popup only ever opens on a real
+// desktop (mobileUiActive() false) — on mobile the long-press flow
+// (taskPressStart et al.) is this row's actual menu trigger instead. But
+// still `return false` (not `true`) while mobileUiActive(): a genuine
+// touch device has no mouse to right-click with, so this never fires
+// there anyway, while mobileUiPreviewOnDesktop previews mobile UI with a
+// perfectly real mouse — returning true there let the OS's own native
+// menu pop up on every right-click, purely an annoyance while debugging
+// that mode, since nothing in-app was relying on it staying enabled. Was
+// a dev setting (customContextMenu); graduated to the real, always-on
+// behavior.
 function handleTaskContextMenu(e, taskId){
-  if(mobileUiActive()) return true;
+  if(mobileUiActive()) return false;
   openTaskContextMenu(taskId, e.clientX, e.clientY);
   return false;
 }
@@ -887,8 +907,10 @@ function renderSubtaskContextMenu(taskId, subId, x, y){
     if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
+// Same reasoning as handleTaskContextMenu() above for `return false`
+// (not `true`) while mobileUiActive() — see its own comment.
 function handleSubtaskContextMenu(e, taskId, subId){
-  if(mobileUiActive()) return true;
+  if(mobileUiActive()) return false;
   renderSubtaskContextMenu(taskId, subId, e.clientX, e.clientY);
   return false;
 }
@@ -1200,11 +1222,10 @@ function renderDayContextMenu(dateStr, x, y){
     if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
-// Desktop-only, same reasoning as handleTaskContextMenu() above — on an
-// actual touch device there's no right-click to intercept, and Mobile UI
-// Lab's own preview mode already covers "acting like a phone" either way.
+// Same reasoning as handleTaskContextMenu() above for `return false`
+// (not `true`) while mobileUiActive() — see its own comment.
 function handleDayContextMenu(e, dateStr){
-  if(mobileUiActive()) return true;
+  if(mobileUiActive()) return false;
   renderDayContextMenu(dateStr, e.clientX, e.clientY);
   return false;
 }
@@ -1597,17 +1618,12 @@ function currentTabBodyHtml(){
 // buttons relative to that, in JS, rather than trying to keep guessing a
 // better fixed number. The CSS values remain as the pre-JS fallback (so
 // there's no flash of unpositioned buttons before this first runs).
-// Resting right above the underline only actually works while the title
-// is short enough that doing so doesn't run the button into the title's
-// OWN text first — .titleedit's padding-bottom (the whitespace between
-// the last line of text and the underline itself) is a fixed few px,
-// nowhere near tall enough to also fit a ~30px button once a title wraps
-// to several lines. Rather than let that overlap happen (the original
-// bug), a title tall enough to cause it falls back to resting just above
-// the title's own TOP edge instead — the same spot a short title's
-// buttons already end up near anyway (a short title begins right below
-// the checkbox row), so this reads as "the same feature, gracefully
-// stepping back to a safe spot" rather than a visibly different mode.
+// No overlap fallback needed here any more: .titleedit.bigtitle gets a
+// dedicated padding-bottom under headerline mode specifically (see that
+// rule in <style>, right next to the CSS fallback `top` values) sized to
+// fit exactly this gap + a button's own height, so the spot right above
+// the underline is ALWAYS genuinely empty regardless of the title's
+// length or line count — this can just bottom-anchor unconditionally.
 const HEADERLINE_GAP_PX = 4;
 function positionHeaderlineActions(){
   if((state.devSettings||{}).taskDetailActionsPosition !== 'headerline') return;
@@ -1616,14 +1632,11 @@ function positionHeaderlineActions(){
   if(!title || !stackedpage) return;
   const titleRect = title.getBoundingClientRect();
   const containerTop = stackedpage.getBoundingClientRect().top;
-  const relTitleTop = titleRect.top - containerTop;
   const relTitleBottom = titleRect.bottom - containerTop;
   ['titleactions', 'taskdetailshare'].forEach(cls => {
     const el = document.querySelector(`#genericTaskDetailView .${cls}`);
     if(!el) return;
-    let top = relTitleBottom - HEADERLINE_GAP_PX - el.offsetHeight;
-    if(top >= relTitleTop) top = relTitleTop - HEADERLINE_GAP_PX - el.offsetHeight;
-    el.style.top = top + 'px';
+    el.style.top = (relTitleBottom - HEADERLINE_GAP_PX - el.offsetHeight) + 'px';
   });
 }
 

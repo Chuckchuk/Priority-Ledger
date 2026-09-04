@@ -1188,6 +1188,24 @@
      if they don't fit, independent of the other group's own width. */
   .expand-row.fieldsrow{ justify-content:space-between; }
   .fieldgroup{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  /* Mobile: always give Timeframe and Priority a full row each rather
+     than letting space-between above decide whether they fit side by
+     side. That "do both groups fit on one line" question was a pixel-
+     level coin flip against a narrow viewport — sometimes they'd BOTH
+     land on the same line, but only by leaving so little room per group
+     that a group's own pills wrapped mid-row (Short+Medium on one line,
+     Long alone on the next, while Priority's three still fit fine on the
+     far side of that same line) — a messier, uneven-looking wrap than
+     either group ever produces on its own full-width row. flex:1 1 100%
+     forces each .fieldgroup to claim the whole row, so the ambiguous
+     "just barely fits" case can't happen at all; the second group then
+     wraps cleanly onto its own line below, exactly like a group wrapping
+     due to its OWN pills already does. Desktop keeps the side-by-side
+     .fieldsrow default above — this is mobile-only per the explicit ask
+     to keep the two apart there specifically for readability, which was
+     never in question on mobile since there's no room to sit them side
+     by side there anyway. */
+  body.mobileui-active .expand-row.fieldsrow .fieldgroup{ flex: 1 1 100%; }
   /* Groups the urgent/today-pin/remove buttons into one unit, purely as a
      CSS hook for the Mobile UI Lab's taskDetailMobile "stacked"/"grouped"
      variants (near the end of this file) — display:contents makes the
@@ -1366,51 +1384,71 @@
   .subrow.listdone{ opacity:0.5; }
   .subrow.listdone .subtext{ text-decoration: line-through; }
   /* display:contents (same trick as .expandactions above it) — invisible
-     to layout by default, so .datefield/the pin button/.subdel (or, for a
-     checklist item, Move/×) stay direct participants of .subrow's own
-     single-line flex row exactly as if this wrapper weren't there. Only
-     becomes a real flex group on mobile (see body.mobileui-active
-     .subrowactions below), where it shares the first line with a short
-     item's text but drops to its own line once that text wraps. */
+     to layout by default, so .subtext/.subrowactions (a step's Date/pin/×,
+     or a checklist item's Move/×) stay direct participants of .subrow's
+     own single-line flex row exactly as if this wrapper weren't there.
+     Only becomes a real (non-flex) block on mobile — see the
+     body.mobileui-active rules below — where .subrowactions floats
+     against .subtext's own text instead. */
+  .subtextwrap{ display:contents; }
   .subrowactions{ display:contents; }
-  /* align-items:flex-start (not the base rule's center) — once .subtext
-     wraps to two-plus lines the row itself grows taller, and centering
-     against that full new height was pulling the drag handle and
-     checkbox down off the first line of text instead of staying level
-     with it ("inline with the subtask text," per the explicit ask —
-     those two specifically should never move, only .datefield/the pin
-     button/.subdel drop to their own row below). */
-  body.mobileui-active .subrow{ flex-wrap:wrap; align-items:flex-start; }
-  /* flex-basis 0 (the "1" in the flex:1 shorthand), NOT auto — flex-wrap
-     decides which line an item lands on using its *unshrunk* hypothetical
-     size, and an auto basis means that hypothesis is the text's full
-     unwrapped max-content width. For a long step that's wider than the
-     whole row, so the item never even fits next to .subcheck/.draghandle
-     in the first place and gets pushed onto its own line below them —
-     exactly the "checkmark and grabber moved away from the text" bug
-     reported after this rule's first pass, even though align-items above
-     already keeps those two pinned to the top of whichever line .subtext
-     lands on. A 0 basis makes the hypothesis size 0 instead, so .subtext
-     always packs onto the same line as the checkbox/handle before
-     flex-grow (the "1" in "1 1 0") expands it to fill the remaining
-     width and min-width:0 lets it shrink/wrap internally there. */
-  body.mobileui-active .subrow .subtext{ flex:1 1 0%; min-width:0; }
-  /* width:auto + align-self:flex-end (not the row's own inherited
-     flex-start, and not a forced width:100%) is what lets this share the
-     first line with a short item's text instead of always dropping to its
-     own line below regardless of length — same "date chip sits inline
-     with a short step" fix as .stepsactions below, generalized to the
-     bare class so a checklist item's Move/× (13-checklist.js) gets it
-     too, not just a standard task's own steps. flex-wrap on .subrow
-     itself (above) still pushes this down onto its own line once
-     .subtext actually wraps to two-plus lines — see .subtext's own
-     flex-basis:0 comment for why a long item forces that wrap in the
-     first place — and align-self:flex-end then lands it level with the
-     LAST line of that wrapped text rather than floating up next to just
-     the first line. */
+  /* align-items:flex-start (not the base rule's center) — once
+     .subtextwrap wraps to two-plus lines the row itself grows taller, and
+     centering against that full new height was pulling the drag handle
+     and checkbox down off the first line of text instead of staying
+     level with it ("inline with the subtask text," per the explicit
+     ask). flex-wrap is NOT needed here any more (contrast an earlier pass
+     of this rule, which wrapped .subrow itself) — .subtextwrap is a
+     single flex item that simply grows taller as its own inline content
+     wraps, same as any ordinary flex item with tall content; nothing
+     about the ROW's own 3 children (draghandle/subcheck/subtextwrap)
+     ever needs to move to a second flex line. */
+  body.mobileui-active .subrow{ align-items:flex-start; }
+  /* Promotes .subtextwrap from invisible (display:contents, above) to a
+     real block box — a flex item of .subrow, sized the same way .subtext
+     itself used to be (flex:1 1 0%; min-width:0 — see the "0 basis, not
+     auto" reasoning below), but now a plain block rather than another
+     flex container. That's what makes it a normal inline formatting
+     context on the inside, which .subtext/.subrowactions actually need:
+     floats (used just below) have no effect at all on flex items, so
+     getting the "actions float against the text" trick to work meant
+     lifting .subtext and .subrowactions out of being flex items
+     themselves and into ordinary flow inside this one flex-item wrapper.
+     flex-basis 0, not auto: with an auto basis this item's own
+     hypothetical (unshrunk) width would be its content's full max-content
+     size, which for a long step is wider than the whole row — enough on
+     its own to have pushed .subtextwrap (and therefore the checkbox/
+     drag handle beside it) onto a fresh flex line in an earlier version
+     of this rule that still used flex-wrap on .subrow, i.e. exactly the
+     "checkmark and grabber moved away from the text" bug reported back
+     then. A 0 basis keeps that hypothetical at 0, so flex-grow (the "1"
+     in "1 1 0") is what actually gives it its share of the row's width,
+     and min-width:0 lets it shrink and wrap its own content inside that
+     share rather than overflowing past it. */
+  body.mobileui-active .subrow .subtextwrap{ display:block; flex:1 1 0%; min-width:0; }
+  /* The actual "text wraps around a bottom-right control" effect — the
+     exact same technique chat apps use for a message bubble's own
+     trailing timestamp. .subtext MUST come before .subrowactions in the
+     HTML (see taskSubtasksHtml()/13-checklist.js's own item markup) for
+     this to work: a browser lays out inline content in source order, so
+     by the time it reaches a float that's the LAST thing in the flow, any
+     earlier lines of text are already committed at the full row width —
+     only the words that would have landed on the same line as the float
+     actually make room for it. That's what gives a long step's first
+     line(s) the row's full width while only its LAST line (wherever that
+     ends up) shares space with Date/Move/×, rather than every line
+     reserving that space up front the way the old flex-based approach
+     always did regardless of how many lines the text actually needed.
+     display:inline on .subtext (not the base rule's block) is what makes
+     its own text genuinely participate in that shared inline flow instead
+     of boxing itself off from the float in its own separate block — a
+     flex item's display is always "blockified" by the spec regardless of
+     what's declared, so this same rule stays harmless for the one place
+     .subtext IS still a direct flex child of .subrow (checklist move
+     mode, 13-checklist.js) rather than nested in a .subtextwrap. */
+  body.mobileui-active .subrow .subtext{ display:inline; }
   body.mobileui-active .subrow .subrowactions{
-    display:flex; align-items:center; gap:8px; justify-content:flex-end;
-    width:auto; margin-top:0; align-self:flex-end;
+    display:flex; align-items:center; gap:8px; float:right; margin-left:8px;
   }
   /* Per the explicit ask: a standard task's own step row was always
      forcing this whole line — Date pill + pin + remove, all three —
@@ -1471,6 +1509,20 @@
      flag/pin/remove buttons exactly as before, so this only ever affects
      the one page it was asked for. */
   .expand-row.hideactions .taskdate{ flex:1 1 100%; }
+  /* Per the explicit ask: this field read as too large and too far below
+     the title's underline right above it. Both add up from the same
+     source — this row inherits .expand-row's own margin-top:8px meant
+     for a row of several same-height controls sharing a line, plus
+     .datefield.taskdate's own 7px/0.82rem sizing meant to read as a
+     prominent field among those controls — neither of which this page
+     still needs now that the date has the row entirely to itself right
+     under a big page-header title. Tightened specifically for this
+     .hideactions row rather than touching .expand-row/.datefield.taskdate
+     generally, so the long-press bottom sheet's own shared-row version of
+     this same field (taskManagementFieldsHtml(), no .hideactions there)
+     keeps its original sizing untouched. */
+  .expand-row.hideactions{ margin-top:4px; }
+  .expand-row.hideactions .taskdate{ padding:5px 10px; font-size:0.78rem; }
   .draghandle.sub{ font-size:0.85rem; }
   .subcheck{
     width:14px; height:14px; border:1.5px solid var(--ink-soft); border-radius:3px; flex-shrink:0;
@@ -2362,6 +2414,25 @@
   }
   body[data-taskdetail-actions="headerline"] .taskdetailhead .taskdetailshare{
     position:absolute; z-index:3; right:14px;
+  }
+  /* Reserves the room these buttons actually need below the title's OWN
+     text, rather than hoping there happens to be enough slack in
+     .titleedit's ordinary padding-bottom (8px — nowhere near a ~30px
+     button plus gap) and falling back to some other spot when there
+     isn't. A single-line title's box is only ~41px tall total, so without
+     this, positionHeaderlineActions() (08-render-core.js) almost always
+     found the "rest on the underline" spot would overlap the title's own
+     last line and fell back to resting above the title instead — reading
+     as "the buttons just sit up by the checkbox, same as every other
+     variant" rather than the headerline look this setting is supposed to
+     be. Adding dedicated padding-bottom here means that spot is ALWAYS
+     genuinely empty, for a title of any length/line count, so the JS
+     never needs to fall back at all. 38px = a 30px button + 4px gap above
+     the underline + 4px gap below the text — same two 4px gaps
+     positionHeaderlineActions() already targets, just guaranteed by the
+     title's own box instead of hoped for. */
+  body[data-taskdetail-actions="headerline"] #genericTaskDetailView .titleedit.bigtitle{
+    padding-bottom: 38px;
   }
   /* A row, not a stack — the date on the left, progress + the "move
      incomplete" button (when there's something to move) on the right.

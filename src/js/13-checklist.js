@@ -293,9 +293,10 @@ function renderChecklistContextMenu(taskId, x, y){
     if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
   });
 }
-// Desktop-only, same reasoning as handleTaskContextMenu() (08-render-core.js).
+// Same reasoning as handleTaskContextMenu()'s `return false` (not `true`)
+// while mobileUiActive() — see its own comment (08-render-core.js).
 function handleChecklistContextMenu(e, taskId){
-  if(mobileUiActive()) return true;
+  if(mobileUiActive()) return false;
   renderChecklistContextMenu(taskId, e.clientX, e.clientY);
   return false;
 }
@@ -457,13 +458,25 @@ function renderChecklistDetail(taskId){
           <div class="${rowClass}" data-sub-id="${s.id}"${rowClick}>
             <span class="draghandle sub" onpointerdown="subHandlePointerDown(event,'${t.id}','${s.id}')" title="Drag to reorder">⠿</span>
             <div class="subcheck circle ${s.done?'done':''}${s.cancelled?' cancelled':''}" ${inMoveMode?'':`onclick="toggleSubtask('${t.id}','${s.id}')"`}></div>
+            ${inMoveMode ? `
             <div class="subtext ${s.done?'done':''}${s.cancelled?' cancelled':''}"${subMenuAttrs} ${inMoveMode?'':`onclick="subtextTap(event,this,'${t.id}','${s.id}')"`}>${escapeHtml(s.text)}</div>
-            ${inMoveMode
-              ? (movable ? `<div class="moveitemcheck ${selected?'on':''}"></div>` : '')
-              : `<div class="subrowactions">
-                     ${movable ? `<button class="moveitembtn" onclick="event.stopPropagation(); startMoveItem('${t.id}','${s.id}')" title="Move to another list">Move</button>` : ''}
-                     <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
-                   </div>`}
+            ${movable ? `<div class="moveitemcheck ${selected?'on':''}"></div>` : ''}
+            ` : `
+            <!-- subtextwrap: same "float the actions against the text
+                 instead of always giving them a full row" trick as a
+                 standard task's own step rows (taskSubtasksHtml(),
+                 08-render-core.js) — see that markup's own comment for the
+                 full reasoning. Only used outside move mode: move mode's
+                 own .moveitemcheck is a small fixed-size control, not a
+                 row of buttons wide enough to need this. -->
+            <div class="subtextwrap">
+              <div class="subtext ${s.done?'done':''}${s.cancelled?' cancelled':''}"${subMenuAttrs} onclick="subtextTap(event,this,'${t.id}','${s.id}')">${escapeHtml(s.text)}</div>
+              <div class="subrowactions">
+                ${movable ? `<button class="moveitembtn" onclick="event.stopPropagation(); startMoveItem('${t.id}','${s.id}')" title="Move to another list">Move</button>` : ''}
+                <button class="subdel" onclick="deleteSubtask('${t.id}','${s.id}')">×</button>
+              </div>
+            </div>
+            `}
           </div>`;
         }).join('')}
         ${inMoveMode ? '' : subDropEndHtml(t.id, subs)}
