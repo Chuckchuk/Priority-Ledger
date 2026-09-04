@@ -127,13 +127,21 @@
              position:absolute against #appCard so this empty div costs
              no layout space of its own when there's nothing to show. -->
         <div id="sharedTagSlot"></div>
-        <!-- Mobile UI Lab — the trigger is a sticky button docked under
-             the tab bar whenever mobileui-active (see .quickaddtrigger in
-             <style>); tapping it expands the bar open in place, below it.
-             Inert (display:none) on desktop, same as the rest of this
-             file's Mobile UI Lab markup. -->
+        <!-- Mobile UI Lab (quickAddBarStyle) — the trigger is docked
+             wherever the dev setting picks (see .quickaddtrigger in
+             <style>); tapping it either expands the bar open in place
+             ('top', the default) or opens it as a bottom sheet behind a
+             dimming scrim ('bottom' — the grabber+close row inside
+             #quickAddBar only shows for that variant). Inert
+             (display:none) on desktop, same as the rest of this file's
+             Mobile UI Lab markup. -->
         <button class="quickaddtrigger" id="quickAddTrigger" onclick="toggleQuickAddSheet()">+ Add Task</button>
+        <div class="quickaddscrim" id="quickAddScrim" onclick="toggleQuickAddSheet(false)"></div>
         <div class="quickadd" id="quickAddBar">
+          <div class="quickaddsheethead">
+            <span class="quickaddsheetgrabber"></span>
+            <button class="quickaddsheetclose" onclick="toggleQuickAddSheet(false)" title="Close">×</button>
+          </div>
           <!-- Row 1 is the whole point: the title input is most of the
                space, and everything else here is either required
                (Category, only on the All tab — see renderQuickCategory(),
@@ -200,8 +208,8 @@
       <!-- The same full-page task detail Daily's own taskDetailId uses
            (see openGenericTaskDetail() in 08-render-core.js), reachable
            from any category tab's row — via its own always-visible ⛶
-           button, the desktop right-click menu, or (in taskLongPressMode
-           'detail') a plain tap — instead of just from within Daily. -->
+           button, the desktop right-click menu, or a plain tap on mobile
+           — instead of just from within Daily. -->
       <div id="genericTaskDetailView" style="display:none;"></div>
       <!-- The "Shared N" compact tag's own drilldown (openSharedItems(),
            19-sharing.js) — same top-tier overlay pattern as
@@ -218,24 +226,9 @@
   <div class="savestatus" id="saveStatus"></div>
   <div class="status-line"><button class="signoutbtn" onclick="refreshFromServer(true)" id="refreshBtn">Refresh</button></div>
 
-  <!-- taskLongPressMode 'split' (see openTaskSettingsSheet() in 08-render-
-       core.js) — one shared sheet reused for whichever task was long-
-       pressed, using the shared .fabaddsheet/.fabaddscrim bottom-sheet
-       mechanics (see <style>), gated by its own body class
-       (.tasksettings-open). -->
-  <div class="fabaddscrim" id="taskSettingsScrim" onclick="closeTaskSettingsSheet()"></div>
-  <div class="fabaddsheet tasksettingssheet" id="taskSettingsSheet">
-    <div class="quickaddsheethead">
-      <span class="quickaddsheetgrabber"></span>
-      <button class="quickaddsheetclose" onclick="closeTaskSettingsSheet()" title="Close">×</button>
-    </div>
-    <div id="taskSettingsBody"></div>
-  </div>
-
-  <!-- Shake-to-undo/redo (see 04-undo.js) — reuses the same bottom-sheet
-       mechanics as the long-press sheet above (.fabaddsheet/.fabaddscrim),
-       gated by its own body class since tasksettings-open doesn't apply
-       here. Always in the DOM, harmless at rest, same idiom as that. -->
+  <!-- Shake-to-undo/redo (see 04-undo.js) — uses the shared bottom-sheet
+       mechanics (.fabaddsheet/.fabaddscrim, see <style>), gated by its own
+       body class. Always in the DOM, harmless at rest. -->
   <div class="fabaddscrim" id="shakeUndoScrim" onclick="closeShakeUndoMenu()"></div>
   <div class="fabaddsheet shakeundosheet" id="shakeUndoSheet">
     <div class="quickaddsheethead">

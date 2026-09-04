@@ -127,21 +127,19 @@ function autogrowTextarea(el){
 
 // extraClass is optional — renderTaskDetailPage() passes 'bigtitle' to
 // match the checklist detail page's large centered title (see .bigtitle
-// in <style>, shared with .titleedit there); every other caller
-// (taskManagementFieldsHtml, the inline .expand) omits it and gets the
-// normal compact field. Swaps the plain <input> for an
-// autogrowTextarea()-driven <textarea> (see its own comment above) on
-// mobile always, and on desktop too for 'bigtitle' specifically — a long
-// title there used to just horizontally-scroll inside a single-line
-// input, showing whatever portion happened to be scrolled into view
-// rather than the actual title, which is exactly as "lost/unclean" on a
-// mouse-driven desktop as the same field was on a phone (per the
-// explicit ask, reported against BOTH). The small inline/compact
-// variant (no extraClass — the long-press settings sheet, inline task
-// management fields) stays desktop's plain <input>: that context is
-// cramped enough already that turning it multi-line everywhere wasn't
-// what broke, so there's no reason to touch it there. Same onblur/Enter-
-// commits behavior either way; updateTitle() itself collapses any
+// in <style>, shared with .titleedit there); every other caller (the
+// inline .expand) omits it and gets the normal compact field. Swaps the
+// plain <input> for an autogrowTextarea()-driven <textarea> (see its own
+// comment above) on mobile always, and on desktop too for 'bigtitle'
+// specifically — a long title there used to just horizontally-scroll
+// inside a single-line input, showing whatever portion happened to be
+// scrolled into view rather than the actual title, which is exactly as
+// "lost/unclean" on a mouse-driven desktop as the same field was on a
+// phone (per the explicit ask, reported against BOTH). The small
+// inline/compact variant (no extraClass) stays desktop's plain <input>:
+// that context is cramped enough already that turning it multi-line
+// everywhere wasn't what broke, so there's no reason to touch it there.
+// Same onblur/Enter-commits behavior either way; updateTitle() itself collapses any
 // embedded newlines a textarea uniquely allows in (a pasted multi-line
 // value, since Enter itself is intercepted below before it can insert
 // one) back to spaces, so a title can never actually end up multi-line
@@ -167,22 +165,17 @@ function taskTodayTitle(t){
     : 'Add to today’s list';
 }
 
-// hideCategory/hideActions are both true only from the full task detail
-// page (renderTaskDetailPage(), via taskExpandFieldsHtml()) — hideCategory
-// because that page now shows the category as a tab-styled label in its
-// own header instead (categoryLabelHtml(), further below), and
-// hideActions because that same header already carries its own urgent
-// flag + today-pin (see renderTaskDetailPage()'s own actionsHtml) — a
-// second copy right below, next to the date field, was showing the exact
-// same two buttons twice on one page. The long-press bottom sheet
-// (taskManagementFieldsHtml()) has no header to hold either of those, so
-// it keeps the <select> and the flag/pin exactly as it always has
-// (both params omitted, default falsy). hideActions now also drops
-// "Delete Task" from .expandactions — the full detail page renders its
-// own copy in a .footer-row at the bottom instead (see
-// renderTaskDetailPage()'s own comment), matching where a checklist's
-// "Delete list" already sits; the settings sheet keeps it here exactly
-// as before, since it has no footer of its own to move it to.
+// hideCategory/hideActions are both true from the full task detail page
+// (renderTaskDetailPage(), via taskExpandFieldsHtml()) — hideCategory
+// because that page shows the category as a tab-styled label in its own
+// header instead (categoryLabelHtml(), further below), and hideActions
+// because that same header already carries its own urgent flag +
+// today-pin (see renderTaskDetailPage()'s own actionsHtml) — a second
+// copy right below, next to the date field, was showing the exact same
+// two buttons twice on one page. hideActions also drops "Delete Task"
+// from .expandactions — the full detail page renders its own copy in a
+// .footer-row at the bottom instead (see renderTaskDetailPage()'s own
+// comment), matching where a checklist's "Delete list" already sits.
 function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
   const todayTitle = taskTodayTitle(t);
   return `
@@ -197,10 +190,7 @@ function taskCoreFieldsRowHtml(t, canRemoveHere, hideCategory, hideActions){
              <style>) and had nothing else nearby it could be confused
              with, so the label was pure unused space. The empty-state
              placeholder swaps to "Due Date" there instead, so the field
-             still says what it is without the caption's help; the
-             long-press settings sheet (hideActions omitted) keeps both
-             exactly as before, since its own date field sits crowded
-             next to the category select and flag/pin buttons. Uses
+             still says what it is without the caption's help. Uses
              fmtDateFull() (not fmtDateShort(), a step's own format) —
              the one date field the app gives a whole boxed row to reads
              better spelled all the way out ("Tuesday, September 2,
@@ -335,10 +325,10 @@ function taskNotesAndMetaHtml(t){
       <div class="taskmeta">${metaLine}</div>`;
 }
 
-// Factored out specifically so a short tap in taskLongPressMode's "split"
-// variant (see taskRowHtml() below) can show just this — the one part of
-// a task's detail worth glancing at on every tap — without the rest of
-// taskManagementFieldsHtml() coming along with it.
+// Factored out specifically so the inline .expand quick view (see
+// taskRowHtml() below) can show just this — the one part of a task's
+// detail worth glancing at on every tap — without the rest of a task's
+// full field set coming along with it.
 // Collapses to a single "+ Add step" link when there are no steps yet,
 // instead of always showing the "Steps" label plus the dashed add-input —
 // per the project owner's own callout that an empty task detail page
@@ -445,13 +435,6 @@ function taskSubtasksHtml(t){
           onkeydown="if(event.key==='Enter'){ const v=this.value; this.value=''; addSubtask('${t.id}', v); }"
           onblur="addSubtask('${t.id}', this.value)">
       </div>`;
-}
-
-// Everything EXCEPT Steps — the long-press settings sheet's own content
-// (openTaskSettingsSheet() in 08-render-core.js, taskLongPressMode
-// 'split') is just this, since Steps already got its own short-tap view.
-function taskManagementFieldsHtml(t, canRemoveHere){
-  return `${taskTitleFieldHtml(t)}${taskCoreFieldsRowHtml(t, canRemoveHere)}${taskAdvancedFieldsRowHtml(t)}${taskNotesAndMetaHtml(t)}`;
 }
 
 // Everything a task's own detail shows below its row header — title,
@@ -565,35 +548,31 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
     : '';
   // Within Daily, clicking a task opens its own full page (see
   // openTaskDetailFromDay/renderTaskDetailPage) rather than expanding
-  // inline — everywhere else it's routed through taskRowTap(), which reads
-  // taskLongPressMode itself to decide between the inline .expand toggle
-  // ('default'/'split', and 'detail' on desktop, where there's no
-  // long-press gesture to reach the full page with) and jumping straight
-  // to the full page (mobile 'detail' — a plain tap works like a
-  // home-screen icon there, since swipe-back makes returning cheap; see
-  // the "task quick/detail views" note in the taskLongPressMode dev
-  // setting's own comment for why desktop stays on the inline toggle
-  // instead), and also swallows the click a touchend/mouseup produces
-  // right after a long-press just fired rather than double-handling it.
+  // inline — everywhere else it's routed through taskRowTap(), which
+  // toggles the inline .expand on desktop (there's no long-press gesture
+  // to reach the full page with there) and jumps straight to the full
+  // page on mobile (a plain tap works like a home-screen icon there,
+  // since swipe-back makes returning cheap), and also swallows the click
+  // a touchend/mouseup produces right after a long-press just fired
+  // rather than double-handling it.
   const rowClick = inDaily ? `openTaskDetailFromDay('${t.id}')` : `taskRowTap(event,'${t.id}')`;
-  // 'split' and 'detail' both only apply outside Daily — a Daily row
-  // already opens its own full page on a plain tap, so there's no
-  // long-press gesture to add here in the first place.
-  const usePressGesture = !inDaily && state.devSettings &&
-    (state.devSettings.taskLongPressMode === 'split' || state.devSettings.taskLongPressMode === 'detail') &&
-    mobileUiActive();
+  // The long-press gesture (opens a quick-actions menu, see
+  // taskPressStart() below) only applies outside Daily — a Daily row
+  // already opens its own full page on a plain tap, so there's no gesture
+  // to add here in the first place — and only on mobile.
+  const usePressGesture = !inDaily && mobileUiActive();
   const pressAttrs = usePressGesture
     ? ` ontouchstart="taskPressStart(event,'${t.id}')" ontouchmove="taskPressMove(event)" ontouchend="taskPressEnd()" ontouchcancel="taskPressEnd()" onmousedown="taskPressStart(event,'${t.id}')" onmouseup="taskPressEnd()" onmouseleave="taskPressEnd()"`
     : '';
   // The inline .expand is a *quick* view — Steps only, always, on every
-  // platform and every taskLongPressMode — never the full edit fields
-  // (category/due/timeframe/priority/notes) taskExpandFieldsHtml() would
-  // otherwise show. Those now live only on the full task detail page,
-  // reached via the always-visible ⛶ button below (or, on mobile under
-  // 'detail', a plain tap — see rowClick's comment above) — a task row
-  // used to fall back to showing *everything* inline on desktop (nothing
-  // there ever gated it the way usePressGesture gates mobile), which is
-  // exactly the "quick view" cluttered with edit options this replaced.
+  // platform — never the full edit fields (category/due/timeframe/
+  // priority/notes) taskExpandFieldsHtml() would otherwise show. Those
+  // now live only on the full task detail page, reached via the
+  // always-visible ⛶ button below (or, on mobile, a plain tap — see
+  // rowClick's comment above) — a task row used to fall back to showing
+  // *everything* inline on desktop (nothing there ever gated it the way
+  // usePressGesture gates mobile), which is exactly the "quick view"
+  // cluttered with edit options this replaced.
   const expandInner = taskSubtasksHtml(t);
   // The right-click menu (desktop-only, see handleTaskContextMenu()
   // below) — right-click and the row's own left-click navigation
@@ -638,7 +617,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   </li>`;
 }
 
-// ---------- taskLongPressMode 'split'/'detail': long-press gesture ----------
+// ---------- mobile long-press gesture ----------
 // touchstart/mousedown arms a timer and adds a 'pressing' class to the row
 // (see .row.pressing in <style>) — otherwise the 500ms hold gives no
 // feedback at all until either the timer fires or the finger lifts, which
@@ -649,9 +628,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
 // If the timer *does* fire, taskLongPressFired is left set so the click
 // event a touchend/mouseup produces right after (real on mobile, synthetic
 // on some browsers) gets swallowed by taskRowTap() instead of also
-// running its own tap behavior. Which of the two modes is active only
-// changes what a tap and a fired long-press each do — the gesture
-// detection itself is identical either way.
+// running its own tap behavior.
 const TASK_LONG_PRESS_MS = 500;
 const TASK_LONG_PRESS_TOLERANCE_PX = 10;
 
@@ -668,11 +645,9 @@ function taskPressStart(e, taskId){
     taskPressTimer = null;
     taskLongPressFired = true;
     if(taskPressRow) taskPressRow.classList.remove('pressing');
-    // 'detail': a quick-actions menu anchored to the row — see
-    // openTaskContextMenuForRow() below. 'split': the full-field bottom
-    // sheet, same as ever.
-    if(state.devSettings.taskLongPressMode === 'detail') openTaskContextMenuForRow(taskId, taskPressRow);
-    else openTaskSettingsSheet(taskId);
+    // A quick-actions menu anchored to the row — see
+    // openTaskContextMenuForRow() below.
+    openTaskContextMenuForRow(taskId, taskPressRow);
   }, TASK_LONG_PRESS_MS);
 }
 function taskPressMove(e){
@@ -702,21 +677,16 @@ function taskPressEnd(){
 // Mobile: a plain tap always jumps straight to the full task page —
 // same platform-standard split as a home-screen icon (tap to open,
 // long-press for quick actions), and cheap to back out of via swipe-back.
-// Unconditional on mobile regardless of taskLongPressMode now — that dev
-// setting only ever decided what a *long press* does ('split' opens a
-// bottom sheet, 'detail' opens the same context menu 'default' does; see
-// usePressGesture above), never what a plain tap should do. An earlier
-// version also gated the plain tap on taskLongPressMode==='detail'
-// specifically, so 'default'/'split' on mobile fell through to
-// toggleExpand()'s inline quick view below (the desktop-only interaction
-// two paragraphs down) — that's what let the inline view sometimes end
-// up already toggled open (in expandedTaskIds) on a row you'd never
-// intentionally expanded, then flash open again on returning to the list
-// from that row's own full detail page. Desktop (mobileUiActive() false)
-// always falls through to toggleExpand()'s inline Steps-only quick view
-// instead, regardless of taskLongPressMode — desktop has no swipe-back,
-// so jumping to a full page on every tap would make "just glance at the
-// steps" the expensive path instead of the cheap one.
+// An earlier version instead fell through to toggleExpand()'s inline
+// quick view below (the desktop-only interaction two paragraphs down) on
+// mobile too — that's what let the inline view sometimes end up already
+// toggled open (in expandedTaskIds) on a row you'd never intentionally
+// expanded, then flash open again on returning to the list from that
+// row's own full detail page. Desktop (mobileUiActive() false) always
+// falls through to toggleExpand()'s inline Steps-only quick view instead
+// — desktop has no swipe-back, so jumping to a full page on every tap
+// would make "just glance at the steps" the expensive path instead of
+// the cheap one.
 //
 // A quick double-tap jumps straight to the full task page too — timed by
 // hand here (lastRowTap below) rather than a native `ondblclick`, whose
@@ -845,10 +815,10 @@ function renderTaskContextMenu(taskId, x, y, includeEdit){
 function openTaskContextMenu(taskId, x, y){
   renderTaskContextMenu(taskId, x, y, true);
 }
-// taskLongPressMode 'detail': anchored to the row's own bounding rect
-// rather than the touch point — the touch point is wherever the finger
-// that just triggered this is, which would as often as not spawn the menu
-// half-hidden underneath the hand holding the phone.
+// A mobile long-press's own quick-actions menu: anchored to the row's own
+// bounding rect rather than the touch point — the touch point is wherever
+// the finger that just triggered this is, which would as often as not
+// spawn the menu half-hidden underneath the hand holding the phone.
 function openTaskContextMenuForRow(taskId, rowEl){
   const r = rowEl.getBoundingClientRect();
   renderTaskContextMenu(taskId, r.left, r.bottom + 6, false);
@@ -936,8 +906,8 @@ function handleSubtaskContextMenu(e, taskId, subId){
 }
 // Mobile long-press twin, same shape as checklistPressStart() etc.
 // (13-checklist.js) — its own small state rather than reusing
-// taskPressStart()'s (which branches on taskLongPressMode, a choice
-// about a *row's* tap behavior that has no meaning for one step's text).
+// taskPressStart()'s, which opens a *row's* quick-actions menu, a
+// behavior that has no meaning for one step's text.
 let subtaskPressTimer = null;
 let subtaskPressRow = null;
 // The whole .subrow (not subtaskPressRow itself, which stays .subtext —
@@ -1355,49 +1325,19 @@ function openSortMenu(el, includeCategory){
   renderSortMenu(r.left, r.bottom + 6, includeCategory);
 }
 
-// The long-press settings sheet itself — everything taskManagementFieldsHtml()
-// covers (title/category/due/urgent/pin/timeframe/priority/notes/meta),
-// rendered into the always-in-DOM #taskSettingsSheet (shell-body.html)
-// rather than per-task markup, since only one can ever be open at a time.
-// canRemoveHere is always true here (matching taskRowHtml()'s own
-// !inDaily case, since 'split' never applies inside Daily — see
-// useSplitPress above) — no need to re-derive it from a category check.
-function openTaskSettingsSheet(taskId){
-  taskSettingsOpenId = taskId;
-  renderTaskSettingsSheet();
-  document.body.classList.add('tasksettings-open');
-}
-function closeTaskSettingsSheet(){
-  taskSettingsOpenId = null;
-  document.body.classList.remove('tasksettings-open');
-}
-// Called from openTaskSettingsSheet() and unconditionally (guarded) from
-// render() — see the call near the top of render() below — so an edit
-// made *inside* the sheet (which runs the task's normal update*()
-// functions, each already calling render()) is reflected immediately
-// rather than the sheet showing stale field values until it's reopened.
-function renderTaskSettingsSheet(){
-  if(!taskSettingsOpenId) return;
-  const t = state.tasks.find(x=>x.id===taskSettingsOpenId);
-  if(!t){ closeTaskSettingsSheet(); return; }
-  document.getElementById('taskSettingsBody').innerHTML = taskManagementFieldsHtml(t, true);
-}
-
 // Full-page task detail — same shared fields as the inline .expand,
 // wrapped in the "stacked page" pattern with a page tag back to wherever
 // it was opened from, rather than expanding inline the way it does
 // everywhere else. Two call sites share this: clicking a task or step
 // within Daily (openTaskDetailFromDay, backs to "Daily") and a plain tap
-// on any category tab's row under taskLongPressMode 'detail'
-// (openGenericTaskDetail below, backs to "Back" — there's no single named
-// destination since it could be any tab). backOnclick/backLabel are
-// passed in rather than hardcoded so the two never have to fork this
-// function to get their own back tag.
+// on any category tab's row on mobile (openGenericTaskDetail below, backs
+// to "Back" — there's no single named destination since it could be any
+// tab). backOnclick/backLabel are passed in rather than hardcoded so the
+// two never have to fork this function to get their own back tag.
 function renderTaskDetailPage(taskId, backOnclick, backLabel){
   const t = state.tasks.find(t=>t.id===taskId);
-  // Always true — matches the long-press settings sheet's own "always
-  // true here" rule (see openTaskSettingsSheet()'s comment). Used to be
-  // gated to t.category==='misc', a category id from before categories
+  // Always true. Used to be gated to t.category==='misc', a category id
+  // from before categories
   // became per-user dynamic data (see CATEGORY_PALETTE's own comment) —
   // 'misc' hasn't been a real category on a fresh account in a long
   // time, so this was silently hiding Delete Task on every category
@@ -1504,8 +1444,8 @@ function closeTaskDetail(){
   renderDaily();
 }
 
-// taskLongPressMode 'detail' — opened by a plain tap (see taskRowTap()
-// above), not the long-press (that opens the quick-actions menu instead,
+// Opened by a plain tap on mobile (see taskRowTap() above), not the
+// long-press (that opens the quick-actions menu instead,
 // openTaskContextMenuForRow()). A separate flag from Daily's own
 // taskDetailId since this one has to work from any category tab (no
 // selectedDay/dailyView to hang off of) and needs its own generic "Back"
@@ -1678,7 +1618,6 @@ function render(){
     positionHeaderlineActions();
   });
   renderDevPanel();
-  renderTaskSettingsSheet();
   renderLocBadge();
   renderTabs();
   refreshUndoButtons();
@@ -1690,9 +1629,9 @@ function render(){
   const setView = document.getElementById('settingsView');
   const cldView = document.getElementById('claudeView');
   const gtdView = document.getElementById('genericTaskDetailView');
-  // taskLongPressMode 'detail' (see openGenericTaskDetail() below) — a
-  // full-page task detail reachable from a plain tap on ANY category
-  // tab's row, not just Daily's own taskDetailId. Highest priority of the
+  // See openGenericTaskDetail() below — a full-page task detail reachable
+  // from a plain tap on ANY category tab's row, not just Daily's own
+  // taskDetailId. Highest priority of the
   // view-swapping branches here, same tier as claudeView/settingsOpen
   // (replaces the whole app body, not a floating overlay on top of it —
   // those live outside #appCard entirely, see the Esc handler's Mobile UI
@@ -1825,12 +1764,8 @@ function switchTab(key){
   // A tab switch mid-add should close the quick-add sheet rather than
   // leave it floating over whatever you just navigated to.
   if(quickAddOpen) toggleQuickAddSheet(false);
-  // Same idea for the taskLongPressMode settings sheet — its task belongs
-  // to whichever tab you were just on, so it shouldn't linger open over
-  // a different one.
-  if(taskSettingsOpenId) closeTaskSettingsSheet();
-  // Same idea again for taskLongPressMode 'detail's full-page task
-  // detail — tied to one specific task from whichever tab you were on.
+  // Same idea for the full-page task detail — tied to one specific task
+  // from whichever tab you were on.
   if(genericTaskDetailId) genericTaskDetailId = null;
   // ...and once more for whichever stackedpage drilldown a tab's own
   // content might be sitting on — a checklist list's own detail page

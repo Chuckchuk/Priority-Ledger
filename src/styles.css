@@ -749,8 +749,8 @@
   .dropend{ height:16px; list-style:none; }
   .dropend.dragover{ border-top: 2px solid var(--primary); }
   .row{ display:flex; align-items:flex-start; gap:10px; cursor:pointer; transition: background-color 120ms ease, transform 120ms ease; }
-  /* Feedback while a 'split'/'detail' taskLongPressMode hold is armed
-     (added in taskPressStart(), removed in taskPressMove()/taskPressEnd(),
+  /* Feedback while a mobile long-press hold is armed (added in
+     taskPressStart(), removed in taskPressMove()/taskPressEnd(),
      08-render-core.js) — without this the 500ms hold gives no visual cue
      at all until either it fires or the finger lifts. */
   .row.pressing{ background: var(--card-bg-dim); border-radius:6px; transform: scale(0.98); }
@@ -1185,11 +1185,9 @@
      hard outline. Its own class (taskNotesAndMetaHtml(),
      08-render-core.js) rather than an ancestor selector like `.expand
      textarea` — this field doesn't actually sit inside .expand (that's
-     the Steps-only inline quick view now; the full task detail page and
-     the long-press bottom sheet, .tasksettingssheet, both render it
-     directly inside their own wrapper), so scoping off .expand silently
-     matched nothing in either of those, the exact two places this
-     mattered most. */
+     the Steps-only inline quick view now; the full task detail page
+     renders it directly inside its own wrapper), so scoping off .expand
+     silently matched nothing there, the exact place this mattered most. */
   .notesfield{
     width:100%; min-height:120px; font-family:'IBM Plex Sans',sans-serif; font-size:0.88rem;
     border:1.5px solid color-mix(in srgb, var(--input-accent) 45%, var(--line));
@@ -1541,11 +1539,7 @@
      taskCoreFieldsRowHtml()'s own hideActions comment; .hideactions is
      the marker taskCoreFieldsRowHtml() adds to .expand-row specifically
      on that page) and the date field is one of the only things left in
-     it. flex-basis:100% pushes it onto its own line below the DUE label;
-     the long-press bottom sheet (taskManagementFieldsHtml(), no
-     .hideactions there) still wraps the date field in with the
-     flag/pin/remove buttons exactly as before, so this only ever affects
-     the one page it was asked for. */
+     it. flex-basis:100% pushes it onto its own line below the DUE label. */
   .expand-row.hideactions .taskdate{ flex:1 1 100%; }
   /* Per the explicit ask: this field read as too large and too far below
      the title's underline right above it. Both add up from the same
@@ -1554,11 +1548,7 @@
      .datefield.taskdate's own 7px/0.82rem sizing meant to read as a
      prominent field among those controls — neither of which this page
      still needs now that the date has the row entirely to itself right
-     under a big page-header title. Tightened specifically for this
-     .hideactions row rather than touching .expand-row/.datefield.taskdate
-     generally, so the long-press bottom sheet's own shared-row version of
-     this same field (taskManagementFieldsHtml(), no .hideactions there)
-     keeps its original sizing untouched. */
+     under a big page-header title. */
   .expand-row.hideactions{ margin-top:4px; }
   .expand-row.hideactions .taskdate{ padding:5px 10px; font-size:0.78rem; }
   .draghandle.sub{ font-size:0.85rem; }
@@ -1776,23 +1766,8 @@
      fixed 150px width above — clicking a full-row-wide date field to
      edit it visibly snapped down to a small ~150px box mid-click. This
      re-widens the input to match, scoped to the same .hideactions row
-     the display-mode rule below is scoped to, so the long-press settings
-     sheet's own narrower, shared-row date field is untouched. */
+     the display-mode rule below is scoped to. */
   .expand-row.hideactions .taskdateedit{ width:100%; box-sizing:border-box; }
-  /* A second, unrelated quirk in the same area: inside the long-press
-     settings sheet, this same edit input was ALSO already rendering
-     full-width — but only by accident. .fabaddsheet input[type=text]
-     below (shared by every text field in that sheet) carries an extra
-     bare `input` type selector on top of its one class, which edges out
-     .datefieldedit.taskdateedit's own two-classes-no-type specificity
-     even though neither rule was written with the other in mind — the
-     wider look here happened to be reasonable (a small 150px box would
-     look cramped in a full-width mobile-style sheet), but it was never a
-     deliberate choice, just whichever rule happened to have one extra
-     specificity point. Made explicit here instead, so the sheet's actual
-     layout no longer depends on staying accidentally undiscovered by
-     whoever next touches either rule. */
-  .tasksettingssheet .datefieldedit.taskdateedit{ width:100%; box-sizing:border-box; }
   /* A step planned onto a day, shown "TASK > step" (see daySubtaskRowHtml)
      — the task half stays muted so the step itself reads as the subject. */
   .daysubparent{ color: var(--ink-soft); }
@@ -3435,9 +3410,12 @@
     font-size:16px;
   }
 
-  /* ---- The mobile quick-add trigger + expand-in-place sheet ----
-     The trigger itself is no longer part of the category view's normal
-     static flow — it docks at the top of the page, under the tab bar. */
+  /* ---- The mobile quick-add trigger + bar (quickAddBarStyle) ----
+     Cosmetic properties (color/shape/font) are shared by both
+     quickAddBarStyle variants below; position/anchor is NOT, split out
+     per-variant since "docked at the top, expands in place" and "fixed to
+     the bottom, opens a bottom sheet" need genuinely different CSS
+     mechanisms, not just different offsets. */
   .quickaddtrigger{
     display:none; align-items:center; justify-content:center; gap:8px;
     border:none; border-radius:10px; cursor:pointer;
@@ -3447,7 +3425,7 @@
     box-shadow: 0 6px 18px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.4);
   }
   body.mobileui-active .quickaddtrigger{ display:flex; }
-  /* Restored to its original spot in the normal flow, right under the tab
+  /* 'top' (default): docked in the normal flow, right under the tab
      bar — position:sticky (not fixed) is what keeps it there without
      scrolling away, while still costing nothing extra in layout terms (it
      reserves its own space same as any other in-flow element). top is
@@ -3458,21 +3436,63 @@
      Anchoring to the safe-area inset instead means it stops just clear of
      that, same idiom body's own top padding already uses for the
      masthead. */
-  body.mobileui-active .quickaddtrigger{
+  body.mobileui-active[data-quickadd-bar="top"] .quickaddtrigger{
     position:sticky; top: calc(8px + env(safe-area-inset-top)); z-index:45; width:100%;
     padding:14px; margin-bottom:16px;
   }
-  /* No dimming overlay — the bar grows open right below the (still-
-     visible, still in normal flow via position:sticky) trigger, pushing
-     the task list below it rather than floating over anything.
-     Re-tapping the trigger is how this closes. */
-  body.mobileui-active #quickAddBar{
-    flex-direction:column; align-items:stretch; gap:12px;
+  /* 'bottom': position:fixed, unconditionally reachable without scrolling
+     back up to the top of a long list. 76px of extra #categoryView bottom
+     padding (bottom(16) + height(50) + a 10px gap) keeps the last task
+     (or the undo/redo row and Refresh link further down the page) from
+     ending up underneath it once scrolled all the way down; scoped to
+     this one variant since 'top' never covers anything below to begin
+     with. */
+  body.mobileui-active[data-quickadd-bar="bottom"] .quickaddtrigger{
+    position:fixed; left:12px; right:12px; bottom:16px; z-index:50; max-width:480px; margin:0 auto;
+    height:50px; padding:0 14px;
+  }
+  body.mobileui-active[data-quickadd-bar="bottom"] #categoryView{ padding-bottom: 76px; }
+  /* Grabber + close row — only meaningful once #quickAddBar has left its
+     resting spot to float as a bottom sheet ('bottom' below); 'top'
+     grows the bar open right next to the (still-visible) trigger with no
+     scrim, so re-tapping the trigger is the only close affordance it
+     needs. */
+  .quickaddsheethead{ display:none; }
+  body.mobileui-active[data-quickadd-bar="bottom"] .quickaddsheethead{
+    display:flex; align-items:center; justify-content:center; position:relative; margin-bottom:6px;
+  }
+  .quickaddsheetgrabber{ width:36px; height:4px; border-radius:2px; background:var(--ink-soft); opacity:0.4; }
+  .quickaddsheetclose{
+    position:absolute; right:0; top:-6px; background:none; border:none;
+    color:var(--ink-soft); font-size:1.3rem; line-height:1; cursor:pointer; padding:6px;
+  }
+  .quickaddscrim{ display:none; }
+  body.mobileui-active.quickadd-open[data-quickadd-bar="bottom"] .quickaddscrim{
+    display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:55;
+  }
+  /* 'top': no dimming overlay — the bar grows open right below the
+     (still-visible, still in normal flow via position:sticky) trigger,
+     pushing the task list below it rather than floating over anything. */
+  body.mobileui-active[data-quickadd-bar="top"] #quickAddBar{
     max-height:0; overflow:hidden; opacity:0; margin-bottom:0; padding:0;
     transition: max-height .25s ease, opacity .2s ease, margin-bottom .25s ease;
   }
-  body.mobileui-active.quickadd-open #quickAddBar{
+  body.mobileui-active.quickadd-open[data-quickadd-bar="top"] #quickAddBar{
     max-height:360px; opacity:1; margin-bottom:16px;
+  }
+  /* 'bottom': #quickAddBar leaves the document flow entirely and floats
+     as a bottom sheet behind the scrim above. z-index:60 (above the
+     scrim's 55, and above the trigger's own 50) is what keeps the trigger
+     from ever poking out from underneath either. */
+  body.mobileui-active[data-quickadd-bar="bottom"] #quickAddBar{
+    position:fixed; left:12px; right:12px; bottom:12px; z-index:60; max-width:480px; margin:0 auto;
+    background: var(--card-bg); padding:18px 16px 20px; border-radius:20px 20px 14px 14px;
+    box-shadow:0 12px 32px rgba(0,0,0,0.35);
+    transform:translateY(140%); opacity:0; pointer-events:none;
+    transition: transform .28s cubic-bezier(.2,.8,.3,1), opacity .2s ease;
+  }
+  body.mobileui-active.quickadd-open[data-quickadd-bar="bottom"] #quickAddBar{
+    transform:translateY(0); opacity:1; pointer-events:auto;
   }
   /* Row 1 stays the same compact "input + small buttons, never wraps"
      layout on mobile as desktop now (just a bigger touch target on the
@@ -3486,8 +3506,7 @@
   body.mobileui-active #quickAddBar .quickfieldbtn.secondary{ font-size:0.7rem; padding:7px 10px; }
 
   /* ---- .fabaddscrim/.fabaddsheet: shared bottom-sheet base rules ----
-     Hidden by default; each consumer (the taskLongPressMode 'split'
-     settings sheet below, plus Shake-to-undo further down) turns its own
+     Hidden by default; each consumer (Shake-to-undo below) turns its own
      instance visible via its own body class. */
   .fabaddscrim{ display:none; }
   .fabaddsheet{
@@ -3500,22 +3519,10 @@
   }
   .fabaddsheet input[type=text], .fabaddsheet select{ width:100%; font-size:1.05rem; padding:11px 8px; }
 
-  /* ---- taskLongPressMode 'split': the long-press settings sheet ----
-     Reuses .fabaddsheet/.fabaddscrim's own hidden-by-default base rules
-     above — only the *shown* state is gated by its own body class.
-     .tasksettingssheet adds the taller/scrollable override this one
-     needs — a task's full management fields (title, category, due,
-     flags, timeframe/priority, notes) run taller than a plain
-     title+category form would. */
-  body.tasksettings-open #taskSettingsScrim{ display:block; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:65; }
-  body.tasksettings-open #taskSettingsSheet{ transform:translateY(0); opacity:1; pointer-events:auto; }
-  .tasksettingssheet{ max-height:80vh; overflow-y:auto; }
-  .tasksettingssheet .expand-row{ margin-top:0; }
-
   /* ---- Shake-to-undo/redo (see 04-undo.js) ----
      Reuses .fabaddsheet/.fabaddscrim's own hidden-by-default base rules
-     above (same bottom-sheet mechanics as the long-press sheet) — only
-     the *shown* state is gated by its own body class. Deliberately
+     above — only the *shown* state is gated by its own body class.
+     Deliberately
      NOT scoped to body.mobileui-active: shaking a physical phone is a
      real device capability, independent of the Mobile UI Lab's viewport
      emulation, so this works (or doesn't, for lack of an accelerometer)

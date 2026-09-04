@@ -302,15 +302,12 @@ function handleChecklistContextMenu(e, taskId){
 }
 // Long-press-to-menu on mobile — a smaller, self-contained twin of
 // taskPressStart()/taskPressMove()/taskPressEnd() (08-render-core.js)
-// rather than reusing those directly: that trio branches on
-// taskLongPressMode ('split' opens the settings sheet, 'detail' opens a
-// row-anchored menu) — a choice about how a *standard task's* plain tap
-// should behave that has no checklist equivalent, since a checklist row
-// only ever has the one tap destination (openChecklistList()) regardless
-// of that setting. Always on whenever mobileUiActive(), reusing the same
-// timing constants (TASK_LONG_PRESS_MS/_TOLERANCE_PX) so a checklist
-// list and a standard task feel identical to hold down, just simpler
-// underneath since there's only one thing a long-press here could mean.
+// rather than reusing those directly, since a checklist row only ever has
+// the one tap destination (openChecklistList()), unlike a standard task's
+// own row. Always on whenever mobileUiActive(), reusing the same timing
+// constants (TASK_LONG_PRESS_MS/_TOLERANCE_PX) so a checklist list and a
+// standard task feel identical to hold down, just simpler underneath
+// since there's only one thing a long-press here could mean.
 let checklistPressTimer = null;
 let checklistPressRow = null;
 let checklistPressStartX = 0, checklistPressStartY = 0;

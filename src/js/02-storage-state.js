@@ -149,12 +149,6 @@ let newCatTypeDraft = 'standard';
 // 16-task-crud.js) — pure UI chrome, never persisted, same as the other
 // open/closed flags on this page.
 let quickAddOpen = false;
-// taskLongPressMode's "split" variant (see defaultDevSettings() below and
-// taskPressStart()/openTaskSettingsSheet() in 08-render-core.js) — which
-// task (if any) has its management-fields sheet open, plus the shared
-// long-press timer/gesture-tracking state. All pure UI chrome, same as
-// the rest of this block.
-let taskSettingsOpenId = null;
 // Which task's own Steps section (taskSubtasksHtml(), 08-render-core.js)
 // has its "+ Add step" input expanded, while that task still has zero
 // steps — see openStepsAdd()'s own comment for the full reasoning.
@@ -467,10 +461,18 @@ function defaultDevSettings(){
   // browser without narrowing the window.
   // The main category quick-add bar (the 6-control row that wraps into
   // three lines on a phone) is reached on mobile via a single "+ Add Task"
-  // trigger (see .quickaddtrigger in <style>), docked at the top of the
-  // page under the tab bar via position:sticky so it never scrolls away.
-  // Tapping it grows the bar open right in place, below the trigger,
-  // pushing the task list down rather than opening as an overlay sheet.
+  // trigger (see .quickaddtrigger in <style>) — quickAddBarStyle picks
+  // where that trigger docks and what tapping it does. 'top' (the
+  // default) docks it under the tab bar via position:sticky so it never
+  // scrolls away, and tapping it grows the bar open right in place below
+  // the trigger, pushing the task list down. 'bottom' instead pins the
+  // trigger position:fixed to the bottom of the screen, and tapping it
+  // opens the bar as a full-width bottom sheet with a dimming scrim
+  // behind it — the two were separate settings once (trigger position and
+  // what tapping it opened, independently selectable) but only ever made
+  // sense picked together in practice, so they're one setting now with
+  // two matched presets. See the body[data-quickadd-bar=…] rules in
+  // <style>.
   // A task row on mobile stacks its priority/timeframe/due badges onto
   // their own line below the title (see .titlewrap in taskRowHtml) so the
   // title always gets the row's full width; the task detail page's own
@@ -510,35 +512,23 @@ function defaultDevSettings(){
   // gated by mobileUiActive() like the rest of this file's dev settings:
   // a nicer tap target beats a dropdown on desktop too, so this one
   // applies everywhere once picked, not just on a phone-ish viewport.
-  // taskLongPressMode: a task row's single tap/click always toggles the
-  // inline .expand showing just Steps (taskSubtasksHtml()) now — never
-  // the full field set (category, due date, urgent/today, timeframe/
-  // priority, notes), which used to fall out of this same tap on desktop
-  // (nothing ever gated that the way mobileUiActive() gates the rest of
-  // this setting) and read as "quick view" cluttered with edit options
-  // that took a real decision to reach. Those fields live only on the
-  // full-page task detail now (renderTaskDetailPage()), reached via the
-  // row's own always-visible .rowexpand button (taskRowHtml(),
-  // 08-render-core.js) or the desktop right-click menu's "Edit details" —
-  // both call openGenericTaskDetail() directly, independent of this
-  // setting. This setting only changes what's *additionally* true on
-  // mobile (gated by mobileUiActive(), touch-first), which arms a
-  // long-press timer (taskPressStart() et al.) on top of the tap above:
-  //   'split':  long-press opens the full field set as its own bottom
-  //             sheet (openTaskSettingsSheet()) — Steps are left out,
-  //             already visible via the plain tap above.
-  //   'detail': a plain tap jumps straight past the inline quick view,
-  //             straight to the full-page task detail (openGenericTaskDetail(),
-  //             same page Daily's own taskDetailId uses); long-press
-  //             instead opens a quick-actions menu (mark complete/urgent/
-  //             today, delete — same component as the desktop right-click
-  //             menu, see taskContextMenuHtml()/openTaskContextMenuForRow())
-  //             anchored to the row. This is the platform-standard split
-  //             (tap to go there, long-press to act on it without leaving,
-  //             swipe-back to return cheaply) and is the default — see
-  //             defaultDevSettings()'s taskLongPressMode value below.
-  //   'default': no long-press action at all — the plain tap's Steps-only
-  //             quick view is the only thing this mode adds over desktop.
+  // A task row's single tap/click always toggles the inline .expand
+  // showing just Steps (taskSubtasksHtml()) on desktop — never the full
+  // field set (category, due date, urgent/today, timeframe/priority,
+  // notes), which used to fall out of this same tap and read as "quick
+  // view" cluttered with edit options that took a real decision to reach.
+  // Those fields live only on the full-page task detail now
+  // (renderTaskDetailPage()), reached via the row's own always-visible
+  // .rowexpand button (taskRowHtml(), 08-render-core.js) or the desktop
+  // right-click menu's "Edit details" — both call openGenericTaskDetail()
+  // directly. On mobile (mobileUiActive(), touch-first) a plain tap jumps
+  // straight past the inline quick view to that same full-page task
+  // detail; long-press instead opens a quick-actions menu (mark complete/
+  // urgent/today, delete — same component as the desktop right-click
+  // menu, see taskContextMenuHtml()/openTaskContextMenuForRow()) anchored
+  // to the row. This is the platform-standard split (tap to go there,
+  // long-press to act on it without leaving, swipe-back to return
+  // cheaply) — see taskRowTap()/taskPressStart() in 08-render-core.js.
   // overlapSubtags / overlapStackMode are two further EXPERIMENTAL
   // sub-options of tabBarDesktopStyle's "overlap" look specifically —
   // only ever offered in the UI while that style is the current pick
@@ -611,7 +601,7 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', taskLongPressMode:'detail', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100' };
+  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddBarStyle:'top', tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100' };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -805,6 +795,7 @@ function normalizeState(){
   if(typeof state.devSettings.leatherInsetPreset !== 'string') state.devSettings.leatherInsetPreset = 'classic';
   if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'leftheavy';
   if(typeof state.devSettings.mobileUiPreviewOnDesktop !== 'boolean') state.devSettings.mobileUiPreviewOnDesktop = false;
+  if(state.devSettings.quickAddBarStyle !== 'top' && state.devSettings.quickAddBarStyle !== 'bottom') state.devSettings.quickAddBarStyle = 'top';
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
   if(typeof state.devSettings.desktopZoom !== 'string') state.devSettings.desktopZoom = '100';
@@ -819,7 +810,6 @@ function normalizeState(){
   if(state.devSettings.sidetabsAppearance === 'textured') state.devSettings.sidetabsAppearance = 'color';
   if(typeof state.devSettings.sidetabsShape !== 'string') state.devSettings.sidetabsShape = 'pagetab';
   if(typeof state.devSettings.fieldPickerStyle !== 'string') state.devSettings.fieldPickerStyle = 'default';
-  if(typeof state.devSettings.taskLongPressMode !== 'string') state.devSettings.taskLongPressMode = 'detail';
   if(typeof state.devSettings.checkGuideAnimationStyle !== 'string') state.devSettings.checkGuideAnimationStyle = 'radialping';
   // 'spin' (a rotating conic-gradient square behind the checkbox) was
   // replaced by 'wiggle' (the checkbox itself rotating back and forth) —

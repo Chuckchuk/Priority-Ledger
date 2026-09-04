@@ -48,7 +48,6 @@ document.addEventListener('keydown', (e) => {
     if(shareImportId){ closeShareImportDialog(); return; }
     if(shareMenuTaskId){ closeShareMenu(); return; }
     if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen || ctxMenuQuickFieldKind){ closeCtxMenu(); return; }
-    if(taskSettingsOpenId){ closeTaskSettingsSheet(); return; }
     if(quickAddOpen){ toggleQuickAddSheet(false); return; }
     if(claudeView){ closeClaudeView(); return; }
     if(settingsOpen){ toggleSettings(); return; }

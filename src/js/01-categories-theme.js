@@ -727,6 +727,7 @@ function applyDevSettings(){
   // (refreshed below and on resize, see 19-bootstrap.js) so none has any
   // effect until an actual phone-ish viewport — or mobileUiPreviewOnDesktop
   // — makes it relevant.
+  document.body.dataset.quickaddBar = d.quickAddBarStyle || 'top';
   document.body.dataset.tabbarMobile = d.tabBarMobileStyle || 'default';
   document.body.dataset.tabbarDesktop = d.tabBarDesktopStyle || 'default';
   // Read by the .tab:hover rules in <style> — 'ranked' mode's hovered tab
@@ -890,9 +891,10 @@ async function setDevTaskDetailActionsPosition(val){
   queueSave();
 }
 
-async function setDevTaskLongPressMode(val){
-  pushUndo(`Changed dev task long-press mode to "${val}"`);
-  state.devSettings.taskLongPressMode = val;
+async function setDevQuickAddBarStyle(val){
+  pushUndo(`Changed dev quick-add bar style to "${val}"`);
+  state.devSettings.quickAddBarStyle = val;
+  applyDevSettings();
   render();
   queueSave();
 }
@@ -1161,17 +1163,17 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       Preview everything below on desktop too (it's phone/touch-only by default)
     </label>
 
-    ${devSectionHeadHtml('Task Rows & Detail')}
-    <!-- Only affects mobile's long-press, and mobile's tap under
-         'detail' — every other tap (desktop always, mobile under
-         'default'/'split') opens the inline Steps-only quick view
-         regardless of this setting; see taskRowTap()/taskRowHtml()'s
-         own comments in 08-render-core.js. -->
-    ${devField('Task tap/long-press (mobile)', dev.taskLongPressMode, [
-      ['detail','Detail (default) — mobile tap opens the full task page; long-press shows a quick-actions menu'],
-      ['split','Split — tap opens Steps; mobile long-press opens a full-fields bottom sheet'],
-      ['default','Classic — tap opens Steps; no long-press action']
-    ], 'setDevTaskLongPressMode')}
+    ${devSectionHeadHtml('Quick-Add Bar')}
+    <!-- Was two separate controls (trigger position + what tapping it
+         opened, independently selectable) — merged into one after it
+         turned out the two only ever made sense picked together: 'top'
+         paired with expand-in-place, 'bottom' paired with a bottom sheet.
+         See the quickAddBarStyle comment in defaultDevSettings(),
+         02-storage-state.js. -->
+    ${devField('Quick-add bar', dev.quickAddBarStyle||'top', [
+      ['top','Default — "+ Add Task" at the top of the page, expands in place'],
+      ['bottom','Bottom of the screen — "+ Add Task" opens a bottom sheet']
+    ], 'setDevQuickAddBarStyle')}
 
     ${devSectionHeadHtml('Tab Bar')}
     ${devField('Tab bar style', dev.tabBarMobileStyle, [
