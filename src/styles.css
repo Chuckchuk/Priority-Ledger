@@ -2461,25 +2461,50 @@
      right next to the title field, not floated somewhere else on the
      page via position:absolute. That's what makes "the title in the
      same line as the buttons" and "the title wraps before overlapping
-     the buttons" both fall out of plain flexbox for free: the button
-     groups are flex-shrink:0 (their own width is non-negotiable), so the
-     title's flex:1 column is only ever however much ROW WIDTH is left
-     over, and text wraps inside that column the same way it wraps inside
-     any other box that's narrower than its content — no JS measurement,
-     no fixed offsets, no zoom/webfont-timing edge cases to chase, unlike
-     the position:absolute + JS-measured-top approach this replaced (see
-     the comment above positionHeaderlineActions() used to sit,
+     the buttons" both fall out of plain CSS for free: the button
+     groups' own width is non-negotiable, so the title's own column is
+     only ever however much ROW WIDTH is left over, and text wraps
+     inside that column the same way it wraps inside any other box
+     that's narrower than its content — no JS measurement, no fixed
+     offsets, no zoom/webfont-timing edge cases to chase, unlike the
+     position:absolute + JS-measured-top approach this replaced (see the
+     comment above positionHeaderlineActions() used to sit,
      08-render-core.js, now just a short paragraph explaining why it's
-     gone). align-items:flex-end bottom-aligns every child's margin box
-     to the row's tallest child (the title, whenever it wraps to more
-     than one line) — since .titleedit's own border-bottom sits at ITS
-     bottom edge, and the border-bottom below belongs to the row as a
-     whole (not the title field — see the child override further down),
-     that shared bottom edge IS the underline, so "buttons in the same
-     line as the title, resting on the underline" is just "everyone's
+     gone).
+     IMPORTANT, per the project owner's own repeated, explicit
+     instruction: the title must always be centered against the whole
+     PAGE (this row's full width), never merely against whatever space
+     happens to be left over between the two button groups — which,
+     since the left group (flag+pin) and the right group (share alone)
+     are different widths, are NOT the same thing. A plain 3-item flex
+     row with the title as the only flex:1 member centers the title
+     between the two groups, not on the page — that was tried and
+     called out as wrong. display:grid with BOTH outer columns pinned to
+     the same fixed --titleheadline-side-w (sized to the WIDER of the
+     two groups, not each column's own actual content) is what actually
+     guarantees this: the title's middle 1fr column is bounded by two
+     equal-width tracks no matter which side has more buttons in it, so
+     it's centered on the row itself. Do not swap this back to flexbox
+     with title:flex-1 — that reintroduces the exact bug this comment is
+     warning about. align-items:flex-end bottom-aligns every child to
+     the row's tallest one (the title, whenever it wraps to more than
+     one line) — since .titleedit's own border-bottom sits at ITS bottom
+     edge, and the border-bottom below belongs to the row as a whole
+     (not the title field — see the child override further down), that
+     shared bottom edge IS the underline, so "buttons in the same line
+     as the title, resting on the underline" is just "everyone's
      bottom-aligned to a row that has a border-bottom." */
   body[data-taskdetail-actions="headerline"] .titleheadline{
-    display:flex; align-items:flex-end; gap:10px;
+    display:grid;
+    grid-template-columns: var(--titleheadline-side-w) 1fr var(--titleheadline-side-w);
+    /* 2 buttons (.flagbtn, 30px each) + their own 6px gap — the
+       .titleactions side, the wider of the two, so the .taskdetailshare
+       side (a single 30px button) reserves the SAME width and just
+       right-aligns its one button within it (see justify-self:end
+       below) rather than hugging the title the way it would if this
+       column were sized to its own actual (narrower) content. */
+    --titleheadline-side-w: 66px;
+    align-items:flex-end; gap:10px;
     border-bottom: 1.5px solid var(--ink-soft);
     margin-bottom:6px; padding-bottom:6px;
   }
@@ -2488,16 +2513,41 @@
      the row's shared bottom — sits a few px above the line instead of
      flush on top of it ("resting ON TOP of the line", not the line
      cutting through them — the same distinction the old fixed-offset
-     version of this setting was built around). The title field itself
-     gets its border-bottom/margin-bottom zeroed out here specifically so
-     only ONE line shows (the row's own, above) instead of a second one
-     from the field's own base .titleedit style directly behind it. */
-  body[data-taskdetail-actions="headerline"] .titleheadline .titleactions,
+     version of this setting was built around). display:flex has to be
+     repeated here (not inherited from the base .taskdetailhead
+     .titleactions rule further up) because that rule's selector
+     requires .titleactions to be a DESCENDANT OF .taskdetailhead —
+     true for every other variant, but headerline moves .titleactions
+     into .titleheadline instead (a sibling of .taskdetailhead, not a
+     descendant), so that rule silently doesn't match here. Without an
+     explicit display:flex of its own, .titleactions fell back to a
+     plain block div and its two <button> children rendered as default
+     inline/baseline-aligned elements — sitting at visibly different Y
+     positions from each other — which is exactly the "buttons are all
+     wonky" bug this was called out for. justify-self:start/end pin each
+     group to the true outer edge of its own (possibly wider-than-
+     content) column, same edges they sat at before this rework. */
+  body[data-taskdetail-actions="headerline"] .titleheadline .titleactions{
+    display:flex; gap:6px; flex-shrink:0; padding-bottom:4px;
+    justify-self:start;
+  }
   body[data-taskdetail-actions="headerline"] .titleheadline .taskdetailshare{
     flex-shrink:0; padding-bottom:4px;
+    justify-self:end;
   }
   body[data-taskdetail-actions="headerline"] .titleheadline .titleedit.bigtitle{
-    flex:1; min-width:0; border-bottom:none; margin-bottom:0; padding-bottom:0;
+    min-width:0; border-bottom:none; margin-bottom:0; padding-bottom:0;
+  }
+  /* Extra breathing room between the title's own text and whichever
+     button column it's nearest to, beyond the row's 10px column gap
+     above — per the explicit ask: without this, a long wrapped line can
+     still end close enough to the flag/pin cluster (the wider, tighter-
+     fitting side) to look crowded even though the title itself is now
+     correctly centered on the page. Desktop only ("when on desktop
+     mode", per that same ask) — mobile's narrower card can't spare it
+     the same way. */
+  body:not(.mobileui-active)[data-taskdetail-actions="headerline"] .titleheadline .titleedit.bigtitle{
+    padding-left:10px; padding-right:10px;
   }
   /* A row, not a stack — the date on the left, progress + the "move
      incomplete" button (when there's something to move) on the right.
