@@ -1590,12 +1590,76 @@ function categoryListHtml(){
   return visible.map(t=>taskRowHtml(t, activeTab==='all', false)).join('') + dropEndHtml(visible);
 }
 
+// FLIP (First-Last-Invert-Play) reorder animation — for any list whose
+// order can change out from under whatever the user is actually looking
+// at, most notably a "Recently Edited" sort: confirming a subtask in a
+// task's inline quickview touches that task's own edited timestamp,
+// which can jump it straight to the top of the list on the very same
+// render. Without this the row just vanishes from where your eyes are
+// and reappears somewhere else — confusing, per the explicit ask, since
+// nothing visually connects the before and after. flipCaptureRects()
+// snapshots every [data-task-id] row's current position BEFORE an
+// innerHTML rebuild that might reorder them; flipPlayReorder() compares
+// that snapshot against the same elements' new positions AFTER the
+// rebuild and, for any that actually moved, starts them back at their
+// old spot (an instant, untransitioned transform) then releases them
+// into a transitioned move to their real spot on the next frame — the
+// classic FLIP trick, using the DOM's own before/after layout instead
+// of hand-computed distances. A row that didn't move gets a zero-delta
+// transform (a no-op, safe to run unconditionally on every render); a
+// brand-new row (no old rect) or one that's gone (no new element) is
+// just skipped — this only ever animates something still on screen.
+// Plain descendant queries (not :scope >) so this works whether the
+// rows are direct children (#taskList, the <ul> itself) or nested a
+// level or two deeper (#checklistView, which swaps in a whole overview
+// page — quick-add, sort row, <ul> — as one innerHTML blob).
+function flipCaptureRects(container){
+  const rects = new Map();
+  if(!container) return rects;
+  container.querySelectorAll('[data-task-id]').forEach(el => {
+    rects.set(el.dataset.taskId, el.getBoundingClientRect());
+  });
+  return rects;
+}
+function flipPlayReorder(container, oldRects){
+  if(!container || !oldRects || !oldRects.size) return;
+  const moved = [];
+  container.querySelectorAll('[data-task-id]').forEach(el => {
+    const before = oldRects.get(el.dataset.taskId);
+    if(!before) return;
+    const after = el.getBoundingClientRect();
+    const dx = before.left - after.left;
+    const dy = before.top - after.top;
+    if(Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    el.style.transition = 'none';
+    el.style.transform = `translate(${dx}px, ${dy}px)`;
+    moved.push(el);
+  });
+  if(!moved.length) return;
+  // Forces layout so the instant (pre-transition) transform above is
+  // actually painted before the transition below applies — without
+  // this the browser can coalesce both style writes into a single
+  // frame and jump straight to the end state, no visible motion at all.
+  void container.offsetHeight;
+  moved.forEach(el => {
+    el.style.transition = 'transform 320ms ease';
+    el.style.transform = '';
+  });
+  // Clears the inline styles once the transition's done so they don't
+  // linger and fight a later, unrelated transform on the same element
+  // (e.g. the swipe-reveal gesture's own inline `transform`).
+  setTimeout(() => moved.forEach(el => { el.style.transition = ''; }), 360);
+}
+
 function renderList(){
   const doneCount = categoryMatchingTasks().filter(t=>t.status==='done').length;
 
   document.getElementById('sortRow').innerHTML = sortControlHtml(activeTab==='all');
 
-  document.getElementById('taskList').innerHTML = categoryListHtml();
+  const taskListEl = document.getElementById('taskList');
+  const flipRects = flipCaptureRects(taskListEl);
+  taskListEl.innerHTML = categoryListHtml();
+  flipPlayReorder(taskListEl, flipRects);
 
   const btn = document.getElementById('showDoneBtn');
   btn.textContent = showDone ? `Hide completed (${doneCount})` : `Show completed (${doneCount})`;

@@ -21,6 +21,14 @@ function renderChecklist(){
     const t = state.tasks.find(t=>t.id===selectedListId);
     if(!t || t.category !== activeTab) selectedListId = null;
   }
+  // flipCaptureRects()/flipPlayReorder() (08-render-core.js) — same
+  // reorder animation renderList() uses for the standard-task master
+  // view, applied here too since checklistLists() is sort-mode aware
+  // (applySortMode()) the same way. Captured/played around every branch
+  // uniformly rather than just the overview: harmlessly a no-op on the
+  // other branches (their [data-task-id] elements, if any, won't match
+  // the overview's row ids from the snapshot).
+  const flipRects = flipCaptureRects(el);
   if(checklistPendingOpen){
     el.innerHTML = renderChecklistPending(activeTab);
   } else if(checklistTemplatesOpen){
@@ -30,6 +38,7 @@ function renderChecklist(){
   } else {
     el.innerHTML = renderChecklistOverview(activeTab);
   }
+  flipPlayReorder(el, flipRects);
   // See renderDaily()'s own identical call for why — several checklist
   // actions (openChecklistList()/closeChecklistList(),
   // openChecklistPending(), etc.) call this function directly rather
