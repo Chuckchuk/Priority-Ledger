@@ -1285,8 +1285,7 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
 
     ${devSectionHeadHtml('Task Rows & Detail')}
     ${devField('Task row layout', dev.taskRowMobileStyle, [
-      ['default','Default (badges squeeze the title)'],
-      ['stacked','Stacked — badges drop below the title'],
+      ['default','Default'],
       ['minimal','Minimal — hide drag handle & category dot']
     ], 'setDevTaskRowMobileStyle')}
     ${devField('Task detail fields', dev.taskDetailMobileStyle, [

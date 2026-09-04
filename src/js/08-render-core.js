@@ -689,14 +689,24 @@ function taskPressEnd(){
   // only ever runs once taskLongPressFired is true).
   if(taskLongPressFired) ctxMenuDragEnd();
 }
-// Mobile 'detail': a plain tap jumps straight to the full task page —
+// Mobile: a plain tap always jumps straight to the full task page —
 // same platform-standard split as a home-screen icon (tap to open,
 // long-press for quick actions), and cheap to back out of via swipe-back.
-// Every other case (desktop regardless of mode, or mobile under
-// 'default'/'split') falls through to toggleExpand()'s inline Steps-only
-// quick view instead — desktop has no swipe-back, so jumping to a full
-// page on every tap would make "just glance at the steps" the expensive
-// path instead of the cheap one.
+// Unconditional on mobile regardless of taskLongPressMode now — that dev
+// setting only ever decided what a *long press* does ('split' opens a
+// bottom sheet, 'detail' opens the same context menu 'default' does; see
+// usePressGesture above), never what a plain tap should do. An earlier
+// version also gated the plain tap on taskLongPressMode==='detail'
+// specifically, so 'default'/'split' on mobile fell through to
+// toggleExpand()'s inline quick view below (the desktop-only interaction
+// two paragraphs down) — that's what let the inline view sometimes end
+// up already toggled open (in expandedTaskIds) on a row you'd never
+// intentionally expanded, then flash open again on returning to the list
+// from that row's own full detail page. Desktop (mobileUiActive() false)
+// always falls through to toggleExpand()'s inline Steps-only quick view
+// instead, regardless of taskLongPressMode — desktop has no swipe-back,
+// so jumping to a full page on every tap would make "just glance at the
+// steps" the expensive path instead of the cheap one.
 //
 // A quick double-tap jumps straight to the full task page too — timed by
 // hand here (lastRowTap below) rather than a native `ondblclick`, whose
@@ -716,7 +726,7 @@ function taskRowTap(e, taskId){
     return;
   }
   lastRowTap = { taskId, time: now };
-  if(mobileUiActive() && state.devSettings.taskLongPressMode === 'detail'){ openGenericTaskDetail(taskId); return; }
+  if(mobileUiActive()){ openGenericTaskDetail(taskId); return; }
   toggleExpand(e, taskId);
 }
 

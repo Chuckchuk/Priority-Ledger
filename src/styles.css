@@ -1075,6 +1075,13 @@
      .checkcircle) — inset:0 was the "way too thick" original version. */
   .progressring{ position:absolute; inset:5px; border-radius:50%; }
   .cdot{ width:13px; height:13px; margin-top:4px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:0.86rem; line-height:1; }
+  /* Per the explicit ask: eats into .row's own 10px gap on both sides of
+     the category icon specifically (negative margin, not a smaller .row
+     gap overall — that gap also separates the drag handle/checkbox before
+     it and the title after it, neither of which this was about), since on
+     a narrow phone row that gap was crunching the title further than it
+     needed to. */
+  body.mobileui-active .cdot{ margin-left:-6px; margin-right:-6px; }
   /* Groups .title + .meta into one flex:1 unit within .row, purely as a
      CSS hook — in every mode except the Mobile UI Lab's taskRowMobile
      "stacked" variant (see the body[data-taskrow-mobile] rules near the
@@ -1664,6 +1671,27 @@
      reasoning for why --secondary and not --estate). */
   .rowflag.on{ background: var(--secondary); color:white; border-color: var(--secondary); }
   .rowexpand:hover{ border-color: var(--ink); color: var(--ink); }
+  /* Per the explicit ask: redundant on mobile now that tapping the row
+     itself always opens the same full task page (taskRowTap(),
+     08-render-core.js) — .rowexpand existed to make that page reachable
+     from a collapsed row in the first place, which a plain tap already
+     does unconditionally on mobile now. Desktop keeps it: a desktop tap
+     opens the inline Steps-only quick view instead (see taskRowTap()'s
+     own comment), so .rowexpand is still the only one-click route to the
+     full page there. */
+  body.mobileui-active .rowexpand{ display:none; }
+  /* Per the explicit ask: .rowflag/.rowpin (plus, before the rule above,
+     .rowexpand) were eating close to half a mobile row's width at their
+     desktop size, squeezing the title further than it needed to be. A
+     little smaller, and a little closer together (negative margin-left on
+     .rowpin, the second of the pair, rather than shrinking .row's own
+     gap — that gap also spaces the drag handle/checkbox/category dot
+     earlier in the row, which weren't part of this ask). */
+  body.mobileui-active .rowflag,
+  body.mobileui-active .rowpin{
+    width:26px; height:26px; font-size:0.76rem;
+  }
+  body.mobileui-active .rowpin{ margin-left:-4px; }
   /* The shared date-pill field — a step's own optional date AND (via the
      .taskdate modifier just below) a task's own due date both render
      through this one base class now. Named .datefield rather than
@@ -3603,15 +3631,21 @@
   .shakeundo-actions button:disabled{ opacity:0.4; cursor:default; }
 
   /* ---- taskRowMobileStyle: reflowing a task row's title vs. its badges ---- */
-  /* stacked: .titlewrap (wrapping .title+.meta, see the base rule above)
-     switches from a side-by-side row to a column — the title takes the
+  /* .titlewrap (wrapping .title+.meta, see the base rule above) switches
+     from a side-by-side row to a column on mobile — the title takes the
      row's full width on its own line, and the priority/timeframe/due
      badges drop to a second, wrapping line right below it instead of
-     competing with the title for space on one line. */
-  body.mobileui-active[data-taskrow-mobile="stacked"] .titlewrap{
+     competing with the title for space on one line. Graduated from an
+     opt-in "stacked" dev-setting value to the real, always-on mobile
+     behavior (see taskRowMobileStyle's migration in 02-storage-state.js)
+     — side-by-side was squeezing the badges into whatever sliver of the
+     title's own column happened to be free, which for a wrapped 3-line
+     title read as the badges wrapping into their own narrow stack rather
+     than sitting in a normal full-width row. */
+  body.mobileui-active .titlewrap{
     flex-direction:column; align-items:flex-start; gap:3px;
   }
-  body.mobileui-active[data-taskrow-mobile="stacked"] .meta{ flex-wrap:wrap; }
+  body.mobileui-active .meta{ flex-wrap:wrap; }
   /* minimal: reclaims width by dropping the two lowest-value elements on
      a phone — the drag handle (touch drag-reorder is marginal to begin
      with) and the category dot (redundant once you're already inside

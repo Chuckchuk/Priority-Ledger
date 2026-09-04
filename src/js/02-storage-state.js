@@ -866,7 +866,11 @@ function normalizeState(){
   // default, same as a genuinely missing/malformed value would.
   if(typeof state.devSettings.quickAddMobileStyle !== 'string' || state.devSettings.quickAddMobileStyle === 'default') state.devSettings.quickAddMobileStyle = 'bottomsheet';
   if(typeof state.devSettings.quickAddTriggerPosition !== 'string') state.devSettings.quickAddTriggerPosition = 'bottom';
-  if(typeof state.devSettings.taskRowMobileStyle !== 'string') state.devSettings.taskRowMobileStyle = 'default';
+  // 'stacked' graduated to the real, always-on mobile behavior (see the
+  // body.mobileui-active .titlewrap rule in <style>) — no longer a
+  // distinct option, so an account saved with it selected migrates back
+  // to 'default', same idiom as quickAddMobileStyle's own migration above.
+  if(typeof state.devSettings.taskRowMobileStyle !== 'string' || state.devSettings.taskRowMobileStyle === 'stacked') state.devSettings.taskRowMobileStyle = 'default';
   if(typeof state.devSettings.taskDetailMobileStyle !== 'string') state.devSettings.taskDetailMobileStyle = 'default';
   if(typeof state.devSettings.floatingAddButton !== 'boolean') state.devSettings.floatingAddButton = false;
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
