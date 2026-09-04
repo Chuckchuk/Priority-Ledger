@@ -1111,6 +1111,13 @@
   }
   body.devlist-dates .listdate{ display:inline; }
   .meta{ display:flex; gap:6px; align-items:center; flex-shrink:0; }
+  /* Deliberately not .badge — no padding/background/border, just the
+     glyph itself, so a flag-only .meta (no other badge on this task)
+     costs barely any vertical space on its own line instead of the full
+     height a real, padded badge would need. Still sits at normal badge
+     height via .meta's own align-items:center whenever a real badge is
+     present alongside it. */
+  .metaflag{ color: var(--secondary); font-size:0.72rem; line-height:1; flex-shrink:0; }
   .badge{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; padding:2px 6px; border-radius:4px; letter-spacing:0.04em; }
   .badge.overdue{ background: var(--estate); color:white; }
   .badge.due{ background: var(--card-bg-dim); color: var(--ink-soft); border:1px solid var(--line); }

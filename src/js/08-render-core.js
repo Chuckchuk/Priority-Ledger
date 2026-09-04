@@ -542,6 +542,17 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
   // this isn't a triage field someone opted into, it's just a fact about
   // where the task came from.
   const sharedBadge = t.sharedImport ? `<span class="badge shared">Shared</span>` : '';
+  // Leads .meta rather than sitting inline after the title text — per the
+  // explicit ask, a flagged task's own flag should read as the first of
+  // this row's badges, not a suffix on the title itself. Its own
+  // .metaflag class (not .badge) is what keeps a flag-only row from
+  // costing as much vertical space as a real badge would: .meta's height
+  // is driven by its tallest child, and .badge's own vertical padding is
+  // what makes a real badge tall — a bare, unpadded glyph here is short
+  // enough that a flag-only row barely grows past the title's own line,
+  // while still sitting flush at normal badge height (align-items:center)
+  // whenever a real badge actually is present alongside it.
+  const flagMeta = (t.urgent && t.status!=='done') ? `<span class="metaflag">⚑</span>` : '';
   const dotHtml = showDot ? categoryDotHtml(cat, 'cdot') : '';
   const subs = t.subtasks || [];
   // Drag-to-reorder is only meaningful in 'default' sort mode — every
@@ -612,8 +623,8 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
       </div>
       ${dotHtml}
       <div class="titlewrap">
-        <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}${t.urgent && t.status!=='done' ? ' ⚑' : ''}</div>
-        <div class="meta">${priorityBadge}${timeframeBadge}${sharedBadge}${badge}</div>
+        <div class="title ${t.status==='done'?'done':''}">${escapeHtml(t.title)}</div>
+        <div class="meta">${flagMeta}${priorityBadge}${timeframeBadge}${sharedBadge}${badge}</div>
       </div>
       ${inDaily ? `
         <button class="movenext" ${onMoveTarget?'disabled':''} onclick="event.stopPropagation(); moveTaskForward('${t.id}','${dayDate}')" title="${onMoveTarget ? (dayDate<todayStr()?'Already planned for today':'Already planned for tomorrow') : (dayDate<todayStr()?'Also plan for today':'Also plan for tomorrow')}">→</button>
