@@ -371,6 +371,29 @@
   .tab .dot{ width:11px; height:11px; display:inline-flex; align-items:center; justify-content:center; font-size:0.7rem; line-height:1; }
   .tab.active{ background: var(--card-bg); color: var(--ink); font-weight:500; }
   .tab .count{ opacity:0.6; font-size:0.65rem; }
+  /* EXPERIMENTAL — Stacked Tabs (stackedTabsEnabled dev setting,
+     02-storage-state.js/06-tabs-render.js). A stack tab renders exactly
+     like a plain tab for whichever category is currently "on top"
+     (topKey) — this is purely the "there's more behind this one" cue: one
+     extra layer peeking out low-right, offset just enough to read as a
+     second card in the same stack without competing with the front tab's
+     own label. position:relative + z-index:0 gives ::before its own local
+     stacking context so this negative z-index only ever tucks it behind
+     THIS tab specifically, never behind an earlier sibling tab in the row
+     (both would be true without the z-index:0 here — see the identical
+     reasoning on #appCard's own z-index:1 for leathercover, CLAUDE.md).
+     Deliberately just one flat, muted layer regardless of how many
+     categories are actually in the group — a real per-member layer count
+     would need this rendered as N actual stacked elements, more visual
+     noise than the cue is worth for what's just a hint to try a
+     long-press, not an inventory. */
+  .tab.stacktab{ position:relative; z-index:0; }
+  .tab.stacktab::before{
+    content:''; position:absolute; inset:0; z-index:-1;
+    background: var(--tabhex, rgba(0,0,0,0.18));
+    opacity:0.5; border-radius:inherit;
+    transform: translate(3px, 3px);
+  }
   /* When tabs wrap to more than one row, only the bottom row was ever
      visually "resting" on anything (the card it flows into) — rows above
      it just floated in the shelf panel with nothing under them. A
@@ -2981,6 +3004,18 @@
     display:inline-flex; align-items:center; justify-content:center; border-radius:50%;
   }
   .catdotbtn:hover{ background: var(--card-bg-dim); }
+  /* Same "generous invisible tap target via negative-margin padding" trick
+     as .catdotbtn just above. Muted/outline until actually pinned (.on) —
+     echoes every other toggle-by-tapping-again control in the app
+     (.rowflag.on, .rowpin.on, etc.), where "off" reads as a quiet outline
+     and "on" fills in with real color. */
+  .catpinbtn{
+    background:none; border:none; padding:6px; margin:-6px; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; border-radius:50%;
+    font-size:0.85rem; opacity:0.4; filter:grayscale(1);
+  }
+  .catpinbtn:hover{ background: var(--card-bg-dim); opacity:0.7; }
+  .catpinbtn.on{ opacity:1; filter:none; background: var(--card-bg-dim); }
   .catpicker{
     position:absolute; top:calc(100% + 6px); left:0; z-index:20;
     width:196px; background: var(--card-bg); border:1px solid var(--line); border-radius:8px;
@@ -6537,6 +6572,10 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       ['scroll','Scrolls sideways, one row']
     ], 'setDevTabBarMobileStyle')}
     <div class="devgroupnote">See also Tab Bar under Desktop — this is the same underlying choice, answered separately per viewport.</div>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.stackedTabsEnabled?'checked':''} onchange="toggleDevSetting('stackedTabsEnabled', this.checked)">
+      ★ Stacked Tabs: collapse every unpinned category of the same type (standard/checklist/etc.) into one shared tab — tap goes to whichever is on top, long-press picks a different one. Pin a category in the list above to always give it its own tab instead. Works alongside the tab bar style above, not instead of it.
+    </label>
   `;
 
   return `
@@ -7547,7 +7586,21 @@ function defaultDevSettings(){
   // title, delete — see handleTaskContextMenu() in 08-render-core.js) used
   // to be a dev setting here (customContextMenu); graduated to the real,
   // always-on desktop behavior, so there's no field for it anymore.
-  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddBarStyle:'top', tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100' };
+  // stackedTabsEnabled (mobile-only, like everything else this Mobile
+  // section gates — see renderTabs()'s own stackedTabs branch in
+  // 06-tabs-render.js) collapses every unpinned category of the same
+  // .type (standard/checklist/calendar — see addCategory()) into one
+  // shared tab, tap-through to whichever one is "on top," long-press for
+  // a picker among the rest. stackedTabsTop remembers which category is
+  // on top *per type* ({ standard:'work', checklist:'lists', ... }) —
+  // deliberately its own map here rather than reordering state.categories
+  // itself (moveCategory()'s own approach elsewhere), so picking a new top
+  // for the mobile stack can never also reshuffle the plain, unstacked tab
+  // order everyone else (including this same account on desktop, or with
+  // the setting off) sees. A type with no entry yet just falls back to its
+  // first member in state.categories order — see stackGroupsForTabs() in
+  // 06-tabs-render.js.
+  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddBarStyle:'top', tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100', stackedTabsEnabled:false, stackedTabsTop:{} };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -7741,6 +7794,8 @@ function normalizeState(){
   if(typeof state.devSettings.leatherInsetPreset !== 'string') state.devSettings.leatherInsetPreset = 'classic';
   if(typeof state.devSettings.stackedPageInsetPreset !== 'string') state.devSettings.stackedPageInsetPreset = 'leftheavy';
   if(typeof state.devSettings.mobileUiPreviewOnDesktop !== 'boolean') state.devSettings.mobileUiPreviewOnDesktop = false;
+  if(typeof state.devSettings.stackedTabsEnabled !== 'boolean') state.devSettings.stackedTabsEnabled = false;
+  if(typeof state.devSettings.stackedTabsTop !== 'object' || !state.devSettings.stackedTabsTop) state.devSettings.stackedTabsTop = {};
   if(state.devSettings.quickAddBarStyle !== 'top' && state.devSettings.quickAddBarStyle !== 'bottom') state.devSettings.quickAddBarStyle = 'top';
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';
@@ -8602,6 +8657,126 @@ function tabSubtagHtml(key, openCount){
   return countFlag + urgentFlag;
 }
 
+// Stacked Tabs (stackedTabsEnabled dev setting, mobile-only — see its own
+// comment in defaultDevSettings(), 02-storage-state.js) — folds every
+// unpinned category of the same .type into one shared tab spot. Returns
+// visibleTabs()'s own key list untouched when the setting's off (or on
+// desktop without mobileUiPreviewOnDesktop), so renderTabs() below can
+// treat this as a no-op wrapper the rest of the time rather than
+// branching on the setting itself. Where it DOES apply, the returned
+// array mixes plain string keys (all/daily, a pinned category, or a
+// .type with only one member left — nothing to actually stack) with
+// `{stack:true, type, members, topKey}` objects marking where a group of
+// 2+ collapsed into one spot. renderTabs() tells the two apart with
+// typeof rather than needing a second parallel array.
+function stackGroupsForTabs(keys){
+  const dev = state.devSettings || {};
+  if(!mobileUiActive() || !dev.stackedTabsEnabled) return keys;
+  const membersByType = {};
+  const typeOrder = [];
+  keys.forEach(key=>{
+    if(key==='all' || key==='daily') return;
+    const cat = CATEGORIES[key];
+    if(!cat || cat.pinned) return;
+    const type = cat.type || 'standard';
+    if(!membersByType[type]){ membersByType[type] = []; typeOrder.push(type); }
+    membersByType[type].push(key);
+  });
+  const collapsedTypes = typeOrder.filter(type => membersByType[type].length > 1);
+  if(!collapsedTypes.length) return keys;
+  const stackedTabsTop = dev.stackedTabsTop || {};
+  const emittedTypes = new Set();
+  const result = [];
+  keys.forEach(key=>{
+    if(key==='all' || key==='daily'){ result.push(key); return; }
+    const cat = CATEGORIES[key];
+    const type = cat ? (cat.type || 'standard') : null;
+    if(!cat || cat.pinned || !collapsedTypes.includes(type)){ result.push(key); return; }
+    if(emittedTypes.has(type)) return; // this group's one spot is already in `result`
+    emittedTypes.add(type);
+    const members = membersByType[type];
+    const pickedTop = stackedTabsTop[type];
+    const topKey = members.includes(pickedTop) ? pickedTop : members[0];
+    result.push({ stack:true, type, members, topKey });
+  });
+  return result;
+}
+
+// Long-press-then-drag menu for a Stacked Tabs group — same shared
+// #ctxMenu/ctxMenuDragMove/ctxMenuDragEnd engine as every other long-press
+// menu in the app (see the header comment on that engine in
+// 08-render-core.js), just this feature's own flavor of it. Choosing a
+// category (pickTabStackTop() below) makes it that group's new topKey
+// AND navigates there, same as tapping a plain tab already does — a
+// picker pick is meant to read as "switch to this, and keep it handy,"
+// not two separate actions.
+let ctxMenuTabStackType = null;
+let tabStackPressTimer = null;
+let tabStackPressEl = null;
+let tabStackPressStartX = 0, tabStackPressStartY = 0;
+let tabStackLongPressFired = false;
+function tabStackPressStart(e, type, membersJson){
+  if(!mobileUiActive()) return;
+  tabStackLongPressFired = false;
+  const pt = e.touches ? e.touches[0] : e;
+  tabStackPressStartX = pt.clientX;
+  tabStackPressStartY = pt.clientY;
+  tabStackPressEl = e.currentTarget;
+  clearTimeout(tabStackPressTimer);
+  tabStackPressTimer = setTimeout(() => {
+    tabStackPressTimer = null;
+    tabStackLongPressFired = true;
+    const members = JSON.parse(membersJson);
+    const r = tabStackPressEl.getBoundingClientRect();
+    renderTabStackMenu(type, members, r.left, r.bottom + 6);
+  }, TASK_LONG_PRESS_MS);
+}
+function tabStackPressMove(e){
+  if(tabStackLongPressFired){ if(ctxMenuDragMove(e)) e.preventDefault(); return; }
+  if(!tabStackPressTimer) return;
+  const pt = e.touches ? e.touches[0] : e;
+  const dx = pt.clientX - tabStackPressStartX, dy = pt.clientY - tabStackPressStartY;
+  if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
+    clearTimeout(tabStackPressTimer);
+    tabStackPressTimer = null;
+  }
+}
+function tabStackPressEnd(){
+  clearTimeout(tabStackPressTimer);
+  tabStackPressTimer = null;
+  if(tabStackLongPressFired) ctxMenuDragEnd();
+}
+function renderTabStackMenu(type, members, x, y){
+  ctxMenuTabStackType = type;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = members.map(key=>{
+    const cat = CATEGORIES[key];
+    if(!cat) return '';
+    return `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>pickTabStackTop('${type}','${key}'))">${escapeHtml(cat.label)}<span class="ctxmenu-icon">${categoryDotHtml(cat, 'dot')}</span></button>`;
+  }).join('');
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
+  });
+}
+// Picking a category from the stack's own picker menu both remembers it
+// (stackedTabsTop, read by stackGroupsForTabs() above on the next render)
+// and switches to it — see this function's own header comment above for
+// why those two aren't split into separate steps.
+async function pickTabStackTop(type, key){
+  const cat = CATEGORIES[key];
+  pushUndo(`Set "${cat ? cat.label : key}" as the top of its Stacked Tabs group`);
+  state.devSettings.stackedTabsTop[type] = key;
+  switchTab(key);
+  queueSave();
+}
+
 function renderTabs(){
   const wrap = document.getElementById('tabs');
   const keys = visibleTabs();
@@ -8625,7 +8800,15 @@ function renderTabs(){
   const pushMode = overlapStyle && dev.overlapStackMode === 'ranked';
   const staggerOn = pushMode;
   const importanceRank = pushMode ? tabImportanceRank(keys) : null;
-  wrap.innerHTML = keys.map((key, idx)=>{
+  // Stacked Tabs replaces a run of same-.type keys with one spec object —
+  // see stackGroupsForTabs()'s own comment above. A no-op array-identity
+  // return the rest of the time, so tabItems reads exactly like keys used
+  // to everywhere below except the typeof check each iteration now opens
+  // with.
+  const tabItems = stackGroupsForTabs(keys);
+  wrap.innerHTML = tabItems.map((item, idx)=>{
+    const isStack = typeof item !== 'string';
+    const key = isStack ? item.topKey : item;
     const openCount = tabOpenCount(key);
     const dot = subtagsOn ? '' : key==='all' ? '' : key==='daily' ? categoryDotHtml({ hex: dailyTabHex(), icon:'dot' }, 'dot') : categoryDotHtml(CATEGORIES[key], 'dot');
     const label = key==='all' ? 'All' : key==='daily' ? 'Daily' : CATEGORIES[key].label;
@@ -8675,7 +8858,7 @@ function renderTabs(){
     // is currently covering it, instead of a covered tab being unreadable
     // until you interact with it. 0 (no offset) for the frontmost tab
     // either way, and for every tab at all in 'hover' mode.
-    const stagger = staggerOn ? -((keys.length - tabidx) / Math.max(1, keys.length - 1)) * OVERLAP_STAGGER_MAX : 0;
+    const stagger = staggerOn ? -((tabItems.length - tabidx) / Math.max(1, tabItems.length - 1)) * OVERLAP_STAGGER_MAX : 0;
     const hexStyle = tabColorHex
       ? ` style="--tabhex:${tabColorHex};--tabtext:${relLuminance(tabColorHex) > 0.5 ? '#2A2318' : '#F1EAD9'};--tabedge:${shadeHex(tabColorHex, -0.25)};--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`
       : ` style="--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`;
@@ -8701,7 +8884,20 @@ function renderTabs(){
     // exactly the point: it's the tab that remembers, the shortcut button
     // is the one that always means "today."
     const clickAttr = ` onclick="switchTab('${key}')"`;
-    return `<button class="tab ${activeTab===key?'active':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}>${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
+    // A stack tab's plain tap is identical to any other tab's (switchTab()
+    // on its own current topKey) — only the long-press differs, opening
+    // the picker (tabStackPressStart() etc. above) instead of this app's
+    // usual right-click/long-press context menu, since a tab has no
+    // "actions" of its own the way a task/checklist row does. members is
+    // passed through as a JSON string attribute (not, say, re-derived
+    // from data-key on press) so the picker doesn't need CATEGORIES'
+    // current .pinned/.type state to still agree with whatever was true
+    // when this button was rendered a moment ago.
+    const membersAttr = isStack ? escapeHtml(JSON.stringify(item.members)) : '';
+    const stackAttrs = isStack
+      ? ` data-stack-type="${item.type}" ontouchstart="tabStackPressStart(event,'${item.type}','${membersAttr}')" ontouchmove="tabStackPressMove(event)" ontouchend="tabStackPressEnd()" ontouchcancel="tabStackPressEnd()" onmousedown="tabStackPressStart(event,'${item.type}','${membersAttr}')" onmouseup="tabStackPressEnd()" onmouseleave="tabStackPressEnd()"`
+      : '';
+    return `<button class="tab ${activeTab===key?'active':''} ${isStack?'stacktab':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}${stackAttrs}>${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
   renderTabRowLines();
   updateTabScrollFade();
@@ -10833,6 +11029,7 @@ function closeCtxMenu(){
   ctxMenuMoveTaskId = null;
   ctxMenuSortOpen = false;
   ctxMenuQuickFieldKind = null;
+  ctxMenuTabStackType = null;
   document.getElementById('ctxMenu').classList.remove('open');
 }
 // Every menu item (task or day) routes through this — closes the menu
@@ -11693,6 +11890,15 @@ function renderSettings(){
           onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
         ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
         ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
+        <!-- Only shown while the Stacked Tabs dev setting (01-categories-
+             theme.js) is on — pinning has no effect at all otherwise, so
+             surfacing the control the rest of the time would just be a
+             button that does nothing. Pinned means "always its own tab,
+             never folded into that type's shared stack" — see
+             stackGroupsForTabs() in 06-tabs-render.js. -->
+        ${(state.devSettings||{}).stackedTabsEnabled ? `
+        <button class="catpinbtn ${c.pinned?'on':''}" onclick="togglePinCategory('${c.id}')" title="${c.pinned?'Unpin — fold back into its Stacked Tabs group':'Pin — always its own tab, never folded into a stack'}">📌</button>
+        ` : ''}
       </div>
       ${deleteControls}
       ${locChecks}
@@ -12055,6 +12261,22 @@ function moveCategory(id, direction){
   const [c] = state.categories.splice(idx, 1);
   state.categories.splice(newIdx, 0, c);
   rebuildCategoriesIndex();
+  render();
+  queueSave();
+}
+
+// Stacked Tabs' own per-category override (01-categories-theme.js's own
+// stackedTabsEnabled dev setting) — a pinned category always gets its own
+// tab, regardless of how many other same-.type categories exist to share
+// a stack with. Meaningless with the setting off, but harmless to leave
+// set on state.categories either way (stackGroupsForTabs() only ever
+// reads .pinned when stackedTabsEnabled is true), so this needs no
+// migration/cleanup if the setting is later turned back off.
+async function togglePinCategory(id){
+  const c = state.categories.find(c=>c.id===id);
+  if(!c) return;
+  pushUndo(c.pinned ? `Unpinned "${c.label}"` : `Pinned "${c.label}"`);
+  c.pinned = !c.pinned;
   render();
   queueSave();
 }

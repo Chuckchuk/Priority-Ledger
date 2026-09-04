@@ -127,6 +127,126 @@ function tabSubtagHtml(key, openCount){
   return countFlag + urgentFlag;
 }
 
+// Stacked Tabs (stackedTabsEnabled dev setting, mobile-only — see its own
+// comment in defaultDevSettings(), 02-storage-state.js) — folds every
+// unpinned category of the same .type into one shared tab spot. Returns
+// visibleTabs()'s own key list untouched when the setting's off (or on
+// desktop without mobileUiPreviewOnDesktop), so renderTabs() below can
+// treat this as a no-op wrapper the rest of the time rather than
+// branching on the setting itself. Where it DOES apply, the returned
+// array mixes plain string keys (all/daily, a pinned category, or a
+// .type with only one member left — nothing to actually stack) with
+// `{stack:true, type, members, topKey}` objects marking where a group of
+// 2+ collapsed into one spot. renderTabs() tells the two apart with
+// typeof rather than needing a second parallel array.
+function stackGroupsForTabs(keys){
+  const dev = state.devSettings || {};
+  if(!mobileUiActive() || !dev.stackedTabsEnabled) return keys;
+  const membersByType = {};
+  const typeOrder = [];
+  keys.forEach(key=>{
+    if(key==='all' || key==='daily') return;
+    const cat = CATEGORIES[key];
+    if(!cat || cat.pinned) return;
+    const type = cat.type || 'standard';
+    if(!membersByType[type]){ membersByType[type] = []; typeOrder.push(type); }
+    membersByType[type].push(key);
+  });
+  const collapsedTypes = typeOrder.filter(type => membersByType[type].length > 1);
+  if(!collapsedTypes.length) return keys;
+  const stackedTabsTop = dev.stackedTabsTop || {};
+  const emittedTypes = new Set();
+  const result = [];
+  keys.forEach(key=>{
+    if(key==='all' || key==='daily'){ result.push(key); return; }
+    const cat = CATEGORIES[key];
+    const type = cat ? (cat.type || 'standard') : null;
+    if(!cat || cat.pinned || !collapsedTypes.includes(type)){ result.push(key); return; }
+    if(emittedTypes.has(type)) return; // this group's one spot is already in `result`
+    emittedTypes.add(type);
+    const members = membersByType[type];
+    const pickedTop = stackedTabsTop[type];
+    const topKey = members.includes(pickedTop) ? pickedTop : members[0];
+    result.push({ stack:true, type, members, topKey });
+  });
+  return result;
+}
+
+// Long-press-then-drag menu for a Stacked Tabs group — same shared
+// #ctxMenu/ctxMenuDragMove/ctxMenuDragEnd engine as every other long-press
+// menu in the app (see the header comment on that engine in
+// 08-render-core.js), just this feature's own flavor of it. Choosing a
+// category (pickTabStackTop() below) makes it that group's new topKey
+// AND navigates there, same as tapping a plain tab already does — a
+// picker pick is meant to read as "switch to this, and keep it handy,"
+// not two separate actions.
+let ctxMenuTabStackType = null;
+let tabStackPressTimer = null;
+let tabStackPressEl = null;
+let tabStackPressStartX = 0, tabStackPressStartY = 0;
+let tabStackLongPressFired = false;
+function tabStackPressStart(e, type, membersJson){
+  if(!mobileUiActive()) return;
+  tabStackLongPressFired = false;
+  const pt = e.touches ? e.touches[0] : e;
+  tabStackPressStartX = pt.clientX;
+  tabStackPressStartY = pt.clientY;
+  tabStackPressEl = e.currentTarget;
+  clearTimeout(tabStackPressTimer);
+  tabStackPressTimer = setTimeout(() => {
+    tabStackPressTimer = null;
+    tabStackLongPressFired = true;
+    const members = JSON.parse(membersJson);
+    const r = tabStackPressEl.getBoundingClientRect();
+    renderTabStackMenu(type, members, r.left, r.bottom + 6);
+  }, TASK_LONG_PRESS_MS);
+}
+function tabStackPressMove(e){
+  if(tabStackLongPressFired){ if(ctxMenuDragMove(e)) e.preventDefault(); return; }
+  if(!tabStackPressTimer) return;
+  const pt = e.touches ? e.touches[0] : e;
+  const dx = pt.clientX - tabStackPressStartX, dy = pt.clientY - tabStackPressStartY;
+  if(Math.hypot(dx, dy) > TASK_LONG_PRESS_TOLERANCE_PX){
+    clearTimeout(tabStackPressTimer);
+    tabStackPressTimer = null;
+  }
+}
+function tabStackPressEnd(){
+  clearTimeout(tabStackPressTimer);
+  tabStackPressTimer = null;
+  if(tabStackLongPressFired) ctxMenuDragEnd();
+}
+function renderTabStackMenu(type, members, x, y){
+  ctxMenuTabStackType = type;
+  const menu = document.getElementById('ctxMenu');
+  menu.innerHTML = members.map(key=>{
+    const cat = CATEGORIES[key];
+    if(!cat) return '';
+    return `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>pickTabStackTop('${type}','${key}'))">${escapeHtml(cat.label)}<span class="ctxmenu-icon">${categoryDotHtml(cat, 'dot')}</span></button>`;
+  }).join('');
+  const zf = zoomFactor();
+  menu.style.left = (x/zf) + 'px';
+  menu.style.top = (y/zf) + 'px';
+  menu.classList.add('open');
+  applyDevElementNames();
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if(r.right > window.innerWidth) menu.style.left = (Math.max(8, window.innerWidth - r.width - 8)/zf) + 'px';
+    if(r.bottom > window.innerHeight) menu.style.top = (Math.max(8, window.innerHeight - r.height - 8)/zf) + 'px';
+  });
+}
+// Picking a category from the stack's own picker menu both remembers it
+// (stackedTabsTop, read by stackGroupsForTabs() above on the next render)
+// and switches to it — see this function's own header comment above for
+// why those two aren't split into separate steps.
+async function pickTabStackTop(type, key){
+  const cat = CATEGORIES[key];
+  pushUndo(`Set "${cat ? cat.label : key}" as the top of its Stacked Tabs group`);
+  state.devSettings.stackedTabsTop[type] = key;
+  switchTab(key);
+  queueSave();
+}
+
 function renderTabs(){
   const wrap = document.getElementById('tabs');
   const keys = visibleTabs();
@@ -150,7 +270,15 @@ function renderTabs(){
   const pushMode = overlapStyle && dev.overlapStackMode === 'ranked';
   const staggerOn = pushMode;
   const importanceRank = pushMode ? tabImportanceRank(keys) : null;
-  wrap.innerHTML = keys.map((key, idx)=>{
+  // Stacked Tabs replaces a run of same-.type keys with one spec object —
+  // see stackGroupsForTabs()'s own comment above. A no-op array-identity
+  // return the rest of the time, so tabItems reads exactly like keys used
+  // to everywhere below except the typeof check each iteration now opens
+  // with.
+  const tabItems = stackGroupsForTabs(keys);
+  wrap.innerHTML = tabItems.map((item, idx)=>{
+    const isStack = typeof item !== 'string';
+    const key = isStack ? item.topKey : item;
     const openCount = tabOpenCount(key);
     const dot = subtagsOn ? '' : key==='all' ? '' : key==='daily' ? categoryDotHtml({ hex: dailyTabHex(), icon:'dot' }, 'dot') : categoryDotHtml(CATEGORIES[key], 'dot');
     const label = key==='all' ? 'All' : key==='daily' ? 'Daily' : CATEGORIES[key].label;
@@ -200,7 +328,7 @@ function renderTabs(){
     // is currently covering it, instead of a covered tab being unreadable
     // until you interact with it. 0 (no offset) for the frontmost tab
     // either way, and for every tab at all in 'hover' mode.
-    const stagger = staggerOn ? -((keys.length - tabidx) / Math.max(1, keys.length - 1)) * OVERLAP_STAGGER_MAX : 0;
+    const stagger = staggerOn ? -((tabItems.length - tabidx) / Math.max(1, tabItems.length - 1)) * OVERLAP_STAGGER_MAX : 0;
     const hexStyle = tabColorHex
       ? ` style="--tabhex:${tabColorHex};--tabtext:${relLuminance(tabColorHex) > 0.5 ? '#2A2318' : '#F1EAD9'};--tabedge:${shadeHex(tabColorHex, -0.25)};--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`
       : ` style="--tabidx:${tabidx};--tab-jitter:${jitter}px;--tab-angle:${angle}deg;--tab-stagger:${stagger}px"`;
@@ -226,7 +354,20 @@ function renderTabs(){
     // exactly the point: it's the tab that remembers, the shortcut button
     // is the one that always means "today."
     const clickAttr = ` onclick="switchTab('${key}')"`;
-    return `<button class="tab ${activeTab===key?'active':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}>${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
+    // A stack tab's plain tap is identical to any other tab's (switchTab()
+    // on its own current topKey) — only the long-press differs, opening
+    // the picker (tabStackPressStart() etc. above) instead of this app's
+    // usual right-click/long-press context menu, since a tab has no
+    // "actions" of its own the way a task/checklist row does. members is
+    // passed through as a JSON string attribute (not, say, re-derived
+    // from data-key on press) so the picker doesn't need CATEGORIES'
+    // current .pinned/.type state to still agree with whatever was true
+    // when this button was rendered a moment ago.
+    const membersAttr = isStack ? escapeHtml(JSON.stringify(item.members)) : '';
+    const stackAttrs = isStack
+      ? ` data-stack-type="${item.type}" ontouchstart="tabStackPressStart(event,'${item.type}','${membersAttr}')" ontouchmove="tabStackPressMove(event)" ontouchend="tabStackPressEnd()" ontouchcancel="tabStackPressEnd()" onmousedown="tabStackPressStart(event,'${item.type}','${membersAttr}')" onmouseup="tabStackPressEnd()" onmouseleave="tabStackPressEnd()"`
+      : '';
+    return `<button class="tab ${activeTab===key?'active':''} ${isStack?'stacktab':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}${stackAttrs}>${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
   renderTabRowLines();
   updateTabScrollFade();

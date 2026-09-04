@@ -1186,6 +1186,10 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       ['scroll','Scrolls sideways, one row']
     ], 'setDevTabBarMobileStyle')}
     <div class="devgroupnote">See also Tab Bar under Desktop — this is the same underlying choice, answered separately per viewport.</div>
+    <label class="${rowClass}">
+      <input type="checkbox" ${dev.stackedTabsEnabled?'checked':''} onchange="toggleDevSetting('stackedTabsEnabled', this.checked)">
+      ★ Stacked Tabs: collapse every unpinned category of the same type (standard/checklist/etc.) into one shared tab — tap goes to whichever is on top, long-press picks a different one. Pin a category in the list above to always give it its own tab instead. Works alongside the tab bar style above, not instead of it.
+    </label>
   `;
 
   return `

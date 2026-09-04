@@ -76,6 +76,15 @@ function renderSettings(){
           onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
         ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
         ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
+        <!-- Only shown while the Stacked Tabs dev setting (01-categories-
+             theme.js) is on — pinning has no effect at all otherwise, so
+             surfacing the control the rest of the time would just be a
+             button that does nothing. Pinned means "always its own tab,
+             never folded into that type's shared stack" — see
+             stackGroupsForTabs() in 06-tabs-render.js. -->
+        ${(state.devSettings||{}).stackedTabsEnabled ? `
+        <button class="catpinbtn ${c.pinned?'on':''}" onclick="togglePinCategory('${c.id}')" title="${c.pinned?'Unpin — fold back into its Stacked Tabs group':'Pin — always its own tab, never folded into a stack'}">📌</button>
+        ` : ''}
       </div>
       ${deleteControls}
       ${locChecks}
@@ -438,6 +447,22 @@ function moveCategory(id, direction){
   const [c] = state.categories.splice(idx, 1);
   state.categories.splice(newIdx, 0, c);
   rebuildCategoriesIndex();
+  render();
+  queueSave();
+}
+
+// Stacked Tabs' own per-category override (01-categories-theme.js's own
+// stackedTabsEnabled dev setting) — a pinned category always gets its own
+// tab, regardless of how many other same-.type categories exist to share
+// a stack with. Meaningless with the setting off, but harmless to leave
+// set on state.categories either way (stackGroupsForTabs() only ever
+// reads .pinned when stackedTabsEnabled is true), so this needs no
+// migration/cleanup if the setting is later turned back off.
+async function togglePinCategory(id){
+  const c = state.categories.find(c=>c.id===id);
+  if(!c) return;
+  pushUndo(c.pinned ? `Unpinned "${c.label}"` : `Pinned "${c.label}"`);
+  c.pinned = !c.pinned;
   render();
   queueSave();
 }

@@ -1034,6 +1034,7 @@ function closeCtxMenu(){
   ctxMenuMoveTaskId = null;
   ctxMenuSortOpen = false;
   ctxMenuQuickFieldKind = null;
+  ctxMenuTabStackType = null;
   document.getElementById('ctxMenu').classList.remove('open');
 }
 // Every menu item (task or day) routes through this — closes the menu
