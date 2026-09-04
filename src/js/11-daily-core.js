@@ -443,6 +443,13 @@ function renderDaily(){
   } else {
     el.innerHTML = selectedDay ? renderDayDetail(selectedDay) : renderDayList();
   }
+  // renderDevBreadcrumb() (01-categories-theme.js) also runs from the top-
+  // level render() — redundant, harmless there — but several Daily
+  // actions (openDailyCalendar()/closeDailyCalendar(), closeDay(), etc.)
+  // call this function directly rather than the full render(), which
+  // would otherwise leave the breadcrumb showing stale state until some
+  // unrelated later render() happened to catch it up.
+  renderDevBreadcrumb();
 }
 
 // Spells out small numbers ("Two Weeks", not "2 Weeks") for the coarser

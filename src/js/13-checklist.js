@@ -30,6 +30,11 @@ function renderChecklist(){
   } else {
     el.innerHTML = renderChecklistOverview(activeTab);
   }
+  // See renderDaily()'s own identical call for why — several checklist
+  // actions (openChecklistList()/closeChecklistList(),
+  // openChecklistPending(), etc.) call this function directly rather
+  // than the full render().
+  renderDevBreadcrumb();
 }
 
 // Sort-mode aware (applySortMode(), 05-dates-sort.js) rather than the

@@ -326,6 +326,15 @@
     text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
     color: rgba(241,234,217,0.7); margin-bottom: 18px;
   }
+  /* Dev Mode's own page breadcrumb (#devBreadcrumb, currentPageBreadcrumb()
+     in 01-categories-theme.js) — deliberately small/muted, sitting right
+     under the masthead title rather than competing with it, since this is
+     a debugging aid for one specific person, not real app chrome. */
+  .devbreadcrumb{
+    text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.62rem;
+    letter-spacing:0.03em; color: rgba(241,234,217,0.45); margin: -8px 0 10px; cursor:pointer;
+  }
+  .devbreadcrumb:hover{ color: rgba(241,234,217,0.75); }
   /* A shared backing panel groups the tabs into one header block — without
      it, once tabs wrap to a second row only the row touching the card
      reads as "attached"; earlier rows were just loose pills floating in
@@ -5097,6 +5106,13 @@
     <button class="locbadge" id="locBadge" onclick="toggleLocation()"></button>
     <button class="signoutbtn2" id="signOutBtn" onclick="signOut()" title="Sign out" style="display:none;">Sign out</button>
   </div>
+  <!-- Dev Mode only (renderDevBreadcrumb(), 01-categories-theme.js) — a
+       short, stable, code-meaningful name for whatever's on screen right
+       now (and, for a stacked drilldown, where it was opened from), per
+       the explicit ask for a quick way to tell Claude "this is the page
+       we're talking about" without a screenshot every time. Click to
+       copy (copyDevBreadcrumb()). -->
+  <div class="devbreadcrumb" id="devBreadcrumb" style="display:none;" onclick="copyDevBreadcrumb(this)" title="Click to copy"></div>
   <div class="status-line" id="statusLine"></div>
   <!-- .appmain is a plain, unstyled wrapper by default (transparent to
        block flow, identical to #tabs/.leathercover being direct .shell
@@ -6537,6 +6553,76 @@ async function copyDevSettingsToClipboard(btn){
     btn.textContent = 'Copy failed';
   }
   setTimeout(() => { btn.textContent = original; }, 1500);
+}
+
+// ---------- Dev Mode page breadcrumb (#devBreadcrumb, shell-body.html) ----------
+// The project owner's own ask: a short, stable name for whatever's on
+// screen right now, so a chat message can say "I'm looking at X" instead
+// of a screenshot every time — this is exactly what came up mid-session
+// once already (a task detail page opened from two different places,
+// Daily and everywhere else, with no quick way to say which one a given
+// screenshot was). Deliberately never prints a category's own display
+// label (cat.label) — that's arbitrary per-account text the project
+// owner typed in, not something with any fixed meaning here — activeTab
+// itself is the stable id CATEGORIES is keyed by internally regardless
+// of what the label currently says, so that's what shows in [brackets]
+// instead. Kept to short, code-shaped tokens (colon/arrow-separated, no
+// prose) per the explicit "don't make the text too long" ask — this is
+// meant to be pasted inline at the top of a message, not read as a
+// sentence. "←" marks a genuine drilldown's own origin (a stacked page
+// backing to somewhere specific — matches the same state each real
+// closeX() function already reads to decide where to go, e.g.
+// dayReturnToCalendar/checklistReturnDay), not a peer view like Daily's
+// own Calendar (see the Daily/Calendar note in CLAUDE.md) — those get no
+// arrow since neither reads as "stacked on top of" the other.
+function currentPageBreadcrumb(){
+  if(genericTaskDetailId){
+    const origin = activeTab === 'daily' ? 'Daily' : activeTab === 'all' ? 'All' : `Cat[${activeTab}]`;
+    return `TaskDetail ← ${origin}`;
+  }
+  if(sharedItemsOpen) return 'SharedItems';
+  if(settingsOpen) return 'Settings';
+  if(claudeView) return 'ClaudeView ← Settings';
+  if(activeTab === 'daily'){
+    if(dailyCalendarOpen) return 'Daily:Calendar';
+    if(selectedDay) return dayReturnToCalendar ? 'Daily:DayDetail ← Calendar' : 'Daily:DayDetail';
+    return 'Daily:List';
+  }
+  if(isChecklistCategory(activeTab)){
+    if(checklistPendingOpen) return `Checklist:Pending[${activeTab}]`;
+    if(checklistTemplatesOpen) return `Checklist:Templates[${activeTab}]`;
+    if(selectedListId) return checklistReturnDay ? `Checklist:Detail[${activeTab}] ← Daily` : `Checklist:Detail[${activeTab}]`;
+    return `Checklist:Overview[${activeTab}]`;
+  }
+  return activeTab === 'all' ? 'All' : `Category[${activeTab}]`;
+}
+// Called from render() itself (same tier as renderDevPanel() — always
+// kept in sync, not something each view has to remember to update on
+// its own). Hidden entirely outside Dev Mode, same gate every other dev-
+// only affordance in this app uses.
+function renderDevBreadcrumb(){
+  const el = document.getElementById('devBreadcrumb');
+  if(!el) return;
+  const on = !!(state.devSettings && state.devSettings.developmentMode);
+  el.style.display = on ? '' : 'none';
+  if(on) el.textContent = currentPageBreadcrumb();
+}
+// "Page: " prefix on the copied text only (not the on-screen label) —
+// clear at a glance once pasted into a chat message, same reasoning
+// copyDevSettingsToClipboard()'s own "Dev Settings: " prefix has.
+// Recomputes fresh rather than reading el.textContent, so a rapid
+// double-click can't ever copy an in-flight "Copied!"/"Copy failed"
+// label instead of the real breadcrumb.
+async function copyDevBreadcrumb(el){
+  const text = 'Page: ' + currentPageBreadcrumb();
+  const original = el.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    el.textContent = 'Copied!';
+  } catch(e){
+    el.textContent = 'Copy failed';
+  }
+  setTimeout(() => { el.textContent = original; }, 1200);
 }
 
 // ---------- Development mode: element-name tooltips ----------
@@ -11325,6 +11411,7 @@ function render(){
     positionHeaderlineActions();
   });
   renderDevPanel();
+  renderDevBreadcrumb();
   renderLocBadge();
   renderTabs();
   refreshUndoButtons();
@@ -13730,6 +13817,13 @@ function renderDaily(){
   } else {
     el.innerHTML = selectedDay ? renderDayDetail(selectedDay) : renderDayList();
   }
+  // renderDevBreadcrumb() (01-categories-theme.js) also runs from the top-
+  // level render() — redundant, harmless there — but several Daily
+  // actions (openDailyCalendar()/closeDailyCalendar(), closeDay(), etc.)
+  // call this function directly rather than the full render(), which
+  // would otherwise leave the breadcrumb showing stale state until some
+  // unrelated later render() happened to catch it up.
+  renderDevBreadcrumb();
 }
 
 // Spells out small numbers ("Two Weeks", not "2 Weeks") for the coarser
@@ -14346,6 +14440,11 @@ function renderChecklist(){
   } else {
     el.innerHTML = renderChecklistOverview(activeTab);
   }
+  // See renderDaily()'s own identical call for why — several checklist
+  // actions (openChecklistList()/closeChecklistList(),
+  // openChecklistPending(), etc.) call this function directly rather
+  // than the full render().
+  renderDevBreadcrumb();
 }
 
 // Sort-mode aware (applySortMode(), 05-dates-sort.js) rather than the

@@ -1649,6 +1649,7 @@ function render(){
     positionHeaderlineActions();
   });
   renderDevPanel();
+  renderDevBreadcrumb();
   renderLocBadge();
   renderTabs();
   refreshUndoButtons();

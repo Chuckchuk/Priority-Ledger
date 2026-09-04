@@ -87,6 +87,13 @@
     <button class="locbadge" id="locBadge" onclick="toggleLocation()"></button>
     <button class="signoutbtn2" id="signOutBtn" onclick="signOut()" title="Sign out" style="display:none;">Sign out</button>
   </div>
+  <!-- Dev Mode only (renderDevBreadcrumb(), 01-categories-theme.js) — a
+       short, stable, code-meaningful name for whatever's on screen right
+       now (and, for a stacked drilldown, where it was opened from), per
+       the explicit ask for a quick way to tell Claude "this is the page
+       we're talking about" without a screenshot every time. Click to
+       copy (copyDevBreadcrumb()). -->
+  <div class="devbreadcrumb" id="devBreadcrumb" style="display:none;" onclick="copyDevBreadcrumb(this)" title="Click to copy"></div>
   <div class="status-line" id="statusLine"></div>
   <!-- .appmain is a plain, unstyled wrapper by default (transparent to
        block flow, identical to #tabs/.leathercover being direct .shell

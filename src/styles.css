@@ -294,6 +294,15 @@
     text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.72rem;
     color: rgba(241,234,217,0.7); margin-bottom: 18px;
   }
+  /* Dev Mode's own page breadcrumb (#devBreadcrumb, currentPageBreadcrumb()
+     in 01-categories-theme.js) — deliberately small/muted, sitting right
+     under the masthead title rather than competing with it, since this is
+     a debugging aid for one specific person, not real app chrome. */
+  .devbreadcrumb{
+    text-align:center; font-family:'IBM Plex Mono', monospace; font-size:0.62rem;
+    letter-spacing:0.03em; color: rgba(241,234,217,0.45); margin: -8px 0 10px; cursor:pointer;
+  }
+  .devbreadcrumb:hover{ color: rgba(241,234,217,0.75); }
   /* A shared backing panel groups the tabs into one header block — without
      it, once tabs wrap to a second row only the row touching the card
      reads as "attached"; earlier rows were just loose pills floating in

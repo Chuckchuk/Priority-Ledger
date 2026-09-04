@@ -1241,6 +1241,76 @@ async function copyDevSettingsToClipboard(btn){
   setTimeout(() => { btn.textContent = original; }, 1500);
 }
 
+// ---------- Dev Mode page breadcrumb (#devBreadcrumb, shell-body.html) ----------
+// The project owner's own ask: a short, stable name for whatever's on
+// screen right now, so a chat message can say "I'm looking at X" instead
+// of a screenshot every time — this is exactly what came up mid-session
+// once already (a task detail page opened from two different places,
+// Daily and everywhere else, with no quick way to say which one a given
+// screenshot was). Deliberately never prints a category's own display
+// label (cat.label) — that's arbitrary per-account text the project
+// owner typed in, not something with any fixed meaning here — activeTab
+// itself is the stable id CATEGORIES is keyed by internally regardless
+// of what the label currently says, so that's what shows in [brackets]
+// instead. Kept to short, code-shaped tokens (colon/arrow-separated, no
+// prose) per the explicit "don't make the text too long" ask — this is
+// meant to be pasted inline at the top of a message, not read as a
+// sentence. "←" marks a genuine drilldown's own origin (a stacked page
+// backing to somewhere specific — matches the same state each real
+// closeX() function already reads to decide where to go, e.g.
+// dayReturnToCalendar/checklistReturnDay), not a peer view like Daily's
+// own Calendar (see the Daily/Calendar note in CLAUDE.md) — those get no
+// arrow since neither reads as "stacked on top of" the other.
+function currentPageBreadcrumb(){
+  if(genericTaskDetailId){
+    const origin = activeTab === 'daily' ? 'Daily' : activeTab === 'all' ? 'All' : `Cat[${activeTab}]`;
+    return `TaskDetail ← ${origin}`;
+  }
+  if(sharedItemsOpen) return 'SharedItems';
+  if(settingsOpen) return 'Settings';
+  if(claudeView) return 'ClaudeView ← Settings';
+  if(activeTab === 'daily'){
+    if(dailyCalendarOpen) return 'Daily:Calendar';
+    if(selectedDay) return dayReturnToCalendar ? 'Daily:DayDetail ← Calendar' : 'Daily:DayDetail';
+    return 'Daily:List';
+  }
+  if(isChecklistCategory(activeTab)){
+    if(checklistPendingOpen) return `Checklist:Pending[${activeTab}]`;
+    if(checklistTemplatesOpen) return `Checklist:Templates[${activeTab}]`;
+    if(selectedListId) return checklistReturnDay ? `Checklist:Detail[${activeTab}] ← Daily` : `Checklist:Detail[${activeTab}]`;
+    return `Checklist:Overview[${activeTab}]`;
+  }
+  return activeTab === 'all' ? 'All' : `Category[${activeTab}]`;
+}
+// Called from render() itself (same tier as renderDevPanel() — always
+// kept in sync, not something each view has to remember to update on
+// its own). Hidden entirely outside Dev Mode, same gate every other dev-
+// only affordance in this app uses.
+function renderDevBreadcrumb(){
+  const el = document.getElementById('devBreadcrumb');
+  if(!el) return;
+  const on = !!(state.devSettings && state.devSettings.developmentMode);
+  el.style.display = on ? '' : 'none';
+  if(on) el.textContent = currentPageBreadcrumb();
+}
+// "Page: " prefix on the copied text only (not the on-screen label) —
+// clear at a glance once pasted into a chat message, same reasoning
+// copyDevSettingsToClipboard()'s own "Dev Settings: " prefix has.
+// Recomputes fresh rather than reading el.textContent, so a rapid
+// double-click can't ever copy an in-flight "Copied!"/"Copy failed"
+// label instead of the real breadcrumb.
+async function copyDevBreadcrumb(el){
+  const text = 'Page: ' + currentPageBreadcrumb();
+  const original = el.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    el.textContent = 'Copied!';
+  } catch(e){
+    el.textContent = 'Copy failed';
+  }
+  setTimeout(() => { el.textContent = original; }, 1200);
+}
+
 // ---------- Development mode: element-name tooltips ----------
 // The Name half of each tooltip is the selector itself — literally how
 // it'd be typed in a grep or a CSS rule, i.e. "however you actually
