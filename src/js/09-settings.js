@@ -83,7 +83,7 @@ function renderSettings(){
              never folded into that type's shared stack" — see
              stackGroupsForTabs() in 06-tabs-render.js. -->
         ${(state.devSettings||{}).stackedTabsEnabled ? `
-        <button class="catpinbtn ${c.pinned?'on':''}" onclick="togglePinCategory('${c.id}')" title="${c.pinned?'Unpin — fold back into its Stacked Tabs group':'Pin — always its own tab, never folded into a stack'}">📌</button>
+        <button class="catpinbtn ${c.pinned?'on':''}" onclick="togglePinCategory('${c.id}')" title="${c.pinned?'Unpin — fold back into its Stacked Tabs group':'Pin — always its own tab, never folded into a stack'}">${DAYPIN_ICON_SVG}</button>
         ` : ''}
       </div>
       ${deleteControls}

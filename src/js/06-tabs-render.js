@@ -247,6 +247,26 @@ async function pickTabStackTop(type, key){
   queueSave();
 }
 
+// Per the explicit ask: a stack tab was too hard to tell apart from a
+// plain one on mobile's own muted/translucent tab look — this renders up
+// to 2 other members' own color+icon (CATEGORY_ICON_SVG, no label) as
+// small chips peeking out behind the top tab (see .tabstackpeek in
+// <style> for the actual positioning/stacking). Icon color is computed
+// here rather than reusing categoryDotHtml() (which bakes the category's
+// OWN hex into the icon itself) — this chip's background already IS that
+// hex, so the icon needs the same contrasting color renderTabs() already
+// picks for a colored tab's own label (relLuminance() > 0.5 -> dark ink,
+// else cream) or it would be invisible against its own background.
+function tabStackPeekHtml(members, topKey){
+  return members.filter(k => k !== topKey).slice(0, 2).map((key, i) => {
+    const cat = CATEGORIES[key];
+    if(!cat) return '';
+    const icon = CATEGORY_ICON_SVG[cat.icon || 'dot'] || CATEGORY_ICON_SVG.dot;
+    const iconColor = relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9';
+    return `<span class="tabstackpeek" style="--peekhex:${cat.hex}; --peekidx:${i}; color:${iconColor}">${icon}</span>`;
+  }).join('');
+}
+
 function renderTabs(){
   const wrap = document.getElementById('tabs');
   const keys = visibleTabs();
@@ -367,7 +387,8 @@ function renderTabs(){
     const stackAttrs = isStack
       ? ` data-stack-type="${item.type}" ontouchstart="tabStackPressStart(event,'${item.type}','${membersAttr}')" ontouchmove="tabStackPressMove(event)" ontouchend="tabStackPressEnd()" ontouchcancel="tabStackPressEnd()" onmousedown="tabStackPressStart(event,'${item.type}','${membersAttr}')" onmouseup="tabStackPressEnd()" onmouseleave="tabStackPressEnd()"`
       : '';
-    return `<button class="tab ${activeTab===key?'active':''} ${isStack?'stacktab':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}${stackAttrs}>${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
+    const peekHtml = isStack ? tabStackPeekHtml(item.members, item.topKey) : '';
+    return `<button class="tab ${activeTab===key?'active':''} ${isStack?'stacktab':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}${stackAttrs}>${peekHtml}${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
   renderTabRowLines();
   updateTabScrollFade();

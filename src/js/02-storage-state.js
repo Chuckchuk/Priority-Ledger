@@ -615,7 +615,7 @@ function defaultDevSettings(){
   // the setting off) sees. A type with no entry yet just falls back to its
   // first member in state.categories order — see stackGroupsForTabs() in
   // 06-tabs-render.js.
-  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddBarStyle:'top', tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100', stackedTabsEnabled:false, stackedTabsTop:{}, swipeActionsEnabled:false };
+  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddBarStyle:'top', tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100', stackedTabsEnabled:false, stackedTabsTop:{}, swipeActionsEnabled:false, mobileColoredTabs:false };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -812,6 +812,7 @@ function normalizeState(){
   if(typeof state.devSettings.stackedTabsEnabled !== 'boolean') state.devSettings.stackedTabsEnabled = false;
   if(typeof state.devSettings.stackedTabsTop !== 'object' || !state.devSettings.stackedTabsTop) state.devSettings.stackedTabsTop = {};
   if(typeof state.devSettings.swipeActionsEnabled !== 'boolean') state.devSettings.swipeActionsEnabled = false;
+  if(typeof state.devSettings.mobileColoredTabs !== 'boolean') state.devSettings.mobileColoredTabs = false;
   if(state.devSettings.quickAddBarStyle !== 'top' && state.devSettings.quickAddBarStyle !== 'bottom') state.devSettings.quickAddBarStyle = 'top';
   if(typeof state.devSettings.tabBarMobileStyle !== 'string') state.devSettings.tabBarMobileStyle = 'default';
   if(typeof state.devSettings.tabBarDesktopStyle !== 'string') state.devSettings.tabBarDesktopStyle = 'default';

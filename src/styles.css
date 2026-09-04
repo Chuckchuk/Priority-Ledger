@@ -342,25 +342,45 @@
   /* EXPERIMENTAL — Stacked Tabs (stackedTabsEnabled dev setting,
      02-storage-state.js/06-tabs-render.js). A stack tab renders exactly
      like a plain tab for whichever category is currently "on top"
-     (topKey) — this is purely the "there's more behind this one" cue: one
-     extra layer peeking out low-right, offset just enough to read as a
-     second card in the same stack without competing with the front tab's
-     own label. position:relative + z-index:0 gives ::before its own local
-     stacking context so this negative z-index only ever tucks it behind
-     THIS tab specifically, never behind an earlier sibling tab in the row
-     (both would be true without the z-index:0 here — see the identical
-     reasoning on #appCard's own z-index:1 for leathercover, CLAUDE.md).
-     Deliberately just one flat, muted layer regardless of how many
-     categories are actually in the group — a real per-member layer count
-     would need this rendered as N actual stacked elements, more visual
-     noise than the cue is worth for what's just a hint to try a
-     long-press, not an inventory. */
-  .tab.stacktab{ position:relative; z-index:0; }
-  .tab.stacktab::before{
-    content:''; position:absolute; inset:0; z-index:-1;
-    background: var(--tabhex, rgba(0,0,0,0.18));
-    opacity:0.5; border-radius:inherit;
-    transform: translate(3px, 3px);
+     (topKey), plus up to 2 .tabstackpeek chips (tabStackPeekHtml(),
+     06-tabs-render.js) — one other member's own color+icon (no label,
+     per the explicit ask) peeking out behind the top tab, capped at 2
+     regardless of how many categories are actually in the group (an
+     inventory of every member would be more visual noise than the cue is
+     worth for what's just a hint to try a long-press). position:relative
+     + z-index:0 gives each peek chip's own negative z-index a LOCAL
+     stacking context to tuck behind — scoped to just this tab, never
+     behind an earlier sibling tab in the row (both would be true without
+     the z-index:0 here — see the identical reasoning on #appCard's own
+     z-index:1 for leathercover, CLAUDE.md). overflow:visible (the base
+     .tab has none set, so this is only needed in case something upstream
+     ever adds one) since a peek chip pokes out past the tab's own edges
+     on purpose. */
+  .tab.stacktab{ position:relative; z-index:0; overflow:visible; }
+  /* --peekidx (0 = the one immediately behind the top tab) staggers each
+     chip a little further up/right than the last, same idea as a real
+     fanned card stack — top/right shrink by a few px per layer rather
+     than growing, so idx 0 sits closest to (mostly hidden behind) the
+     front tab and later ones peek out a little further. Sized and colored
+     off the SAME --tabhex/dot markup a plain tab already uses (just
+     smaller, no .tablabel) so a peeking chip reads as "another one of
+     these," not a new visual element with its own separate language. */
+  .tabstackpeek{
+    position:absolute; z-index:-1;
+    top: calc(-3px - var(--peekidx, 0) * 5px);
+    right: calc(6px + var(--peekidx, 0) * 7px);
+    width:20px; height:16px; border-radius:5px 5px 0 0;
+    background: var(--peekhex, var(--primary));
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 -1px 3px rgba(0,0,0,0.3);
+    /* This chip's own icon glyph is drawn with an explicit contrasting
+       `color` (tabStackPeekHtml(), 06-tabs-render.js — the same
+       relLuminance() contrast check renderTabs() already does for a
+       colored tab's own --tabtext), NOT the category's own hex the way a
+       plain .dot elsewhere always is — that hex is what THIS chip's own
+       background already is, so drawing the icon in that same color
+       would make it invisible against itself. */
+    font-size:0.6rem;
   }
   /* When tabs wrap to more than one row, only the bottom row was ever
      visually "resting" on anything (the card it flows into) — rows above
@@ -796,20 +816,21 @@
   ul.tasks{ list-style:none; margin:0; padding:0; }
   li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
   /* EXPERIMENTAL — Swipe Actions (swipeActionsEnabled dev setting,
-     01-categories-theme.js/20-bootstrap.js). :has() scopes this to only
-     the rows that actually render a .swipeactions sibling (taskRowHtml()/
-     checklistListRowHtml()'s own useSwipeActions gate) — every other row
-     is completely untouched, rather than needing a second modifier class
-     threaded through just for this. position:relative gives .swipeactions
-     below something to anchor against; overflow:hidden is what actually
-     hides it until .row (a sibling, painted after it and so on top at
-     rest) slides left on top of it via rowSwipeStart()/etc. — without
-     this the "revealed" content would just always show past the row's
-     own right edge. */
-  li.task:has(> .swipeactions){ position:relative; overflow:hidden; }
+     01-categories-theme.js/20-bootstrap.js). .swiperow is an explicit
+     modifier class (not a :has(> .swipeactions) inference, which an
+     earlier pass of this rule used) set right alongside .swipeactions
+     itself by the same useSwipeActions gate in taskRowHtml()/
+     checklistListRowHtml() — kept explicit specifically so this doesn't
+     quietly depend on :has() support existing at all. position:relative
+     gives .swipeactions below something to anchor against; overflow:hidden
+     is what actually hides it until .row (a sibling, painted after it and
+     so on top at rest) slides left on top of it via rowSwipeStart()/etc.
+     — without this the "revealed" content would just always show past
+     the row's own right edge. */
+  li.task.swiperow{ position:relative; overflow:hidden; }
   .swipeactions{
-    position:absolute; inset:0; z-index:0;
-    display:flex; align-items:stretch; justify-content:flex-end; gap:1px;
+    position:absolute; top:0; right:0; bottom:0; z-index:0;
+    display:flex; align-items:stretch; gap:1px;
   }
   /* .row itself has to be explicitly promoted to its own positioned,
      stacked layer — a positioned box (.swipeactions here) always paints
@@ -821,7 +842,7 @@
      own .row (not the bare class everywhere else it's reused — the Daily
      tree picker rows, 12-daily-tree.js) since this is the one place that
      needs it. */
-  li.task:has(> .swipeactions) > .row{ position:relative; z-index:1; background:var(--card-bg); }
+  li.task.swiperow > .row{ position:relative; z-index:1; background:var(--card-bg); }
   .swipeactions-task{ width:138px; } /* must match ROWSWIPE_ACTION_WIDTH.task, 20-bootstrap.js */
   .swipeactions-checklist{ width:92px; } /* must match ROWSWIPE_ACTION_WIDTH.checklist */
   .swipeactionbtn{
@@ -3044,18 +3065,19 @@
     display:inline-flex; align-items:center; justify-content:center; border-radius:50%;
   }
   .catdotbtn:hover{ background: var(--card-bg-dim); }
-  /* Same "generous invisible tap target via negative-margin padding" trick
-     as .catdotbtn just above. Muted/outline until actually pinned (.on) —
-     echoes every other toggle-by-tapping-again control in the app
-     (.rowflag.on, .rowpin.on, etc.), where "off" reads as a quiet outline
-     and "on" fills in with real color. */
+  /* Per the explicit ask: the same pin glyph a task row's own .rowpin
+     uses (DAYPIN_ICON_SVG), colored the same "off" (muted ink-soft) ->
+     "on" (filled --primary) the pin/flag toggles everywhere else in the
+     app share — but as a bare icon here, not a bordered/backed button,
+     since this sits inline in a settings row next to a color dot and a
+     delete button rather than out on its own the way a row's pin does. */
   .catpinbtn{
     background:none; border:none; padding:6px; margin:-6px; cursor:pointer;
-    display:inline-flex; align-items:center; justify-content:center; border-radius:50%;
-    font-size:0.85rem; opacity:0.4; filter:grayscale(1);
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:0.85rem; color: var(--ink-soft);
   }
-  .catpinbtn:hover{ background: var(--card-bg-dim); opacity:0.7; }
-  .catpinbtn.on{ opacity:1; filter:none; background: var(--card-bg-dim); }
+  .catpinbtn:hover{ color: var(--ink); }
+  .catpinbtn.on{ color: var(--primary); }
   .catpicker{
     position:absolute; top:calc(100% + 6px); left:0; z-index:20;
     width:196px; background: var(--card-bg); border:1px solid var(--line); border-radius:8px;
@@ -3798,6 +3820,25 @@
      the gesture failing or grabbing the wrong thing rather than a plain
      mis-tap. */
   body.mobileui-active .tab{ padding: 13px 14px 15px; }
+  /* EXPERIMENTAL — Colored Tabs (mobileColoredTabs dev setting). Per the
+     explicit ask: mobile's default translucent/muted pill made a Stacked
+     Tabs group's own peek chips (.tabstackpeek above) hard to pick out at
+     a glance, on top of just being hard to read at all against the desk
+     background. Reuses the exact same --tabhex/--tabtext/--tabedge custom
+     properties renderTabs() (06-tabs-render.js) already sets on every
+     tab regardless of platform — a full solid fill plus a slightly darker
+     top accent, deliberately simpler than desktop's own "overlap" look
+     (no stagger/jitter/scrunch-to-fit — none of that reads well once tabs
+     are also wrapping to multiple rows on a phone-width screen). 'all'/
+     'daily' have no category color of their own, so both fall back to
+     var(--primary) same as every other colored-tab look in the app. */
+  body.mobileui-active[data-tabbar-mobile-colored="on"] .tab{
+    background: var(--tabhex, var(--primary)); color: var(--tabtext, white);
+    border-top: 3px solid var(--tabedge, color-mix(in srgb, var(--primary) 70%, black));
+  }
+  body.mobileui-active[data-tabbar-mobile-colored="on"] .tab.active{
+    background: var(--card-bg); color: var(--ink); border-top-color: var(--tabhex, var(--primary));
+  }
   /* scroll: one row, no wrap — scrolls sideways instead, with scroll-snap
      and a trailing fade hinting more tabs are off-screen. Scrollbar
      hidden since the fade + snap already communicate "more content"

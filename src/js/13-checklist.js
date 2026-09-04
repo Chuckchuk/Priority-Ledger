@@ -270,7 +270,7 @@ function checklistListRowHtml(t){
     ? ` ontouchstart="checklistPressStart(event,'${t.id}'); rowSwipeStart(event,'${t.id}','checklist')" ontouchmove="checklistPressMove(event); rowSwipeMove(event)" ontouchend="checklistPressEnd(); rowSwipeEnd()" ontouchcancel="checklistPressEnd(); rowSwipeEnd()" onmousedown="checklistPressStart(event,'${t.id}'); rowSwipeStart(event,'${t.id}','checklist')" onmousemove="rowSwipeMove(event)" onmouseup="checklistPressEnd(); rowSwipeEnd()" onmouseleave="checklistPressEnd()"`
     : ` ontouchstart="checklistPressStart(event,'${t.id}')" ontouchmove="checklistPressMove(event)" ontouchend="checklistPressEnd()" ontouchcancel="checklistPressEnd()" onmousedown="checklistPressStart(event,'${t.id}')" onmouseup="checklistPressEnd()" onmouseleave="checklistPressEnd()"`;
   return `
-  <li class="task" data-task-id="${t.id}" onclick="checklistRowTap(event,'${t.id}')"
+  <li class="task ${useSwipeActions?'swiperow':''}" data-task-id="${t.id}" onclick="checklistRowTap(event,'${t.id}')"
     oncontextmenu="return handleChecklistContextMenu(event,'${t.id}')"${swipeAttrs}>
     ${useSwipeActions ? checklistSwipeActionsHtml(t) : ''}
     <div class="row">

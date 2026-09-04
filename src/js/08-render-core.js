@@ -625,7 +625,7 @@ function taskRowHtml(t, showDot, inDaily, dayDate){
     ? ` ontouchstart="rowSwipeStart(event,'${t.id}','task')" ontouchmove="rowSwipeMove(event)" ontouchend="rowSwipeEnd()" ontouchcancel="rowSwipeEnd()" onmousedown="rowSwipeStart(event,'${t.id}','task')" onmousemove="rowSwipeMove(event)" onmouseup="rowSwipeEnd()"`
     : '';
   return `
-  <li class="task"${swipeAttrs} data-task-id="${t.id}">
+  <li class="task ${useSwipeActions?'swiperow':''}"${swipeAttrs} data-task-id="${t.id}">
     ${useSwipeActions ? taskSwipeActionsHtml(t) : ''}
     <div class="row"${pressAttrs}${ctxMenuAttr}${noteHoverAttrs} onclick="${rowClick}">
       ${dragHandle}

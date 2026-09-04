@@ -910,9 +910,9 @@ document.addEventListener('contextmenu', (e) => {
 // closes it via ctxMenuAction()) doesn't also trip this a second time
 // pointlessly.
 document.addEventListener('click', (e) => {
-  if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen || ctxMenuQuickFieldKind) && !e.target.closest('#ctxMenu')) closeCtxMenu();
+  if((ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen || ctxMenuQuickFieldKind || ctxMenuTabStackType) && !e.target.closest('#ctxMenu')) closeCtxMenu();
 });
-document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen || ctxMenuQuickFieldKind) closeCtxMenu(); }, { capture:true, passive:true });
+document.addEventListener('scroll', () => { if(ctxMenuTaskId || ctxMenuDayStr || ctxMenuMoveTaskId || ctxMenuSortOpen || ctxMenuQuickFieldKind || ctxMenuTabStackType) closeCtxMenu(); }, { capture:true, passive:true });
 // The note hover tip (08-render-core.js) has no per-instance id to check
 // the way #ctxMenu's ctxMenuTaskId/etc. do — noteHoverEnd() is always
 // safe to call regardless of whether anything's actually showing, so a
