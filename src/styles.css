@@ -814,7 +814,11 @@
   }
   .flagfilterbtn.on{ background: var(--secondary); color:white; border-color: var(--secondary); }
   ul.tasks{ list-style:none; margin:0; padding:0; }
-  li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
+  /* --taskrow-pad-v/-h exist purely so .swipeactions (below) can size
+     itself to match .row's own inset exactly, rather than duplicating
+     "12px 2px" as a second hardcoded number that could silently drift
+     out of sync with this padding later. */
+  li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; --taskrow-pad-v:12px; --taskrow-pad-h:2px; }
   /* EXPERIMENTAL — Swipe Actions (swipeActionsEnabled dev setting,
      01-categories-theme.js/20-bootstrap.js). .swiperow is an explicit
      modifier class (not a :has(> .swipeactions) inference, which an
@@ -828,8 +832,17 @@
      — without this the "revealed" content would just always show past
      the row's own right edge. */
   li.task.swiperow{ position:relative; overflow:hidden; }
+  /* top/right/bottom read the SAME --taskrow-pad-v/-h .task itself is
+     padded by (rather than 0, i.e. the padding BOX's own raw edges) —
+     .row is a normal in-flow child, so it naturally sits inset from
+     .task's edges by exactly that padding; without matching it here,
+     .swipeactions (bare position:absolute, no padding of its own to
+     inherit) filled the padding box's full, TALLER height instead, and
+     its top/bottom few pixels peeked out past .row on every row, at rest,
+     whether or not anything was ever swiped — the exact "always visible,
+     weirdly tall" bug this was reported as. */
   .swipeactions{
-    position:absolute; top:0; right:0; bottom:0; z-index:0;
+    position:absolute; top:var(--taskrow-pad-v,12px); right:var(--taskrow-pad-h,2px); bottom:var(--taskrow-pad-v,12px); z-index:0;
     display:flex; align-items:stretch; gap:1px;
   }
   /* .row itself has to be explicitly promoted to its own positioned,

@@ -373,7 +373,14 @@ function renderTabs(){
     // Daily was last left (the day list, a specific day, the calendar) is
     // exactly the point: it's the tab that remembers, the shortcut button
     // is the one that always means "today."
-    const clickAttr = ` onclick="switchTab('${key}')"`;
+    // scrollActiveTabIntoView() runs AFTER switchTab('${key}') — switchTab()
+    // calls render() synchronously, which rebuilds every .tab element
+    // from scratch (including this very one), so by the time the second
+    // statement here runs, `this` no longer refers to a live element;
+    // re-querying '.tab.active' fresh is what actually finds the
+    // just-rebuilt tab to scroll to. See that function's own comment for
+    // why this only ever does anything in tabBarMobileStyle 'scroll'.
+    const clickAttr = ` onclick="switchTab('${key}'); scrollActiveTabIntoView();"`;
     // A stack tab's plain tap is identical to any other tab's (switchTab()
     // on its own current topKey) — only the long-press differs, opening
     // the picker (tabStackPressStart() etc. above) instead of this app's
@@ -1094,6 +1101,25 @@ function overlapTabHoverEnd(idx){
   overlapHoveredIdx = null;
   const tabs = Array.from(document.getElementById('tabs').querySelectorAll('.tab'));
   computeOverlapPush([overlapActiveIdx(tabs)]);
+}
+
+// tabBarMobileStyle "scroll" only, per the explicit ask: tapping a tab
+// whose corner pokes into view at the scrollable row's own edge (so it's
+// tappable at all, just not fully visible) should also finish scrolling
+// it the rest of the way into view, rather than leaving it exactly as
+// cut off as it was before the tap. scrollIntoView({inline:'nearest'})
+// is exactly "scroll the minimum needed to make this fully visible, and
+// do nothing at all if it already is" — no manual scrollLeft math needed,
+// and it can't overshoot into centering the tab (which inline:'center'
+// would do, moving tabs that were already fully on-screen). block:'nearest'
+// alongside it keeps this from also nudging the page's own vertical
+// scroll — .tabs has no vertical overflow of its own, but scrollIntoView
+// checks both axes against whichever ancestor actually scrolls each one.
+function scrollActiveTabIntoView(){
+  const dev = state.devSettings || {};
+  if(!mobileUiActive() || dev.tabBarMobileStyle !== 'scroll') return;
+  const activeEl = document.querySelector('#tabs .tab.active');
+  if(activeEl) activeEl.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
 }
 
 // tabBarMobileStyle's "scroll" variant (see defaultDevSettings() in

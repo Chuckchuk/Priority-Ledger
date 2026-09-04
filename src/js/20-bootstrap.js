@@ -782,6 +782,10 @@ function pullRefreshEligible(target){
   // correct regardless of which of the two touchstart listeners happens
   // to run first.
   if(classifySwipeZone(target)) return false;
+  // Same reasoning as the #ctxMenu check in the touchmove listener below —
+  // covers the (rarer) case where the menu is already open by the time a
+  // fresh touch starts, rather than opening partway through this one.
+  if(document.getElementById('ctxMenu').classList.contains('open')) return false;
   return true;
 }
 
@@ -822,6 +826,22 @@ document.addEventListener('touchstart', (e) => {
 // actual touchend/touchcancel.
 document.addEventListener('touchmove', (e) => {
   if(!pullRefreshGesture) return;
+  // A long-press menu's own drag-to-select (ctxMenuDragMove(), 08-render-
+  // core.js — the Stacked Tabs picker included) can open mid-touch, well
+  // after this same touch already armed a pull gesture at touchstart (the
+  // menu doesn't exist yet until the long-press timer fires) — checking
+  // pullRefreshEligible() only once, back at touchstart, can't catch that.
+  // Bailing out here too, on every move, is what actually stops a
+  // "dragging down the now-open menu to pick an option" gesture from also
+  // dragging the whole page down toward a refresh, per the explicit
+  // report. Torn down (not just reset-and-kept-alive, unlike the
+  // scrollY>0 branch below) since there's no scenario where the menu
+  // closes and the SAME touch should be allowed to re-arm a pull.
+  if(document.getElementById('ctxMenu').classList.contains('open')){
+    pullRefreshGesture = null;
+    pullRefreshReset();
+    return;
+  }
   const y = e.touches[0].clientY;
   if(window.scrollY > 0){
     pullRefreshGesture.baseY = null; // re-baseline next time we're back at the top

@@ -846,7 +846,11 @@
   }
   .flagfilterbtn.on{ background: var(--secondary); color:white; border-color: var(--secondary); }
   ul.tasks{ list-style:none; margin:0; padding:0; }
-  li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; }
+  /* --taskrow-pad-v/-h exist purely so .swipeactions (below) can size
+     itself to match .row's own inset exactly, rather than duplicating
+     "12px 2px" as a second hardcoded number that could silently drift
+     out of sync with this padding later. */
+  li.task{ border-bottom: 1px dashed var(--line); padding: 12px 2px; --taskrow-pad-v:12px; --taskrow-pad-h:2px; }
   /* EXPERIMENTAL — Swipe Actions (swipeActionsEnabled dev setting,
      01-categories-theme.js/20-bootstrap.js). .swiperow is an explicit
      modifier class (not a :has(> .swipeactions) inference, which an
@@ -860,8 +864,17 @@
      — without this the "revealed" content would just always show past
      the row's own right edge. */
   li.task.swiperow{ position:relative; overflow:hidden; }
+  /* top/right/bottom read the SAME --taskrow-pad-v/-h .task itself is
+     padded by (rather than 0, i.e. the padding BOX's own raw edges) —
+     .row is a normal in-flow child, so it naturally sits inset from
+     .task's edges by exactly that padding; without matching it here,
+     .swipeactions (bare position:absolute, no padding of its own to
+     inherit) filled the padding box's full, TALLER height instead, and
+     its top/bottom few pixels peeked out past .row on every row, at rest,
+     whether or not anything was ever swiped — the exact "always visible,
+     weirdly tall" bug this was reported as. */
   .swipeactions{
-    position:absolute; top:0; right:0; bottom:0; z-index:0;
+    position:absolute; top:var(--taskrow-pad-v,12px); right:var(--taskrow-pad-h,2px); bottom:var(--taskrow-pad-v,12px); z-index:0;
     display:flex; align-items:stretch; gap:1px;
   }
   /* .row itself has to be explicitly promoted to its own positioned,
@@ -9235,7 +9248,14 @@ function renderTabs(){
     // Daily was last left (the day list, a specific day, the calendar) is
     // exactly the point: it's the tab that remembers, the shortcut button
     // is the one that always means "today."
-    const clickAttr = ` onclick="switchTab('${key}')"`;
+    // scrollActiveTabIntoView() runs AFTER switchTab('${key}') — switchTab()
+    // calls render() synchronously, which rebuilds every .tab element
+    // from scratch (including this very one), so by the time the second
+    // statement here runs, `this` no longer refers to a live element;
+    // re-querying '.tab.active' fresh is what actually finds the
+    // just-rebuilt tab to scroll to. See that function's own comment for
+    // why this only ever does anything in tabBarMobileStyle 'scroll'.
+    const clickAttr = ` onclick="switchTab('${key}'); scrollActiveTabIntoView();"`;
     // A stack tab's plain tap is identical to any other tab's (switchTab()
     // on its own current topKey) — only the long-press differs, opening
     // the picker (tabStackPressStart() etc. above) instead of this app's
@@ -9956,6 +9976,25 @@ function overlapTabHoverEnd(idx){
   overlapHoveredIdx = null;
   const tabs = Array.from(document.getElementById('tabs').querySelectorAll('.tab'));
   computeOverlapPush([overlapActiveIdx(tabs)]);
+}
+
+// tabBarMobileStyle "scroll" only, per the explicit ask: tapping a tab
+// whose corner pokes into view at the scrollable row's own edge (so it's
+// tappable at all, just not fully visible) should also finish scrolling
+// it the rest of the way into view, rather than leaving it exactly as
+// cut off as it was before the tap. scrollIntoView({inline:'nearest'})
+// is exactly "scroll the minimum needed to make this fully visible, and
+// do nothing at all if it already is" — no manual scrollLeft math needed,
+// and it can't overshoot into centering the tab (which inline:'center'
+// would do, moving tabs that were already fully on-screen). block:'nearest'
+// alongside it keeps this from also nudging the page's own vertical
+// scroll — .tabs has no vertical overflow of its own, but scrollIntoView
+// checks both axes against whichever ancestor actually scrolls each one.
+function scrollActiveTabIntoView(){
+  const dev = state.devSettings || {};
+  if(!mobileUiActive() || dev.tabBarMobileStyle !== 'scroll') return;
+  const activeEl = document.querySelector('#tabs .tab.active');
+  if(activeEl) activeEl.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
 }
 
 // tabBarMobileStyle's "scroll" variant (see defaultDevSettings() in
@@ -18949,6 +18988,10 @@ function pullRefreshEligible(target){
   // correct regardless of which of the two touchstart listeners happens
   // to run first.
   if(classifySwipeZone(target)) return false;
+  // Same reasoning as the #ctxMenu check in the touchmove listener below —
+  // covers the (rarer) case where the menu is already open by the time a
+  // fresh touch starts, rather than opening partway through this one.
+  if(document.getElementById('ctxMenu').classList.contains('open')) return false;
   return true;
 }
 
@@ -18989,6 +19032,22 @@ document.addEventListener('touchstart', (e) => {
 // actual touchend/touchcancel.
 document.addEventListener('touchmove', (e) => {
   if(!pullRefreshGesture) return;
+  // A long-press menu's own drag-to-select (ctxMenuDragMove(), 08-render-
+  // core.js — the Stacked Tabs picker included) can open mid-touch, well
+  // after this same touch already armed a pull gesture at touchstart (the
+  // menu doesn't exist yet until the long-press timer fires) — checking
+  // pullRefreshEligible() only once, back at touchstart, can't catch that.
+  // Bailing out here too, on every move, is what actually stops a
+  // "dragging down the now-open menu to pick an option" gesture from also
+  // dragging the whole page down toward a refresh, per the explicit
+  // report. Torn down (not just reset-and-kept-alive, unlike the
+  // scrollY>0 branch below) since there's no scenario where the menu
+  // closes and the SAME touch should be allowed to re-arm a pull.
+  if(document.getElementById('ctxMenu').classList.contains('open')){
+    pullRefreshGesture = null;
+    pullRefreshReset();
+    return;
+  }
   const y = e.touches[0].clientY;
   if(window.scrollY > 0){
     pullRefreshGesture.baseY = null; // re-baseline next time we're back at the top
