@@ -242,7 +242,7 @@
     position:absolute; top:-6px; right: 0;
     width:52px; height:52px; border-radius:50%;
     background: radial-gradient(circle at 35% 30%, var(--primary-light), var(--primary) 70%);
-    color: var(--ink);
+    color: var(--on-primary);
     font-family:'IBM Plex Mono', monospace;
     font-weight:500; font-size:0.68rem;
     display:flex; align-items:center; justify-content:center; text-align:center;
@@ -785,7 +785,7 @@
   .addbtn{
     width:34px; height:34px; border-radius:50%; border:none; flex-shrink:0;
     background: radial-gradient(circle at 35% 30%, var(--primary-light), var(--primary) 70%);
-    color: var(--ink); font-size:1.1rem; cursor:pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
+    color: var(--on-primary); font-size:1.1rem; cursor:pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
   }
   .sortrow{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
   /* .sortbtn replaces the old plain <select> — a custom #ctxMenu popover

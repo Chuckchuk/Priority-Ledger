@@ -274,7 +274,7 @@
     position:absolute; top:-6px; right: 0;
     width:52px; height:52px; border-radius:50%;
     background: radial-gradient(circle at 35% 30%, var(--primary-light), var(--primary) 70%);
-    color: var(--ink);
+    color: var(--on-primary);
     font-family:'IBM Plex Mono', monospace;
     font-weight:500; font-size:0.68rem;
     display:flex; align-items:center; justify-content:center; text-align:center;
@@ -817,7 +817,7 @@
   .addbtn{
     width:34px; height:34px; border-radius:50%; border:none; flex-shrink:0;
     background: radial-gradient(circle at 35% 30%, var(--primary-light), var(--primary) 70%);
-    color: var(--ink); font-size:1.1rem; cursor:pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
+    color: var(--on-primary); font-size:1.1rem; cursor:pointer; box-shadow: inset 0 1px 1px rgba(255,255,255,0.4);
   }
   .sortrow{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
   /* .sortbtn replaces the old plain <select> — a custom #ctxMenu popover
@@ -5543,29 +5543,11 @@ const CATEGORY_PALETTE_SETS = {
     id: 'classic', label: 'Classic',
     colors: ['#9C4530','#6B4226','#A9782F','#8C7A1E','#3C5A45','#5B6560','#2F6B5E','#2C5C7A','#3E4A6B','#7A4B6B','#B5677A','#7A2E35']
   },
-  // Was "Moody whites/blacks/grays/browns... sterile" (a dark-to-light
-  // neutral ramp) — swapped with 'noir' below per the project owner's
-  // own call after seeing both Dark Mode sets in place: this (lighter,
-  // more washed-out) register actually reads better paired with THIS
-  // set's own light Desk & Ledger papers, and the other register (see
-  // 'noir') reads better against a genuinely dark card. Same colors
-  // 'noir' used to hold, not a fresh design — plus 3 new entries to
-  // reach 12 (the original 9 skewed too pale on their own for enough
-  // range on light paper), all arranged into the warm-taupe / neutral /
-  // cool-slate groups below to roughly echo 'classic'/'pastel's own
-  // warm→cool→warm-again sweep — an approximation at best (these colors
-  // don't carry enough real hue variation for a literal match the way
-  // 'midnight' below can), but consistently ordered the same way every
-  // other set here is.
-  greyscale: {
-    id: 'greyscale', label: 'Greyscale',
-    colors: ['#A89A88','#8C7F6C','#6E6052','#4A4034','#A0A0A0','#808080','#606060','#9098A0','#767C83','#5A6068','#3E4248','#404040']
-  },
   // A full hue sweep at pastel lightness/saturation (soft coral through
   // peach, yellow, green, mint, blue, lavender, to rose) — same "spread
   // around the wheel" idea 'classic' itself follows, just at a
   // uniformly lighter, softer value across every entry instead of the
-  // mixed mid-to-dark tones 'classic'/'greyscale' both use.
+  // mixed mid-to-dark tones 'classic'/'noir' both use.
   pastel: {
     id: 'pastel', label: 'Pastel',
     colors: ['#E8998D','#F0B27A','#F0DC82','#C9DB8C','#A8D8A8','#9EDBC8','#93C9D0','#97BEE0','#A3AEE0','#C3A8E0','#E0A8CC','#E8AEB7']
@@ -5575,9 +5557,7 @@ const CATEGORY_PALETTE_SETS = {
   // below (same "pick Pastel everywhere for one coordinated look" idea
   // pastel's own comment already established, just for dark moods
   // instead). midnight = cool (blue/teal/indigo/violet), ember = warm
-  // (red/rust/amber/olive), noir = near-monochrome grays/taupes/slates —
-  // same three-way split 'classic'/'greyscale'/'pastel' already use, for
-  // dark surfaces instead.
+  // (red/rust/amber/olive), noir = near-monochrome grays/taupes/slates.
   //   A first pass at 'midnight' used bright, highly-saturated colors —
   // reads fine as a dot on a dark card in isolation, but sat oddly next
   // to that set's own genuinely moody Desk & Ledger/UI colors, per the
@@ -5603,11 +5583,12 @@ const CATEGORY_PALETTE_SETS = {
     id: 'midnight', label: 'Midnight',
     colors: ['#2E6E4A','#1E7A5E','#1E7A78','#2E7E9A','#3A6C9A','#4258A0','#4E4CA0','#5E48A0','#6E48A0','#8248A0','#8C4880','#804466']
   },
-  // Unchanged from the first pass, per the project owner's own explicit
-  // "keep Ember as-is for now" — even though it reads a little bright for
-  // a dark mode the same way the original 'midnight' did, that's a
-  // deliberate, deferred call, not an oversight. All 9 original colors
-  // kept at their exact original values; 3 new ones (a deeper terracotta,
+  // Unchanged since the first pass — the project owner explicitly singled
+  // this set out as the one part of Ember they actually like (the
+  // Desk & Ledger and UI Colors sets for Ember were both overhauled into
+  // an autumnal mood instead; this stayed exactly as-is by contrast). All
+  // 9 original colors kept at their exact original values; 3 new ones (a
+  // deeper terracotta,
   // a true olive-green, and an oxblood/maroon) fill out a 12th-color hue
   // sweep. Ember is warm-only by design (no greens/teals/blues/purples —
   // that's the whole "Ember" identity), so unlike every other set here
@@ -5620,21 +5601,27 @@ const CATEGORY_PALETTE_SETS = {
     id: 'ember', label: 'Ember',
     colors: ['#C15A5A','#C97D6E','#C97244','#D9895A','#B8672E','#A6763E','#E0A458','#C6B15A','#9BAF5E','#7A8C4A','#B1546E','#8C3E42']
   },
-  // Was 'greyscale' above, until the project owner's own swap call — this
-  // near-black-to-mid-gray register pairs better with an actually-dark
-  // card than the lighter one that now lives at 'greyscale' does. Kept
-  // the original array's own character (plain neutrals, then warm
-  // taupes) but nudged the four darkest entries up a bit — at their
-  // original, even-darker values they measured under 1.5:1 contrast
-  // against this set's own near-black Desk & Ledger papers, i.e.
-  // genuinely invisible as a category dot there, not just moody. Same
-  // "warm-taupe / neutral" grouping approach as 'greyscale' above (dark
-  // to light within each group here, rather than light to dark, so the
-  // darkest — least visible against a dark card — entries land in the
-  // earlier slots and the lightest — most visible — land later).
+  // Was two separate sets ('noir', a near-black-to-mid-gray register built
+  // for a dark card, and 'greyscale', a lighter washed-out register built
+  // for light paper) — consolidated into one per the project owner's own
+  // ask, since a category's own palette is picked independently of the
+  // Desk & Ledger one anyway (nothing stops picking "Noir" categories over
+  // a light-paper desk, or vice versa), so keeping two separate near-
+  // monochrome sets split by which paper they'd been tuned against never
+  // actually lined up with how they're chosen in practice. Rebuilt as one
+  // genuinely mixed 12, not just the old 'noir' with 'greyscale' spliced
+  // in — every entry here sits in a "safe middle" lightness band (roughly
+  // 0.38–0.59 relative luminance) so it reads with reasonable contrast
+  // against EITHER a near-white or a near-black card, the actual
+  // constraint a single merged set has to satisfy that neither original
+  // one did alone. Kept in the same three-group shape both predecessors
+  // already used (warm taupe / neutral grey / cool slate), each group
+  // dark-to-light, with two brand-new entries per group filling out a
+  // real light-to-dark range within the safe band instead of just
+  // trimming the old 24 candidates down to 12.
   noir: {
     id: 'noir', label: 'Noir',
-    colors: ['#6E6052','#6B5D4F','#8C7B68','#A79A85','#D6D0C4','#585858','#5E5E5E','#666666','#6E6E6E','#8A8A8A','#A8A8A8','#C4C4C4']
+    colors: ['#6E6052','#7A6C58','#8C7F6C','#A0907A','#606060','#707070','#808080','#909090','#5E6570','#767C83','#8B9198','#9098A0']
   }
 };
 // The currently-active set's own colors — a `let`, not a `const`, same
@@ -5836,11 +5823,6 @@ function defaultTheme(){
 // below) so the UI Colors picker can offer palette-switching tabs the same
 // way Category Colors and Desk & Ledger do — see setUiPaletteSet() in
 // 09-settings.js.
-// 'greyscale': five neutral Primary/Secondary pairs, same "browns count as
-// greyscale too" idea as the Desk & Ledger and Category Colors greyscale
-// sets — ranges from a true near-black neutral (Onyx & Ash) through a
-// cool grey-blue (Steel & Bone) to two warm near-black browns (Umber &
-// Pewter, Espresso & Taupe), ordered coolest/most-neutral to warmest.
 // 'pastel': five Primary/Secondary pairs pulled from the same hue
 // families as CATEGORY_PALETTE_SETS.pastel and DESK_PAPER_PRESET_SETS.pastel
 // (rose, mint/sage, periwinkle, lavender/lilac, peach, coral, butter,
@@ -5870,16 +5852,6 @@ const UI_COLOR_PRESET_SETS = {
       { id:'charcoal',  label:'Charcoal & Brass', primary:'#3A322A', primaryLight:'#483E34', secondary:'#A9782F', secondaryLight:'#C99A4E' }
     ]
   },
-  greyscale: {
-    id: 'greyscale', label: 'Greyscale',
-    presets: [
-      { id:'onyx',          label:'Onyx & Ash',        primary:'#1C1C1C', primaryLight:'#333333', secondary:'#9C9992', secondaryLight:'#B8B4AC' },
-      { id:'graphite',      label:'Graphite & Silver', primary:'#3A3A3A', primaryLight:'#525252', secondary:'#ADADAD', secondaryLight:'#C9C9C9' },
-      { id:'steel',         label:'Steel & Bone',      primary:'#4A4E52', primaryLight:'#60656A', secondary:'#D8D3C4', secondaryLight:'#EAE6DA' },
-      { id:'umber',         label:'Umber & Pewter',    primary:'#2E2B28', primaryLight:'#453F37', secondary:'#8C8578', secondaryLight:'#A8A192' },
-      { id:'espressotaupe', label:'Espresso & Taupe',  primary:'#2B1F18', primaryLight:'#43332A', secondary:'#A08D78', secondaryLight:'#BFAE9B' }
-    ]
-  },
   pastel: {
     id: 'pastel', label: 'Pastel',
     // defaultId (see setUiPaletteSet(), 09-settings.js) is what a switch
@@ -5901,24 +5873,22 @@ const UI_COLOR_PRESET_SETS = {
       { id:'orchidsky',       label:'Orchid & Sky',       primary:'#C48BB0', primaryLight:'#D6A9C6', secondary:'#7EB2D6', secondaryLight:'#A0C8E2' }
     ]
   },
-  // Three Dark Mode sets — see CATEGORY_PALETTE_SETS' own comment above
-  // for the midnight/ember/noir mood split, shared across all three
-  // palette systems. Unlike that set (and unlike a first pass at this
-  // one), these are NOT brighter/lighter than the light sets' own —
-  // primary/secondary do double duty as both a small icon/text color
-  // read directly against the (now dark) card AND a solid button
-  // background with fixed light text on top (--ink is a flat #F1EAD9 in
-  // dark mode, see applyThemeObject() below; .flagbtn.on/.daybtn.on use
-  // white directly) — a light, bright accent has great contrast for the
-  // first role and terrible contrast for the second, which a first pass
-  // at these values got backwards (checked against both a representative
-  // dark card and that fixed ink color; several pairs came out under
-  // 2:1). Mid-value, richly saturated jewel tones — similar overall
-  // lightness to the light sets' own colors, actually — balance
+  // Midnight/Ember/Noir — see CATEGORY_PALETTE_SETS' own comment above for
+  // the mood split. These need to read as a small icon/text color against
+  // EITHER a light or dark card (Ember now spans both, see its own
+  // comment below) — mid-value, richly saturated jewel tones balance
   // reasonably against both extremes, the same way Classic's own colors
-  // already do in light mode (a mid-dark tone reads fine as an icon on
-  // light paper AND behind light text, because it's roughly the same
-  // "medium" distance from both).
+  // already do in light mode. They no longer also have to double as a
+  // solid button background with a FIXED light text color on top (a light
+  // ink hardcoded for dark mode used to sit on these directly, e.g.
+  // .locbadge/.addbtn) — that pairing is what originally forced these
+  // values to stay mid-dark rather than genuinely bright, since a bright
+  // accent has great contrast as an icon but terrible contrast behind
+  // fixed light text. --on-primary (applyThemeObject() below) now derives
+  // that text color from each accent's own luminance instead, so this
+  // constraint is gone — kept these mid-value anyway since that's still
+  // the right register for an icon color, not because the button-text
+  // math still demands it.
   // 'skyrose' and 'tealcoral' are unchanged from the first pass — the
   // project owner explicitly singled both out as already reading right,
   // "just not the mood problem the other three have" — so those two are
@@ -5944,28 +5914,59 @@ const UI_COLOR_PRESET_SETS = {
       { id:'tealcoral',      label:'Teal & Coral',       primary:'#237A72', primaryLight:'#3F968D', secondary:'#C25A44', secondaryLight:'#DA7C67' }
     ]
   },
-  // Same darkening pass as Midnight's above, applied across the whole
-  // set here (no exceptions singled out for Ember) — same reasoning,
-  // same before/after contrast checks against the fixed dark-mode ink
-  // color and Ember's own dark papers.
+  // Overhauled into a genuinely autumnal mood, per the project owner's own
+  // ask — the previous set (Rust & Gold, Ember & Clay, Wine & Rose, Copper
+  // & Olive, Brick & Brass) wasn't disliked for its hues so much as for
+  // reading as generic "warm dark mode" rather than actually autumnal;
+  // these pairs are pulled from the same warm hue families
+  // CATEGORY_PALETTE_SETS.ember's own liked colors already use (the one
+  // part of Ember the project owner explicitly kept), so picking Ember
+  // here and for Category Colors reads as one coordinated look. Built to
+  // pair with DESK_PAPER_PRESET_SETS.ember's own new light-AND-dark
+  // autumnal presets (see that set's comment) rather than assuming a dark
+  // card the way the old set did — see the comment above this whole block
+  // for why these no longer have to stay artificially mid-dark to survive
+  // as a button background. Ordered as its own warm sweep (bright cider-
+  // red through pumpkin/gold/bark/rust, wrapping to a deeper maple-maroon
+  // at the end) mirroring how CATEGORY_PALETTE_SETS.ember itself wraps to
+  // wine/maroon at its own end.
   ember: {
     id: 'ember', label: 'Ember',
     presets: [
-      { id:'rustgold',     label:'Rust & Gold',        primary:'#804124', primaryLight:'#A95E3C', secondary:'#755D29', secondaryLight:'#9E8142' },
-      { id:'emberclay',    label:'Ember & Clay',       primary:'#803726', primaryLight:'#A9523E', secondary:'#7A5331', secondaryLight:'#A3744B' },
-      { id:'winerose',     label:'Wine & Rose',        primary:'#8F3C4D', primaryLight:'#B8586B', secondary:'#854B3C', secondaryLight:'#AE6A58' },
-      { id:'copperolive',  label:'Copper & Olive',     primary:'#805024', primaryLight:'#A9703C', secondary:'#58662F', secondaryLight:'#7D8F4A' },
-      { id:'brickbrass',   label:'Brick & Brass',      primary:'#8F3832', primaryLight:'#B8534C', secondary:'#755A23', secondaryLight:'#9E7D3A' }
+      { id:'ciderclay',   label:'Cider & Clay',    primary:'#8C3E42', primaryLight:'#B1545A', secondary:'#D9895A', secondaryLight:'#EDAD82' },
+      { id:'pumpkingold', label:'Pumpkin & Gold',  primary:'#B8672E', primaryLight:'#D68A4E', secondary:'#C99A4E', secondaryLight:'#E6BC72' },
+      { id:'harvestbark', label:'Harvest & Bark',  primary:'#A6763E', primaryLight:'#C99A5E', secondary:'#4A3320', secondaryLight:'#6B4C32' },
+      { id:'rustwheat',   label:'Rust & Wheat',    primary:'#9C4530', primaryLight:'#C3563C', secondary:'#C6B15A', secondaryLight:'#DED085' },
+      { id:'maplemoss',   label:'Maple & Moss',    primary:'#7A2E24', primaryLight:'#A04336', secondary:'#7A8C4A', secondaryLight:'#9DB06C' }
     ]
   },
+  // Consolidated from the old 'noir' (near-neutral greys/slates, above)
+  // and 'greyscale' (warmer near-black browns/taupes) sets — see
+  // DESK_PAPER_PRESET_SETS.noir's own comment for why keeping two near-
+  // monochrome sets split by an assumed light/dark card never actually
+  // matched how a UI Colors preset gets picked in practice. defaultId
+  // ('steel', i.e. Steel & Bone — one of the two the project owner
+  // explicitly asked to keep) is what a switch to this set falls back to
+  // when the outgoing preset doesn't map to any slot here, same idiom as
+  // Pastel's own defaultId. Mixes real entries from both predecessors
+  // (steel/espressotaupe/umber/onyx from the old greyscale, boneink/
+  // chromeslate from the old noir) with two brand-new pairs (Graphite &
+  // Bone, Ash & Ivory) built by crossing a cool grey primary from one
+  // predecessor with a warm secondary from the other — the actual "mix,
+  // don't just merge" the project owner asked for, not only a trimmed
+  // union of the original ten.
   noir: {
     id: 'noir', label: 'Noir',
+    defaultId: 'steel',
     presets: [
-      { id:'silverash',     label:'Silver & Ash',      primary:'#6E6E6E', primaryLight:'#8C8C8C', secondary:'#787878', secondaryLight:'#969696' },
-      { id:'pearlgraphite', label:'Pearl & Graphite',  primary:'#8A8578', primaryLight:'#A6A296', secondary:'#78715F', secondaryLight:'#968F7C' },
-      { id:'platinumsmoke', label:'Platinum & Smoke',  primary:'#7E828A', primaryLight:'#9A9EA5', secondary:'#6D7378', secondaryLight:'#8C9196' },
-      { id:'boneink',       label:'Bone & Ink',        primary:'#9A9078', primaryLight:'#B5AC96', secondary:'#6E6555', secondaryLight:'#8C8371' },
-      { id:'chromeslate',   label:'Chrome & Slate',    primary:'#6E747A', primaryLight:'#8C9298', secondary:'#5D6368', secondaryLight:'#7B8186' }
+      { id:'onyx',          label:'Onyx & Ash',       primary:'#1C1C1C', primaryLight:'#333333', secondary:'#9C9992', secondaryLight:'#B8B4AC' },
+      { id:'chromeslate',   label:'Chrome & Slate',   primary:'#6E747A', primaryLight:'#8C9298', secondary:'#5D6368', secondaryLight:'#7B8186' },
+      { id:'graphitebone',  label:'Graphite & Bone',  primary:'#3A3A3A', primaryLight:'#525252', secondary:'#B5AC96', secondaryLight:'#CFC7B0' },
+      { id:'steel',         label:'Steel & Bone',     primary:'#4A4E52', primaryLight:'#60656A', secondary:'#D8D3C4', secondaryLight:'#EAE6DA' },
+      { id:'umber',         label:'Umber & Pewter',   primary:'#2E2B28', primaryLight:'#453F37', secondary:'#8C8578', secondaryLight:'#A8A192' },
+      { id:'espressotaupe', label:'Espresso & Taupe', primary:'#2B1F18', primaryLight:'#43332A', secondary:'#A08D78', secondaryLight:'#BFAE9B' },
+      { id:'boneink',       label:'Bone & Ink',       primary:'#9A9078', primaryLight:'#B5AC96', secondary:'#6E6555', secondaryLight:'#8C8371' },
+      { id:'ashivory',      label:'Ash & Ivory',      primary:'#7A756C', primaryLight:'#948E83', secondary:'#C7BFAE', secondaryLight:'#DDD6C7' }
     ]
   }
 };
@@ -6008,27 +6009,8 @@ function uiColorPreset(id){
 // grayest/least-saturated of the bunch — then maroon's blush, then
 // barrel and navy's two genuinely parchment/amber-toned papers, per the
 // standing re-sort-on-change rule in CLAUDE.md's "Conventions").
-// 'greyscale' pulls the moodiest, least-saturated near-neutral pairs into
-// their own set — same "browns count as greyscale too" idea
-// CATEGORY_PALETTE_SETS.greyscale already established for category
-// colors, plus three further-out additions (Graphite & Frost, Ink &
-// Snow, Driftwood & Fog — see their own comments below) added for real
-// range: the original three all sat in a fairly narrow near-black-brown
-// band, so the new ones stretch it toward a true cool neutral, the
-// starkest possible black/white contrast, and — the one genuine outlier
-// — a properly *mid*-toned grey desk rather than another near-black.
-// Sorted by paper saturation (max-min channel spread), coolest/most
-// neutral to warmest/most brown, same ordering rule as Classic's own
-// paper-color sort. Oak & Ivory specifically stays here rather than
-// Classic: its own bg (#3D2B1F) and Barrel & Amber's (#2E1D12) are close
-// enough in raw hue that Classic didn't need both, and Barrel's much
-// more saturated amber-gold paper gives Classic more personality/
-// color-pop than Oak's near-white ivory paper would — so Barrel & Amber
-// stays as Classic's one "brownish" entry (per the project owner's own
-// ask to keep at least one there) while Oak & Ivory, the plainer/more
-// sterile of the two pairings, joins Greyscale instead.
 // 'pastel' is a genuine style departure from the near-black-desk look
-// every Classic/Greyscale entry shares — a soft dusty mid-tone desk
+// every Classic/Noir entry shares — a soft dusty mid-tone desk
 // (rather than another near-black) under a very pale, barely-tinted
 // paper, still keeping enough desk/paper contrast to read as a ledger
 // rather than a flat wash. Six hues sweep the wheel in the same
@@ -6079,37 +6061,6 @@ const DESK_PAPER_PRESET_SETS = {
       { id:'teal',     label:'Teal & Honey',       bg:'#1C3D42', paper:'#E6C888' }
     ]
   },
-  greyscale: {
-    id: 'greyscale', label: 'Greyscale',
-    presets: [
-      // A true cool near-neutral — barely a hint of blue-grey rather than
-      // the warm browns everywhere else in this set — for a colder,
-      // more clinical-ledger mood than Charcoal & Birch's own warmer take.
-      { id:'graphitefrost', label:'Graphite & Frost', bg:'#2E3033', paper:'#E7E9EA' },
-      // The starkest possible pairing in the whole app: as close to true
-      // black and true white as the ledger aesthetic can take without
-      // looking like a plain document instead of a ledger — the
-      // "extreme" end of this set, deliberately.
-      { id:'inksnow',  label:'Ink & Snow',         bg:'#121212', paper:'#FAFAF7' },
-      // The one genuine outlier here: every other Desk & Ledger entry
-      // (in every set) uses a near-black desk under a light paper —
-      // Driftwood is a real *mid*-toned warm grey desk instead, closer in
-      // lightness to its own paper than to any other entry's bg. Still
-      // reads as a desk under a ledger (paper stays meaningfully lighter),
-      // just a lighter, sun-bleached-wood mood rather than a moody one.
-      { id:'driftwood', label:'Driftwood & Fog',    bg:'#6B6558', paper:'#ECE9E2' },
-      // Kept the original moody near-black espresso-brown desk (the
-      // project owner's own favorite part of the old "Espresso &
-      // Parchment") but re-paired: parchment's own gold turned out not to
-      // suit it as well as hoped, so it pairs with a plain warm cream
-      // instead — "Cream" also just reads as the other half of
-      // "Espresso," coffee-and-cream. This is NOT the same paper as Navy
-      // & Parchment's own.
-      { id:'espresso', label:'Espresso & Cream',   bg:'#241812', paper:'#F0E6D6' },
-      { id:'charcoal', label:'Charcoal & Birch',   bg:'#26241F', paper:'#F2ECE0' },
-      { id:'oak',      label:'Oak & Ivory',        bg:'#3D2B1F', paper:'#F5EFE0' }
-    ]
-  },
   pastel: {
     id: 'pastel', label: 'Pastel',
     // defaultId (see setDeskPaletteSet(), 09-settings.js) is what a
@@ -6134,20 +6085,19 @@ const DESK_PAPER_PRESET_SETS = {
       { id:'dustyrose',         label:'Dusty Rose & Petal',    bg:'#8C5B67', paper:'#F7E3DE' }
     ]
   },
-  // Three Dark Mode sets — see CATEGORY_PALETTE_SETS' own comment above
-  // for the midnight/ember/noir mood split. The real enabler of an
-  // actual dark *mode* (not just another moody desk under the same
-  // always-light paper every set above uses): paper itself goes dark
-  // here, for the first time — applyThemeObject() already derives
-  // --ink/--ink-soft/--line from `relLuminance(t.paper) < 0.5` (see its
-  // own comment, further down this file) and flips to a light, legible
-  // ink automatically whenever that's true, so a dark paper "just
-  // works" through the exact same mechanism a custom dark pick already
-  // would have. paper stays only a little lighter than its own bg in
-  // every entry here (unlike every light set's huge bg/paper contrast)
-  // — enough for the card to still visibly sit on the desk as its own
-  // surface, without one of them reading as a stray light patch against
-  // an otherwise dark page.
+  // Dark presets in the sets below (Midnight fully, Ember/Noir partly —
+  // see their own comments) are the real enabler of an actual dark
+  // *mode* (not just another moody desk under the same always-light
+  // paper the sets above use): paper itself goes dark, for the first
+  // time — applyThemeObject() already derives --ink/--ink-soft/--line
+  // from `relLuminance(t.paper) < 0.5` (see its own comment, further down
+  // this file) and flips to a light, legible ink automatically whenever
+  // that's true, so a dark paper "just works" through the exact same
+  // mechanism a custom dark pick already would have. paper stays only a
+  // little lighter than its own bg in every dark entry (unlike every
+  // light entry's huge bg/paper contrast) — enough for the card to still
+  // visibly sit on the desk as its own surface, without reading as a
+  // stray light patch against an otherwise dark page.
   midnight: {
     id: 'midnight', label: 'Midnight',
     presets: [
@@ -6155,27 +6105,89 @@ const DESK_PAPER_PRESET_SETS = {
       { id:'abyssdenim',     label:'Abyss & Denim',       bg:'#0A141F', paper:'#152436' },
       { id:'twilightplum',   label:'Twilight & Plum',     bg:'#130B1D', paper:'#221730' },
       { id:'deeppine',       label:'Deep Teal & Pine',    bg:'#0A1714', paper:'#132621' },
-      { id:'obsidianindigo', label:'Obsidian & Indigo',   bg:'#0D0A18', paper:'#1C172B' }
+      { id:'obsidianindigo', label:'Obsidian & Indigo',   bg:'#0D0A18', paper:'#1C172B' },
+      // Moved over from Ember per the project owner's own ask — Ember's
+      // own dark presets were overhauled into a fully autumnal mood (see
+      // that set's comment below) that this deep wine/plum pairing no
+      // longer fit, but they explicitly still liked it on its own merits,
+      // and its cool-leaning wine/plum hue sits comfortably next to
+      // Twilight & Plum's own violet here. Appended rather than re-sorted
+      // into the cool blue→green→violet sweep above — a genuine "warm
+      // outlier" addition, same idea as Driftwood's own outlier spot in
+      // the old Greyscale set.
+      { id:'midnightwine',   label:'Midnight & Wine',     bg:'#170A0D', paper:'#2A131A' }
     ]
   },
+  // Overhauled into a genuinely autumnal mood spanning BOTH light and
+  // dark, per the project owner's own ask — the previous set (Char &
+  // Ember, Coal & Rust, Smolder & Umber, Midnight & Wine, Cocoa & Copper)
+  // was five near-identical near-black-brown dark presets and nothing
+  // else, which read as "generic warm dark mode" rather than actually
+  // autumnal; Midnight & Wine (the one the project owner did like) moved
+  // to Midnight above instead of surviving here. Three light presets
+  // (harvest-gold/pumpkin/maple, under warm cream-to-parchment paper) plus
+  // three dark ones (the same hues carried into a near-black register,
+  // paper only a little lighter than bg like every dark preset here) —
+  // the first Desk & Ledger set in the app to genuinely span both
+  // registers under one name rather than being purely light (Classic/
+  // Pastel) or purely dark (Midnight). Paired with
+  // UI_COLOR_PRESET_SETS.ember's own new autumnal presets (matching
+  // label pairs — Pumpkin & Cream desk ↔ Pumpkin & Gold UI, etc. — though
+  // nothing enforces picking them together).
   ember: {
     id: 'ember', label: 'Ember',
     presets: [
-      { id:'charember',    label:'Char & Ember',        bg:'#170D0A', paper:'#2A1912' },
-      { id:'coalrust',     label:'Coal & Rust',         bg:'#140C08', paper:'#271710' },
-      { id:'smolderumber', label:'Smolder & Umber',     bg:'#190F08', paper:'#2E1C0E' },
-      { id:'midnightwine', label:'Midnight & Wine',     bg:'#170A0D', paper:'#2A131A' },
-      { id:'cocoacopper',  label:'Cocoa & Copper',      bg:'#140D08', paper:'#26180E' }
+      { id:'pumpkincream',  label:'Pumpkin & Cream',   bg:'#6B3410', paper:'#F5E3C4' },
+      { id:'mapleparchment', label:'Maple & Parchment', bg:'#4A1E17', paper:'#F2DAB0' },
+      { id:'harvestbirch',  label:'Harvest & Birch',   bg:'#4F3B14', paper:'#F1ECD6' },
+      { id:'emberash',      label:'Ember & Ash',       bg:'#170D0A', paper:'#2E1A0E' },
+      { id:'ciderrust',     label:'Cider & Rust',      bg:'#160D08', paper:'#2C160E' },
+      { id:'harvestmoon',   label:'Harvest Moon',      bg:'#151109', paper:'#2A2412' }
     ]
   },
+  // Consolidated from the old 'noir' (near-black neutrals, dark-only) and
+  // 'greyscale' (warmer near-black-brown neutrals, light-only) sets — see
+  // UI_COLOR_PRESET_SETS.noir's own comment for why splitting near-
+  // monochrome presets by an assumed light/dark card never actually
+  // matched how they get picked. 8 presets, 4 light + 4 dark, per the
+  // project owner's own ask, keeping Charcoal & Birch and Espresso &
+  // Cream (both explicitly asked to stay) among the light four. Not just
+  // the old 'noir' set trimmed to 4 and the old 'greyscale' trimmed to
+  // 4 — Umber & Smoke and Driftwood & Dusk are brand-new dark presets
+  // built by carrying the old greyscale's warm-brown (Umber & Pewter's
+  // own mood) and mid-toned-outlier (Driftwood & Fog's own mood) ideas
+  // into the dark register those two never had a dark counterpart for,
+  // rather than just keeping the old noir set's five near-identical
+  // near-black neutrals. defaultId ('charcoal', one of the two required
+  // keeps) is what a switch to this set falls back to when the outgoing
+  // bg/paper don't match any slot here, same idiom as Pastel's own.
   noir: {
     id: 'noir', label: 'Noir',
+    defaultId: 'charcoal',
     presets: [
-      { id:'onyxcharcoal', label:'Onyx & Charcoal',     bg:'#0A0A0A', paper:'#1E1E1E' },
-      { id:'ironslate',    label:'Iron & Slate',        bg:'#0F1012', paper:'#212326' },
-      { id:'jetgraphite',  label:'Jet & Graphite',      bg:'#050505', paper:'#181818' },
-      { id:'basaltash',    label:'Basalt & Ash',        bg:'#111111', paper:'#242424' },
-      { id:'voidstone',    label:'Void & Stone',        bg:'#0C0C0C', paper:'#1C1B19' }
+      // A true cool near-neutral — barely a hint of blue-grey rather than
+      // the warm browns everywhere else in this set — for a colder,
+      // more clinical-ledger mood than Charcoal & Birch's own warmer take.
+      { id:'graphitefrost', label:'Graphite & Frost', bg:'#2E3033', paper:'#E7E9EA' },
+      // The starkest possible pairing in the whole app: as close to true
+      // black and true white as the ledger aesthetic can take without
+      // looking like a plain document instead of a ledger.
+      { id:'inksnow',  label:'Ink & Snow',         bg:'#121212', paper:'#FAFAF7' },
+      { id:'espresso', label:'Espresso & Cream',   bg:'#241812', paper:'#F0E6D6' },
+      { id:'charcoal', label:'Charcoal & Birch',   bg:'#26241F', paper:'#F2ECE0' },
+      { id:'onyxcharcoal', label:'Onyx & Charcoal', bg:'#0A0A0A', paper:'#1E1E1E' },
+      { id:'basaltash',    label:'Basalt & Ash',    bg:'#111111', paper:'#242424' },
+      // New: the dark register Umber & Pewter's own warm-brown-neutral
+      // mood never had a counterpart for — every other dark neutral here
+      // (and in the old 'noir' set it replaces most of) is a cooler true
+      // black/grey.
+      { id:'umbersmoke',    label:'Umber & Smoke',    bg:'#130F0B', paper:'#241D16' },
+      // New: Driftwood & Fog's own "real *mid*-toned desk, closer in
+      // lightness to its own paper than to any other entry's bg" outlier
+      // idea, carried into the dark register — bg and paper sit much
+      // closer together here than any other dark preset in the app,
+      // still both comfortably under the 0.5 luminance line.
+      { id:'driftwooddusk', label:'Driftwood & Dusk', bg:'#3A342C', paper:'#453E33' }
     ]
   }
 };
@@ -6340,6 +6352,20 @@ function applyThemeObject(t){
   // accent in the app — page tags, the quick-add button, selection
   // feedback — uses.
   root.setProperty('--input-accent', ui.primary);
+  // Text/icon color for the handful of elements whose own background IS
+  // --primary (the location badge, the quick-add "+" button) — same
+  // luminance-of-the-actual-background idiom the colored tab bar's own
+  // label color already uses (relLuminance(cat.hex) in tabSubtagHtml()/
+  // renderTabs(), 06-tabs-render.js), not --ink. These used to just read
+  // --ink directly, which happened to work by coincidence (light mode's
+  // ink is a fixed dark neutral, dark mode's a fixed cream, and most
+  // accent colors are mid-toned enough that either reads fine against
+  // them) right up until inkFromUi started deriving --ink FROM this same
+  // primary color — at that point the badge's text and its own background
+  // could land on the same hue, disappearing into it. Deriving this
+  // separately from the accent's own luminance (regardless of inkFromUi)
+  // fixes that at the source rather than special-casing inkFromUi.
+  root.setProperty('--on-primary', relLuminance(ui.primary) > 0.5 ? '#2A2318' : '#F1EAD9');
   const dark = relLuminance(t.paper) < 0.5;
   // t.inkFromUi (Settings → Appearance, right under Background gradient —
   // see appearanceSection() in 09-settings.js) — started as an
@@ -8138,6 +8164,15 @@ function normalizeState(){
   if(!Array.isArray(state.customDeskPresets)) state.customDeskPresets = [];
   if(!Array.isArray(state.customUiPresets)) state.customUiPresets = [];
   if(!Array.isArray(state.customCategoryColors)) state.customCategoryColors = [];
+  // 'greyscale' was consolidated into 'noir' across all three palette
+  // systems (see CATEGORY_PALETTE_SETS/UI_COLOR_PRESET_SETS/
+  // DESK_PAPER_PRESET_SETS, 01-categories-theme.js) — an account that had
+  // it selected lands on the new merged set rather than silently falling
+  // all the way back to 'classic' the way an unrecognized id normally
+  // would just below.
+  if(state.categoryPaletteId === 'greyscale') state.categoryPaletteId = 'noir';
+  if(state.deskPaletteId === 'greyscale') state.deskPaletteId = 'noir';
+  if(state.uiPaletteId === 'greyscale') state.uiPaletteId = 'noir';
   if(typeof state.categoryPaletteId !== 'string' || !CATEGORY_PALETTE_SETS[state.categoryPaletteId]) state.categoryPaletteId = 'classic';
   if(typeof state.deskPaletteId !== 'string' || !DESK_PAPER_PRESET_SETS[state.deskPaletteId]) state.deskPaletteId = 'classic';
   if(typeof state.uiPaletteId !== 'string' || !UI_COLOR_PRESET_SETS[state.uiPaletteId]) state.uiPaletteId = 'classic';

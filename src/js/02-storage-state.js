@@ -745,6 +745,15 @@ function normalizeState(){
   if(!Array.isArray(state.customDeskPresets)) state.customDeskPresets = [];
   if(!Array.isArray(state.customUiPresets)) state.customUiPresets = [];
   if(!Array.isArray(state.customCategoryColors)) state.customCategoryColors = [];
+  // 'greyscale' was consolidated into 'noir' across all three palette
+  // systems (see CATEGORY_PALETTE_SETS/UI_COLOR_PRESET_SETS/
+  // DESK_PAPER_PRESET_SETS, 01-categories-theme.js) — an account that had
+  // it selected lands on the new merged set rather than silently falling
+  // all the way back to 'classic' the way an unrecognized id normally
+  // would just below.
+  if(state.categoryPaletteId === 'greyscale') state.categoryPaletteId = 'noir';
+  if(state.deskPaletteId === 'greyscale') state.deskPaletteId = 'noir';
+  if(state.uiPaletteId === 'greyscale') state.uiPaletteId = 'noir';
   if(typeof state.categoryPaletteId !== 'string' || !CATEGORY_PALETTE_SETS[state.categoryPaletteId]) state.categoryPaletteId = 'classic';
   if(typeof state.deskPaletteId !== 'string' || !DESK_PAPER_PRESET_SETS[state.deskPaletteId]) state.deskPaletteId = 'classic';
   if(typeof state.uiPaletteId !== 'string' || !UI_COLOR_PRESET_SETS[state.uiPaletteId]) state.uiPaletteId = 'classic';
