@@ -446,6 +446,25 @@
     background: var(--peekhex, var(--primary));
     box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
   }
+  /* A stack tab's own urgent marker (tabStackHasUrgent(), 06-tabs-
+     render.js) — shown whenever ANY folded-away member has an overdue/
+     High priority task, not just whichever one is currently on top, so
+     switching which member sits on top can never silently hide the cue.
+     Top-left corner is the one spot free across all three Stacked Tab
+     styles (wonky peeks top-right, cards/dots sit bottom-right) — see
+     each style's own rule above. z-index:3 (comfortably past the peek
+     elements' own -1/2) so it's never covered by any of them regardless
+     of which style is active. --estate matches every other "something
+     here needs attention" marker in the app (.ctxmenu-urgent, .tabsubtag-
+     urgent, .badge.overdue/.badge.priority-high). */
+  .tabstackurgent{
+    position:absolute; z-index:3; top:-4px; left:-4px;
+    width:14px; height:14px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background: var(--estate); color:white;
+    font-weight:700; font-size:0.62rem; line-height:1;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+  }
   /* When tabs wrap to more than one row, only the bottom row was ever
      visually "resting" on anything (the card it flows into) — rows above
      it just floated in the shelf panel with nothing under them. A
@@ -5195,6 +5214,21 @@
      space-between treatment whether or not it has an icon to place. */
   .ctxmenu button.ctxmenu-hasicon{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .ctxmenu-icon{ display:flex; flex-shrink:0; width:1em; height:1em; opacity:0.65; }
+  /* Groups a Stacked Tabs menu row's own count + urgent flag (see
+     renderTabStackMenu(), 06-tabs-render.js) with its trailing
+     .ctxmenu-icon into one right-hand cluster — .ctxmenu-hasicon's own
+     justify-content:space-between only ever splits a row into two
+     groups, so without this wrapper it would spread label/urgent/count/
+     icon evenly across the whole row instead of keeping the label alone
+     on the left and everything else together on the right. */
+  .ctxmenu-right{ display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  /* Same muted, small-mono-text language as a plain tab's own .count. */
+  .ctxmenu-count{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; color: var(--ink-soft); }
+  /* --estate, same alert color .badge.overdue/.badge.priority-high and
+     the tab bar's own .tabsubtag-urgent already use — this is the same
+     "something here is overdue or High priority" fact, so it stays the
+     same color regardless of where it's shown. */
+  .ctxmenu-urgent{ color: var(--estate); font-weight:700; font-size:0.78rem; }
   /* A non-interactive heading row inside #ctxMenu — "Move to" (the
      category menu, categoryMoveMenuHtml() in 08-render-core.js) is the
      one menu here that isn't just a flat list of actions, so it gets a
@@ -9906,10 +9940,22 @@ function tabStackPressEnd(){
 function renderTabStackMenu(type, members, x, y){
   ctxMenuTabStackType = type;
   const menu = document.getElementById('ctxMenu');
+  // Per the explicit ask: each member's own open-task count and, when it
+  // has one, an urgent (overdue/High priority) "!" — the same two facts
+  // tabOpenCount()/tabHasUrgentTask() already compute for a plain tab's
+  // own inline count/subtag, just surfaced here too since a folded-away
+  // stack member has nowhere else on screen to show them while it isn't
+  // the one on top. Both wrapped in one .ctxmenu-right span (not left as
+  // two more direct children next to .ctxmenu-icon) so .ctxmenu-hasicon's
+  // own justify-content:space-between still only ever splits the row
+  // into two groups — label on the left, everything else clustered on
+  // the right — instead of spreading four+ items evenly across it.
   menu.innerHTML = members.map(key=>{
     const cat = CATEGORIES[key];
     if(!cat) return '';
-    return `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>pickTabStackTop('${type}','${key}'))">${escapeHtml(cat.label)}<span class="ctxmenu-icon">${categoryDotHtml(cat, 'dot')}</span></button>`;
+    const count = tabOpenCount(key);
+    const urgent = tabHasUrgentTask(key);
+    return `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>pickTabStackTop('${type}','${key}'))">${escapeHtml(cat.label)}<span class="ctxmenu-right">${urgent ? '<span class="ctxmenu-urgent">!</span>' : ''}<span class="ctxmenu-count">${count}</span><span class="ctxmenu-icon">${categoryDotHtml(cat, 'dot')}</span></span></button>`;
   }).join('');
   const zf = zoomFactor();
   menu.style.left = (x/zf) + 'px';
@@ -9984,6 +10030,19 @@ function tabStackPeekHtml(members, topKey){
     const i = others.length - 1 - revI;
     return `<span class="tabstackcard" style="--peekhex:${cat.hex}; --peekidx:${i}"></span>`;
   }).join('');
+}
+
+// Per the explicit ask: a stack tab shows its own "!" whenever ANY member
+// has an urgent (overdue/High priority) task, not just the one currently
+// on top — otherwise flipping which member sits on top could silently
+// hide an urgent task in a folded-away one with no cue it's still there.
+// tabHasUrgentTask() already returns false for 'all'/'daily'/a checklist
+// category on its own, but the explicit "don't add it to All" ask is
+// guarded again at the call site below too, since 'all' is never a real
+// stack member (stackGroupsForTabs() only ever folds real categories) —
+// belt and suspenders, not load-bearing.
+function tabStackHasUrgent(members){
+  return members.some(key => key !== 'all' && tabHasUrgentTask(key));
 }
 
 function renderTabs(){
@@ -10114,7 +10173,10 @@ function renderTabs(){
       ? ` data-stack-type="${item.type}" ontouchstart="tabStackPressStart(event,'${item.type}','${membersAttr}')" ontouchmove="tabStackPressMove(event)" ontouchend="tabStackPressEnd()" ontouchcancel="tabStackPressEnd()" onmousedown="tabStackPressStart(event,'${item.type}','${membersAttr}')" onmouseup="tabStackPressEnd()" onmouseleave="tabStackPressEnd()"`
       : '';
     const peekHtml = isStack ? tabStackPeekHtml(item.members, item.topKey) : '';
-    return `<button class="tab ${activeTab===key?'active':''} ${isStack?'stacktab':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}${stackAttrs}>${peekHtml}${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
+    // key!=='all' mirrors tabStackHasUrgent()'s own belt-and-suspenders
+    // guard — see that function's comment.
+    const stackUrgentHtml = (isStack && key!=='all' && tabStackHasUrgent(item.members)) ? `<span class="tabstackurgent">!</span>` : '';
+    return `<button class="tab ${activeTab===key?'active':''} ${isStack?'stacktab':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}${stackAttrs}>${peekHtml}${stackUrgentHtml}${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
   renderTabRowLines();
   updateTabScrollFade();

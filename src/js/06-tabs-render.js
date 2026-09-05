@@ -219,10 +219,22 @@ function tabStackPressEnd(){
 function renderTabStackMenu(type, members, x, y){
   ctxMenuTabStackType = type;
   const menu = document.getElementById('ctxMenu');
+  // Per the explicit ask: each member's own open-task count and, when it
+  // has one, an urgent (overdue/High priority) "!" — the same two facts
+  // tabOpenCount()/tabHasUrgentTask() already compute for a plain tab's
+  // own inline count/subtag, just surfaced here too since a folded-away
+  // stack member has nowhere else on screen to show them while it isn't
+  // the one on top. Both wrapped in one .ctxmenu-right span (not left as
+  // two more direct children next to .ctxmenu-icon) so .ctxmenu-hasicon's
+  // own justify-content:space-between still only ever splits the row
+  // into two groups — label on the left, everything else clustered on
+  // the right — instead of spreading four+ items evenly across it.
   menu.innerHTML = members.map(key=>{
     const cat = CATEGORIES[key];
     if(!cat) return '';
-    return `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>pickTabStackTop('${type}','${key}'))">${escapeHtml(cat.label)}<span class="ctxmenu-icon">${categoryDotHtml(cat, 'dot')}</span></button>`;
+    const count = tabOpenCount(key);
+    const urgent = tabHasUrgentTask(key);
+    return `<button class="ctxmenu-hasicon" onclick="ctxMenuAction(()=>pickTabStackTop('${type}','${key}'))">${escapeHtml(cat.label)}<span class="ctxmenu-right">${urgent ? '<span class="ctxmenu-urgent">!</span>' : ''}<span class="ctxmenu-count">${count}</span><span class="ctxmenu-icon">${categoryDotHtml(cat, 'dot')}</span></span></button>`;
   }).join('');
   const zf = zoomFactor();
   menu.style.left = (x/zf) + 'px';
@@ -297,6 +309,19 @@ function tabStackPeekHtml(members, topKey){
     const i = others.length - 1 - revI;
     return `<span class="tabstackcard" style="--peekhex:${cat.hex}; --peekidx:${i}"></span>`;
   }).join('');
+}
+
+// Per the explicit ask: a stack tab shows its own "!" whenever ANY member
+// has an urgent (overdue/High priority) task, not just the one currently
+// on top — otherwise flipping which member sits on top could silently
+// hide an urgent task in a folded-away one with no cue it's still there.
+// tabHasUrgentTask() already returns false for 'all'/'daily'/a checklist
+// category on its own, but the explicit "don't add it to All" ask is
+// guarded again at the call site below too, since 'all' is never a real
+// stack member (stackGroupsForTabs() only ever folds real categories) —
+// belt and suspenders, not load-bearing.
+function tabStackHasUrgent(members){
+  return members.some(key => key !== 'all' && tabHasUrgentTask(key));
 }
 
 function renderTabs(){
@@ -427,7 +452,10 @@ function renderTabs(){
       ? ` data-stack-type="${item.type}" ontouchstart="tabStackPressStart(event,'${item.type}','${membersAttr}')" ontouchmove="tabStackPressMove(event)" ontouchend="tabStackPressEnd()" ontouchcancel="tabStackPressEnd()" onmousedown="tabStackPressStart(event,'${item.type}','${membersAttr}')" onmouseup="tabStackPressEnd()" onmouseleave="tabStackPressEnd()"`
       : '';
     const peekHtml = isStack ? tabStackPeekHtml(item.members, item.topKey) : '';
-    return `<button class="tab ${activeTab===key?'active':''} ${isStack?'stacktab':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}${stackAttrs}>${peekHtml}${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
+    // key!=='all' mirrors tabStackHasUrgent()'s own belt-and-suspenders
+    // guard — see that function's comment.
+    const stackUrgentHtml = (isStack && key!=='all' && tabStackHasUrgent(item.members)) ? `<span class="tabstackurgent">!</span>` : '';
+    return `<button class="tab ${activeTab===key?'active':''} ${isStack?'stacktab':''}" data-key="${key}"${hexStyle}${hoverAttrs}${clickAttr}${stackAttrs}>${peekHtml}${stackUrgentHtml}${dot}<span class="tablabel">${label}</span> ${countHtml}${subtagHtml}</button>`;
   }).join('');
   renderTabRowLines();
   updateTabScrollFade();
