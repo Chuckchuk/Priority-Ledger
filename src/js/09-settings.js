@@ -101,9 +101,9 @@ function renderSettings(){
           <input type="text" class="catedit" value="${escapeHtml(c.label)}"
             onblur="renameCategory('${c.id}', this.value)"
             onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+          ${locBadges}
           ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
           ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
-          ${locBadges}
         </span>
         <!-- Only shown while the Stacked Tabs dev setting (01-categories-
              theme.js) is on — pinning has no effect at all otherwise, so
