@@ -2915,6 +2915,25 @@
     font-family:'IBM Plex Sans', sans-serif; font-size:0.9rem; padding:4px 2px; color:var(--ink); outline:none;
   }
   .catedit::placeholder{ color: var(--ink-soft); opacity:0.8; }
+  /* The shared underline for a category row's own label + its type/
+     location badges (see the .catrow template in 09-settings.js) — flex:1
+     so THIS box (not the input inside it) is what stretches to the row's
+     full width, letting the dashed line reach all the way to the pin/
+     location buttons regardless of how little of that width the label +
+     badges themselves need. */
+  .catlabelline{
+    display:flex; align-items:center; gap:8px; flex:1; min-width:0; flex-wrap:wrap;
+    border-bottom:1px dashed var(--ink-soft); padding-bottom:3px;
+  }
+  /* Inside .catlabelline specifically, the input no longer owns the
+     underline itself (that moved to the wrapper, above) and no longer
+     grows to fill the row — a fixed-ish width keeps it snug against
+     whatever badges follow it instead of shoving them out to the row's
+     far right edge, which was the actual "badges aren't next to the
+     text" complaint this fixes. Doesn't touch plain .catedit elsewhere
+     (the "+ add a new tab" input, tabsSection() in 09-settings.js), which
+     still wants the old flex:1 + its own underline. */
+  .catlabelline .catedit{ flex:0 1 140px; min-width:70px; border-bottom:none; padding-bottom:0; }
   .catwarn{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--estate); flex-basis:100%; }
   .catdelete, .catdeleteconfirm, .catcancel{
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
@@ -5576,10 +5595,17 @@ const CATEGORY_PALETTE_SETS = {
   // peach, yellow, green, mint, blue, lavender, to rose) — same "spread
   // around the wheel" idea 'classic' itself follows, just at a
   // uniformly lighter, softer value across every entry instead of the
-  // mixed mid-to-dark tones 'classic'/'noir' both use.
+  // mixed mid-to-dark tones 'classic'/'noir' both use. Darkened a slight
+  // -7% (shadeHex(hex, -0.07), the same multiplicative scaling every
+  // other darken/lighten in this app uses) across the board per the
+  // project owner's own callout that the tab bar's own pastel colors
+  // read a little washed-out/mismatched against most of the actual
+  // Pastel Desk & Ledger/UI presets — deliberately a much smaller nudge
+  // than Ember's own below, since "pastel" is the whole point of this
+  // set and it only needed a slight correction, not a real re-tone.
   pastel: {
     id: 'pastel', label: 'Pastel',
-    colors: ['#E8998D','#F0B27A','#F0DC82','#C9DB8C','#A8D8A8','#9EDBC8','#93C9D0','#97BEE0','#A3AEE0','#C3A8E0','#E0A8CC','#E8AEB7']
+    colors: ['#D88E83','#DFA671','#DFCD79','#BBCC82','#9CC99C','#93CCBA','#89BBC1','#8CB1D0','#98A2D0','#B59CD0','#D09CBE','#D8A2AA']
   },
   // Three Dark Mode sets, per the project owner's own ask — paired with
   // matching Dark Mode sets in UI_COLOR_PRESET_SETS/DESK_PAPER_PRESET_SETS
@@ -5612,13 +5638,20 @@ const CATEGORY_PALETTE_SETS = {
     id: 'midnight', label: 'Midnight',
     colors: ['#2E6E4A','#1E7A5E','#1E7A78','#2E7E9A','#3A6C9A','#4258A0','#4E4CA0','#5E48A0','#6E48A0','#8248A0','#8C4880','#804466']
   },
-  // Unchanged since the first pass — the project owner explicitly singled
-  // this set out as the one part of Ember they actually like (the
-  // Desk & Ledger and UI Colors sets for Ember were both overhauled into
-  // an autumnal mood instead; this stayed exactly as-is by contrast). All
-  // 9 original colors kept at their exact original values; 3 new ones (a
-  // deeper terracotta,
-  // a true olive-green, and an oxblood/maroon) fill out a 12th-color hue
+  // The project owner explicitly singled this set out as the one part of
+  // Ember they actually like — the Desk & Ledger and UI Colors sets for
+  // Ember were both overhauled into an autumnal mood instead; this kept
+  // its exact hues by contrast. Later darkened a uniform -18%
+  // (shadeHex(hex, -0.18)) across the board, per a separate callout that
+  // the set read "a little bright" for a tab/dot color once seen next to
+  // the rest of the app — same multiplicative darken every shade/tint in
+  // this app already uses, so hue and relative saturation are unchanged,
+  // just value. Original (pre-darken) hues, for reference:
+  // ['#C15A5A','#C97D6E','#C97244','#D9895A','#B8672E','#A6763E',
+  // '#E0A458','#C6B15A','#9BAF5E','#7A8C4A','#B1546E','#8C3E42']. All 9
+  // of THOSE were the exact original colors from the first pass; 3 new
+  // ones (a deeper terracotta,
+  // a true olive-green, and an oxblood/maroon) filled out a 12th-color hue
   // sweep. Ember is warm-only by design (no greens/teals/blues/purples —
   // that's the whole "Ember" identity), so unlike every other set here
   // it CAN'T actually cover 'classic's full 12-slot hue spread — this is
@@ -5628,7 +5661,7 @@ const CATEGORY_PALETTE_SETS = {
   // than forced into slots it has no real color for.
   ember: {
     id: 'ember', label: 'Ember',
-    colors: ['#C15A5A','#C97D6E','#C97244','#D9895A','#B8672E','#A6763E','#E0A458','#C6B15A','#9BAF5E','#7A8C4A','#B1546E','#8C3E42']
+    colors: ['#9E4A4A','#A5675A','#A55D38','#B2704A','#975426','#886133','#B88648','#A2914A','#7F904D','#64733D','#91455A','#733336']
   },
   // Was two separate sets ('noir', a near-black-to-mid-gray register built
   // for a dark card, and 'greyscale', a lighter washed-out register built
@@ -6154,7 +6187,7 @@ const DESK_PAPER_PRESET_SETS = {
   // else, which read as "generic warm dark mode" rather than actually
   // autumnal; Midnight & Wine (the one the project owner did like) moved
   // to Midnight above instead of surviving here. Three light presets
-  // (harvest-gold/pumpkin/maple, under warm cream-to-parchment paper) plus
+  // (acorn-gold/pumpkin/maple, under warm cream-to-parchment paper) plus
   // three dark ones (the same hues carried into a near-black register,
   // paper only a little lighter than bg like every dark preset here) —
   // the first Desk & Ledger set in the app to genuinely span both
@@ -6162,13 +6195,18 @@ const DESK_PAPER_PRESET_SETS = {
   // Pastel) or purely dark (Midnight). Paired with
   // UI_COLOR_PRESET_SETS.ember's own new autumnal presets (matching
   // label pairs — Pumpkin & Cream desk ↔ Pumpkin & Gold UI, etc. — though
-  // nothing enforces picking them together).
+  // nothing enforces picking them together). Acorn & Wheat replaced an
+  // original "Harvest & Birch" light preset the project owner didn't
+  // like on sight — a richer chestnut-brown desk under a more saturated
+  // golden-wheat paper, distinct in both hue and richness from Pumpkin's
+  // orange/cream and Maple's red/parchment rather than a third variation
+  // on the same "pale cream paper" look those two already cover.
   ember: {
     id: 'ember', label: 'Ember',
     presets: [
       { id:'pumpkincream',  label:'Pumpkin & Cream',   bg:'#6B3410', paper:'#F5E3C4' },
       { id:'mapleparchment', label:'Maple & Parchment', bg:'#4A1E17', paper:'#F2DAB0' },
-      { id:'harvestbirch',  label:'Harvest & Birch',   bg:'#4F3B14', paper:'#F1ECD6' },
+      { id:'acornwheat',    label:'Acorn & Wheat',     bg:'#5C3A1E', paper:'#F2E0A8' },
       { id:'emberash',      label:'Ember & Ash',       bg:'#170D0A', paper:'#2E1A0E' },
       { id:'ciderrust',     label:'Cider & Rust',      bg:'#160D08', paper:'#2C160E' },
       { id:'harvestmoon',   label:'Harvest Moon',      bg:'#151109', paper:'#2A2412' }
@@ -12570,12 +12608,28 @@ function renderSettings(){
           <button class="catdotbtn" onclick="toggleCategoryPicker('${c.id}')" title="Change color & icon">${categoryDotHtml(c, 'cdot')}</button>
           ${openCategoryPickerId === c.id ? categoryPickerHtml(c) : ''}
         </span>
-        <input type="text" class="catedit" value="${escapeHtml(c.label)}"
-          onblur="renameCategory('${c.id}', this.value)"
-          onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
-        ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
-        ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
-        ${locBadges}
+        <!-- Groups the label input with its own type/location badges into
+             one shared underline (see .catlabelline in <style>) rather
+             than the input's own border-bottom — per the explicit ask,
+             badges should sit right next to the label, not get pushed
+             all the way to the row's right edge the way a flex:1 input
+             followed by fixed-width badge siblings otherwise does, while
+             the dashed line itself still needs to visually reach the
+             full row width regardless of how little of it the label +
+             badges actually use. Putting the border on this wrapper
+             (flex:1, so IT stretches the full width) instead of the
+             input itself is what decouples those two: the input can stay
+             a modest fixed-ish width with the badges hugging it, while
+             the wrapper's own bottom border still spans all the way to
+             wherever the pin/location buttons start. -->
+        <span class="catlabelline">
+          <input type="text" class="catedit" value="${escapeHtml(c.label)}"
+            onblur="renameCategory('${c.id}', this.value)"
+            onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+          ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
+          ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
+          ${locBadges}
+        </span>
         <!-- Only shown while the Stacked Tabs dev setting (01-categories-
              theme.js) is on — pinning has no effect at all otherwise, so
              surfacing the control the rest of the time would just be a

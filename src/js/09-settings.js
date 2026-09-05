@@ -83,12 +83,28 @@ function renderSettings(){
           <button class="catdotbtn" onclick="toggleCategoryPicker('${c.id}')" title="Change color & icon">${categoryDotHtml(c, 'cdot')}</button>
           ${openCategoryPickerId === c.id ? categoryPickerHtml(c) : ''}
         </span>
-        <input type="text" class="catedit" value="${escapeHtml(c.label)}"
-          onblur="renameCategory('${c.id}', this.value)"
-          onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
-        ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
-        ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
-        ${locBadges}
+        <!-- Groups the label input with its own type/location badges into
+             one shared underline (see .catlabelline in <style>) rather
+             than the input's own border-bottom — per the explicit ask,
+             badges should sit right next to the label, not get pushed
+             all the way to the row's right edge the way a flex:1 input
+             followed by fixed-width badge siblings otherwise does, while
+             the dashed line itself still needs to visually reach the
+             full row width regardless of how little of it the label +
+             badges actually use. Putting the border on this wrapper
+             (flex:1, so IT stretches the full width) instead of the
+             input itself is what decouples those two: the input can stay
+             a modest fixed-ish width with the badges hugging it, while
+             the wrapper's own bottom border still spans all the way to
+             wherever the pin/location buttons start. -->
+        <span class="catlabelline">
+          <input type="text" class="catedit" value="${escapeHtml(c.label)}"
+            onblur="renameCategory('${c.id}', this.value)"
+            onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+          ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
+          ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
+          ${locBadges}
+        </span>
         <!-- Only shown while the Stacked Tabs dev setting (01-categories-
              theme.js) is on — pinning has no effect at all otherwise, so
              surfacing the control the rest of the time would just be a

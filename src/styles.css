@@ -2883,6 +2883,25 @@
     font-family:'IBM Plex Sans', sans-serif; font-size:0.9rem; padding:4px 2px; color:var(--ink); outline:none;
   }
   .catedit::placeholder{ color: var(--ink-soft); opacity:0.8; }
+  /* The shared underline for a category row's own label + its type/
+     location badges (see the .catrow template in 09-settings.js) — flex:1
+     so THIS box (not the input inside it) is what stretches to the row's
+     full width, letting the dashed line reach all the way to the pin/
+     location buttons regardless of how little of that width the label +
+     badges themselves need. */
+  .catlabelline{
+    display:flex; align-items:center; gap:8px; flex:1; min-width:0; flex-wrap:wrap;
+    border-bottom:1px dashed var(--ink-soft); padding-bottom:3px;
+  }
+  /* Inside .catlabelline specifically, the input no longer owns the
+     underline itself (that moved to the wrapper, above) and no longer
+     grows to fill the row — a fixed-ish width keeps it snug against
+     whatever badges follow it instead of shoving them out to the row's
+     far right edge, which was the actual "badges aren't next to the
+     text" complaint this fixes. Doesn't touch plain .catedit elsewhere
+     (the "+ add a new tab" input, tabsSection() in 09-settings.js), which
+     still wants the old flex:1 + its own underline. */
+  .catlabelline .catedit{ flex:0 1 140px; min-width:70px; border-bottom:none; padding-bottom:0; }
   .catwarn{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--estate); flex-basis:100%; }
   .catdelete, .catdeleteconfirm, .catcancel{
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
