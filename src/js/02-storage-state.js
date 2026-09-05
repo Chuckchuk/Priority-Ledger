@@ -724,6 +724,19 @@ function defaultTasks(){
 // specifically so it still has something to offer a heavily-customized
 // account, not just the default four — 12 isn't a hard cap on
 // categories, just the amount this seed data bothers to plan for.
+//
+// Category color choices, per the project owner's own explicit callout
+// after Halloween's original 12 read as a small rainbow next to its own
+// dark desk/ledger: favor FEWER distinct hues over 12 fully unique ones
+// (repeating a small core set — even the same color on multiple tabs,
+// or a strict alternation — is a legitimate look, not a fallback), and
+// keep anything beyond the preset's core 2-3 "theme" hues visibly
+// muted/desaturated rather than fully saturated, so the tab bar reads as
+// belonging to the same moody palette as the desk/ledger behind it
+// instead of popping out against it. Also never repeat theme.customUi's
+// own primary color as category #0 — the "All" tab is always rendered
+// in --primary, so a category #0 in that same hue reads as two identical
+// tabs in a row right at the start of the bar.
 const SEASONAL_STYLE_PRESETS = [{
     catalogId: 'seasonal-halloween',
     label: 'Halloween',
@@ -744,19 +757,30 @@ const SEASONAL_STYLE_PRESETS = [{
     deskPaletteId: 'midnight',
     uiPaletteId: 'classic',
     categoryPaletteId: 'classic',
+    // A tight repeating core of 6 muted hues (purple/charcoal/rust-
+    // orange/plum/moss-green/bone) instead of 12 fully distinct ones —
+    // each shows up twice (bone once, since a light neutral reads
+    // "loudest" against this dark a desk/ledger, so it's used sparingly)
+    // rather than reaching for new colors just to fill 12 slots. Entry
+    // #0 is purple, not orange — theme.customUi.primary above is
+    // '#E07A1E', so an orange category #0 would sit right next to the
+    // (always-primary-colored) "All" tab as a near-duplicate. The one
+    // orange in the set is deliberately darker/rustier than that primary
+    // amber rather than matching it, so it still reads as "an orange"
+    // without competing with All's own.
     categories: [
-      { hex:'#D9720E', icon:'dot' }, // pumpkin orange
-      { hex:'#6B3FA0', icon:'dot' }, // witch purple
-      { hex:'#8C2331', icon:'dot' }, // blood red
-      { hex:'#4E8B4A', icon:'dot' }, // slime green
-      { hex:'#D9A017', icon:'dot' }, // candy corn yellow
-      { hex:'#2A3A6B', icon:'dot' }, // midnight blue
-      { hex:'#3A3A3E', icon:'dot' }, // bat charcoal
-      { hex:'#B85C1E', icon:'dot' }, // rust amber
-      { hex:'#4A8C86', icon:'dot' }, // ghostly teal
-      { hex:'#5C2140', icon:'dot' }, // plum wine
-      { hex:'#9C9284', icon:'dot' }, // bone ash
-      { hex:'#5E5468', icon:'dot' }  // spider grey-violet
+      { hex:'#5A4570', icon:'dot' }, // muted witch purple
+      { hex:'#3C3542', icon:'dot' }, // charcoal (violet-leaning)
+      { hex:'#9C5A34', icon:'dot' }, // muted rust orange
+      { hex:'#5A3048', icon:'dot' }, // plum wine
+      { hex:'#55704F', icon:'dot' }, // muted moss green
+      { hex:'#3C3542', icon:'dot' }, // charcoal
+      { hex:'#5A4570', icon:'dot' }, // muted witch purple
+      { hex:'#8C8272', icon:'dot' }, // bone
+      { hex:'#9C5A34', icon:'dot' }, // muted rust orange
+      { hex:'#5A3048', icon:'dot' }, // plum wine
+      { hex:'#55704F', icon:'dot' }, // muted moss green
+      { hex:'#3C3542', icon:'dot' }  // charcoal
     ]
   }, {
     catalogId: 'seasonal-meadow',

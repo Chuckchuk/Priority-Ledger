@@ -1860,18 +1860,23 @@ function seasonalPresetsBrowserHtml(){
 
 // A catalog entry's own tile — same swatch/badge/dots visual as
 // stylePresetTileHtml() (via the shared .stylepresetbtn class, so it
-// gets the same border/layered-badge treatment), but a single click
-// action (addSeasonalStylePreset()) instead of apply-on-click plus a
-// separate actions row, since a catalog entry isn't itself live/
-// editable/deletable — only a copy of it, once added, is. The trailing
-// "+" is purely a visual cue of what clicking does.
+// gets the same border/layered-badge treatment). Two different click
+// targets, two different actions: clicking the tile itself both adds
+// AND immediately switches to it (addAndApplySeasonalStylePreset()) —
+// the common case, "I want this look" — while the trailing "+" is the
+// narrower "just add a copy to my list without touching my current
+// look" escape hatch (addSeasonalStylePreset()), for browsing/collecting
+// without committing. Hovering either previews the whole thing live
+// (previewSeasonalPreset()) so you can see it before picking either.
 function seasonalPresetTileHtml(p){
   const dots = (p.categories||[]).slice(0, 6).map(c=>
     `<span class="stylepresetdot" style="background:${c.hex}"></span>`
   ).join('');
   const ui = stylePresetUiColors(p);
   return `
-    <button class="uipresetbtn stylepresetbtn" onclick="addSeasonalStylePreset('${p.catalogId}')" title="Add to my Style Presets">
+    <button class="uipresetbtn stylepresetbtn"
+      onmouseenter="previewSeasonalPreset('${p.catalogId}', true)" onmouseleave="previewSeasonalPreset('${p.catalogId}', false)"
+      onclick="addAndApplySeasonalStylePreset('${p.catalogId}')" title="Add to my presets and switch to it">
       <span class="stylepresetswatches">
         <span class="uipresetswatches">
           <span class="uipresetswatch" style="background:${p.theme.bg}"></span>
@@ -1884,14 +1889,74 @@ function seasonalPresetTileHtml(p){
       </span>
       <span class="stylepresetdots">${dots}</span>
       <span class="uipresetlabel">${escapeHtml(p.label)}</span>
-      <span class="seasonaladdicon" aria-hidden="true">+</span>
+      <span class="seasonaladdicon" aria-hidden="true" onclick="event.stopPropagation(); addSeasonalStylePreset('${p.catalogId}')" title="Add to my presets without switching to it">+</span>
     </button>`;
 }
 
-// Copies a catalog entry into this account's own stylePresets — always a
-// fresh newId('style') (never the catalog's own catalogId), so adding
-// the same seasonal preset more than once, or on top of one you've since
-// deleted, never collides with anything.
+// Throwaway hover preview for a seasonal catalog tile — never touches
+// state, same "draft, not committed" idiom updateCatWheelUI()'s own live
+// drag-preview already uses for a single color pair. Repaints the CSS-
+// var-driven theme via applyThemeObject() (bg/paper/UI colors/ink) AND,
+// separately, each live tab's own --tabhex/--tabtext/--tabedge custom
+// properties directly (bypassing state.categories/render() entirely) so
+// hovering shows what the WHOLE app — desk, ledger, UI colors, and the
+// tab bar itself — would actually look like, not just this tile's own
+// small swatch. Leaving reverts cleanly without remembering what it
+// overwrote: applyTheme() re-derives the CSS vars from the real
+// committed state.theme, and renderTabs() rebuilds the tab bar from the
+// real committed state.categories.
+function previewSeasonalPreset(catalogId, on){
+  if(!on){ applyTheme(); renderTabs(); return; }
+  const p = SEASONAL_STYLE_PRESETS.find(s=>s.catalogId===catalogId);
+  if(!p) return;
+  applyThemeObject({ ...p.theme, customUi: p.theme.customUi ? { ...p.theme.customUi } : null });
+  state.categories.forEach((c, i) => {
+    const saved = p.categories[i];
+    const el = saved && document.querySelector(`.tab[data-key="${c.id}"]`);
+    if(!el) return;
+    el.style.setProperty('--tabhex', saved.hex);
+    el.style.setProperty('--tabtext', relLuminance(saved.hex) > 0.5 ? '#2A2318' : '#F1EAD9');
+    el.style.setProperty('--tabedge', shadeHex(saved.hex, -0.25));
+  });
+}
+
+// The actual mutation shared by applyStylePreset() (an existing saved
+// preset) and addAndApplySeasonalStylePreset() (a catalog entry, right
+// after copying it in) — split out so the "copy + apply" path can do
+// both under a single pushUndo snapshot instead of two, and so neither
+// caller duplicates this logic. Deliberately doesn't call applyTheme()/
+// render()/queueSave() itself — every caller owns that part, since
+// addAndApplySeasonalStylePreset() also needs to close the browser
+// popover in between.
+//
+// Sets the theme fields wholesale and the three palette-SET pointers (so
+// the right tab shows active next time each picker opens), then matches
+// each stored category color/icon back onto today's live categories BY
+// POSITION — entry 0 → state.categories[0], etc. — not by id. A preset
+// can carry more stored colors than this account has categories (the
+// extras are simply unused) or fewer (the categories past the end are
+// left completely untouched); neither is a bug, it's what lets one
+// preset's color set usefully cover accounts with very different
+// numbers of tabs.
+function applyStylePresetColors(sp){
+  state.theme = { ...sp.theme, customUi: sp.theme.customUi ? { ...sp.theme.customUi } : null };
+  state.deskPaletteId = sp.deskPaletteId;
+  state.uiPaletteId = sp.uiPaletteId;
+  state.categoryPaletteId = sp.categoryPaletteId;
+  rebuildDeskPaperPresets();
+  rebuildUiColorPresets();
+  rebuildCategoryPalette();
+  (sp.categories||[]).forEach((saved, i) => {
+    const c = state.categories[i];
+    if(c){ c.hex = saved.hex; c.icon = saved.icon || 'dot'; }
+  });
+  rebuildCategoriesIndex();
+}
+
+// Copies a catalog entry into this account's own stylePresets WITHOUT
+// switching to it — always a fresh newId('style') (never the catalog's
+// own catalogId), so adding the same seasonal preset more than once, or
+// on top of one you've since deleted, never collides with anything.
 async function addSeasonalStylePreset(catalogId){
   const p = SEASONAL_STYLE_PRESETS.find(s=>s.catalogId===catalogId);
   if(!p) return;
@@ -1899,6 +1964,24 @@ async function addSeasonalStylePreset(catalogId){
   if(!Array.isArray(state.stylePresets)) state.stylePresets = [];
   state.stylePresets.push(cloneStylePresetBlueprint(p, newId('style')));
   seasonalPresetsBrowserOpen = false;
+  render();
+  queueSave();
+}
+
+// The tile's own main click — copies a catalog entry in AND switches to
+// it in one motion, one undo step (pushUndo covers both the new
+// stylePresets entry and the applied colors, so undoing this reverts
+// both at once rather than needing two undos).
+async function addAndApplySeasonalStylePreset(catalogId){
+  const p = SEASONAL_STYLE_PRESETS.find(s=>s.catalogId===catalogId);
+  if(!p) return;
+  pushUndo(`Switched to "${p.label}" seasonal preset`);
+  if(!Array.isArray(state.stylePresets)) state.stylePresets = [];
+  const copy = cloneStylePresetBlueprint(p, newId('style'));
+  state.stylePresets.push(copy);
+  applyStylePresetColors(copy);
+  seasonalPresetsBrowserOpen = false;
+  applyTheme();
   render();
   queueSave();
 }
@@ -1944,34 +2027,22 @@ function buildStylePresetSnapshot(name){
   };
 }
 
-// Applies a saved preset's whole look — the theme fields wholesale, the
-// three palette-SET pointers (so the right tab shows active next time
-// each picker opens), then each stored category color/icon matched back
-// onto today's live categories BY POSITION (entry 0 → state.categories[0],
-// etc.), not by id — a preset can carry more stored colors than this
-// account has categories (the extras are simply unused) or fewer (the
-// categories past the end are left completely untouched), neither is a
-// bug, it's what lets one preset's color set usefully cover accounts
-// with very different numbers of tabs. This is the only place a Style
-// Preset is meant to touch the live look — editStylePreset()/
+// Applies a saved preset's whole look via applyStylePresetColors() (the
+// theme fields wholesale, the three palette-SET pointers so the right
+// tab shows active next time each picker opens, then each stored
+// category color/icon matched back onto today's live categories BY
+// POSITION — entry 0 → state.categories[0], etc., not by id — see that
+// function's own comment for why). This is the only place an EXISTING
+// saved Style Preset is meant to touch the live look — editStylePreset()/
 // deleteStylePreset() deliberately do NOT call this, see their own
-// comments.
+// comments. addAndApplySeasonalStylePreset() (a catalog entry, right
+// after copying it in) is the other caller of applyStylePresetColors()
+// itself, for the same reason under a single combined pushUndo.
 async function applyStylePreset(id){
   const sp = (state.stylePresets||[]).find(s=>s.id===id);
   if(!sp) return;
   pushUndo(`Applied "${sp.label}" style preset`);
-  state.theme = { ...sp.theme, customUi: sp.theme.customUi ? { ...sp.theme.customUi } : null };
-  state.deskPaletteId = sp.deskPaletteId;
-  state.uiPaletteId = sp.uiPaletteId;
-  state.categoryPaletteId = sp.categoryPaletteId;
-  rebuildDeskPaperPresets();
-  rebuildUiColorPresets();
-  rebuildCategoryPalette();
-  (sp.categories||[]).forEach((saved, i) => {
-    const c = state.categories[i];
-    if(c){ c.hex = saved.hex; c.icon = saved.icon || 'dot'; }
-  });
-  rebuildCategoriesIndex();
+  applyStylePresetColors(sp);
   applyTheme();
   render();
   queueSave();
