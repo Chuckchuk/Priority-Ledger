@@ -19248,6 +19248,12 @@ function pullRefreshEligible(target){
   // covers the (rarer) case where the menu is already open by the time a
   // fresh touch starts, rather than opening partway through this one.
   if(document.getElementById('ctxMenu').classList.contains('open')) return false;
+  // A touch starting on the tab bar itself is trying to tap or (in the
+  // 'scroll' mobile style) horizontally scroll through tabs — not to pull
+  // the page down. Without this, dragging through #tabs while it's
+  // horizontally scrollable also visibly dragged #appShell down toward a
+  // refresh at the same time, fighting the tab-bar scroll.
+  if(target.closest && target.closest('#tabs')) return false;
   return true;
 }
 
