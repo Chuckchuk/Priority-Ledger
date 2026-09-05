@@ -384,30 +384,48 @@
   }
   /* Stacked Tab style 'cards' (the default — see tabStackPeekHtml(),
      06-tabs-render.js, for why this is now a choice among a few rather
-     than the only look) — solid card-shaped slivers directly behind the
-     top tab, each offset a few more px down-right than the last, like a
-     real stack of index cards fanned toward the viewer. Deliberately no
-     icon/label here (unlike 'wonky' below) — the card SHAPE itself is the
-     "there's more behind this" cue, closer to what was actually asked
-     for than small floating chips. top/left near 0 (not the 'wonky'
-     chip's own small fixed box) is what makes this read as "the same tab,
-     offset" rather than a separate decoration. */
+     than the only look) — solid card-shaped slivers stacked directly
+     ABOVE the top tab, each a little higher and narrower than the last,
+     like the tops of a few more index cards peeking out from underneath.
+     Deliberately no icon/label here (unlike 'wonky' below) — the card
+     SHAPE itself is the "there's more behind this" cue.
+     An earlier version positioned these overlapping the tab's own box
+     (small +/-px insets from its edges) rather than clear above it —
+     that reads fine in theory, but a plain CSS `background` on the tab
+     itself always paints before ANY of its children regardless of
+     z-index (z-index only controls ordering among the children, not
+     against the element's own background) — so a z-index:-1 card
+     sitting mostly inside the tab's own footprint painted OVER that
+     background instead of staying behind it, showing up as a wrong-
+     colored blotch across most of the front tab's face rather than a
+     clean peeking edge. Anchoring entirely above the tab (bottom: 100%
+     plus a gap, same "own free space, zero overlap" zone .tabstackpeek
+     below already uses safely) sidesteps the whole problem: there's
+     nothing of the tab's own box left to paint over. */
   .tabstackcard{
     position:absolute; z-index:-1;
-    top: calc(4px + var(--peekidx, 0) * 4px);
-    left: calc(var(--peekidx, 0) * 3px);
-    right: calc(-1px - var(--peekidx, 0) * 3px);
-    bottom: calc(-1px - var(--peekidx, 0) * 3px);
-    border-radius: 6px 6px 4px 4px;
+    bottom: calc(100% + 3px + var(--peekidx, 0) * 8px);
+    left: calc(4px + var(--peekidx, 0) * 4px);
+    right: calc(4px + var(--peekidx, 0) * 4px);
+    height:12px;
+    border-radius: 5px 5px 0 0;
     background: var(--peekhex, var(--primary));
-    box-shadow: 0 2px 4px rgba(0,0,0,0.22);
+    box-shadow: 0 -1px 3px rgba(0,0,0,0.3);
   }
   /* Stacked Tab style 'dots' — the lightest-touch option: no shape at all
      behind the tab, just a small row of each other member's own color, a
-     hint rather than a visual stand-in for the tab itself. */
+     hint rather than a visual stand-in for the tab itself. Shows EVERY
+     other member (tabStackPeekHtml(), 06-tabs-render.js), not capped at
+     2 like 'wonky'/'cards' — flex-wrap + a max-width capped to the tab's
+     own inner width is what keeps a stack with many members from
+     spilling dots out past the tab's left edge: they wrap onto a second
+     (or third) row instead, still right-aligned via justify-content, so
+     it grows inward/upward rather than outward. */
   .tabstackdots{
     position:absolute; z-index:2; bottom:3px; right:5px;
-    display:flex; gap:3px; pointer-events:none;
+    max-width: calc(100% - 10px);
+    display:flex; flex-wrap:wrap; justify-content:flex-end; gap:3px;
+    pointer-events:none;
   }
   .tabstackdot{
     width:5px; height:5px; border-radius:50%;

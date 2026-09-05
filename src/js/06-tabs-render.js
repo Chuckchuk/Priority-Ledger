@@ -284,13 +284,20 @@ async function pickTabStackTop(type, key){
 // be invisible against its own background.
 function tabStackPeekHtml(members, topKey){
   const style = (state.devSettings||{}).stackedTabsStyle || 'cards';
-  const others = members.filter(k => k !== topKey).slice(0, 2);
+  // 'dots' shows EVERY other member — per the explicit ask, a plain
+  // colored dot costs so little visual weight that capping it the way
+  // 'wonky'/'cards' need to (a real shape per member gets cluttered fast)
+  // was giving up real information for no real gain. The other two
+  // styles stay capped at 2: an actual icon chip or card sliver per
+  // member scales badly past a couple, in a way a 4px dot doesn't.
+  const allOthers = members.filter(k => k !== topKey);
   if(style === 'dots'){
-    return `<span class="tabstackdots">${others.map((key, i) => {
+    return `<span class="tabstackdots">${allOthers.map((key, i) => {
       const cat = CATEGORIES[key];
       return cat ? `<span class="tabstackdot" style="--peekhex:${cat.hex}"></span>` : '';
     }).join('')}</span>`;
   }
+  const others = allOthers.slice(0, 2);
   if(style === 'wonky'){
     return others.map((key, i) => {
       const cat = CATEGORIES[key];
