@@ -235,6 +235,12 @@ let editingStylePresetId = null;
 // not an inline expanding section, so it behaves like every other
 // "custom menu" in Settings.
 let seasonalPresetsBrowserOpen = false;
+// Which season tab is active inside that popover — 'all'/'fall'/
+// 'winter'/'spring'/'summer', see seasonalPresetSeasonTabsHtml() in
+// 09-settings.js. Reset to 'all' every time the popover opens
+// (toggleSeasonalPresetsBrowser()), so it never opens mid-filter from a
+// previous visit.
+let seasonalPresetsFilterSeason = 'all';
 // The category color/icon popover's "Custom" sub-panel (a hue ring + a
 // saturation/value square, see catWheelPointerDown() in 09-settings.js) —
 // only meaningful while openCategoryPickerId names a category.
@@ -737,8 +743,14 @@ function defaultTasks(){
 // own primary color as category #0 — the "All" tab is always rendered
 // in --primary, so a category #0 in that same hue reads as two identical
 // tabs in a row right at the start of the bar.
+// `season` ('fall'/'winter'/'spring'/'summer') is catalog-only metadata
+// — it drives the season filter tabs in seasonalPresetsBrowserHtml()
+// (09-settings.js) and is never copied into a real stylePresets entry
+// by cloneStylePresetBlueprint(), since "which season this came from"
+// isn't meaningful once it's your own saved preset.
 const SEASONAL_STYLE_PRESETS = [{
     catalogId: 'seasonal-halloween',
+    season: 'fall',
     label: 'Halloween',
     theme: {
       bg: '#0D0710', paper: '#1C0F22',
@@ -784,6 +796,7 @@ const SEASONAL_STYLE_PRESETS = [{
     ]
   }, {
     catalogId: 'seasonal-meadow',
+    season: 'spring',
     label: 'Meadow',
     theme: {
       bg: '#4F6B4A', paper: '#F3ECD9',
@@ -815,6 +828,112 @@ const SEASONAL_STYLE_PRESETS = [{
       { hex:'#6FBFA0', icon:'dot' }, // mint
       { hex:'#A0699C', icon:'dot' }  // plum blossom
     ]
+  }, {
+    catalogId: 'seasonal-harvest',
+    season: 'fall',
+    label: 'Harvest',
+    // The light-mode, cozy-not-spooky Fall option alongside Halloween's
+    // dark, spooky one — a warm brown desk under a cream ledger, rust/
+    // olive UI colors, plain paper-derived ink.
+    theme: {
+      bg: '#3E2A1C', paper: '#EFE0C4',
+      gradient: true, grain: true, pages: true, leather: false,
+      uiPreset: 'custom',
+      customUi: { label:'Harvest', primary:'#B5651D', primaryLight:'#F48827', secondary:'#6B7A3A', secondaryLight:'#90A54E' },
+      inkFromUi: false, inkFromUiSource: 'primary'
+    },
+    deskPaletteId: 'ember',
+    uiPaletteId: 'ember',
+    categoryPaletteId: 'ember',
+    // Same "tight repeating core, muted beyond it" discipline as
+    // Halloween's own set above — 6 hues twice each (dusty red once,
+    // same "use the loudest one sparingly" reasoning) — and #0 is olive
+    // moss, not a rust/orange, for the same reason Halloween's #0 isn't
+    // orange: theme.customUi.primary here IS a rust-orange, so a
+    // category #0 in that family would double up against the "All" tab.
+    categories: [
+      { hex:'#5C6B3C', icon:'dot' }, // olive moss
+      { hex:'#4A342A', icon:'dot' }, // deep brown
+      { hex:'#9C5A2E', icon:'dot' }, // rust brown
+      { hex:'#748C6B', icon:'dot' }, // sage green
+      { hex:'#A98A3E', icon:'dot' }, // muted gold
+      { hex:'#4A342A', icon:'dot' }, // deep brown
+      { hex:'#5C6B3C', icon:'dot' }, // olive moss
+      { hex:'#8C4A3C', icon:'dot' }, // dusty red
+      { hex:'#9C5A2E', icon:'dot' }, // rust brown
+      { hex:'#748C6B', icon:'dot' }, // sage green
+      { hex:'#A98A3E', icon:'dot' }, // muted gold
+      { hex:'#4A342A', icon:'dot' }  // deep brown
+    ]
+  }, {
+    catalogId: 'seasonal-frost',
+    season: 'winter',
+    label: 'Frost',
+    // Cool and crisp rather than aged/textured (grain/pages off) — a
+    // "fresh snow," not "old paper," feel. Slate-navy desk under a pale
+    // ice-blue ledger, icy-blue/pine UI colors.
+    theme: {
+      bg: '#2A3846', paper: '#EAF1F2',
+      gradient: true, grain: false, pages: false, leather: false,
+      uiPreset: 'custom',
+      customUi: { label:'Frost', primary:'#4A7A9C', primaryLight:'#64A5D3', secondary:'#3C5C4A', secondaryLight:'#517C64' },
+      inkFromUi: false, inkFromUiSource: 'primary'
+    },
+    deskPaletteId: 'midnight',
+    uiPaletteId: 'classic',
+    categoryPaletteId: 'classic',
+    // Core 6: pine/slate/frost-blue/plum-grey/birch/holly-berry-red — #0
+    // is pine, not a blue, since theme.customUi.primary is already an
+    // icy blue; berry red (the one clear "winter accent" color) is used
+    // just once, same "use the loudest one sparingly" reasoning as
+    // Halloween's bone/Harvest's dusty red.
+    categories: [
+      { hex:'#3C5C4A', icon:'dot' }, // pine
+      { hex:'#4A5A68', icon:'dot' }, // slate
+      { hex:'#5C8CA8', icon:'dot' }, // frost blue
+      { hex:'#5C5468', icon:'dot' }, // plum grey
+      { hex:'#8C8478', icon:'dot' }, // birch
+      { hex:'#4A5A68', icon:'dot' }, // slate
+      { hex:'#3C5C4A', icon:'dot' }, // pine
+      { hex:'#8C3C4A', icon:'dot' }, // holly berry red
+      { hex:'#5C8CA8', icon:'dot' }, // frost blue
+      { hex:'#5C5468', icon:'dot' }, // plum grey
+      { hex:'#8C8478', icon:'dot' }, // birch
+      { hex:'#4A5A68', icon:'dot' }  // slate
+    ]
+  }, {
+    catalogId: 'seasonal-tide',
+    season: 'summer',
+    label: 'Tide',
+    // A coastal-summer light preset — deep teal desk under a warm sandy
+    // ledger, coral/turquoise UI colors, sandy grain texture.
+    theme: {
+      bg: '#1C4A4A', paper: '#F5EBD6',
+      gradient: true, grain: true, pages: false, leather: false,
+      uiPreset: 'custom',
+      customUi: { label:'Tide', primary:'#D9724A', primaryLight:'#FF9A64', secondary:'#3C8C8C', secondaryLight:'#51BDBD' },
+      inkFromUi: false, inkFromUiSource: 'primary'
+    },
+    deskPaletteId: 'classic',
+    uiPaletteId: 'classic',
+    categoryPaletteId: 'pastel',
+    // Core 6: turquoise/driftwood/coral/sea-blue/sand-gold/palm-green —
+    // #0 is turquoise, not coral, since theme.customUi.primary is
+    // already a coral-orange.
+    categories: [
+      { hex:'#3C7C7C', icon:'dot' }, // turquoise
+      { hex:'#8C7C68', icon:'dot' }, // driftwood
+      { hex:'#C05A3C', icon:'dot' }, // coral
+      { hex:'#3C5C7C', icon:'dot' }, // sea blue
+      { hex:'#C9A24E', icon:'dot' }, // sand gold
+      { hex:'#8C7C68', icon:'dot' }, // driftwood
+      { hex:'#3C7C7C', icon:'dot' }, // turquoise
+      { hex:'#5C7C4A', icon:'dot' }, // palm green
+      { hex:'#C05A3C', icon:'dot' }, // coral
+      { hex:'#3C5C7C', icon:'dot' }, // sea blue
+      { hex:'#C9A24E', icon:'dot' }, // sand gold
+      { hex:'#8C7C68', icon:'dot' }  // driftwood
+    ]
 }];
 
 // Deep-copies a SEASONAL_STYLE_PRESETS entry (or, from addSeasonalStylePreset()
@@ -835,13 +954,19 @@ function cloneStylePresetBlueprint(p, id){
   };
 }
 
-// A brand-new account's own starting stylePresets list — fixed, stable
-// ids (rather than newId()) purely so they're recognizable/debuggable as
-// "the seeded ones," though they're just as freely editable/deletable as
-// any other saved preset from here on; nothing else assumes these ids
-// stay put.
+// A brand-new account's own starting stylePresets list. Only Halloween
+// gets auto-seeded here (fixed, stable id rather than newId(), purely so
+// it's recognizable/debuggable as "the seeded one," though it's just as
+// freely editable/deletable as any other saved preset from here on) —
+// per the original explicit "start me off with a Halloween theme" ask.
+// Every OTHER catalog entry is deliberately opt-in-only, discovered
+// through "Browse Seasonal Presets" rather than pre-populating a new
+// account's own list — with the catalog now growing past a couple of
+// entries, auto-seeding all of them would just be clutter nobody asked
+// for on day one.
 function defaultStylePresets(){
-  return SEASONAL_STYLE_PRESETS.map(p => cloneStylePresetBlueprint(p, 'style-' + p.catalogId.replace('seasonal-','')));
+  const seeded = SEASONAL_STYLE_PRESETS.filter(p => p.catalogId === 'seasonal-halloween');
+  return seeded.map(p => cloneStylePresetBlueprint(p, 'style-' + p.catalogId.replace('seasonal-','')));
 }
 
 function defaultState(){

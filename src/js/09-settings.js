@@ -111,10 +111,21 @@ function renderSettings(){
           <input type="text" class="catedit" value="${escapeHtml(c.label)}"
             onblur="renameCategory('${c.id}', this.value)"
             onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
+        </span>
+        <!-- A sibling of .catlabelline now (not nested inside it) — see
+             .catbadgerow in <style> for why: on mobile this needs to drop
+             to its own full-width row BELOW the pin/location buttons (per
+             the explicit ask), which a flex "order" trick can only pull
+             off from a shared parent with those buttons, not from one
+             nested a level deeper inside the label's own box. Guarded so
+             an empty span (no locations, no type badge) never renders at
+             all rather than leaving a stray empty underline on desktop. -->
+        ${(locBadges || c.type==='checklist' || c.type==='calendar') ? `
+        <span class="catbadgerow">
           ${locBadges}
           ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
           ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
-        </span>
+        </span>` : ''}
         <!-- Only shown while the Stacked Tabs dev setting (01-categories-
              theme.js) is on — pinning has no effect at all otherwise, so
              surfacing the control the rest of the time would just be a
@@ -1836,23 +1847,67 @@ function stylePresetTileHtml(sp){
 // The "Browse Seasonal Presets" popover trigger — same toggle idiom as
 // toggleDeskPaperPicker()/toggleCategoryPicker(), routed through
 // closeAllSettingsPopovers() so it can't be open alongside any other
-// Settings popover.
+// Settings popover. Resets the season filter to 'all' on every fresh
+// open (never opens mid-filter from a previous visit), and stops any
+// in-flight preview crossfade + snaps back to the real committed look on
+// close — a safety net for the rare case a popover close doesn't go
+// through an actual mouseleave on the tile that started the preview
+// (e.g. Esc while still hovering).
 function toggleSeasonalPresetsBrowser(){
   const wasOpen = seasonalPresetsBrowserOpen;
   closeAllSettingsPopovers();
-  if(!wasOpen) seasonalPresetsBrowserOpen = true;
+  if(!wasOpen){
+    seasonalPresetsBrowserOpen = true;
+    seasonalPresetsFilterSeason = 'all';
+  } else {
+    stopStylePreviewTween();
+    applyTheme();
+    renderTabs();
+  }
   render();
+}
+
+// Season filter tabs (seasonalPresetSeasonTabsHtml() below) — same
+// toggle-and-render idiom as every other Settings filter/tab switch.
+function setSeasonalPresetsFilterSeason(season){
+  seasonalPresetsFilterSeason = season;
+  render();
+}
+
+const SEASONAL_PRESET_SEASON_TABS = [
+  { id:'all', label:'All' },
+  { id:'fall', label:'Fall' },
+  { id:'winter', label:'Winter' },
+  { id:'spring', label:'Spring' },
+  { id:'summer', label:'Summer' }
+];
+
+// Reuses .palettetabs/.palettetab (paletteTabsHtml()'s own classes) —
+// same small n-way switch visual as the Desk & Ledger/UI Colors/
+// Category Colors picker's own palette-SET tabs, just filtering
+// SEASONAL_STYLE_PRESETS by its `season` field instead of switching
+// which array is active.
+function seasonalPresetSeasonTabsHtml(){
+  return `<div class="palettetabs">${SEASONAL_PRESET_SEASON_TABS.map(s=>
+    `<button class="palettetab ${seasonalPresetsFilterSeason===s.id?'active':''}" onclick="setSeasonalPresetsFilterSeason('${s.id}')">${s.label}</button>`
+  ).join('')}</div>`;
 }
 
 // The popover itself — same .catpicker chrome (close ×, label, a plain
 // vertical .uipresetgrid of tiles) as deskPaperPickerHtml()/
-// uiColorPickerOpen's own picker, just listing the fixed
-// SEASONAL_STYLE_PRESETS catalog instead of a live editable list.
+// uiColorPickerOpen's own picker, plus the season filter tabs above the
+// label (same position paletteTabsHtml() sits at in those other
+// pickers), filtering which of the fixed SEASONAL_STYLE_PRESETS catalog
+// entries show.
 function seasonalPresetsBrowserHtml(){
-  const tiles = SEASONAL_STYLE_PRESETS.map(p => seasonalPresetTileHtml(p)).join('');
+  const filtered = seasonalPresetsFilterSeason === 'all'
+    ? SEASONAL_STYLE_PRESETS
+    : SEASONAL_STYLE_PRESETS.filter(p => p.season === seasonalPresetsFilterSeason);
+  const tiles = filtered.map(p => seasonalPresetTileHtml(p)).join('');
   return `
     <div class="catpicker seasonalpresetpicker">
       <button class="catpickerclose" onclick="toggleSeasonalPresetsBrowser()" title="Close">×</button>
+      ${seasonalPresetSeasonTabsHtml()}
       <div class="catpickerlabel">Seasonal Presets</div>
       <div class="uipresetgrid">${tiles}</div>
     </div>`;
@@ -1893,31 +1948,133 @@ function seasonalPresetTileHtml(p){
     </button>`;
 }
 
-// Throwaway hover preview for a seasonal catalog tile — never touches
-// state, same "draft, not committed" idiom updateCatWheelUI()'s own live
-// drag-preview already uses for a single color pair. Repaints the CSS-
-// var-driven theme via applyThemeObject() (bg/paper/UI colors/ink) AND,
-// separately, each live tab's own --tabhex/--tabtext/--tabedge custom
-// properties directly (bypassing state.categories/render() entirely) so
-// hovering shows what the WHOLE app — desk, ledger, UI colors, and the
-// tab bar itself — would actually look like, not just this tile's own
-// small swatch. Leaving reverts cleanly without remembering what it
-// overwrote: applyTheme() re-derives the CSS vars from the real
-// committed state.theme, and renderTabs() rebuilds the tab bar from the
-// real committed state.categories.
+// ---------- Seasonal preset hover-preview crossfade ----------
+// An earlier version snapped straight to the preview colors on
+// mouseenter/mouseleave — reported as too rapid, and disorienting-to-
+// the-point-of-a-seizure-risk on a light<->dark preset pair (Frost's
+// pale ledger right next to Halloween's near-black one, say). This
+// tweens between colors instead. Plain JS (rAF + linear RGB
+// interpolation, no color-space conversion) rather than a CSS
+// `transition` on every element that consumes --desk/--card-bg/
+// --primary/--secondary/--tabhex/etc. throughout the whole app: those
+// custom properties are read by a LOT of unrelated selectors app-wide
+// (every button, badge, tab...), so a global transition would also
+// animate every OTHER theme change everywhere, not just this preview —
+// a much bigger blast radius than what was actually asked for, and one
+// that could make ordinary (already-instant, already-expected) clicks
+// elsewhere feel sluggish. The actual runtime cost of the tween itself
+// is negligible either way: a handful of hex<->RGB conversions per
+// frame for ~280ms (well under 20 frames total) — nothing a browser
+// notices.
+const STYLE_PREVIEW_TWEEN_MS = 280;
+let stylePreviewTweenFrame = null;
+
+// Cheap, good-enough-for-a-quick-crossfade RGB lerp — no perceptual
+// color-space conversion, just channel-by-channel.
+function lerpHexColor(a, b, t){
+  const pa = parseInt(a.replace('#',''), 16), pb = parseInt(b.replace('#',''), 16);
+  const ar=(pa>>16)&0xFF, ag=(pa>>8)&0xFF, ab=pa&0xFF;
+  const br=(pb>>16)&0xFF, bg=(pb>>8)&0xFF, bb=pb&0xFF;
+  const r = Math.round(ar + (br-ar)*t), g = Math.round(ag + (bg-ag)*t), b2 = Math.round(ab + (bb-ab)*t);
+  return '#' + (0x1000000 + clamp255(r)*0x10000 + clamp255(g)*0x100 + clamp255(b2)).toString(16).slice(1);
+}
+
+// Stops whatever crossfade is currently mid-flight — called before
+// starting a new one (re-hovering a different tile before the first
+// fade finished) and before any instant/committed theme change, so a
+// stray rAF loop can never keep fighting a render() that already
+// happened for an unrelated reason.
+function stopStylePreviewTween(){
+  if(stylePreviewTweenFrame){ cancelAnimationFrame(stylePreviewTweenFrame); stylePreviewTweenFrame = null; }
+}
+
+// Sets one live tab's own preview colors — the exact same --tabhex/
+// --tabtext/--tabedge formula renderTabs() itself uses (06-tabs-render.js),
+// so the tween's final frame lands pixel-identical to a real render.
+function setTabPreviewHex(catId, hex){
+  const el = document.querySelector(`.tab[data-key="${catId}"]`);
+  if(!el) return;
+  el.style.setProperty('--tabhex', hex);
+  el.style.setProperty('--tabtext', relLuminance(hex) > 0.5 ? '#2A2318' : '#F1EAD9');
+  el.style.setProperty('--tabedge', shadeHex(hex, -0.25));
+}
+
+// Crossfades toward a style-preset-shaped object (`{theme, uiPaletteId,
+// categories}` — either a SEASONAL_STYLE_PRESETS entry, or, for
+// reverting, a throwaway object built straight from live state, see
+// previewSeasonalPreset() below) FROM whatever's actually on screen
+// right now — read straight off the live CSS vars/tab elements rather
+// than a remembered "before" value. That's what lets re-hovering a
+// different tile mid-crossfade, or un-hovering before one finishes,
+// continue smoothly from wherever the fade visually already is instead
+// of snapping back to some earlier state first. The target is applied
+// EXACTLY (not an interpolated approximation) on the final frame, so the
+// end state always matches a plain, un-animated apply bit-for-bit.
+function stylePreviewTweenTo(sp){
+  stopStylePreviewTween();
+  const targetTheme = { ...sp.theme, customUi: sp.theme.customUi ? { ...sp.theme.customUi } : null };
+  const targetUi = stylePresetUiColors(sp);
+  const targetCategoryHexes = {};
+  state.categories.forEach((c, i) => {
+    const saved = sp.categories[i];
+    if(saved) targetCategoryHexes[c.id] = saved.hex;
+  });
+
+  const cs = getComputedStyle(document.documentElement);
+  const fromBg = cs.getPropertyValue('--desk').trim() || targetTheme.bg;
+  const fromPaper = cs.getPropertyValue('--card-bg').trim() || targetTheme.paper;
+  const fromPrimary = cs.getPropertyValue('--primary').trim() || targetUi.primary;
+  const fromSecondary = cs.getPropertyValue('--secondary').trim() || targetUi.secondary;
+  const fromTabs = {};
+  Object.keys(targetCategoryHexes).forEach(key => {
+    const el = document.querySelector(`.tab[data-key="${key}"]`);
+    fromTabs[key] = (el && el.style.getPropertyValue('--tabhex')) || targetCategoryHexes[key];
+  });
+
+  const start = performance.now();
+  function frame(now){
+    const t = Math.min(1, (now - start) / STYLE_PREVIEW_TWEEN_MS);
+    if(t >= 1){
+      applyThemeObject(targetTheme);
+      Object.keys(targetCategoryHexes).forEach(key => setTabPreviewHex(key, targetCategoryHexes[key]));
+      stylePreviewTweenFrame = null;
+      return;
+    }
+    // easeOutCubic — fast start, gentle settle, reads as a "slide" into
+    // place rather than a flat linear cross-dissolve.
+    const eased = 1 - Math.pow(1 - t, 3);
+    const primary = lerpHexColor(fromPrimary, targetUi.primary, eased);
+    const secondary = lerpHexColor(fromSecondary, targetUi.secondary, eased);
+    applyThemeObject({
+      ...targetTheme,
+      bg: lerpHexColor(fromBg, targetTheme.bg, eased),
+      paper: lerpHexColor(fromPaper, targetTheme.paper, eased),
+      uiPreset: 'custom',
+      customUi: { label:'', primary, primaryLight: shadeHex(primary, 0.35), secondary, secondaryLight: shadeHex(secondary, 0.35) }
+    });
+    Object.keys(targetCategoryHexes).forEach(key => {
+      setTabPreviewHex(key, lerpHexColor(fromTabs[key], targetCategoryHexes[key], eased));
+    });
+    stylePreviewTweenFrame = requestAnimationFrame(frame);
+  }
+  stylePreviewTweenFrame = requestAnimationFrame(frame);
+}
+
+// Hover preview for a seasonal catalog tile — never touches state, same
+// "draft, not committed" idiom updateCatWheelUI()'s own live drag-
+// preview already uses for a single color pair, just crossfaded instead
+// of snapped (see stylePreviewTweenTo() above). Un-hovering (on=false)
+// crossfades back to whatever's REALLY committed in state right now (not
+// a cached "before" snapshot), shaped the same way a real Style Preset
+// is so it can go through the same tween function.
 function previewSeasonalPreset(catalogId, on){
-  if(!on){ applyTheme(); renderTabs(); return; }
+  if(!on){
+    stylePreviewTweenTo({ theme: state.theme, uiPaletteId: state.uiPaletteId, categories: state.categories.map(c => ({ hex: c.hex, icon: c.icon })) });
+    return;
+  }
   const p = SEASONAL_STYLE_PRESETS.find(s=>s.catalogId===catalogId);
   if(!p) return;
-  applyThemeObject({ ...p.theme, customUi: p.theme.customUi ? { ...p.theme.customUi } : null });
-  state.categories.forEach((c, i) => {
-    const saved = p.categories[i];
-    const el = saved && document.querySelector(`.tab[data-key="${c.id}"]`);
-    if(!el) return;
-    el.style.setProperty('--tabhex', saved.hex);
-    el.style.setProperty('--tabtext', relLuminance(saved.hex) > 0.5 ? '#2A2318' : '#F1EAD9');
-    el.style.setProperty('--tabedge', shadeHex(saved.hex, -0.25));
-  });
+  stylePreviewTweenTo(p);
 }
 
 // The actual mutation shared by applyStylePreset() (an existing saved
@@ -1957,9 +2114,18 @@ function applyStylePresetColors(sp){
 // switching to it — always a fresh newId('style') (never the catalog's
 // own catalogId), so adding the same seasonal preset more than once, or
 // on top of one you've since deleted, never collides with anything.
+// stopStylePreviewTween()+applyTheme()+renderTabs() up front undoes
+// whatever the hover preview left on screen — this path never touches
+// state.theme/categories itself, so without that the document-level
+// --desk/--primary/etc CSS vars (not part of what render() below
+// rebuilds) would otherwise stay stuck on the previewed colors even
+// though nothing about the live look actually changed.
 async function addSeasonalStylePreset(catalogId){
   const p = SEASONAL_STYLE_PRESETS.find(s=>s.catalogId===catalogId);
   if(!p) return;
+  stopStylePreviewTween();
+  applyTheme();
+  renderTabs();
   pushUndo(`Added "${p.label}" seasonal preset`);
   if(!Array.isArray(state.stylePresets)) state.stylePresets = [];
   state.stylePresets.push(cloneStylePresetBlueprint(p, newId('style')));
@@ -1971,10 +2137,14 @@ async function addSeasonalStylePreset(catalogId){
 // The tile's own main click — copies a catalog entry in AND switches to
 // it in one motion, one undo step (pushUndo covers both the new
 // stylePresets entry and the applied colors, so undoing this reverts
-// both at once rather than needing two undos).
+// both at once rather than needing two undos). stopStylePreviewTween()
+// up front cancels any in-flight crossfade immediately, so a queued rAF
+// frame can't paint one more stale interpolated color after the real
+// applyTheme() below already committed the final one.
 async function addAndApplySeasonalStylePreset(catalogId){
   const p = SEASONAL_STYLE_PRESETS.find(s=>s.catalogId===catalogId);
   if(!p) return;
+  stopStylePreviewTween();
   pushUndo(`Switched to "${p.label}" seasonal preset`);
   if(!Array.isArray(state.stylePresets)) state.stylePresets = [];
   const copy = cloneStylePresetBlueprint(p, newId('style'));
