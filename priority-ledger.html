@@ -2996,6 +2996,34 @@
   body.mobileui-active .catlabelline .catedit{
     border-bottom:1px dashed var(--ink-soft); padding-bottom:3px; flex:0 1 110px; min-width:60px;
   }
+  /* .catbadgerow (09-settings.js — a sibling of .catlabelline, not
+     nested inside it) holds a category's location badges + type badge.
+     Desktop: sits right next to the label, matching its own dashed
+     underline so together with .catlabelline it still reads as one
+     underlined row, same as when these lived in one shared box. */
+  .catbadgerow{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    border-bottom:1px dashed var(--ink-soft); padding-bottom:3px;
+  }
+  /* Mobile: per the explicit ask, badges drop to their own full-width
+     row UNDER the name field, while Pin/Location stay inline with it.
+     order:10 (comfortably past every other .catidentity child's default
+     0) is what actually achieves "under," not just "wraps somewhere" —
+     .catbadgerow has to sort AFTER .catpinbtn/.catlocwrap in the
+     flex-wrap row, which is only possible because it's a direct sibling
+     of theirs now (09-settings.js) — nested inside .catlabelline, an
+     order trick could only ever reorder it against the input, never
+     against .catpinbtn/.catlocwrap one level up. flex-basis:100% is what
+     forces the actual line break — it can't share a row with anything
+     else at that width, so it's pushed to a fresh line below everything
+     ordered before it. No border-bottom here on mobile: the name field
+     already carries its own short underline (above), and a second, much
+     wider one under a row of small pills would read as an unrelated
+     stray line rather than part of the same control. */
+  body.mobileui-active .catbadgerow{
+    order:10; flex-basis:100%; margin-top:2px;
+    border-bottom:none; padding-bottom:0;
+  }
   .catwarn{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--estate); flex-basis:100%; }
   .catdelete, .catdeleteconfirm, .catcancel{
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
