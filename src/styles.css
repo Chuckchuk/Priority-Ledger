@@ -382,6 +382,38 @@
        would make it invisible against itself. */
     font-size:0.6rem;
   }
+  /* Stacked Tab style 'cards' (the default — see tabStackPeekHtml(),
+     06-tabs-render.js, for why this is now a choice among a few rather
+     than the only look) — solid card-shaped slivers directly behind the
+     top tab, each offset a few more px down-right than the last, like a
+     real stack of index cards fanned toward the viewer. Deliberately no
+     icon/label here (unlike 'wonky' below) — the card SHAPE itself is the
+     "there's more behind this" cue, closer to what was actually asked
+     for than small floating chips. top/left near 0 (not the 'wonky'
+     chip's own small fixed box) is what makes this read as "the same tab,
+     offset" rather than a separate decoration. */
+  .tabstackcard{
+    position:absolute; z-index:-1;
+    top: calc(4px + var(--peekidx, 0) * 4px);
+    left: calc(var(--peekidx, 0) * 3px);
+    right: calc(-1px - var(--peekidx, 0) * 3px);
+    bottom: calc(-1px - var(--peekidx, 0) * 3px);
+    border-radius: 6px 6px 4px 4px;
+    background: var(--peekhex, var(--primary));
+    box-shadow: 0 2px 4px rgba(0,0,0,0.22);
+  }
+  /* Stacked Tab style 'dots' — the lightest-touch option: no shape at all
+     behind the tab, just a small row of each other member's own color, a
+     hint rather than a visual stand-in for the tab itself. */
+  .tabstackdots{
+    position:absolute; z-index:2; bottom:3px; right:5px;
+    display:flex; gap:3px; pointer-events:none;
+  }
+  .tabstackdot{
+    width:5px; height:5px; border-radius:50%;
+    background: var(--peekhex, var(--primary));
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
+  }
   /* When tabs wrap to more than one row, only the bottom row was ever
      visually "resting" on anything (the card it flows into) — rows above
      it just floated in the shelf panel with nothing under them. A
@@ -843,7 +875,7 @@
      weirdly tall" bug this was reported as. */
   .swipeactions{
     position:absolute; top:var(--taskrow-pad-v,12px); right:var(--taskrow-pad-h,2px); bottom:var(--taskrow-pad-v,12px); z-index:0;
-    display:flex; align-items:stretch; gap:1px;
+    display:flex; align-items:stretch; gap:6px;
   }
   /* .row itself has to be explicitly promoted to its own positioned,
      stacked layer — a positioned box (.swipeactions here) always paints
@@ -858,31 +890,47 @@
   li.task.swiperow > .row{ position:relative; z-index:1; background:var(--card-bg); }
   .swipeactions-task{ width:138px; } /* must match ROWSWIPE_ACTION_WIDTH.task, 20-bootstrap.js */
   .swipeactions-checklist{ width:92px; } /* must match ROWSWIPE_ACTION_WIDTH.checklist */
+  /* Same box language as .flagbtn (the flag/pin/share icon-button used
+     everywhere else in the app) — border, rounded corners, --card-bg-dim
+     fill, --ink-soft icon color — rather than the borderless, square-
+     cornered, oversized-mono-text blocks this used to be. Per the explicit
+     "wildly inconsistent" report: these buttons live right next to
+     .sharebtn (which already IS a .flagbtn — see shareButtonHtml(),
+     19-sharing.js), so the two need to look like siblings, not two
+     different button systems sitting side by side. */
   .swipeactionbtn{
     flex:1; display:flex; align-items:center; justify-content:center;
-    border:none; background: var(--card-bg-dim); color: var(--ink-soft);
-    font-family:'IBM Plex Mono', monospace; font-size:1.15rem; text-transform:uppercase;
-    cursor:pointer;
+    border:1px solid var(--line); border-radius:6px;
+    background: var(--card-bg-dim); color: var(--ink-soft);
+    font-size:1rem; cursor:pointer;
   }
-  .swipeactionbtn.on{ background: var(--primary); color:white; }
+  .swipeactionbtn.on{ background: var(--primary); color:white; border-color: var(--primary); }
   /* Delete specifically is text, not an icon (see checklistSwipeActionsHtml(),
-     13-checklist.js) — the base rule's 1.15rem reads fine for the flag
-     glyph/pin SVG alongside it but was oversized for a whole word once
-     "Confirm?" needed to fit the same button width without wrapping. */
-  .swipeactionbtn.danger{ background: var(--estate); color:white; font-size:0.72rem; }
+     13-checklist.js) — mono/uppercase (matching .catdelete/.sortbtn's own
+     small-text-button language elsewhere) rather than the icon-sized base
+     font, so "Confirm?" fits the same button width without wrapping. */
+  .swipeactionbtn.danger{
+    background: var(--estate); color:white; border-color: var(--estate);
+    font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.02em;
+  }
   /* The armed "tap again to actually delete" state (confirmSwipeDeleteChecklist(),
      13-checklist.js) reads as more urgent than the resting Delete button
      it replaces, not just relabeled — a plain re-tap on an unchanged-
      looking button is easy to do without registering that anything about
      it just changed. */
-  .swipeactionbtn.confirming{ background: color-mix(in srgb, var(--estate) 75%, black 25%); font-weight:600; }
+  .swipeactionbtn.confirming{
+    background: color-mix(in srgb, var(--estate) 75%, black 25%);
+    border-color: color-mix(in srgb, var(--estate) 75%, black 25%);
+    font-weight:600;
+  }
   /* .sharebtn (shareButtonHtml(), 19-sharing.js) sits directly inside
      .swipeactions as one of its flex children alongside .swipeactionbtn —
      it needs the same flex:1/equal-share sizing those get by default, but
-     its OWN rule (further down in <style>) sets a fixed width sized for
-     its usual spot (a task detail page's header), which would otherwise
-     leave it a fixed-width island next to .swipeactionbtn's flexed ones. */
-  .swipeactions > .sharebtn{ flex:1; width:auto; }
+     its OWN .flagbtn-derived rule sets a fixed 30x30 box sized for its
+     usual spot (a task detail page's header), which would otherwise leave
+     it an oddly small, fixed-size island next to .swipeactionbtn's
+     flexed, row-height-tall ones. */
+  .swipeactions > .sharebtn{ flex:1; width:auto; height:auto; }
   li.task.dragging{ opacity:0.4; }
   li.task.dragover{ border-top: 2px solid var(--primary); }
   /* A just-completed task's own collapse-and-leave, once its

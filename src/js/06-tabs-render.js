@@ -249,21 +249,53 @@ async function pickTabStackTop(type, key){
 
 // Per the explicit ask: a stack tab was too hard to tell apart from a
 // plain one on mobile's own muted/translucent tab look — this renders up
-// to 2 other members' own color+icon (CATEGORY_ICON_SVG, no label) as
-// small chips peeking out behind the top tab (see .tabstackpeek in
-// <style> for the actual positioning/stacking). Icon color is computed
-// here rather than reusing categoryDotHtml() (which bakes the category's
-// OWN hex into the icon itself) — this chip's background already IS that
-// hex, so the icon needs the same contrasting color renderTabs() already
-// picks for a colored tab's own label (relLuminance() > 0.5 -> dark ink,
-// else cream) or it would be invisible against its own background.
+// to 2 other members as some visual cue peeking out behind the top tab.
+// Which shape that cue takes is itself a dev setting (stackedTabsStyle,
+// see devSettingsFieldsHtml() in 01-categories-theme.js, only offered once
+// Stacked Tabs itself is on) rather than one fixed look — the first
+// version built here (now the 'wonky' option) read as a bit busy/hard to
+// parse at a glance, so this branches on three genuinely different takes
+// instead of just tuning that one further:
+//   'cards' (default) — solid card-shaped slivers directly behind the top
+//     tab, offset down-right per layer like a real stack of index cards.
+//     No icon, just color, since the shape itself IS the "these are more
+//     tabs" cue here.
+//   'dots'  — a minimal row of small colored dots, no card shape at all —
+//     for a style option that reads as a light hint rather than a shape.
+//   'wonky' — the original: small offset icon chips fanned out at the
+//     tab's top-right corner (see .tabstackpeek in <style>).
+// Icon color (wonky only) is computed here rather than reusing
+// categoryDotHtml() (which bakes the category's OWN hex into the icon
+// itself) — that chip's background already IS that hex, so the icon needs
+// the same contrasting color renderTabs() already picks for a colored
+// tab's own label (relLuminance() > 0.5 -> dark ink, else cream) or it'd
+// be invisible against its own background.
 function tabStackPeekHtml(members, topKey){
-  return members.filter(k => k !== topKey).slice(0, 2).map((key, i) => {
+  const style = (state.devSettings||{}).stackedTabsStyle || 'cards';
+  const others = members.filter(k => k !== topKey).slice(0, 2);
+  if(style === 'dots'){
+    return `<span class="tabstackdots">${others.map((key, i) => {
+      const cat = CATEGORIES[key];
+      return cat ? `<span class="tabstackdot" style="--peekhex:${cat.hex}"></span>` : '';
+    }).join('')}</span>`;
+  }
+  if(style === 'wonky'){
+    return others.map((key, i) => {
+      const cat = CATEGORIES[key];
+      if(!cat) return '';
+      const icon = CATEGORY_ICON_SVG[cat.icon || 'dot'] || CATEGORY_ICON_SVG.dot;
+      const iconColor = relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9';
+      return `<span class="tabstackpeek" style="--peekhex:${cat.hex}; --peekidx:${i}; color:${iconColor}">${icon}</span>`;
+    }).join('');
+  }
+  // 'cards' — plain solid slivers, rendered furthest-back first (reverse
+  // order) so each successive, closer card's DOM (and thus its slightly
+  // less-negative z-index) paints over the one behind it.
+  return others.slice().reverse().map((key, revI) => {
     const cat = CATEGORIES[key];
     if(!cat) return '';
-    const icon = CATEGORY_ICON_SVG[cat.icon || 'dot'] || CATEGORY_ICON_SVG.dot;
-    const iconColor = relLuminance(cat.hex) > 0.5 ? '#2A2318' : '#F1EAD9';
-    return `<span class="tabstackpeek" style="--peekhex:${cat.hex}; --peekidx:${i}; color:${iconColor}">${icon}</span>`;
+    const i = others.length - 1 - revI;
+    return `<span class="tabstackcard" style="--peekhex:${cat.hex}; --peekidx:${i}"></span>`;
   }).join('');
 }
 

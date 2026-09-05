@@ -637,7 +637,7 @@ function defaultDevSettings(){
   // three graduated to being the actual default *behavior*, while
   // staying real Dev Settings (not promoted to permanent, ungated
   // features) so they can still be turned back off if that call changes.
-  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddBarStyle:'top', tabBarMobileStyle:'scroll', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100', stackedTabsEnabled:true, stackedTabsTop:{}, swipeActionsEnabled:false, mobileColoredTabs:true };
+  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddBarStyle:'top', tabBarMobileStyle:'scroll', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100', stackedTabsEnabled:true, stackedTabsTop:{}, stackedTabsStyle:'cards', swipeActionsEnabled:false, mobileColoredTabs:true };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -906,6 +906,7 @@ function normalizeState(){
   if(typeof state.devSettings.mobileUiPreviewOnDesktop !== 'boolean') state.devSettings.mobileUiPreviewOnDesktop = false;
   if(typeof state.devSettings.stackedTabsEnabled !== 'boolean') state.devSettings.stackedTabsEnabled = false;
   if(typeof state.devSettings.stackedTabsTop !== 'object' || !state.devSettings.stackedTabsTop) state.devSettings.stackedTabsTop = {};
+  if(typeof state.devSettings.stackedTabsStyle !== 'string') state.devSettings.stackedTabsStyle = 'cards';
   if(typeof state.devSettings.swipeActionsEnabled !== 'boolean') state.devSettings.swipeActionsEnabled = false;
   if(typeof state.devSettings.mobileColoredTabs !== 'boolean') state.devSettings.mobileColoredTabs = false;
   if(state.devSettings.quickAddBarStyle !== 'top' && state.devSettings.quickAddBarStyle !== 'bottom') state.devSettings.quickAddBarStyle = 'top';
