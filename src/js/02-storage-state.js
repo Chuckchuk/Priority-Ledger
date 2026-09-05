@@ -229,6 +229,12 @@ let dualColorSaveTemplateOpen = false;
 // overwrites that entry in place rather than creating a new one.
 let stylePresetSaveOpen = false;
 let editingStylePresetId = null;
+// The "Browse Seasonal Presets" popover (toggleSeasonalPresetsBrowser()/
+// seasonalPresetsBrowserHtml() in 09-settings.js) — same anchored-
+// popover chrome (.catpicker) as the Desk & Ledger/UI Colors pickers,
+// not an inline expanding section, so it behaves like every other
+// "custom menu" in Settings.
+let seasonalPresetsBrowserOpen = false;
 // The category color/icon popover's "Custom" sub-panel (a hue ring + a
 // saturation/value square, see catWheelPointerDown() in 09-settings.js) —
 // only meaningful while openCategoryPickerId names a category.
@@ -689,25 +695,37 @@ function defaultTasks(){
   ];
 }
 
-// Seeds the Style Presets feature (see stylePresets' own comment in
-// defaultState() below) with two built-in looks — genuine demos of what
-// the feature actually captures, not placeholders.
+// The canonical Style Preset catalog — genuine demos of what the
+// feature actually captures, not placeholders. This is the ONE place
+// their color data is authored; both defaultStylePresets() (what a
+// brand-new account's own stylePresets list starts out as) and the
+// "Browse Seasonal Presets" picker (seasonalPresetsBrowserHtml() in
+// 09-settings.js, letting an EXISTING account pull in a fresh copy of
+// one of these at any time) read from this same array, so the two can
+// never drift out of sync with each other.
 //
-// `categories` is applied POSITIONALLY (see applyStylePreset() in
-// 09-settings.js), not by id: entry N recolors whichever category
-// currently sits at index N in state.categories, regardless of that
-// category's own id/label. That's what lets one preset safely cover
-// both a fresh 4-category account and an account with many more tabs —
-// a preset with fewer live categories than stored colors just leaves
-// the extra colors unused, and one with more categories than stored
-// colors leaves the extras untouched, neither is a bug. Every preset
-// seeded here stores a full 12 colors specifically so it still has
-// something to offer a heavily-customized account, not just the
-// default four — 12 isn't a hard cap on categories, just the amount
-// this seed data bothers to plan for.
-function defaultStylePresets(){
-  return [{
-    id: 'style-halloween',
+// Each entry's `catalogId` is fixed and stable (used only to look an
+// entry up from the picker, e.g. addSeasonalStylePreset('seasonal-
+// halloween')) — it's never the id a copy actually gets once it lands
+// in someone's stylePresets, since defaultStylePresets() and
+// addSeasonalStylePreset() both mint their own id for that (see
+// cloneStylePresetBlueprint() below), so two different accounts', or
+// two separate adds of the same seasonal entry, never collide.
+//
+// `categories` is applied POSITIONALLY wherever a Style Preset gets
+// applied (see applyStylePreset() in 09-settings.js), not by id: entry N
+// recolors whichever category currently sits at index N in
+// state.categories, regardless of that category's own id/label. That's
+// what lets one preset safely cover both a fresh 4-category account and
+// an account with many more tabs — a preset with fewer live categories
+// than stored colors just leaves the extra colors unused, and one with
+// more categories than stored colors leaves the extras untouched,
+// neither is a bug. Every preset here stores a full 12 colors
+// specifically so it still has something to offer a heavily-customized
+// account, not just the default four — 12 isn't a hard cap on
+// categories, just the amount this seed data bothers to plan for.
+const SEASONAL_STYLE_PRESETS = [{
+    catalogId: 'seasonal-halloween',
     label: 'Halloween',
     theme: {
       bg: '#0D0710', paper: '#1C0F22',
@@ -741,7 +759,7 @@ function defaultStylePresets(){
       { hex:'#5E5468', icon:'dot' }  // spider grey-violet
     ]
   }, {
-    id: 'style-meadow',
+    catalogId: 'seasonal-meadow',
     label: 'Meadow',
     theme: {
       bg: '#4F6B4A', paper: '#F3ECD9',
@@ -773,7 +791,33 @@ function defaultStylePresets(){
       { hex:'#6FBFA0', icon:'dot' }, // mint
       { hex:'#A0699C', icon:'dot' }  // plum blossom
     ]
-  }];
+}];
+
+// Deep-copies a SEASONAL_STYLE_PRESETS entry (or, from addSeasonalStylePreset()
+// in 09-settings.js, an entry pulled in from the picker) into a real
+// stylePresets entry with the given id — never shares theme.customUi or
+// the categories array by reference with the catalog, so editing a copy
+// later (updateStylePresetLook()) can never mutate the canonical catalog
+// data itself.
+function cloneStylePresetBlueprint(p, id){
+  return {
+    id,
+    label: p.label,
+    theme: { ...p.theme, customUi: p.theme.customUi ? { ...p.theme.customUi } : null },
+    deskPaletteId: p.deskPaletteId,
+    uiPaletteId: p.uiPaletteId,
+    categoryPaletteId: p.categoryPaletteId,
+    categories: p.categories.map(c => ({ ...c }))
+  };
+}
+
+// A brand-new account's own starting stylePresets list — fixed, stable
+// ids (rather than newId()) purely so they're recognizable/debuggable as
+// "the seeded ones," though they're just as freely editable/deletable as
+// any other saved preset from here on; nothing else assumes these ids
+// stay put.
+function defaultStylePresets(){
+  return SEASONAL_STYLE_PRESETS.map(p => cloneStylePresetBlueprint(p, 'style-' + p.catalogId.replace('seasonal-','')));
 }
 
 function defaultState(){

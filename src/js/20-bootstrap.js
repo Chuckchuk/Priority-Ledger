@@ -26,7 +26,7 @@ document.addEventListener('keydown', (e) => {
   const appShell = document.getElementById('appShell');
   if(!appShell || appShell.style.display === 'none') return;
 
-  const popoverOpen = openCategoryPickerId || openCatLocPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId || customSelectOpenKey;
+  const popoverOpen = openCategoryPickerId || openCatLocPickerId || uiColorPickerOpen || deskPaperPickerOpen || seasonalPresetsBrowserOpen || locationEditorOpenId || customSelectOpenKey;
 
   if(e.key === 'Escape' || e.key === 'Enter'){
     if(customColorOpen && openCategoryPickerId){
@@ -153,7 +153,7 @@ function classifySwipeZone(target){
   // touchmove listener below bails immediately and never calls
   // preventDefault(), leaving native scroll/selection completely alone.
   if(target.closest('input, textarea, select, [contenteditable="true"]')) return null;
-  if(openCategoryPickerId || openCatLocPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId || customSelectOpenKey) return null;
+  if(openCategoryPickerId || openCatLocPickerId || uiColorPickerOpen || deskPaperPickerOpen || seasonalPresetsBrowserOpen || locationEditorOpenId || customSelectOpenKey) return null;
   const daynav = document.querySelector('.daynavrow');
   if(daynav && daynav.contains(target)){
     return { mode:'day', card: daynav.parentElement, label: daynav.querySelector('.dayhero') };
@@ -1000,8 +1000,8 @@ document.addEventListener('click', (e) => {
     confirmDualColorCustom();
     return;
   }
-  if((openCategoryPickerId || openCatLocPickerId || uiColorPickerOpen || deskPaperPickerOpen || locationEditorOpenId)
-     && !e.target.closest('.catdotwrap') && !e.target.closest('.catlocwrap') && !e.target.closest('.uicolorwrap') && !e.target.closest('.locbubblewrap')){
+  if((openCategoryPickerId || openCatLocPickerId || uiColorPickerOpen || deskPaperPickerOpen || seasonalPresetsBrowserOpen || locationEditorOpenId)
+     && !e.target.closest('.catdotwrap') && !e.target.closest('.catlocwrap') && !e.target.closest('.uicolorwrap') && !e.target.closest('.locbubblewrap') && !e.target.closest('.stylepresetbrowsewrap')){
     closeAllSettingsPopovers();
     render();
   }

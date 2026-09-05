@@ -3454,6 +3454,22 @@
     border:2px solid var(--card-bg); box-shadow:0 0 0 1px var(--line);
   }
   .stylepresetuiswatchhalf{ width:50%; height:100%; }
+  /* "Browse Seasonal Presets" trigger + its popover — same .catpicker
+     anchored-popover chrome as Desk & Ledger/UI Colors, so it reads as
+     the same kind of "custom menu" rather than an inline expanding
+     section. .stylepresetbrowsewrap is the position:relative anchor
+     .catpicker's own position:absolute needs, mirroring .uicolorwrap. */
+  .stylepresetbrowsewrap{ position:relative; margin-top:8px; }
+  .seasonalpresetpicker{ width:216px; }
+  /* A catalog tile's own single action is "add," not "apply then
+     separately act on it" — this trailing badge is the only affordance
+     for that, in place of stylePresetTileHtml()'s ⟳/✎/× row. */
+  .seasonaladdicon{
+    margin-left:auto; width:18px; height:18px; border-radius:50%; flex-shrink:0;
+    border:1px dashed var(--line); color: var(--ink-soft);
+    font-size:0.7rem; line-height:1; display:flex; align-items:center; justify-content:center;
+  }
+  .seasonalpresetpicker .stylepresetbtn:hover .seasonaladdicon{ border-color: var(--primary); color: var(--primary); }
   /* margin-top clears .catpickerclose ("×", position:absolute top:4px
      against .catpicker's own box) — .catpicker's own padding (12px) isn't
      enough on its own since the "×" sits a little into that padding, and

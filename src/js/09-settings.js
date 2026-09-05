@@ -651,6 +651,7 @@ function closeAllSettingsPopovers(){
   dualColorSaveTemplateOpen = false;
   stylePresetSaveOpen = false;
   editingStylePresetId = null;
+  seasonalPresetsBrowserOpen = false;
   locationEditorOpenId = null;
   pendingDeleteLocationId = null;
   customSelectOpenKey = null;
@@ -1769,10 +1770,22 @@ function stylePresetsSectionHtml(){
            </div>
          </div>`
       : `<button class="resetthemebtn" onclick="startSaveStylePreset()">+ Save current look as a preset</button>`;
+  // A saved account's own stylePresets never auto-updates once seeded
+  // (see cloneStylePresetBlueprint()'s own comment in 02-storage-state.js)
+  // — this popover (same .catpicker chrome as Desk & Ledger/UI Colors'
+  // own pickers, anchored to .stylepresetbrowsewrap below) is the
+  // deliberate, opt-in way to pull a fresh copy of a built-in preset in
+  // later, e.g. after that preset's own colors have been improved since
+  // your account was created, without silently overwriting whatever
+  // you've already customized it into.
   return `
     ${devSectionHeadHtml('Style Presets')}
     <div class="stylepresetgrid">${tiles}</div>
     ${saveForm}
+    <div class="stylepresetbrowsewrap">
+      <button class="resetthemebtn" onclick="toggleSeasonalPresetsBrowser()">☆ Browse Seasonal Presets</button>
+      ${seasonalPresetsBrowserOpen ? seasonalPresetsBrowserHtml() : ''}
+    </div>
   `;
 }
 
@@ -1820,13 +1833,83 @@ function stylePresetTileHtml(sp){
     </span>`;
 }
 
+// The "Browse Seasonal Presets" popover trigger — same toggle idiom as
+// toggleDeskPaperPicker()/toggleCategoryPicker(), routed through
+// closeAllSettingsPopovers() so it can't be open alongside any other
+// Settings popover.
+function toggleSeasonalPresetsBrowser(){
+  const wasOpen = seasonalPresetsBrowserOpen;
+  closeAllSettingsPopovers();
+  if(!wasOpen) seasonalPresetsBrowserOpen = true;
+  render();
+}
+
+// The popover itself — same .catpicker chrome (close ×, label, a plain
+// vertical .uipresetgrid of tiles) as deskPaperPickerHtml()/
+// uiColorPickerOpen's own picker, just listing the fixed
+// SEASONAL_STYLE_PRESETS catalog instead of a live editable list.
+function seasonalPresetsBrowserHtml(){
+  const tiles = SEASONAL_STYLE_PRESETS.map(p => seasonalPresetTileHtml(p)).join('');
+  return `
+    <div class="catpicker seasonalpresetpicker">
+      <button class="catpickerclose" onclick="toggleSeasonalPresetsBrowser()" title="Close">×</button>
+      <div class="catpickerlabel">Seasonal Presets</div>
+      <div class="uipresetgrid">${tiles}</div>
+    </div>`;
+}
+
+// A catalog entry's own tile — same swatch/badge/dots visual as
+// stylePresetTileHtml() (via the shared .stylepresetbtn class, so it
+// gets the same border/layered-badge treatment), but a single click
+// action (addSeasonalStylePreset()) instead of apply-on-click plus a
+// separate actions row, since a catalog entry isn't itself live/
+// editable/deletable — only a copy of it, once added, is. The trailing
+// "+" is purely a visual cue of what clicking does.
+function seasonalPresetTileHtml(p){
+  const dots = (p.categories||[]).slice(0, 6).map(c=>
+    `<span class="stylepresetdot" style="background:${c.hex}"></span>`
+  ).join('');
+  const ui = stylePresetUiColors(p);
+  return `
+    <button class="uipresetbtn stylepresetbtn" onclick="addSeasonalStylePreset('${p.catalogId}')" title="Add to my Style Presets">
+      <span class="stylepresetswatches">
+        <span class="uipresetswatches">
+          <span class="uipresetswatch" style="background:${p.theme.bg}"></span>
+          <span class="uipresetswatch" style="background:${p.theme.paper}"></span>
+        </span>
+        <span class="stylepresetuiswatch">
+          <span class="stylepresetuiswatchhalf" style="background:${ui.primary}"></span>
+          <span class="stylepresetuiswatchhalf" style="background:${ui.secondary}"></span>
+        </span>
+      </span>
+      <span class="stylepresetdots">${dots}</span>
+      <span class="uipresetlabel">${escapeHtml(p.label)}</span>
+      <span class="seasonaladdicon" aria-hidden="true">+</span>
+    </button>`;
+}
+
+// Copies a catalog entry into this account's own stylePresets — always a
+// fresh newId('style') (never the catalog's own catalogId), so adding
+// the same seasonal preset more than once, or on top of one you've since
+// deleted, never collides with anything.
+async function addSeasonalStylePreset(catalogId){
+  const p = SEASONAL_STYLE_PRESETS.find(s=>s.catalogId===catalogId);
+  if(!p) return;
+  pushUndo(`Added "${p.label}" seasonal preset`);
+  if(!Array.isArray(state.stylePresets)) state.stylePresets = [];
+  state.stylePresets.push(cloneStylePresetBlueprint(p, newId('style')));
+  seasonalPresetsBrowserOpen = false;
+  render();
+  queueSave();
+}
+
 // Resolves a style preset's own primary/secondary UI colors WITHOUT
 // touching live state — sp.uiPaletteId names which UI_COLOR_PRESET_SETS
 // entry its own uiPreset id has to be looked up in, since that set isn't
 // necessarily the one currently active (state.uiPaletteId /
 // UI_COLOR_PRESETS may point somewhere else entirely while just
-// rendering this tile). Used by stylePresetTileHtml() for the layered
-// swatch preview only.
+// rendering this tile). Used by stylePresetTileHtml() and
+// seasonalPresetTileHtml() for the layered swatch preview only.
 function stylePresetUiColors(sp){
   if(sp.theme.uiPreset === 'custom' && sp.theme.customUi) return sp.theme.customUi;
   const set = UI_COLOR_PRESET_SETS[sp.uiPaletteId] || UI_COLOR_PRESET_SETS.classic;
