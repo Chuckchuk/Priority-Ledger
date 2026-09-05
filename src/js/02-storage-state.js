@@ -223,12 +223,17 @@ let dualColorSaveTemplateOpen = false;
 // Same pair of ideas, for Style Presets (Settings → Appearance) — see
 // startSaveStylePreset()/editStylePreset() in 09-settings.js.
 // stylePresetSaveOpen is the plain "+ Save current look as a preset"
-// inline name form; editingStylePresetId (mutually exclusive with it,
-// same as editingDualColorPresetId/dualColorSaveTemplateOpen above) is
-// set instead when a saved preset's own ✎ was used, so confirming
-// overwrites that entry in place rather than creating a new one.
+// inline name form; editingStylePresetId names which existing preset the
+// compact edit popover (editStylePresetPopoverHtml(), 09-settings.js) is
+// currently open for — mutually exclusive with stylePresetSaveOpen, same
+// as editingDualColorPresetId/dualColorSaveTemplateOpen above.
 let stylePresetSaveOpen = false;
 let editingStylePresetId = null;
+// Which accordion row is expanded inside that edit popover —
+// 'name'/'desk'/'ui'/null. Only one at a time (expanding one collapses
+// whichever else was open) — see toggleEditStylePresetSection() in
+// 09-settings.js.
+let editStylePresetSection = null;
 // The "Browse Seasonal Presets" popover (toggleSeasonalPresetsBrowser()/
 // seasonalPresetsBrowserHtml() in 09-settings.js) — same anchored-
 // popover chrome (.catpicker) as the Desk & Ledger/UI Colors pickers,

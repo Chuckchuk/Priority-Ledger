@@ -662,6 +662,7 @@ function closeAllSettingsPopovers(){
   dualColorSaveTemplateOpen = false;
   stylePresetSaveOpen = false;
   editingStylePresetId = null;
+  editStylePresetSection = null;
   seasonalPresetsBrowserOpen = false;
   locationEditorOpenId = null;
   pendingDeleteLocationId = null;
@@ -1517,7 +1518,14 @@ async function confirmDualColorCustom(){
 // setDeskPaperPreset() just writes both state.theme.bg/paper directly, so
 // picking one is exactly as free to keep customizing afterward as the
 // "Custom" tile's own wheel is.
-function deskPaperPickerHtml(){
+// Everything INSIDE the Desk & Ledger popover except its own outer
+// .catpicker/close-× chrome — split out specifically so
+// editStylePresetPopoverHtml() below can embed the exact same picker
+// (palette tabs, grid, "Custom" tile, and its own wheel sub-view) inside
+// its own accordion row instead of forking a second copy of this markup.
+// deskPaperPickerHtml() is now a thin wrapper around this for its own
+// original standalone-popover use.
+function deskPaperPickerBodyHtml(){
   if(dualColorCustomOpen) return dualColorCustomHtml('desk');
   const options = DESK_PAPER_PRESETS.map(p=>`
     <button class="uipresetbtn ${deskPaperPresetActive(p)?'active':''}" onclick="setDeskPaperPreset('${p.id}')">
@@ -1545,11 +1553,17 @@ function deskPaperPickerHtml(){
       <span class="uipresetlabel">Custom</span>
     </button>`;
   return `
+    ${paletteTabsHtml(DESK_PAPER_PRESET_SETS, state.deskPaletteId, 'setDeskPaletteSet')}
+    <div class="catpickerlabel">Desk & Ledger</div>
+    <div class="uipresetgrid">${options}${customSaved}${customTile}</div>
+  `;
+}
+
+function deskPaperPickerHtml(){
+  return `
     <div class="catpicker uicolorpicker">
       <button class="catpickerclose" onclick="toggleDeskPaperPicker()" title="Close">×</button>
-      ${paletteTabsHtml(DESK_PAPER_PRESET_SETS, state.deskPaletteId, 'setDeskPaletteSet')}
-      <div class="catpickerlabel">Desk & Ledger</div>
-      <div class="uipresetgrid">${options}${customSaved}${customTile}</div>
+      ${deskPaperPickerBodyHtml()}
     </div>`;
 }
 
@@ -1675,7 +1689,11 @@ async function toggleThemeTexture(key){
 // touches. Same small in-place popover pattern as categoryPickerHtml()
 // (reuses its .catpicker/.catpickerclose/.catpickerlabel chrome), just
 // with a grid of preset swatch-pairs instead of a color row + icon row.
-function uiColorPickerHtml(){
+// Everything INSIDE the popover except the outer .catpicker/close-×
+// chrome — split out so editStylePresetPopoverHtml() below can embed
+// this exact same picker inside its own accordion row, same reasoning as
+// deskPaperPickerBodyHtml() above.
+function uiColorPickerBodyHtml(){
   if(dualColorCustomOpen) return dualColorCustomHtml('ui');
   const options = UI_COLOR_PRESETS.map(p=>`
     <button class="uipresetbtn ${state.theme.uiPreset===p.id?'active':''}" onclick="setUiColorPreset('${p.id}')">
@@ -1706,11 +1724,17 @@ function uiColorPickerHtml(){
       <span class="uipresetlabel">Custom</span>
     </button>`;
   return `
+    ${paletteTabsHtml(UI_COLOR_PRESET_SETS, state.uiPaletteId, 'setUiPaletteSet')}
+    <div class="catpickerlabel">UI Colors</div>
+    <div class="uipresetgrid">${options}${customSaved}${customTile}</div>
+  `;
+}
+
+function uiColorPickerHtml(){
+  return `
     <div class="catpicker uicolorpicker">
       <button class="catpickerclose" onclick="toggleUiColorPicker()" title="Close">×</button>
-      ${paletteTabsHtml(UI_COLOR_PRESET_SETS, state.uiPaletteId, 'setUiPaletteSet')}
-      <div class="catpickerlabel">UI Colors</div>
-      <div class="uipresetgrid">${options}${customSaved}${customTile}</div>
+      ${uiColorPickerBodyHtml()}
     </div>`;
 }
 
@@ -1768,38 +1792,30 @@ async function resetTheme(){
 // own comment in defaultState() there for the full field list.
 function stylePresetsSectionHtml(){
   const tiles = (state.stylePresets||[]).map(sp => stylePresetTileHtml(sp)).join('');
-  const editingPreset = editingStylePresetId ? (state.stylePresets||[]).find(s=>s.id===editingStylePresetId) : null;
   // Unlike openDualColorTemplateEdit()'s single color pair, there's no
   // dedicated "whole theme" editor to open here — Appearance and Manage
   // Tabs (both already live, ordinary Settings UI) ARE that editor, so
-  // "editing" a Style Preset is two separate, deliberate actions instead
-  // of one: ✎ only renames it (editStylePreset() below never touches the
-  // live look), and a tile's own ↻ (updateStylePresetLook()) re-captures
-  // whatever the app currently looks like into that preset in place —
-  // apply the preset, tweak it via Appearance/Manage Tabs, then ↻.
-  const saveForm = editingPreset
+  // ✎ (editStylePreset()) applies the preset and opens a compact
+  // accordion popover ANCHORED TO ITS OWN TILE (editStylePresetPopoverHtml(),
+  // rendered inside stylePresetTileHtml() itself) with Name/Desk &
+  // Ledger/UI Colors rows, each embedding the real pickers rather than a
+  // forked copy — see that function's own comment. This saveForm here is
+  // ONLY for creating a brand-new preset from scratch
+  // ("+ Save current look as a preset"); renaming/re-coloring an
+  // EXISTING one happens entirely inside its own tile's popover now.
+  const saveForm = stylePresetSaveOpen
     ? `<div class="templatesaveform">
-         <input type="text" id="stylePresetNameInput" placeholder="Name this preset" maxlength="40" value="${escapeHtml(editingPreset.label)}"
+         <input type="text" id="stylePresetNameInput" placeholder="Name this preset" maxlength="40"
            onkeydown="if(event.key==='Enter'){ event.preventDefault(); confirmSaveStylePreset(); }">
          <div class="templatesaveformactions">
-           <button class="templatecreateconfirm" onclick="confirmSaveStylePreset()">Rename</button>
+           <button class="templatecreateconfirm" onclick="confirmSaveStylePreset()">Save</button>
            <button class="templatecreatecancel" onclick="cancelSaveStylePreset()">Cancel</button>
          </div>
        </div>`
-    : stylePresetSaveOpen
-      ? `<div class="templatesaveform">
-           <input type="text" id="stylePresetNameInput" placeholder="Name this preset" maxlength="40"
-             onkeydown="if(event.key==='Enter'){ event.preventDefault(); confirmSaveStylePreset(); }">
-           <div class="templatesaveformactions">
-             <button class="templatecreateconfirm" onclick="confirmSaveStylePreset()">Save</button>
-             <button class="templatecreatecancel" onclick="cancelSaveStylePreset()">Cancel</button>
-           </div>
-         </div>`
-      // The trigger button itself now lives in the always-visible action
-      // row below (outside the collapsible tile grid) — this branch only
-      // ever renders the actual inline name form once one of the two
-      // states above is active.
-      : '';
+    // The trigger button itself lives in the always-visible action row
+    // below (outside the collapsible tile grid) — this branch only ever
+    // renders the actual inline name form once that's active.
+    : '';
   // A saved account's own stylePresets never auto-updates once seeded
   // (see cloneStylePresetBlueprint()'s own comment in 02-storage-state.js)
   // — this popover (same .catpicker chrome as Desk & Ledger/UI Colors'
@@ -1853,7 +1869,11 @@ function stylePresetsSectionHtml(){
 // confirmSaveStylePreset()'s rename branch and updateStylePresetLook())
 // appends "*" after the name once it's actually been changed since that
 // copy, while the ★ itself stays regardless — it's still "started from a
-// Theme Preset," just no longer identical to it.
+// Theme Preset," just no longer identical to it. .uipresettilewrap is
+// the position:relative anchor editStylePresetPopoverHtml()'s own
+// position:absolute needs, same idiom as .uicolorwrap/.stylepresetbrowsewrap
+// elsewhere — it's the shared wrap class every preset-tile shape already
+// uses, so this is a global CSS addition, not a Style-Preset-only one.
 function stylePresetTileHtml(sp){
   const dots = (sp.categories||[]).slice(0, 6).map(c=>
     `<span class="stylepresetdot" style="background:${c.hex}"></span>`
@@ -1880,10 +1900,10 @@ function stylePresetTileHtml(sp){
         ${badge}<span class="uipresetlabel">${labelText}</span>
       </button>
       <span class="uipresettileactions">
-        <button class="uipresetupdate" onclick="event.stopPropagation(); updateStylePresetLook('${sp.id}')" title="Update preset to match current look">⟳</button>
-        <button class="uipresetedit" onclick="event.stopPropagation(); editStylePreset('${sp.id}')" title="Rename preset">✎</button>
+        <button class="uipresetedit" onclick="event.stopPropagation(); editStylePreset('${sp.id}')" title="Edit this preset">✎</button>
         <button class="uipresetremove" onclick="event.stopPropagation(); deleteStylePreset('${sp.id}')" title="Remove preset">×</button>
       </span>
+      ${editingStylePresetId===sp.id ? editStylePresetPopoverHtml(sp) : ''}
     </span>`;
 }
 
@@ -2315,30 +2335,106 @@ function cancelSaveStylePreset(){
   render();
 }
 
-// The ✎ on a saved preset's own tile — renaming ONLY. Deliberately does
-// NOT apply the preset first: an earlier version did (so "editing"
-// started from exactly what's saved), but that meant clicking ✎ silently
-// switched your whole live look just to open a name field, which read as
-// the button "doing something it shouldn't." Renaming a preset shouldn't
-// touch the live app at all, so this only arms the inline name form,
-// pre-filled with the current label. See updateStylePresetLook() below
-// for the actual "change what this preset looks like" action.
-function editStylePreset(id){
+// The ✎ on a saved preset's own tile — opens the compact edit popover
+// (editStylePresetPopoverHtml() below) AND applies the preset live. An
+// earlier version of this button did a plain rename ONLY and deliberately
+// didn't apply anything, specifically because back then ✎ had no other
+// job — clicking it to just rename silently swapping your whole live
+// look read as it "doing something it shouldn't." Now that ✎ opens a
+// real "edit everything about this preset" menu (Name/Desk & Ledger/UI
+// Colors, each reusing the real pickers, plus a "Save changes" action),
+// applying the preset first is the CORRECT, expected behavior again —
+// you're not just renaming, you're about to look at and change its
+// actual colors, so seeing them applied is the whole point.
+async function editStylePreset(id){
   const sp = (state.stylePresets||[]).find(s=>s.id===id);
   if(!sp) return;
+  closeAllSettingsPopovers();
   editingStylePresetId = id;
-  stylePresetSaveOpen = false;
-  render();
-  document.getElementById('stylePresetNameInput')?.focus();
+  editStylePresetSection = null;
+  await applyStylePreset(id);
 }
 
-// The explicit "update a preset's look" action (the ↻ on its tile) —
-// re-snapshots whatever the live app looks like right now into this
-// preset in place, keeping its id and label. Separate from renaming on
-// purpose: apply the preset (click its tile), tweak Appearance/Manage
-// Tabs however you like via the normal Settings UI, then come back and
-// press ↻ to fold those tweaks back into the same saved preset — nothing
-// here runs implicitly just from opening the rename field.
+// Accordion toggle for the edit popover's own rows — expanding one
+// collapses whichever else was open, per the explicit ask.
+function toggleEditStylePresetSection(section){
+  editStylePresetSection = (editStylePresetSection === section) ? null : section;
+  render();
+}
+
+// Closes the edit popover without touching the live theme — any tweaks
+// made via its embedded Desk & Ledger/UI Colors rows already committed
+// to state.theme directly (the same real pickers, same real commit
+// functions), exactly as if you'd made them from Appearance's own
+// controls; this just stops looking at them through this popover. The
+// live look stays changed either way — closing without hitting "Save
+// changes to preset" just means the SAVED preset itself doesn't pick up
+// those tweaks, same as walking away from the old ⟳ flow without
+// pressing it.
+function closeEditStylePreset(){
+  editingStylePresetId = null;
+  editStylePresetSection = null;
+  render();
+}
+
+// The compact edit popover itself — a small accordion of Name/Desk &
+// Ledger/UI Colors rows, each embedding the EXACT same picker markup
+// used everywhere else in Settings (deskPaperPickerBodyHtml()/
+// uiColorPickerBodyHtml(), including their own "Custom" tile and wheel
+// sub-view) rather than a second, forked copy of that UI. Only one row's
+// body renders at a time (editStylePresetSection), per the explicit
+// "collapsible fields that open one at a time" ask. There's
+// deliberately no "Category Colors" row — nothing like "edit every
+// category's color from one central place" exists elsewhere to reuse
+// (a category's own color still comes from its own dot in Manage Tabs),
+// and building a brand-new picker for that here would be exactly the
+// kind of forked, one-off UI this whole approach was chosen to avoid.
+function editStylePresetPopoverHtml(sp){
+  const nameOpen = editStylePresetSection === 'name';
+  const deskOpen = editStylePresetSection === 'desk';
+  const uiOpen = editStylePresetSection === 'ui';
+  const nameBody = nameOpen ? `
+    <div class="editpresetsectionbody">
+      <div class="templatesaveform">
+        <input type="text" id="stylePresetNameInput" placeholder="Name this preset" maxlength="40" value="${escapeHtml(sp.label)}"
+          onkeydown="if(event.key==='Enter'){ event.preventDefault(); confirmSaveStylePreset(); }">
+        <div class="templatesaveformactions">
+          <button class="templatecreateconfirm" onclick="confirmSaveStylePreset()">Rename</button>
+        </div>
+      </div>
+    </div>` : '';
+  const deskBody = deskOpen ? `<div class="editpresetsectionbody">${deskPaperPickerBodyHtml()}</div>` : '';
+  const uiBody = uiOpen ? `<div class="editpresetsectionbody">${uiColorPickerBodyHtml()}</div>` : '';
+  return `
+    <div class="catpicker editpresetpicker">
+      <button class="catpickerclose" onclick="closeEditStylePreset()" title="Close">×</button>
+      <div class="catpickerlabel">Edit "${escapeHtml(sp.label)}"</div>
+      <div class="editpresetsection">
+        <button class="editpresetsectionhead ${nameOpen?'active':''}" onclick="toggleEditStylePresetSection('name')">Name</button>
+        ${nameBody}
+      </div>
+      <div class="editpresetsection">
+        <button class="editpresetsectionhead ${deskOpen?'active':''}" onclick="toggleEditStylePresetSection('desk')">Desk &amp; Ledger — ${escapeHtml(activeDeskPaperPresetLabel())}</button>
+        ${deskBody}
+      </div>
+      <div class="editpresetsection">
+        <button class="editpresetsectionhead ${uiOpen?'active':''}" onclick="toggleEditStylePresetSection('ui')">UI Colors — ${escapeHtml(uiColorPreset(state.theme.uiPreset).label)}</button>
+        ${uiBody}
+      </div>
+      <button class="templatecreateconfirm editpresetsavebtn" onclick="updateStylePresetLook('${sp.id}'); closeEditStylePreset();">Save changes to preset</button>
+    </div>`;
+}
+
+// The "Save changes to preset" action at the bottom of the edit popover
+// — re-snapshots whatever the live app looks like right now into this
+// preset in place, keeping its id and label. Reached via ✎ → tweak Desk
+// & Ledger/UI Colors inline (or Manage Tabs' own per-category color
+// dots, still outside this popover — there's no "edit every category's
+// color" picker to reuse here yet) → this action folds those tweaks back
+// into the same saved preset. Also callable directly (kept as its own
+// function rather than folded into closeEditStylePreset()) in case a
+// future entry point wants "update the look" without going through the
+// popover at all.
 async function updateStylePresetLook(id){
   const sp = (state.stylePresets||[]).find(s=>s.id===id);
   if(!sp) return;
@@ -2371,14 +2467,18 @@ async function confirmSaveStylePreset(){
       // it didn't touch colors — see stylePresetTileHtml()'s own comment.
       existing.edited = true;
     }
+    // Collapses the Name row only, NOT the whole edit popover — unlike
+    // the "create a brand-new preset" branch below, this happens inside
+    // editStylePresetPopoverHtml()'s own accordion, which may still have
+    // Desk & Ledger/UI Colors left to tweak in the same sitting.
+    editStylePresetSection = null;
   } else {
     pushUndo(`Saved "${name}" style preset`);
     const snapshot = buildStylePresetSnapshot(name);
     if(!Array.isArray(state.stylePresets)) state.stylePresets = [];
     state.stylePresets.push({ ...snapshot, id: newId('style') });
+    stylePresetSaveOpen = false;
   }
-  stylePresetSaveOpen = false;
-  editingStylePresetId = null;
   render();
   queueSave();
 }

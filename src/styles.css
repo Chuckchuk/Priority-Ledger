@@ -3424,7 +3424,7 @@
      plain color swatch: a template has its own text label running the
      width of the row, which a corner badge would risk sitting on top of
      for a long saved name. */
-  .uipresettilewrap{ display:flex; align-items:center; gap:4px; }
+  .uipresettilewrap{ display:flex; align-items:center; gap:4px; position:relative; }
   .uipresettilewrap .uipresetbtn{ flex:1; min-width:0; }
   .uipresettileactions{ display:flex; gap:3px; flex-shrink:0; }
   .uipresetedit, .uipresetremove, .uipresetupdate{
@@ -3506,6 +3506,28 @@
      a "featured/official" badge, distinct from the plain grey ✎/×/⟳
      action icons beside it. */
   .stylepreseticon{ color:#C9A227; margin-right:4px; font-size:0.7em; }
+  /* The compact per-tile edit popover (editStylePresetPopoverHtml(),
+     09-settings.js) — anchored to .uipresettilewrap like every other
+     tile-local popover in this file. Wider than the plain 196px
+     .catpicker default since it has to comfortably fit an EMBEDDED
+     Desk & Ledger/UI Colors picker (itself already sized for a ~210px
+     column) inside one of its own rows, not just a flat list of tiles. */
+  .editpresetpicker{ width:230px; }
+  .editpresetsection{ margin-bottom:6px; }
+  .editpresetsection:last-of-type{ margin-bottom:10px; }
+  .editpresetsectionhead{
+    display:block; width:100%; text-align:left; font-family:'IBM Plex Mono', monospace;
+    font-size:0.6rem; text-transform:uppercase; letter-spacing:0.02em;
+    background: var(--card-bg-dim); border:1px solid var(--line); border-radius:6px;
+    padding:6px 8px; color: var(--ink-soft); cursor:pointer;
+  }
+  .editpresetsectionhead.active{ border-color: var(--primary); color: var(--primary); }
+  /* Embeds deskPaperPickerBodyHtml()/uiColorPickerBodyHtml() — those
+     already carry their own .uipresetgrid/.palettetabs spacing, this
+     just gives the expanded row a little breathing room and a visual
+     "nested" indent against the section header above it. */
+  .editpresetsectionbody{ padding:8px 4px 2px 6px; }
+  .editpresetsavebtn{ width:100%; margin-top:2px; }
   /* A catalog tile's own single action is "add," not "apply then
      separately act on it" — this trailing badge is the only affordance
      for that, in place of stylePresetTileHtml()'s ⟳/✎/× row. */
