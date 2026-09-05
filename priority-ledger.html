@@ -19310,6 +19310,18 @@ document.addEventListener('touchmove', (e) => {
     pullRefreshReset();
     return;
   }
+  // Same reasoning, for the swipe-left row actions (rowSwipeGesture) —
+  // those attach their own touchmove directly to the row, which runs
+  // first and can lock the gesture onto the x-axis mid-touch, well after
+  // this same touch already armed a pull gesture at touchstart (rows
+  // don't opt out of pullRefreshEligible() up front, since a touch that
+  // ends up scrolling vertically instead should still be able to arm a
+  // pull normally). Once it's a confirmed sideways row drag, bail here too.
+  if(rowSwipeGesture && rowSwipeGesture.axis === 'x'){
+    pullRefreshGesture = null;
+    pullRefreshReset();
+    return;
+  }
   const y = e.touches[0].clientY;
   if(window.scrollY > 0){
     pullRefreshGesture.baseY = null; // re-baseline next time we're back at the top
