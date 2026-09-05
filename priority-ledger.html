@@ -3514,6 +3514,18 @@
     border:2px solid var(--card-bg); box-shadow:0 0 0 1px var(--line);
   }
   .stylepresetuiswatchhalf{ width:50%; height:100%; }
+  /* "Browse Seasonal Presets" + "Save current look" sit in one row below
+     the (collapsible) tile grid, Browse first per the project owner's
+     own ordering ask. Each wrapped in flex:1 so the two buttons split
+     the row evenly regardless of their own text length. */
+  .stylepresetactionsrow{ display:flex; gap:8px; margin-top:8px; }
+  .stylepresetactionsrow > .stylepresetbrowsewrap{ flex:1; margin-top:0; }
+  .stylepresetactionsrow > .stylepresetbrowsewrap > .resetthemebtn{ width:100%; }
+  /* "Save current look" gets a heavier, solid border (vs Browse's
+     default 1px dashed) so it visibly stands out as the action most
+     worth noticing — saving your own look is the more important of the
+     two, Browse is more of a secondary "go discover something." */
+  .stylepresetsavebtn{ flex:1; border-style:solid; border-width:2px; }
   /* "Browse Seasonal Presets" trigger + its popover — same .catpicker
      anchored-popover chrome as Desk & Ledger/UI Colors, so it reads as
      the same kind of "custom menu" rather than an inline expanding
@@ -3521,6 +3533,11 @@
      .catpicker's own position:absolute needs, mirroring .uicolorwrap. */
   .stylepresetbrowsewrap{ position:relative; margin-top:8px; }
   .seasonalpresetpicker{ width:216px; }
+  /* Marks a saved preset that started as a copy of a built-in catalog
+     entry (stylePresetTileHtml()) — small and gold/amber so it reads as
+     a "featured/official" badge, distinct from the plain grey ✎/×/⟳
+     action icons beside it. */
+  .stylepreseticon{ color:#C9A227; margin-right:4px; font-size:0.7em; }
   /* A catalog tile's own single action is "add," not "apply then
      separately act on it" — this trailing badge is the only affordance
      for that, in place of stylePresetTileHtml()'s ⟳/✎/× row. */
@@ -7964,7 +7981,7 @@ let settingsCollapsedSections = (() => {
     const raw = localStorage.getItem('ledger-settings-collapsed');
     if(raw !== null) return new Set(JSON.parse(raw));
   } catch(e){}
-  return new Set(['dev', 'dev-desktop', 'dev-mobile']);
+  return new Set(['dev', 'dev-desktop', 'dev-mobile', 'stylePresets']);
 })();
 function persistSettingsCollapsedSections(){
   try { localStorage.setItem('ledger-settings-collapsed', JSON.stringify([...settingsCollapsedSections])); } catch(e){}
@@ -8414,6 +8431,17 @@ function defaultTasks(){
 // (09-settings.js) and is never copied into a real stylePresets entry
 // by cloneStylePresetBlueprint(), since "which season this came from"
 // isn't meaningful once it's your own saved preset.
+//
+// A category entry is `{ hex }` ONLY — never `icon` — unless a preset
+// deliberately wants to override a category's icon too (nothing here
+// does yet; that's a future "Halloween gets pumpkin/ghost icons"-style
+// feature, not built out). This is deliberate: a Style Preset is
+// supposed to be "just the colors," so applyStylePresetColors() (in
+// 09-settings.js) only ever touches a category's `icon` when an entry
+// actually specifies one — a plain `{ hex }` entry leaves whatever icon
+// the user already had on that category completely alone. Don't add
+// `icon:'dot'` back onto every entry "for completeness" — that's exactly
+// what silently overwrote everyone's custom icons the last time.
 const SEASONAL_STYLE_PRESETS = [{
     catalogId: 'seasonal-halloween',
     season: 'fall',
@@ -8447,18 +8475,18 @@ const SEASONAL_STYLE_PRESETS = [{
     // amber rather than matching it, so it still reads as "an orange"
     // without competing with All's own.
     categories: [
-      { hex:'#5A4570', icon:'dot' }, // muted witch purple
-      { hex:'#3C3542', icon:'dot' }, // charcoal (violet-leaning)
-      { hex:'#9C5A34', icon:'dot' }, // muted rust orange
-      { hex:'#5A3048', icon:'dot' }, // plum wine
-      { hex:'#55704F', icon:'dot' }, // muted moss green
-      { hex:'#3C3542', icon:'dot' }, // charcoal
-      { hex:'#5A4570', icon:'dot' }, // muted witch purple
-      { hex:'#8C8272', icon:'dot' }, // bone
-      { hex:'#9C5A34', icon:'dot' }, // muted rust orange
-      { hex:'#5A3048', icon:'dot' }, // plum wine
-      { hex:'#55704F', icon:'dot' }, // muted moss green
-      { hex:'#3C3542', icon:'dot' }  // charcoal
+      { hex:'#5A4570' }, // muted witch purple
+      { hex:'#3C3542' }, // charcoal (violet-leaning)
+      { hex:'#9C5A34' }, // muted rust orange
+      { hex:'#5A3048' }, // plum wine
+      { hex:'#55704F' }, // muted moss green
+      { hex:'#3C3542' }, // charcoal
+      { hex:'#5A4570' }, // muted witch purple
+      { hex:'#8C8272' }, // bone
+      { hex:'#9C5A34' }, // muted rust orange
+      { hex:'#5A3048' }, // plum wine
+      { hex:'#55704F' }, // muted moss green
+      { hex:'#3C3542' }  // charcoal
     ]
   }, {
     catalogId: 'seasonal-meadow',
@@ -8481,18 +8509,18 @@ const SEASONAL_STYLE_PRESETS = [{
     uiPaletteId: 'classic',
     categoryPaletteId: 'pastel',
     categories: [
-      { hex:'#5C8A52', icon:'dot' }, // leaf green
-      { hex:'#D98A73', icon:'dot' }, // coral pink
-      { hex:'#6FA8C0', icon:'dot' }, // sky blue
-      { hex:'#D9B04C', icon:'dot' }, // buttercup yellow
-      { hex:'#9C86C0', icon:'dot' }, // lavender
-      { hex:'#D98CA0', icon:'dot' }, // blush rose
-      { hex:'#7A8C4E', icon:'dot' }, // moss
-      { hex:'#B8663E', icon:'dot' }, // terracotta
-      { hex:'#7A8AC0', icon:'dot' }, // periwinkle
-      { hex:'#D9A22E', icon:'dot' }, // sunflower
-      { hex:'#6FBFA0', icon:'dot' }, // mint
-      { hex:'#A0699C', icon:'dot' }  // plum blossom
+      { hex:'#5C8A52' }, // leaf green
+      { hex:'#D98A73' }, // coral pink
+      { hex:'#6FA8C0' }, // sky blue
+      { hex:'#D9B04C' }, // buttercup yellow
+      { hex:'#9C86C0' }, // lavender
+      { hex:'#D98CA0' }, // blush rose
+      { hex:'#7A8C4E' }, // moss
+      { hex:'#B8663E' }, // terracotta
+      { hex:'#7A8AC0' }, // periwinkle
+      { hex:'#D9A22E' }, // sunflower
+      { hex:'#6FBFA0' }, // mint
+      { hex:'#A0699C' }  // plum blossom
     ]
   }, {
     catalogId: 'seasonal-harvest',
@@ -8518,18 +8546,18 @@ const SEASONAL_STYLE_PRESETS = [{
     // orange: theme.customUi.primary here IS a rust-orange, so a
     // category #0 in that family would double up against the "All" tab.
     categories: [
-      { hex:'#5C6B3C', icon:'dot' }, // olive moss
-      { hex:'#4A342A', icon:'dot' }, // deep brown
-      { hex:'#9C5A2E', icon:'dot' }, // rust brown
-      { hex:'#748C6B', icon:'dot' }, // sage green
-      { hex:'#A98A3E', icon:'dot' }, // muted gold
-      { hex:'#4A342A', icon:'dot' }, // deep brown
-      { hex:'#5C6B3C', icon:'dot' }, // olive moss
-      { hex:'#8C4A3C', icon:'dot' }, // dusty red
-      { hex:'#9C5A2E', icon:'dot' }, // rust brown
-      { hex:'#748C6B', icon:'dot' }, // sage green
-      { hex:'#A98A3E', icon:'dot' }, // muted gold
-      { hex:'#4A342A', icon:'dot' }  // deep brown
+      { hex:'#5C6B3C' }, // olive moss
+      { hex:'#4A342A' }, // deep brown
+      { hex:'#9C5A2E' }, // rust brown
+      { hex:'#748C6B' }, // sage green
+      { hex:'#A98A3E' }, // muted gold
+      { hex:'#4A342A' }, // deep brown
+      { hex:'#5C6B3C' }, // olive moss
+      { hex:'#8C4A3C' }, // dusty red
+      { hex:'#9C5A2E' }, // rust brown
+      { hex:'#748C6B' }, // sage green
+      { hex:'#A98A3E' }, // muted gold
+      { hex:'#4A342A' }  // deep brown
     ]
   }, {
     catalogId: 'seasonal-frost',
@@ -8554,18 +8582,18 @@ const SEASONAL_STYLE_PRESETS = [{
     // just once, same "use the loudest one sparingly" reasoning as
     // Halloween's bone/Harvest's dusty red.
     categories: [
-      { hex:'#3C5C4A', icon:'dot' }, // pine
-      { hex:'#4A5A68', icon:'dot' }, // slate
-      { hex:'#5C8CA8', icon:'dot' }, // frost blue
-      { hex:'#5C5468', icon:'dot' }, // plum grey
-      { hex:'#8C8478', icon:'dot' }, // birch
-      { hex:'#4A5A68', icon:'dot' }, // slate
-      { hex:'#3C5C4A', icon:'dot' }, // pine
-      { hex:'#8C3C4A', icon:'dot' }, // holly berry red
-      { hex:'#5C8CA8', icon:'dot' }, // frost blue
-      { hex:'#5C5468', icon:'dot' }, // plum grey
-      { hex:'#8C8478', icon:'dot' }, // birch
-      { hex:'#4A5A68', icon:'dot' }  // slate
+      { hex:'#3C5C4A' }, // pine
+      { hex:'#4A5A68' }, // slate
+      { hex:'#5C8CA8' }, // frost blue
+      { hex:'#5C5468' }, // plum grey
+      { hex:'#8C8478' }, // birch
+      { hex:'#4A5A68' }, // slate
+      { hex:'#3C5C4A' }, // pine
+      { hex:'#8C3C4A' }, // holly berry red
+      { hex:'#5C8CA8' }, // frost blue
+      { hex:'#5C5468' }, // plum grey
+      { hex:'#8C8478' }, // birch
+      { hex:'#4A5A68' }  // slate
     ]
   }, {
     catalogId: 'seasonal-tide',
@@ -8587,18 +8615,59 @@ const SEASONAL_STYLE_PRESETS = [{
     // #0 is turquoise, not coral, since theme.customUi.primary is
     // already a coral-orange.
     categories: [
-      { hex:'#3C7C7C', icon:'dot' }, // turquoise
-      { hex:'#8C7C68', icon:'dot' }, // driftwood
-      { hex:'#C05A3C', icon:'dot' }, // coral
-      { hex:'#3C5C7C', icon:'dot' }, // sea blue
-      { hex:'#C9A24E', icon:'dot' }, // sand gold
-      { hex:'#8C7C68', icon:'dot' }, // driftwood
-      { hex:'#3C7C7C', icon:'dot' }, // turquoise
-      { hex:'#5C7C4A', icon:'dot' }, // palm green
-      { hex:'#C05A3C', icon:'dot' }, // coral
-      { hex:'#3C5C7C', icon:'dot' }, // sea blue
-      { hex:'#C9A24E', icon:'dot' }, // sand gold
-      { hex:'#8C7C68', icon:'dot' }  // driftwood
+      { hex:'#3C7C7C' }, // turquoise
+      { hex:'#8C7C68' }, // driftwood
+      { hex:'#C05A3C' }, // coral
+      { hex:'#3C5C7C' }, // sea blue
+      { hex:'#C9A24E' }, // sand gold
+      { hex:'#8C7C68' }, // driftwood
+      { hex:'#3C7C7C' }, // turquoise
+      { hex:'#5C7C4A' }, // palm green
+      { hex:'#C05A3C' }, // coral
+      { hex:'#3C5C7C' }, // sea blue
+      { hex:'#C9A24E' }, // sand gold
+      { hex:'#8C7C68' }  // driftwood
+    ]
+  }, {
+    catalogId: 'seasonal-seaglass',
+    season: 'summer',
+    label: 'Seaglass',
+    // Built directly from two ALREADY-NAMED presets rather than
+    // hand-picked new colors — Desk & Ledger's own "Seafoam & Mist"
+    // (DESK_PAPER_PRESET_SETS.pastel) and UI Colors' own "Mint & Coral"
+    // (UI_COLOR_PRESET_SETS.pastel), per the project owner's own explicit
+    // ask for those two specific named looks together. deskPaletteId/
+    // uiPaletteId are 'pastel' accordingly, matching where those two
+    // presets actually live.
+    theme: {
+      bg: '#4F8177', paper: '#E2F0EA',
+      gradient: true, grain: false, pages: false, leather: false,
+      uiPreset: 'custom',
+      customUi: { label:'Seaglass', primary:'#5FAE9A', primaryLight:'#82C4B2', secondary:'#E58572', secondaryLight:'#EFA795' },
+      inkFromUi: true, inkFromUiSource: 'primary'
+    },
+    deskPaletteId: 'pastel',
+    uiPaletteId: 'pastel',
+    categoryPaletteId: 'pastel',
+    // The Pastel category palette's own 12 colors (CATEGORY_PALETTE_SETS.pastel
+    // in 01-categories-theme.js), used as-is in their own already-curated
+    // hue-sweep order — no need to reshuffle an order that's already
+    // deliberately designed, and it already starts on a warm coral-pink
+    // (not the mint/teal family theme.customUi.primary sits in), so
+    // category #0 doesn't need special-casing here either.
+    categories: [
+      { hex:'#D88E83' }, // coral pink
+      { hex:'#DFA671' }, // peach
+      { hex:'#DFCD79' }, // butter yellow
+      { hex:'#BBCC82' }, // sage
+      { hex:'#9CC99C' }, // mint green
+      { hex:'#93CCBA' }, // seafoam teal
+      { hex:'#89BBC1' }, // sky teal
+      { hex:'#8CB1D0' }, // sky blue
+      { hex:'#98A2D0' }, // periwinkle
+      { hex:'#B59CD0' }, // lavender
+      { hex:'#D09CBE' }, // orchid pink
+      { hex:'#D8A2AA' }  // rose
     ]
 }];
 
@@ -8608,6 +8677,14 @@ const SEASONAL_STYLE_PRESETS = [{
 // the categories array by reference with the catalog, so editing a copy
 // later (updateStylePresetLook()) can never mutate the canonical catalog
 // data itself.
+// fromCatalogId + edited:false mark the copy as "started from a built-in
+// Theme Preset, unmodified since" — stylePresetTileHtml() (09-settings.js)
+// shows a small badge icon for any preset carrying fromCatalogId, and
+// appends "*" to the label once edited flips to true (set by
+// confirmSaveStylePreset()'s rename branch and updateStylePresetLook()).
+// A preset created via "+ Save current look as a preset" instead never
+// gets fromCatalogId at all, so it never shows the badge — only a copy
+// that actually came from the catalog counts as a "Theme Preset."
 function cloneStylePresetBlueprint(p, id){
   return {
     id,
@@ -8616,7 +8693,9 @@ function cloneStylePresetBlueprint(p, id){
     deskPaletteId: p.deskPaletteId,
     uiPaletteId: p.uiPaletteId,
     categoryPaletteId: p.categoryPaletteId,
-    categories: p.categories.map(c => ({ ...c }))
+    categories: p.categories.map(c => ({ ...c })),
+    fromCatalogId: p.catalogId,
+    edited: false
   };
 }
 
@@ -14119,6 +14198,7 @@ async function setDeskPaletteSet(id){
   const idx = oldPresets.findIndex(deskPaperPresetActive);
   pushUndo(`Changed desk & ledger palette to "${newSet.label}"`);
   state.deskPaletteId = id;
+  state.theme.deskLabel = null;
   rebuildDeskPaperPresets();
   if(idx !== -1 && DESK_PAPER_PRESETS[idx]){
     state.theme.bg = DESK_PAPER_PRESETS[idx].bg;
@@ -14460,6 +14540,7 @@ async function confirmSaveDualColorTemplate(kind){
     entry = { bg, paper };
     state.theme.bg = bg;
     state.theme.paper = paper;
+    state.theme.deskLabel = null;
   } else {
     const primary = dualColorHexOf('primary'), secondary = dualColorHexOf('secondary');
     entry = { primary, primaryLight: shadeHex(primary, 0.35), secondary, secondaryLight: shadeHex(secondary, 0.35) };
@@ -14544,6 +14625,7 @@ async function confirmDualColorCustom(){
       pushUndo('Changed desk & ledger colors to "Custom"');
       state.theme.bg = bg;
       state.theme.paper = paper;
+      state.theme.deskLabel = null;
     }
   } else if(uiColorPickerOpen){
     const primary = hsvToHex(dualColorDraft.primary.h, dualColorDraft.primary.s, dualColorDraft.primary.v);
@@ -14636,6 +14718,7 @@ async function applyCustomDeskPreset(id){
   pushUndo(`Changed desk & ledger colors to "${p.label}"`);
   state.theme.bg = p.bg;
   state.theme.paper = p.paper;
+  state.theme.deskLabel = null;
   applyTheme();
   render();
   queueSave();
@@ -14645,9 +14728,19 @@ async function applyCustomDeskPreset(id){
 // UI Colors) there's no stored preset id to read back — bg/paper are
 // freely editable on their own, so this just checks whether they
 // currently happen to match one of the presets exactly.
+// Falls back to state.theme.deskLabel (set by applyStylePresetColors()
+// when the current bg/paper came from applying a Style Preset) before
+// the generic 'Custom' — the equivalent of how UI Colors already shows a
+// Style Preset's own name via state.theme.customUi.label instead of a
+// bare "Custom". Every OTHER path that changes bg/paper away from a
+// Style Preset (setDeskPaperPreset(), applyCustomDeskPreset(),
+// setDeskPaletteSet(), confirmDualColorCustom()'s desk branch) clears
+// deskLabel back to null, so a stale preset name can never linger once
+// the pair no longer actually matches it.
 function activeDeskPaperPresetLabel(){
   const match = DESK_PAPER_PRESETS.find(deskPaperPresetActive) || (state.customDeskPresets||[]).find(deskPaperPresetActive);
-  return match ? match.label : 'Custom';
+  if(match) return match.label;
+  return state.theme.deskLabel || 'Custom';
 }
 
 function toggleDeskPaperPicker(){
@@ -14663,6 +14756,7 @@ async function setDeskPaperPreset(id){
   pushUndo(`Changed desk & ledger colors to "${p.label}"`);
   state.theme.bg = p.bg;
   state.theme.paper = p.paper;
+  state.theme.deskLabel = null;
   applyTheme();
   render();
   queueSave();
@@ -14829,7 +14923,11 @@ function stylePresetsSectionHtml(){
              <button class="templatecreatecancel" onclick="cancelSaveStylePreset()">Cancel</button>
            </div>
          </div>`
-      : `<button class="resetthemebtn" onclick="startSaveStylePreset()">+ Save current look as a preset</button>`;
+      // The trigger button itself now lives in the always-visible action
+      // row below (outside the collapsible tile grid) — this branch only
+      // ever renders the actual inline name form once one of the two
+      // states above is active.
+      : '';
   // A saved account's own stylePresets never auto-updates once seeded
   // (see cloneStylePresetBlueprint()'s own comment in 02-storage-state.js)
   // — this popover (same .catpicker chrome as Desk & Ledger/UI Colors'
@@ -14838,14 +14936,27 @@ function stylePresetsSectionHtml(){
   // later, e.g. after that preset's own colors have been improved since
   // your account was created, without silently overwriting whatever
   // you've already customized it into.
+  //
+  // The tile grid itself is the only part that collapses (settingsSectionHtml()
+  // — same nested-collapsible chrome as the top-level Settings sections,
+  // 'stylePresets' starts collapsed by default, see settingsCollapsedSections
+  // in 02-storage-state.js) — "Save current look"/"Browse Seasonal
+  // Presets" stay outside it and always visible, since collapsing the
+  // section shouldn't also hide the one button most people actually want
+  // to find. Browse comes first (left) and Save current second (right),
+  // with Save current's border deliberately heavier — it's the action
+  // that's easy to miss/most worth surfacing, Browse is more of a
+  // secondary "go discover something" action.
   return `
-    ${devSectionHeadHtml('Style Presets')}
-    <div class="stylepresetgrid">${tiles}</div>
-    ${saveForm}
-    <div class="stylepresetbrowsewrap">
-      <button class="resetthemebtn" onclick="toggleSeasonalPresetsBrowser()">☆ Browse Seasonal Presets</button>
-      ${seasonalPresetsBrowserOpen ? seasonalPresetsBrowserHtml() : ''}
+    ${settingsSectionHtml('stylePresets', 'Style Presets', `<div class="stylepresetgrid">${tiles}</div>`)}
+    <div class="stylepresetactionsrow">
+      <div class="stylepresetbrowsewrap">
+        <button class="resetthemebtn" onclick="toggleSeasonalPresetsBrowser()">☆ Browse Seasonal Presets</button>
+        ${seasonalPresetsBrowserOpen ? seasonalPresetsBrowserHtml() : ''}
+      </div>
+      <button class="resetthemebtn stylepresetsavebtn" onclick="startSaveStylePreset()">+ Save current look as a preset</button>
     </div>
+    ${saveForm}
   `;
 }
 
@@ -14864,14 +14975,25 @@ function stylePresetsSectionHtml(){
 // it (the app's own current paper color IS one of the panel's own
 // background colors, so a preset built around a similar paper tone has
 // nothing else to visually separate it).
+// sp.fromCatalogId (set by cloneStylePresetBlueprint(), 02-storage-state.js)
+// marks a preset that started as a copy of a built-in catalog entry — it
+// gets a small ★ badge before its name; sp.edited (flipped true by
+// confirmSaveStylePreset()'s rename branch and updateStylePresetLook())
+// appends "*" after the name once it's actually been changed since that
+// copy, while the ★ itself stays regardless — it's still "started from a
+// Theme Preset," just no longer identical to it.
 function stylePresetTileHtml(sp){
   const dots = (sp.categories||[]).slice(0, 6).map(c=>
     `<span class="stylepresetdot" style="background:${c.hex}"></span>`
   ).join('');
   const ui = stylePresetUiColors(sp);
+  const badge = sp.fromCatalogId ? `<span class="stylepreseticon" title="Started from a built-in Theme Preset" aria-hidden="true">★</span>` : '';
+  const labelText = escapeHtml(sp.label) + (sp.fromCatalogId && sp.edited ? ' *' : '');
   return `
     <span class="uipresettilewrap">
-      <button class="uipresetbtn stylepresetbtn" onclick="applyStylePreset('${sp.id}')">
+      <button class="uipresetbtn stylepresetbtn"
+        onmouseenter="previewSavedStylePreset('${sp.id}', true)" onmouseleave="previewSavedStylePreset('${sp.id}', false)"
+        onclick="applyStylePreset('${sp.id}')">
         <span class="stylepresetswatches">
           <span class="uipresetswatches">
             <span class="uipresetswatch" style="background:${sp.theme.bg}"></span>
@@ -14883,7 +15005,7 @@ function stylePresetTileHtml(sp){
           </span>
         </span>
         <span class="stylepresetdots">${dots}</span>
-        <span class="uipresetlabel">${escapeHtml(sp.label)}</span>
+        ${badge}<span class="uipresetlabel">${labelText}</span>
       </button>
       <span class="uipresettileactions">
         <button class="uipresetupdate" onclick="event.stopPropagation(); updateStylePresetLook('${sp.id}')" title="Update preset to match current look">⟳</button>
@@ -15109,21 +15231,35 @@ function stylePreviewTweenTo(sp){
   stylePreviewTweenFrame = requestAnimationFrame(frame);
 }
 
+// Shared un-hover target for both preview flavors below — crossfades
+// back to whatever's REALLY committed in state right now (not a cached
+// "before" snapshot), shaped the same way a real Style Preset is so it
+// can go through the same tween function.
+function revertStylePreviewTween(){
+  stylePreviewTweenTo({ theme: state.theme, uiPaletteId: state.uiPaletteId, categories: state.categories.map(c => ({ hex: c.hex, icon: c.icon })) });
+}
+
 // Hover preview for a seasonal catalog tile — never touches state, same
 // "draft, not committed" idiom updateCatWheelUI()'s own live drag-
 // preview already uses for a single color pair, just crossfaded instead
-// of snapped (see stylePreviewTweenTo() above). Un-hovering (on=false)
-// crossfades back to whatever's REALLY committed in state right now (not
-// a cached "before" snapshot), shaped the same way a real Style Preset
-// is so it can go through the same tween function.
+// of snapped (see stylePreviewTweenTo() above).
 function previewSeasonalPreset(catalogId, on){
-  if(!on){
-    stylePreviewTweenTo({ theme: state.theme, uiPaletteId: state.uiPaletteId, categories: state.categories.map(c => ({ hex: c.hex, icon: c.icon })) });
-    return;
-  }
+  if(!on){ revertStylePreviewTween(); return; }
   const p = SEASONAL_STYLE_PRESETS.find(s=>s.catalogId===catalogId);
   if(!p) return;
   stylePreviewTweenTo(p);
+}
+
+// Same hover-preview crossfade, for a tile in your OWN saved Style
+// Presets list (stylePresetTileHtml()) rather than the seasonal catalog
+// — an existing stylePresets entry is already preset-shaped
+// ({theme, uiPaletteId, categories}), so it goes through the exact same
+// stylePreviewTweenTo() with no extra work.
+function previewSavedStylePreset(presetId, on){
+  if(!on){ revertStylePreviewTween(); return; }
+  const sp = (state.stylePresets||[]).find(s=>s.id===presetId);
+  if(!sp) return;
+  stylePreviewTweenTo(sp);
 }
 
 // The actual mutation shared by applyStylePreset() (an existing saved
@@ -15145,16 +15281,27 @@ function previewSeasonalPreset(catalogId, on){
 // preset's color set usefully cover accounts with very different
 // numbers of tabs.
 function applyStylePresetColors(sp){
-  state.theme = { ...sp.theme, customUi: sp.theme.customUi ? { ...sp.theme.customUi } : null };
+  // deskLabel: sp.label is the Desk & Ledger equivalent of what
+  // customUi.label already does for UI Colors — activeDeskPaperPresetLabel()
+  // (09-settings.js) shows it instead of a bare "Custom" whenever this
+  // preset's bg/paper doesn't happen to exactly match a real named
+  // preset. Every other bg/paper-changing path clears it back to null.
+  state.theme = { ...sp.theme, customUi: sp.theme.customUi ? { ...sp.theme.customUi } : null, deskLabel: sp.label };
   state.deskPaletteId = sp.deskPaletteId;
   state.uiPaletteId = sp.uiPaletteId;
   state.categoryPaletteId = sp.categoryPaletteId;
   rebuildDeskPaperPresets();
   rebuildUiColorPresets();
   rebuildCategoryPalette();
+  // c.icon is only ever touched when `saved.icon` is actually present —
+  // a plain `{ hex }` entry (every current Style Preset) leaves whatever
+  // icon a category already has completely alone. See SEASONAL_STYLE_PRESETS'
+  // own comment in 02-storage-state.js for why.
   (sp.categories||[]).forEach((saved, i) => {
     const c = state.categories[i];
-    if(c){ c.hex = saved.hex; c.icon = saved.icon || 'dot'; }
+    if(!c || !saved) return;
+    c.hex = saved.hex;
+    if(saved.icon) c.icon = saved.icon;
   });
   rebuildCategoriesIndex();
 }
@@ -15242,7 +15389,12 @@ function buildStylePresetSnapshot(name){
     deskPaletteId: state.deskPaletteId,
     uiPaletteId: state.uiPaletteId,
     categoryPaletteId: state.categoryPaletteId,
-    categories: state.categories.map(c => ({ hex: c.hex, icon: c.icon || 'dot' }))
+    // hex only, never icon — a Style Preset is "just the colors," see
+    // SEASONAL_STYLE_PRESETS' own comment in 02-storage-state.js. This
+    // applies even to a preset built from YOUR OWN current look, not
+    // just the catalog ones — saving a preset should never risk baking
+    // in "and also change my category icons back" as a side effect.
+    categories: state.categories.map(c => ({ hex: c.hex }))
   };
 }
 
@@ -15260,6 +15412,7 @@ function buildStylePresetSnapshot(name){
 async function applyStylePreset(id){
   const sp = (state.stylePresets||[]).find(s=>s.id===id);
   if(!sp) return;
+  stopStylePreviewTween();
   pushUndo(`Applied "${sp.label}" style preset`);
   applyStylePresetColors(sp);
   applyTheme();
@@ -15319,6 +15472,12 @@ async function updateStylePresetLook(id){
   if(!sp) return;
   pushUndo(`Updated "${sp.label}" style preset`);
   Object.assign(sp, buildStylePresetSnapshot(sp.label));
+  // buildStylePresetSnapshot() doesn't return id/fromCatalogId/edited, so
+  // this Object.assign leaves those alone — sp.fromCatalogId survives
+  // untouched (still "started from a Theme Preset"), and this is exactly
+  // the "actually changed since that copy" moment stylePresetTileHtml()'s
+  // "*" is meant to flag.
+  sp.edited = true;
   render();
   queueSave();
 }
@@ -15336,6 +15495,9 @@ async function confirmSaveStylePreset(){
     if(existing){
       pushUndo(`Renamed "${existing.label}" style preset to "${name}"`);
       existing.label = name;
+      // A rename still counts as "edited" for the "*" badge, even though
+      // it didn't touch colors — see stylePresetTileHtml()'s own comment.
+      existing.edited = true;
     }
   } else {
     pushUndo(`Saved "${name}" style preset`);

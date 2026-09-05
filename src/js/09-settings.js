@@ -1070,6 +1070,7 @@ async function setDeskPaletteSet(id){
   const idx = oldPresets.findIndex(deskPaperPresetActive);
   pushUndo(`Changed desk & ledger palette to "${newSet.label}"`);
   state.deskPaletteId = id;
+  state.theme.deskLabel = null;
   rebuildDeskPaperPresets();
   if(idx !== -1 && DESK_PAPER_PRESETS[idx]){
     state.theme.bg = DESK_PAPER_PRESETS[idx].bg;
@@ -1411,6 +1412,7 @@ async function confirmSaveDualColorTemplate(kind){
     entry = { bg, paper };
     state.theme.bg = bg;
     state.theme.paper = paper;
+    state.theme.deskLabel = null;
   } else {
     const primary = dualColorHexOf('primary'), secondary = dualColorHexOf('secondary');
     entry = { primary, primaryLight: shadeHex(primary, 0.35), secondary, secondaryLight: shadeHex(secondary, 0.35) };
@@ -1495,6 +1497,7 @@ async function confirmDualColorCustom(){
       pushUndo('Changed desk & ledger colors to "Custom"');
       state.theme.bg = bg;
       state.theme.paper = paper;
+      state.theme.deskLabel = null;
     }
   } else if(uiColorPickerOpen){
     const primary = hsvToHex(dualColorDraft.primary.h, dualColorDraft.primary.s, dualColorDraft.primary.v);
@@ -1587,6 +1590,7 @@ async function applyCustomDeskPreset(id){
   pushUndo(`Changed desk & ledger colors to "${p.label}"`);
   state.theme.bg = p.bg;
   state.theme.paper = p.paper;
+  state.theme.deskLabel = null;
   applyTheme();
   render();
   queueSave();
@@ -1596,9 +1600,19 @@ async function applyCustomDeskPreset(id){
 // UI Colors) there's no stored preset id to read back — bg/paper are
 // freely editable on their own, so this just checks whether they
 // currently happen to match one of the presets exactly.
+// Falls back to state.theme.deskLabel (set by applyStylePresetColors()
+// when the current bg/paper came from applying a Style Preset) before
+// the generic 'Custom' — the equivalent of how UI Colors already shows a
+// Style Preset's own name via state.theme.customUi.label instead of a
+// bare "Custom". Every OTHER path that changes bg/paper away from a
+// Style Preset (setDeskPaperPreset(), applyCustomDeskPreset(),
+// setDeskPaletteSet(), confirmDualColorCustom()'s desk branch) clears
+// deskLabel back to null, so a stale preset name can never linger once
+// the pair no longer actually matches it.
 function activeDeskPaperPresetLabel(){
   const match = DESK_PAPER_PRESETS.find(deskPaperPresetActive) || (state.customDeskPresets||[]).find(deskPaperPresetActive);
-  return match ? match.label : 'Custom';
+  if(match) return match.label;
+  return state.theme.deskLabel || 'Custom';
 }
 
 function toggleDeskPaperPicker(){
@@ -1614,6 +1628,7 @@ async function setDeskPaperPreset(id){
   pushUndo(`Changed desk & ledger colors to "${p.label}"`);
   state.theme.bg = p.bg;
   state.theme.paper = p.paper;
+  state.theme.deskLabel = null;
   applyTheme();
   render();
   queueSave();
@@ -1780,7 +1795,11 @@ function stylePresetsSectionHtml(){
              <button class="templatecreatecancel" onclick="cancelSaveStylePreset()">Cancel</button>
            </div>
          </div>`
-      : `<button class="resetthemebtn" onclick="startSaveStylePreset()">+ Save current look as a preset</button>`;
+      // The trigger button itself now lives in the always-visible action
+      // row below (outside the collapsible tile grid) — this branch only
+      // ever renders the actual inline name form once one of the two
+      // states above is active.
+      : '';
   // A saved account's own stylePresets never auto-updates once seeded
   // (see cloneStylePresetBlueprint()'s own comment in 02-storage-state.js)
   // — this popover (same .catpicker chrome as Desk & Ledger/UI Colors'
@@ -1789,14 +1808,27 @@ function stylePresetsSectionHtml(){
   // later, e.g. after that preset's own colors have been improved since
   // your account was created, without silently overwriting whatever
   // you've already customized it into.
+  //
+  // The tile grid itself is the only part that collapses (settingsSectionHtml()
+  // — same nested-collapsible chrome as the top-level Settings sections,
+  // 'stylePresets' starts collapsed by default, see settingsCollapsedSections
+  // in 02-storage-state.js) — "Save current look"/"Browse Seasonal
+  // Presets" stay outside it and always visible, since collapsing the
+  // section shouldn't also hide the one button most people actually want
+  // to find. Browse comes first (left) and Save current second (right),
+  // with Save current's border deliberately heavier — it's the action
+  // that's easy to miss/most worth surfacing, Browse is more of a
+  // secondary "go discover something" action.
   return `
-    ${devSectionHeadHtml('Style Presets')}
-    <div class="stylepresetgrid">${tiles}</div>
-    ${saveForm}
-    <div class="stylepresetbrowsewrap">
-      <button class="resetthemebtn" onclick="toggleSeasonalPresetsBrowser()">☆ Browse Seasonal Presets</button>
-      ${seasonalPresetsBrowserOpen ? seasonalPresetsBrowserHtml() : ''}
+    ${settingsSectionHtml('stylePresets', 'Style Presets', `<div class="stylepresetgrid">${tiles}</div>`)}
+    <div class="stylepresetactionsrow">
+      <div class="stylepresetbrowsewrap">
+        <button class="resetthemebtn" onclick="toggleSeasonalPresetsBrowser()">☆ Browse Seasonal Presets</button>
+        ${seasonalPresetsBrowserOpen ? seasonalPresetsBrowserHtml() : ''}
+      </div>
+      <button class="resetthemebtn stylepresetsavebtn" onclick="startSaveStylePreset()">+ Save current look as a preset</button>
     </div>
+    ${saveForm}
   `;
 }
 
@@ -1815,14 +1847,25 @@ function stylePresetsSectionHtml(){
 // it (the app's own current paper color IS one of the panel's own
 // background colors, so a preset built around a similar paper tone has
 // nothing else to visually separate it).
+// sp.fromCatalogId (set by cloneStylePresetBlueprint(), 02-storage-state.js)
+// marks a preset that started as a copy of a built-in catalog entry — it
+// gets a small ★ badge before its name; sp.edited (flipped true by
+// confirmSaveStylePreset()'s rename branch and updateStylePresetLook())
+// appends "*" after the name once it's actually been changed since that
+// copy, while the ★ itself stays regardless — it's still "started from a
+// Theme Preset," just no longer identical to it.
 function stylePresetTileHtml(sp){
   const dots = (sp.categories||[]).slice(0, 6).map(c=>
     `<span class="stylepresetdot" style="background:${c.hex}"></span>`
   ).join('');
   const ui = stylePresetUiColors(sp);
+  const badge = sp.fromCatalogId ? `<span class="stylepreseticon" title="Started from a built-in Theme Preset" aria-hidden="true">★</span>` : '';
+  const labelText = escapeHtml(sp.label) + (sp.fromCatalogId && sp.edited ? ' *' : '');
   return `
     <span class="uipresettilewrap">
-      <button class="uipresetbtn stylepresetbtn" onclick="applyStylePreset('${sp.id}')">
+      <button class="uipresetbtn stylepresetbtn"
+        onmouseenter="previewSavedStylePreset('${sp.id}', true)" onmouseleave="previewSavedStylePreset('${sp.id}', false)"
+        onclick="applyStylePreset('${sp.id}')">
         <span class="stylepresetswatches">
           <span class="uipresetswatches">
             <span class="uipresetswatch" style="background:${sp.theme.bg}"></span>
@@ -1834,7 +1877,7 @@ function stylePresetTileHtml(sp){
           </span>
         </span>
         <span class="stylepresetdots">${dots}</span>
-        <span class="uipresetlabel">${escapeHtml(sp.label)}</span>
+        ${badge}<span class="uipresetlabel">${labelText}</span>
       </button>
       <span class="uipresettileactions">
         <button class="uipresetupdate" onclick="event.stopPropagation(); updateStylePresetLook('${sp.id}')" title="Update preset to match current look">⟳</button>
@@ -2060,21 +2103,35 @@ function stylePreviewTweenTo(sp){
   stylePreviewTweenFrame = requestAnimationFrame(frame);
 }
 
+// Shared un-hover target for both preview flavors below — crossfades
+// back to whatever's REALLY committed in state right now (not a cached
+// "before" snapshot), shaped the same way a real Style Preset is so it
+// can go through the same tween function.
+function revertStylePreviewTween(){
+  stylePreviewTweenTo({ theme: state.theme, uiPaletteId: state.uiPaletteId, categories: state.categories.map(c => ({ hex: c.hex, icon: c.icon })) });
+}
+
 // Hover preview for a seasonal catalog tile — never touches state, same
 // "draft, not committed" idiom updateCatWheelUI()'s own live drag-
 // preview already uses for a single color pair, just crossfaded instead
-// of snapped (see stylePreviewTweenTo() above). Un-hovering (on=false)
-// crossfades back to whatever's REALLY committed in state right now (not
-// a cached "before" snapshot), shaped the same way a real Style Preset
-// is so it can go through the same tween function.
+// of snapped (see stylePreviewTweenTo() above).
 function previewSeasonalPreset(catalogId, on){
-  if(!on){
-    stylePreviewTweenTo({ theme: state.theme, uiPaletteId: state.uiPaletteId, categories: state.categories.map(c => ({ hex: c.hex, icon: c.icon })) });
-    return;
-  }
+  if(!on){ revertStylePreviewTween(); return; }
   const p = SEASONAL_STYLE_PRESETS.find(s=>s.catalogId===catalogId);
   if(!p) return;
   stylePreviewTweenTo(p);
+}
+
+// Same hover-preview crossfade, for a tile in your OWN saved Style
+// Presets list (stylePresetTileHtml()) rather than the seasonal catalog
+// — an existing stylePresets entry is already preset-shaped
+// ({theme, uiPaletteId, categories}), so it goes through the exact same
+// stylePreviewTweenTo() with no extra work.
+function previewSavedStylePreset(presetId, on){
+  if(!on){ revertStylePreviewTween(); return; }
+  const sp = (state.stylePresets||[]).find(s=>s.id===presetId);
+  if(!sp) return;
+  stylePreviewTweenTo(sp);
 }
 
 // The actual mutation shared by applyStylePreset() (an existing saved
@@ -2096,16 +2153,27 @@ function previewSeasonalPreset(catalogId, on){
 // preset's color set usefully cover accounts with very different
 // numbers of tabs.
 function applyStylePresetColors(sp){
-  state.theme = { ...sp.theme, customUi: sp.theme.customUi ? { ...sp.theme.customUi } : null };
+  // deskLabel: sp.label is the Desk & Ledger equivalent of what
+  // customUi.label already does for UI Colors — activeDeskPaperPresetLabel()
+  // (09-settings.js) shows it instead of a bare "Custom" whenever this
+  // preset's bg/paper doesn't happen to exactly match a real named
+  // preset. Every other bg/paper-changing path clears it back to null.
+  state.theme = { ...sp.theme, customUi: sp.theme.customUi ? { ...sp.theme.customUi } : null, deskLabel: sp.label };
   state.deskPaletteId = sp.deskPaletteId;
   state.uiPaletteId = sp.uiPaletteId;
   state.categoryPaletteId = sp.categoryPaletteId;
   rebuildDeskPaperPresets();
   rebuildUiColorPresets();
   rebuildCategoryPalette();
+  // c.icon is only ever touched when `saved.icon` is actually present —
+  // a plain `{ hex }` entry (every current Style Preset) leaves whatever
+  // icon a category already has completely alone. See SEASONAL_STYLE_PRESETS'
+  // own comment in 02-storage-state.js for why.
   (sp.categories||[]).forEach((saved, i) => {
     const c = state.categories[i];
-    if(c){ c.hex = saved.hex; c.icon = saved.icon || 'dot'; }
+    if(!c || !saved) return;
+    c.hex = saved.hex;
+    if(saved.icon) c.icon = saved.icon;
   });
   rebuildCategoriesIndex();
 }
@@ -2193,7 +2261,12 @@ function buildStylePresetSnapshot(name){
     deskPaletteId: state.deskPaletteId,
     uiPaletteId: state.uiPaletteId,
     categoryPaletteId: state.categoryPaletteId,
-    categories: state.categories.map(c => ({ hex: c.hex, icon: c.icon || 'dot' }))
+    // hex only, never icon — a Style Preset is "just the colors," see
+    // SEASONAL_STYLE_PRESETS' own comment in 02-storage-state.js. This
+    // applies even to a preset built from YOUR OWN current look, not
+    // just the catalog ones — saving a preset should never risk baking
+    // in "and also change my category icons back" as a side effect.
+    categories: state.categories.map(c => ({ hex: c.hex }))
   };
 }
 
@@ -2211,6 +2284,7 @@ function buildStylePresetSnapshot(name){
 async function applyStylePreset(id){
   const sp = (state.stylePresets||[]).find(s=>s.id===id);
   if(!sp) return;
+  stopStylePreviewTween();
   pushUndo(`Applied "${sp.label}" style preset`);
   applyStylePresetColors(sp);
   applyTheme();
@@ -2270,6 +2344,12 @@ async function updateStylePresetLook(id){
   if(!sp) return;
   pushUndo(`Updated "${sp.label}" style preset`);
   Object.assign(sp, buildStylePresetSnapshot(sp.label));
+  // buildStylePresetSnapshot() doesn't return id/fromCatalogId/edited, so
+  // this Object.assign leaves those alone — sp.fromCatalogId survives
+  // untouched (still "started from a Theme Preset"), and this is exactly
+  // the "actually changed since that copy" moment stylePresetTileHtml()'s
+  // "*" is meant to flag.
+  sp.edited = true;
   render();
   queueSave();
 }
@@ -2287,6 +2367,9 @@ async function confirmSaveStylePreset(){
     if(existing){
       pushUndo(`Renamed "${existing.label}" style preset to "${name}"`);
       existing.label = name;
+      // A rename still counts as "edited" for the "*" badge, even though
+      // it didn't touch colors — see stylePresetTileHtml()'s own comment.
+      existing.edited = true;
     }
   } else {
     pushUndo(`Saved "${name}" style preset`);

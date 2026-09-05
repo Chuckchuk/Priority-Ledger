@@ -3482,6 +3482,18 @@
     border:2px solid var(--card-bg); box-shadow:0 0 0 1px var(--line);
   }
   .stylepresetuiswatchhalf{ width:50%; height:100%; }
+  /* "Browse Seasonal Presets" + "Save current look" sit in one row below
+     the (collapsible) tile grid, Browse first per the project owner's
+     own ordering ask. Each wrapped in flex:1 so the two buttons split
+     the row evenly regardless of their own text length. */
+  .stylepresetactionsrow{ display:flex; gap:8px; margin-top:8px; }
+  .stylepresetactionsrow > .stylepresetbrowsewrap{ flex:1; margin-top:0; }
+  .stylepresetactionsrow > .stylepresetbrowsewrap > .resetthemebtn{ width:100%; }
+  /* "Save current look" gets a heavier, solid border (vs Browse's
+     default 1px dashed) so it visibly stands out as the action most
+     worth noticing — saving your own look is the more important of the
+     two, Browse is more of a secondary "go discover something." */
+  .stylepresetsavebtn{ flex:1; border-style:solid; border-width:2px; }
   /* "Browse Seasonal Presets" trigger + its popover — same .catpicker
      anchored-popover chrome as Desk & Ledger/UI Colors, so it reads as
      the same kind of "custom menu" rather than an inline expanding
@@ -3489,6 +3501,11 @@
      .catpicker's own position:absolute needs, mirroring .uicolorwrap. */
   .stylepresetbrowsewrap{ position:relative; margin-top:8px; }
   .seasonalpresetpicker{ width:216px; }
+  /* Marks a saved preset that started as a copy of a built-in catalog
+     entry (stylePresetTileHtml()) — small and gold/amber so it reads as
+     a "featured/official" badge, distinct from the plain grey ✎/×/⟳
+     action icons beside it. */
+  .stylepreseticon{ color:#C9A227; margin-right:4px; font-size:0.7em; }
   /* A catalog tile's own single action is "add," not "apply then
      separately act on it" — this trailing badge is the only affordance
      for that, in place of stylePresetTileHtml()'s ⟳/✎/× row. */

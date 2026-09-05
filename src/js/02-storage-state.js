@@ -298,7 +298,7 @@ let settingsCollapsedSections = (() => {
     const raw = localStorage.getItem('ledger-settings-collapsed');
     if(raw !== null) return new Set(JSON.parse(raw));
   } catch(e){}
-  return new Set(['dev', 'dev-desktop', 'dev-mobile']);
+  return new Set(['dev', 'dev-desktop', 'dev-mobile', 'stylePresets']);
 })();
 function persistSettingsCollapsedSections(){
   try { localStorage.setItem('ledger-settings-collapsed', JSON.stringify([...settingsCollapsedSections])); } catch(e){}
@@ -748,6 +748,17 @@ function defaultTasks(){
 // (09-settings.js) and is never copied into a real stylePresets entry
 // by cloneStylePresetBlueprint(), since "which season this came from"
 // isn't meaningful once it's your own saved preset.
+//
+// A category entry is `{ hex }` ONLY — never `icon` — unless a preset
+// deliberately wants to override a category's icon too (nothing here
+// does yet; that's a future "Halloween gets pumpkin/ghost icons"-style
+// feature, not built out). This is deliberate: a Style Preset is
+// supposed to be "just the colors," so applyStylePresetColors() (in
+// 09-settings.js) only ever touches a category's `icon` when an entry
+// actually specifies one — a plain `{ hex }` entry leaves whatever icon
+// the user already had on that category completely alone. Don't add
+// `icon:'dot'` back onto every entry "for completeness" — that's exactly
+// what silently overwrote everyone's custom icons the last time.
 const SEASONAL_STYLE_PRESETS = [{
     catalogId: 'seasonal-halloween',
     season: 'fall',
@@ -781,18 +792,18 @@ const SEASONAL_STYLE_PRESETS = [{
     // amber rather than matching it, so it still reads as "an orange"
     // without competing with All's own.
     categories: [
-      { hex:'#5A4570', icon:'dot' }, // muted witch purple
-      { hex:'#3C3542', icon:'dot' }, // charcoal (violet-leaning)
-      { hex:'#9C5A34', icon:'dot' }, // muted rust orange
-      { hex:'#5A3048', icon:'dot' }, // plum wine
-      { hex:'#55704F', icon:'dot' }, // muted moss green
-      { hex:'#3C3542', icon:'dot' }, // charcoal
-      { hex:'#5A4570', icon:'dot' }, // muted witch purple
-      { hex:'#8C8272', icon:'dot' }, // bone
-      { hex:'#9C5A34', icon:'dot' }, // muted rust orange
-      { hex:'#5A3048', icon:'dot' }, // plum wine
-      { hex:'#55704F', icon:'dot' }, // muted moss green
-      { hex:'#3C3542', icon:'dot' }  // charcoal
+      { hex:'#5A4570' }, // muted witch purple
+      { hex:'#3C3542' }, // charcoal (violet-leaning)
+      { hex:'#9C5A34' }, // muted rust orange
+      { hex:'#5A3048' }, // plum wine
+      { hex:'#55704F' }, // muted moss green
+      { hex:'#3C3542' }, // charcoal
+      { hex:'#5A4570' }, // muted witch purple
+      { hex:'#8C8272' }, // bone
+      { hex:'#9C5A34' }, // muted rust orange
+      { hex:'#5A3048' }, // plum wine
+      { hex:'#55704F' }, // muted moss green
+      { hex:'#3C3542' }  // charcoal
     ]
   }, {
     catalogId: 'seasonal-meadow',
@@ -815,18 +826,18 @@ const SEASONAL_STYLE_PRESETS = [{
     uiPaletteId: 'classic',
     categoryPaletteId: 'pastel',
     categories: [
-      { hex:'#5C8A52', icon:'dot' }, // leaf green
-      { hex:'#D98A73', icon:'dot' }, // coral pink
-      { hex:'#6FA8C0', icon:'dot' }, // sky blue
-      { hex:'#D9B04C', icon:'dot' }, // buttercup yellow
-      { hex:'#9C86C0', icon:'dot' }, // lavender
-      { hex:'#D98CA0', icon:'dot' }, // blush rose
-      { hex:'#7A8C4E', icon:'dot' }, // moss
-      { hex:'#B8663E', icon:'dot' }, // terracotta
-      { hex:'#7A8AC0', icon:'dot' }, // periwinkle
-      { hex:'#D9A22E', icon:'dot' }, // sunflower
-      { hex:'#6FBFA0', icon:'dot' }, // mint
-      { hex:'#A0699C', icon:'dot' }  // plum blossom
+      { hex:'#5C8A52' }, // leaf green
+      { hex:'#D98A73' }, // coral pink
+      { hex:'#6FA8C0' }, // sky blue
+      { hex:'#D9B04C' }, // buttercup yellow
+      { hex:'#9C86C0' }, // lavender
+      { hex:'#D98CA0' }, // blush rose
+      { hex:'#7A8C4E' }, // moss
+      { hex:'#B8663E' }, // terracotta
+      { hex:'#7A8AC0' }, // periwinkle
+      { hex:'#D9A22E' }, // sunflower
+      { hex:'#6FBFA0' }, // mint
+      { hex:'#A0699C' }  // plum blossom
     ]
   }, {
     catalogId: 'seasonal-harvest',
@@ -852,18 +863,18 @@ const SEASONAL_STYLE_PRESETS = [{
     // orange: theme.customUi.primary here IS a rust-orange, so a
     // category #0 in that family would double up against the "All" tab.
     categories: [
-      { hex:'#5C6B3C', icon:'dot' }, // olive moss
-      { hex:'#4A342A', icon:'dot' }, // deep brown
-      { hex:'#9C5A2E', icon:'dot' }, // rust brown
-      { hex:'#748C6B', icon:'dot' }, // sage green
-      { hex:'#A98A3E', icon:'dot' }, // muted gold
-      { hex:'#4A342A', icon:'dot' }, // deep brown
-      { hex:'#5C6B3C', icon:'dot' }, // olive moss
-      { hex:'#8C4A3C', icon:'dot' }, // dusty red
-      { hex:'#9C5A2E', icon:'dot' }, // rust brown
-      { hex:'#748C6B', icon:'dot' }, // sage green
-      { hex:'#A98A3E', icon:'dot' }, // muted gold
-      { hex:'#4A342A', icon:'dot' }  // deep brown
+      { hex:'#5C6B3C' }, // olive moss
+      { hex:'#4A342A' }, // deep brown
+      { hex:'#9C5A2E' }, // rust brown
+      { hex:'#748C6B' }, // sage green
+      { hex:'#A98A3E' }, // muted gold
+      { hex:'#4A342A' }, // deep brown
+      { hex:'#5C6B3C' }, // olive moss
+      { hex:'#8C4A3C' }, // dusty red
+      { hex:'#9C5A2E' }, // rust brown
+      { hex:'#748C6B' }, // sage green
+      { hex:'#A98A3E' }, // muted gold
+      { hex:'#4A342A' }  // deep brown
     ]
   }, {
     catalogId: 'seasonal-frost',
@@ -888,18 +899,18 @@ const SEASONAL_STYLE_PRESETS = [{
     // just once, same "use the loudest one sparingly" reasoning as
     // Halloween's bone/Harvest's dusty red.
     categories: [
-      { hex:'#3C5C4A', icon:'dot' }, // pine
-      { hex:'#4A5A68', icon:'dot' }, // slate
-      { hex:'#5C8CA8', icon:'dot' }, // frost blue
-      { hex:'#5C5468', icon:'dot' }, // plum grey
-      { hex:'#8C8478', icon:'dot' }, // birch
-      { hex:'#4A5A68', icon:'dot' }, // slate
-      { hex:'#3C5C4A', icon:'dot' }, // pine
-      { hex:'#8C3C4A', icon:'dot' }, // holly berry red
-      { hex:'#5C8CA8', icon:'dot' }, // frost blue
-      { hex:'#5C5468', icon:'dot' }, // plum grey
-      { hex:'#8C8478', icon:'dot' }, // birch
-      { hex:'#4A5A68', icon:'dot' }  // slate
+      { hex:'#3C5C4A' }, // pine
+      { hex:'#4A5A68' }, // slate
+      { hex:'#5C8CA8' }, // frost blue
+      { hex:'#5C5468' }, // plum grey
+      { hex:'#8C8478' }, // birch
+      { hex:'#4A5A68' }, // slate
+      { hex:'#3C5C4A' }, // pine
+      { hex:'#8C3C4A' }, // holly berry red
+      { hex:'#5C8CA8' }, // frost blue
+      { hex:'#5C5468' }, // plum grey
+      { hex:'#8C8478' }, // birch
+      { hex:'#4A5A68' }  // slate
     ]
   }, {
     catalogId: 'seasonal-tide',
@@ -921,18 +932,59 @@ const SEASONAL_STYLE_PRESETS = [{
     // #0 is turquoise, not coral, since theme.customUi.primary is
     // already a coral-orange.
     categories: [
-      { hex:'#3C7C7C', icon:'dot' }, // turquoise
-      { hex:'#8C7C68', icon:'dot' }, // driftwood
-      { hex:'#C05A3C', icon:'dot' }, // coral
-      { hex:'#3C5C7C', icon:'dot' }, // sea blue
-      { hex:'#C9A24E', icon:'dot' }, // sand gold
-      { hex:'#8C7C68', icon:'dot' }, // driftwood
-      { hex:'#3C7C7C', icon:'dot' }, // turquoise
-      { hex:'#5C7C4A', icon:'dot' }, // palm green
-      { hex:'#C05A3C', icon:'dot' }, // coral
-      { hex:'#3C5C7C', icon:'dot' }, // sea blue
-      { hex:'#C9A24E', icon:'dot' }, // sand gold
-      { hex:'#8C7C68', icon:'dot' }  // driftwood
+      { hex:'#3C7C7C' }, // turquoise
+      { hex:'#8C7C68' }, // driftwood
+      { hex:'#C05A3C' }, // coral
+      { hex:'#3C5C7C' }, // sea blue
+      { hex:'#C9A24E' }, // sand gold
+      { hex:'#8C7C68' }, // driftwood
+      { hex:'#3C7C7C' }, // turquoise
+      { hex:'#5C7C4A' }, // palm green
+      { hex:'#C05A3C' }, // coral
+      { hex:'#3C5C7C' }, // sea blue
+      { hex:'#C9A24E' }, // sand gold
+      { hex:'#8C7C68' }  // driftwood
+    ]
+  }, {
+    catalogId: 'seasonal-seaglass',
+    season: 'summer',
+    label: 'Seaglass',
+    // Built directly from two ALREADY-NAMED presets rather than
+    // hand-picked new colors — Desk & Ledger's own "Seafoam & Mist"
+    // (DESK_PAPER_PRESET_SETS.pastel) and UI Colors' own "Mint & Coral"
+    // (UI_COLOR_PRESET_SETS.pastel), per the project owner's own explicit
+    // ask for those two specific named looks together. deskPaletteId/
+    // uiPaletteId are 'pastel' accordingly, matching where those two
+    // presets actually live.
+    theme: {
+      bg: '#4F8177', paper: '#E2F0EA',
+      gradient: true, grain: false, pages: false, leather: false,
+      uiPreset: 'custom',
+      customUi: { label:'Seaglass', primary:'#5FAE9A', primaryLight:'#82C4B2', secondary:'#E58572', secondaryLight:'#EFA795' },
+      inkFromUi: true, inkFromUiSource: 'primary'
+    },
+    deskPaletteId: 'pastel',
+    uiPaletteId: 'pastel',
+    categoryPaletteId: 'pastel',
+    // The Pastel category palette's own 12 colors (CATEGORY_PALETTE_SETS.pastel
+    // in 01-categories-theme.js), used as-is in their own already-curated
+    // hue-sweep order — no need to reshuffle an order that's already
+    // deliberately designed, and it already starts on a warm coral-pink
+    // (not the mint/teal family theme.customUi.primary sits in), so
+    // category #0 doesn't need special-casing here either.
+    categories: [
+      { hex:'#D88E83' }, // coral pink
+      { hex:'#DFA671' }, // peach
+      { hex:'#DFCD79' }, // butter yellow
+      { hex:'#BBCC82' }, // sage
+      { hex:'#9CC99C' }, // mint green
+      { hex:'#93CCBA' }, // seafoam teal
+      { hex:'#89BBC1' }, // sky teal
+      { hex:'#8CB1D0' }, // sky blue
+      { hex:'#98A2D0' }, // periwinkle
+      { hex:'#B59CD0' }, // lavender
+      { hex:'#D09CBE' }, // orchid pink
+      { hex:'#D8A2AA' }  // rose
     ]
 }];
 
@@ -942,6 +994,14 @@ const SEASONAL_STYLE_PRESETS = [{
 // the categories array by reference with the catalog, so editing a copy
 // later (updateStylePresetLook()) can never mutate the canonical catalog
 // data itself.
+// fromCatalogId + edited:false mark the copy as "started from a built-in
+// Theme Preset, unmodified since" — stylePresetTileHtml() (09-settings.js)
+// shows a small badge icon for any preset carrying fromCatalogId, and
+// appends "*" to the label once edited flips to true (set by
+// confirmSaveStylePreset()'s rename branch and updateStylePresetLook()).
+// A preset created via "+ Save current look as a preset" instead never
+// gets fromCatalogId at all, so it never shows the badge — only a copy
+// that actually came from the catalog counts as a "Theme Preset."
 function cloneStylePresetBlueprint(p, id){
   return {
     id,
@@ -950,7 +1010,9 @@ function cloneStylePresetBlueprint(p, id){
     deskPaletteId: p.deskPaletteId,
     uiPaletteId: p.uiPaletteId,
     categoryPaletteId: p.categoryPaletteId,
-    categories: p.categories.map(c => ({ ...c }))
+    categories: p.categories.map(c => ({ ...c })),
+    fromCatalogId: p.catalogId,
+    edited: false
   };
 }
 
