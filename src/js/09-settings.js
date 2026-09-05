@@ -93,39 +93,43 @@ function renderSettings(){
           <button class="catdotbtn" onclick="toggleCategoryPicker('${c.id}')" title="Change color & icon">${categoryDotHtml(c, 'cdot')}</button>
           ${openCategoryPickerId === c.id ? categoryPickerHtml(c) : ''}
         </span>
-        <!-- Groups the label input with its own type/location badges into
-             one shared underline (see .catlabelline in <style>) rather
-             than the input's own border-bottom — per the explicit ask,
-             badges should sit right next to the label, not get pushed
-             all the way to the row's right edge the way a flex:1 input
-             followed by fixed-width badge siblings otherwise does, while
-             the dashed line itself still needs to visually reach the
-             full row width regardless of how little of it the label +
-             badges actually use. Putting the border on this wrapper
-             (flex:1, so IT stretches the full width) instead of the
-             input itself is what decouples those two: the input can stay
-             a modest fixed-ish width with the badges hugging it, while
-             the wrapper's own bottom border still spans all the way to
-             wherever the pin/location buttons start. -->
-        <span class="catlabelline">
-          <input type="text" class="catedit" value="${escapeHtml(c.label)}"
+        ${(() => {
+          const badgesInner = `
+            ${locBadges}
+            ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
+            ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
+          `;
+          const hasBadges = !!(locBadges || c.type==='checklist' || c.type==='calendar');
+          const input = `<input type="text" class="catedit" value="${escapeHtml(c.label)}"
             onblur="renameCategory('${c.id}', this.value)"
-            onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
-        </span>
-        <!-- A sibling of .catlabelline now (not nested inside it) — see
-             .catbadgerow in <style> for why: on mobile this needs to drop
-             to its own full-width row BELOW the pin/location buttons (per
-             the explicit ask), which a flex "order" trick can only pull
-             off from a shared parent with those buttons, not from one
-             nested a level deeper inside the label's own box. Guarded so
-             an empty span (no locations, no type badge) never renders at
-             all rather than leaving a stray empty underline on desktop. -->
-        ${(locBadges || c.type==='checklist' || c.type==='calendar') ? `
-        <span class="catbadgerow">
-          ${locBadges}
-          ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
-          ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
-        </span>` : ''}
+            onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">`;
+          // Desktop: badges render NESTED inside .catlabelline, sharing
+          // its one flex:1 box (and its one border-bottom) with the
+          // input — this is what makes the dashed line read as one
+          // continuous line running from the label, under the badges,
+          // all the way to wherever the pin/location buttons start,
+          // rather than the input's own short underline stopping dead
+          // with the badges stranded far to the right in the leftover
+          // flex:1 space. See the "Deployed HTML drift incident"-style
+          // regression note in .catlabelline's own <style> comment for
+          // why this has to stay nested here specifically.
+          if(!mobileUiActive()){
+            return `<span class="catlabelline">${input}${badgesInner}</span>`;
+          }
+          // Mobile: badges instead render as a SEPARATE sibling of
+          // .catpinbtn/.catlocwrap (not nested inside .catlabelline) —
+          // see .catbadgerow in <style> for why: on mobile they need to
+          // drop to their own full-width row BELOW the pin/location
+          // buttons (per the explicit ask), which a flex "order" trick
+          // can only pull off from a shared parent with those buttons,
+          // not from one nested a level deeper inside the label's own
+          // box. Guarded so an empty span (no locations, no type badge)
+          // never renders at all.
+          return `
+            <span class="catlabelline">${input}</span>
+            ${hasBadges ? `<span class="catbadgerow">${badgesInner}</span>` : ''}
+          `;
+        })()}
         <!-- Only shown while the Stacked Tabs dev setting (01-categories-
              theme.js) is on — pinning has no effect at all otherwise, so
              surfacing the control the rest of the time would just be a
@@ -1836,7 +1840,7 @@ function stylePresetsSectionHtml(){
   // that's easy to miss/most worth surfacing, Browse is more of a
   // secondary "go discover something" action.
   return `
-    ${settingsSectionHtml('stylePresets', 'Style Presets', `<div class="stylepresetgrid">${tiles}</div>`)}
+    ${settingsSectionHtml('stylePresets', 'Style Presets', `<div class="stylepresetgrid">${tiles}${spDropEndHtml(state.stylePresets||[])}</div>`)}
     <div class="stylepresetactionsrow">
       <div class="stylepresetbrowsewrap">
         <button class="resetthemebtn" onclick="toggleSeasonalPresetsBrowser()">☆ Browse Seasonal Presets</button>
@@ -1882,7 +1886,8 @@ function stylePresetTileHtml(sp){
   const badge = sp.fromCatalogId ? `<span class="stylepreseticon" title="Started from a built-in Theme Preset" aria-hidden="true">★</span>` : '';
   const labelText = escapeHtml(sp.label) + (sp.fromCatalogId && sp.edited ? ' *' : '');
   return `
-    <span class="uipresettilewrap">
+    <span class="uipresettilewrap" data-sp-id="${sp.id}">
+      <span class="draghandle stylepresethandle" onpointerdown="styleHandlePointerDown(event,'${sp.id}')" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>
       <button class="uipresetbtn stylepresetbtn"
         onmouseenter="previewSavedStylePreset('${sp.id}', true)" onmouseleave="previewSavedStylePreset('${sp.id}', false)"
         onclick="applyStylePreset('${sp.id}')">

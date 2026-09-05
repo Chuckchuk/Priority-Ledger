@@ -2940,7 +2940,19 @@
      so THIS box (not the input inside it) is what stretches to the row's
      full width, letting the dashed line reach all the way to the pin/
      location buttons regardless of how little of that width the label +
-     badges themselves need. */
+     badges themselves need.
+     DESKTOP ONLY: the JS template renders the badges NESTED inside this
+     span (sharing this one flex:1 box + this one border-bottom) — this
+     is load-bearing, not cosmetic. A regression once pulled the badges
+     out to always be a sibling instead (for mobile's own reasons, see
+     .catbadgerow below), which broke desktop specifically: with nothing
+     but the input inside it, .catlabelline still stretched to fill the
+     row's leftover space (that's what flex:1 does regardless of how
+     little content is inside), dragging its own empty dashed underline
+     out into a long empty gap BEFORE the now-separate, short-underlined
+     badge row further right — "Business ....................  [B.A.][MA]"
+     instead of "Business [B.A.][MA] ....................". Keep the
+     badges nested here for desktop; only mobile needs them pulled out. */
   .catlabelline{
     display:flex; align-items:center; gap:8px; flex:1; min-width:0; flex-wrap:wrap;
     border-bottom:1px dashed var(--ink-soft); padding-bottom:3px;
@@ -2959,16 +2971,21 @@
      follow after a plain gap instead of appearing to share the label's
      own underline the way the desktop layout above deliberately does.
      Moves the border straight back onto .catedit (a short, fixed-ish
-     width) and clears it off the wrapper. */
+     width) and clears it off the wrapper. On mobile the JS template
+     never puts badges inside .catlabelline at all (see .catbadgerow
+     below), so this rule doesn't need to worry about them. */
   body.mobileui-active .catlabelline{ border-bottom:none; padding-bottom:0; }
   body.mobileui-active .catlabelline .catedit{
     border-bottom:1px dashed var(--ink-soft); padding-bottom:3px; flex:0 1 110px; min-width:60px;
   }
-  /* .catbadgerow (09-settings.js — a sibling of .catlabelline, not
-     nested inside it) holds a category's location badges + type badge.
-     Desktop: sits right next to the label, matching its own dashed
-     underline so together with .catlabelline it still reads as one
-     underlined row, same as when these lived in one shared box. */
+  /* .catbadgerow (09-settings.js) is MOBILE-ONLY in the DOM — the JS
+     template only ever renders it while mobileUiActive() is true; on
+     desktop the same badges render nested inside .catlabelline above
+     instead (see that rule's own comment for why the split matters).
+     This class exists purely so mobile can drop badges to their own
+     full-width row below the pin/location buttons — see the
+     body.mobileui-active override right below for the actual mechanism;
+     this base rule just sets its everyday flex-row look. */
   .catbadgerow{
     display:flex; align-items:center; gap:8px; flex-wrap:wrap;
     border-bottom:1px dashed var(--ink-soft); padding-bottom:3px;
@@ -2979,8 +2996,8 @@
      0) is what actually achieves "under," not just "wraps somewhere" —
      .catbadgerow has to sort AFTER .catpinbtn/.catlocwrap in the
      flex-wrap row, which is only possible because it's a direct sibling
-     of theirs now (09-settings.js) — nested inside .catlabelline, an
-     order trick could only ever reorder it against the input, never
+     of theirs on mobile (09-settings.js) — nested inside .catlabelline,
+     an order trick could only ever reorder it against the input, never
      against .catpinbtn/.catlocwrap one level up. flex-basis:100% is what
      forces the actual line break — it can't share a row with anything
      else at that width, so it's pushed to a fresh line below everything
@@ -3425,6 +3442,19 @@
      width of the row, which a corner badge would risk sitting on top of
      for a long saved name. */
   .uipresettilewrap{ display:flex; align-items:center; gap:4px; position:relative; }
+  /* Drag-to-reorder for a saved Style Preset's own tile (styleHandlePointerDown()/
+     reorderStylePreset() in 07-drag.js) — same Pointer Events handle/
+     .dragging/.dragover language as a task row's own .draghandle, just
+     scoped to .uipresettilewrap instead of li.task so it doesn't bleed
+     onto the other tile shapes (Desk & Ledger/UI Colors saved templates)
+     that share that same wrapper class but were never made draggable. */
+  .stylepresethandle{ margin-right:2px; }
+  .uipresettilewrap.dragging{ opacity:0.4; }
+  .uipresettilewrap.dragover{ border-top:2px solid var(--primary); }
+  /* Trailing drop target below the last tile (spDropEndHtml(), same
+     reasoning as .dropend/.subdropend for tasks/subtasks). */
+  .spdropend{ height:12px; }
+  .spdropend.dragover{ border-top:2px solid var(--primary); }
   .uipresettilewrap .uipresetbtn{ flex:1; min-width:0; }
   .uipresettileactions{ display:flex; gap:3px; flex-shrink:0; }
   .uipresetedit, .uipresetremove, .uipresetupdate{

@@ -24,9 +24,19 @@
 let dragState = null; // { kind:'task'|'sub', id, taskId?, startX, startY, moved, row, overEl }
 const DRAG_MOVE_THRESHOLD_PX = 6;
 
+// Which ancestor counts as "the dragged row itself" (for the .dragging
+// class and the initial rect) differs per kind — same three-way split as
+// dragTargetSelector() below, just for the row the handle lives inside
+// rather than what a drop can land on.
+function dragOwnRowSelector(kind){
+  if(kind === 'task') return 'li.task';
+  if(kind === 'stylepreset') return '.uipresettilewrap';
+  return '.subrow';
+}
+
 function dragPointerDown(e, kind, id, taskId){
   if(e.pointerType === 'mouse' && e.button !== 0) return; // left-click/primary only
-  const row = e.currentTarget.closest(kind === 'task' ? 'li.task' : '.subrow');
+  const row = e.currentTarget.closest(dragOwnRowSelector(kind));
   if(!row) return;
   dragState = { kind, id, taskId, startX: e.clientX, startY: e.clientY, moved: false, row, overEl: null };
   // Pointer capture keeps every subsequent event routed to this exact
@@ -36,12 +46,14 @@ function dragPointerDown(e, kind, id, taskId){
   e.currentTarget.setPointerCapture(e.pointerId);
 }
 
-// Reused by both kinds — which selector counts as a valid drop target,
-// and how to read the id back off whichever element the pointer is
-// currently over, differ per kind but the hit-testing/threshold/visual-
-// feedback logic underneath is identical either way.
+// Reused by all three kinds — which selector counts as a valid drop
+// target, and how to read the id back off whichever element the pointer
+// is currently over, differ per kind but the hit-testing/threshold/
+// visual-feedback logic underneath is identical either way.
 function dragTargetSelector(kind){
-  return kind === 'task' ? 'li.task, .dropend' : '.subrow, .subdropend';
+  if(kind === 'task') return 'li.task, .dropend';
+  if(kind === 'stylepreset') return '.uipresettilewrap[data-sp-id], .spdropend';
+  return '.subrow, .subdropend';
 }
 
 function dragPointerMove(e){
@@ -80,6 +92,9 @@ function dragPointerEnd(e){
   if(d.kind === 'task'){
     if(d.overEl.classList.contains('dropend')) reorderTask(d.id, d.overEl.dataset.lastId, false);
     else reorderTask(d.id, d.overEl.dataset.taskId, before);
+  } else if(d.kind === 'stylepreset'){
+    if(d.overEl.classList.contains('spdropend')) reorderStylePreset(d.id, d.overEl.dataset.lastSpId, false);
+    else reorderStylePreset(d.id, d.overEl.dataset.spId, before);
   } else {
     if(d.overEl.classList.contains('subdropend')) reorderSubtask(d.taskId, d.id, d.overEl.dataset.lastSubId, false);
     else reorderSubtask(d.taskId, d.id, d.overEl.dataset.subId, before);
@@ -157,5 +172,42 @@ function reorderSubtask(taskId, draggedSubId, targetSubId, before){
   t.subtasks.splice(toIdx, 0, item);
   render();
   reopen(taskId);
+  queueSave();
+}
+
+// A saved Style Preset's own drag handle (stylePresetTileHtml(),
+// 09-settings.js) — same Pointer Events plumbing as tasks/subtasks
+// above, just reordering state.stylePresets instead. No taskId
+// equivalent to pass through (a style preset isn't nested under
+// anything), so this is the plainest of the three dragPointerDown()
+// callers.
+function styleHandlePointerDown(e, spId){
+  dragPointerDown(e, 'stylepreset', spId);
+}
+
+// Same reasoning as dropEndHtml()/subDropEndHtml() above — a dedicated
+// trailing target below the last tile so dropping "at the very end"
+// doesn't depend on landing in exactly the bottom half of that tile's
+// own bounds.
+function spDropEndHtml(presets){
+  if(!presets.length) return '';
+  const lastId = presets[presets.length-1].id;
+  return `<div class="spdropend" data-last-sp-id="${lastId}"></div>`;
+}
+
+function reorderStylePreset(draggedId, targetId, before){
+  // Same reasoning as reorderTask()'s identical guard.
+  if(!draggedId || !targetId || draggedId === targetId) return;
+  const list = state.stylePresets || [];
+  const fromIdx = list.findIndex(s=>s.id===draggedId);
+  const targetExists = list.some(s=>s.id===targetId);
+  if(fromIdx===-1 || !targetExists) return;
+  const item = list[fromIdx];
+  pushUndo(`Reordered "${item.label}" style preset`);
+  list.splice(fromIdx, 1);
+  let toIdx = list.findIndex(s=>s.id===targetId);
+  if(!before) toIdx += 1;
+  list.splice(toIdx, 0, item);
+  render();
   queueSave();
 }

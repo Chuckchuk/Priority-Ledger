@@ -2972,7 +2972,19 @@
      so THIS box (not the input inside it) is what stretches to the row's
      full width, letting the dashed line reach all the way to the pin/
      location buttons regardless of how little of that width the label +
-     badges themselves need. */
+     badges themselves need.
+     DESKTOP ONLY: the JS template renders the badges NESTED inside this
+     span (sharing this one flex:1 box + this one border-bottom) — this
+     is load-bearing, not cosmetic. A regression once pulled the badges
+     out to always be a sibling instead (for mobile's own reasons, see
+     .catbadgerow below), which broke desktop specifically: with nothing
+     but the input inside it, .catlabelline still stretched to fill the
+     row's leftover space (that's what flex:1 does regardless of how
+     little content is inside), dragging its own empty dashed underline
+     out into a long empty gap BEFORE the now-separate, short-underlined
+     badge row further right — "Business ....................  [B.A.][MA]"
+     instead of "Business [B.A.][MA] ....................". Keep the
+     badges nested here for desktop; only mobile needs them pulled out. */
   .catlabelline{
     display:flex; align-items:center; gap:8px; flex:1; min-width:0; flex-wrap:wrap;
     border-bottom:1px dashed var(--ink-soft); padding-bottom:3px;
@@ -2991,16 +3003,21 @@
      follow after a plain gap instead of appearing to share the label's
      own underline the way the desktop layout above deliberately does.
      Moves the border straight back onto .catedit (a short, fixed-ish
-     width) and clears it off the wrapper. */
+     width) and clears it off the wrapper. On mobile the JS template
+     never puts badges inside .catlabelline at all (see .catbadgerow
+     below), so this rule doesn't need to worry about them. */
   body.mobileui-active .catlabelline{ border-bottom:none; padding-bottom:0; }
   body.mobileui-active .catlabelline .catedit{
     border-bottom:1px dashed var(--ink-soft); padding-bottom:3px; flex:0 1 110px; min-width:60px;
   }
-  /* .catbadgerow (09-settings.js — a sibling of .catlabelline, not
-     nested inside it) holds a category's location badges + type badge.
-     Desktop: sits right next to the label, matching its own dashed
-     underline so together with .catlabelline it still reads as one
-     underlined row, same as when these lived in one shared box. */
+  /* .catbadgerow (09-settings.js) is MOBILE-ONLY in the DOM — the JS
+     template only ever renders it while mobileUiActive() is true; on
+     desktop the same badges render nested inside .catlabelline above
+     instead (see that rule's own comment for why the split matters).
+     This class exists purely so mobile can drop badges to their own
+     full-width row below the pin/location buttons — see the
+     body.mobileui-active override right below for the actual mechanism;
+     this base rule just sets its everyday flex-row look. */
   .catbadgerow{
     display:flex; align-items:center; gap:8px; flex-wrap:wrap;
     border-bottom:1px dashed var(--ink-soft); padding-bottom:3px;
@@ -3011,8 +3028,8 @@
      0) is what actually achieves "under," not just "wraps somewhere" —
      .catbadgerow has to sort AFTER .catpinbtn/.catlocwrap in the
      flex-wrap row, which is only possible because it's a direct sibling
-     of theirs now (09-settings.js) — nested inside .catlabelline, an
-     order trick could only ever reorder it against the input, never
+     of theirs on mobile (09-settings.js) — nested inside .catlabelline,
+     an order trick could only ever reorder it against the input, never
      against .catpinbtn/.catlocwrap one level up. flex-basis:100% is what
      forces the actual line break — it can't share a row with anything
      else at that width, so it's pushed to a fresh line below everything
@@ -3457,6 +3474,19 @@
      width of the row, which a corner badge would risk sitting on top of
      for a long saved name. */
   .uipresettilewrap{ display:flex; align-items:center; gap:4px; position:relative; }
+  /* Drag-to-reorder for a saved Style Preset's own tile (styleHandlePointerDown()/
+     reorderStylePreset() in 07-drag.js) — same Pointer Events handle/
+     .dragging/.dragover language as a task row's own .draghandle, just
+     scoped to .uipresettilewrap instead of li.task so it doesn't bleed
+     onto the other tile shapes (Desk & Ledger/UI Colors saved templates)
+     that share that same wrapper class but were never made draggable. */
+  .stylepresethandle{ margin-right:2px; }
+  .uipresettilewrap.dragging{ opacity:0.4; }
+  .uipresettilewrap.dragover{ border-top:2px solid var(--primary); }
+  /* Trailing drop target below the last tile (spDropEndHtml(), same
+     reasoning as .dropend/.subdropend for tasks/subtasks). */
+  .spdropend{ height:12px; }
+  .spdropend.dragover{ border-top:2px solid var(--primary); }
   .uipresettilewrap .uipresetbtn{ flex:1; min-width:0; }
   .uipresettileactions{ display:flex; gap:3px; flex-shrink:0; }
   .uipresetedit, .uipresetremove, .uipresetupdate{
@@ -11064,9 +11094,19 @@ function subProgressHtml(subs){
 let dragState = null; // { kind:'task'|'sub', id, taskId?, startX, startY, moved, row, overEl }
 const DRAG_MOVE_THRESHOLD_PX = 6;
 
+// Which ancestor counts as "the dragged row itself" (for the .dragging
+// class and the initial rect) differs per kind — same three-way split as
+// dragTargetSelector() below, just for the row the handle lives inside
+// rather than what a drop can land on.
+function dragOwnRowSelector(kind){
+  if(kind === 'task') return 'li.task';
+  if(kind === 'stylepreset') return '.uipresettilewrap';
+  return '.subrow';
+}
+
 function dragPointerDown(e, kind, id, taskId){
   if(e.pointerType === 'mouse' && e.button !== 0) return; // left-click/primary only
-  const row = e.currentTarget.closest(kind === 'task' ? 'li.task' : '.subrow');
+  const row = e.currentTarget.closest(dragOwnRowSelector(kind));
   if(!row) return;
   dragState = { kind, id, taskId, startX: e.clientX, startY: e.clientY, moved: false, row, overEl: null };
   // Pointer capture keeps every subsequent event routed to this exact
@@ -11076,12 +11116,14 @@ function dragPointerDown(e, kind, id, taskId){
   e.currentTarget.setPointerCapture(e.pointerId);
 }
 
-// Reused by both kinds — which selector counts as a valid drop target,
-// and how to read the id back off whichever element the pointer is
-// currently over, differ per kind but the hit-testing/threshold/visual-
-// feedback logic underneath is identical either way.
+// Reused by all three kinds — which selector counts as a valid drop
+// target, and how to read the id back off whichever element the pointer
+// is currently over, differ per kind but the hit-testing/threshold/
+// visual-feedback logic underneath is identical either way.
 function dragTargetSelector(kind){
-  return kind === 'task' ? 'li.task, .dropend' : '.subrow, .subdropend';
+  if(kind === 'task') return 'li.task, .dropend';
+  if(kind === 'stylepreset') return '.uipresettilewrap[data-sp-id], .spdropend';
+  return '.subrow, .subdropend';
 }
 
 function dragPointerMove(e){
@@ -11120,6 +11162,9 @@ function dragPointerEnd(e){
   if(d.kind === 'task'){
     if(d.overEl.classList.contains('dropend')) reorderTask(d.id, d.overEl.dataset.lastId, false);
     else reorderTask(d.id, d.overEl.dataset.taskId, before);
+  } else if(d.kind === 'stylepreset'){
+    if(d.overEl.classList.contains('spdropend')) reorderStylePreset(d.id, d.overEl.dataset.lastSpId, false);
+    else reorderStylePreset(d.id, d.overEl.dataset.spId, before);
   } else {
     if(d.overEl.classList.contains('subdropend')) reorderSubtask(d.taskId, d.id, d.overEl.dataset.lastSubId, false);
     else reorderSubtask(d.taskId, d.id, d.overEl.dataset.subId, before);
@@ -11197,6 +11242,43 @@ function reorderSubtask(taskId, draggedSubId, targetSubId, before){
   t.subtasks.splice(toIdx, 0, item);
   render();
   reopen(taskId);
+  queueSave();
+}
+
+// A saved Style Preset's own drag handle (stylePresetTileHtml(),
+// 09-settings.js) — same Pointer Events plumbing as tasks/subtasks
+// above, just reordering state.stylePresets instead. No taskId
+// equivalent to pass through (a style preset isn't nested under
+// anything), so this is the plainest of the three dragPointerDown()
+// callers.
+function styleHandlePointerDown(e, spId){
+  dragPointerDown(e, 'stylepreset', spId);
+}
+
+// Same reasoning as dropEndHtml()/subDropEndHtml() above — a dedicated
+// trailing target below the last tile so dropping "at the very end"
+// doesn't depend on landing in exactly the bottom half of that tile's
+// own bounds.
+function spDropEndHtml(presets){
+  if(!presets.length) return '';
+  const lastId = presets[presets.length-1].id;
+  return `<div class="spdropend" data-last-sp-id="${lastId}"></div>`;
+}
+
+function reorderStylePreset(draggedId, targetId, before){
+  // Same reasoning as reorderTask()'s identical guard.
+  if(!draggedId || !targetId || draggedId === targetId) return;
+  const list = state.stylePresets || [];
+  const fromIdx = list.findIndex(s=>s.id===draggedId);
+  const targetExists = list.some(s=>s.id===targetId);
+  if(fromIdx===-1 || !targetExists) return;
+  const item = list[fromIdx];
+  pushUndo(`Reordered "${item.label}" style preset`);
+  list.splice(fromIdx, 1);
+  let toIdx = list.findIndex(s=>s.id===targetId);
+  if(!before) toIdx += 1;
+  list.splice(toIdx, 0, item);
+  render();
   queueSave();
 }
 // EXPERIMENTAL — fieldPickerStyle (see defaultDevSettings() in
@@ -13248,39 +13330,43 @@ function renderSettings(){
           <button class="catdotbtn" onclick="toggleCategoryPicker('${c.id}')" title="Change color & icon">${categoryDotHtml(c, 'cdot')}</button>
           ${openCategoryPickerId === c.id ? categoryPickerHtml(c) : ''}
         </span>
-        <!-- Groups the label input with its own type/location badges into
-             one shared underline (see .catlabelline in <style>) rather
-             than the input's own border-bottom — per the explicit ask,
-             badges should sit right next to the label, not get pushed
-             all the way to the row's right edge the way a flex:1 input
-             followed by fixed-width badge siblings otherwise does, while
-             the dashed line itself still needs to visually reach the
-             full row width regardless of how little of it the label +
-             badges actually use. Putting the border on this wrapper
-             (flex:1, so IT stretches the full width) instead of the
-             input itself is what decouples those two: the input can stay
-             a modest fixed-ish width with the badges hugging it, while
-             the wrapper's own bottom border still spans all the way to
-             wherever the pin/location buttons start. -->
-        <span class="catlabelline">
-          <input type="text" class="catedit" value="${escapeHtml(c.label)}"
+        ${(() => {
+          const badgesInner = `
+            ${locBadges}
+            ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
+            ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
+          `;
+          const hasBadges = !!(locBadges || c.type==='checklist' || c.type==='calendar');
+          const input = `<input type="text" class="catedit" value="${escapeHtml(c.label)}"
             onblur="renameCategory('${c.id}', this.value)"
-            onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
-        </span>
-        <!-- A sibling of .catlabelline now (not nested inside it) — see
-             .catbadgerow in <style> for why: on mobile this needs to drop
-             to its own full-width row BELOW the pin/location buttons (per
-             the explicit ask), which a flex "order" trick can only pull
-             off from a shared parent with those buttons, not from one
-             nested a level deeper inside the label's own box. Guarded so
-             an empty span (no locations, no type badge) never renders at
-             all rather than leaving a stray empty underline on desktop. -->
-        ${(locBadges || c.type==='checklist' || c.type==='calendar') ? `
-        <span class="catbadgerow">
-          ${locBadges}
-          ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
-          ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
-        </span>` : ''}
+            onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">`;
+          // Desktop: badges render NESTED inside .catlabelline, sharing
+          // its one flex:1 box (and its one border-bottom) with the
+          // input — this is what makes the dashed line read as one
+          // continuous line running from the label, under the badges,
+          // all the way to wherever the pin/location buttons start,
+          // rather than the input's own short underline stopping dead
+          // with the badges stranded far to the right in the leftover
+          // flex:1 space. See the "Deployed HTML drift incident"-style
+          // regression note in .catlabelline's own <style> comment for
+          // why this has to stay nested here specifically.
+          if(!mobileUiActive()){
+            return `<span class="catlabelline">${input}${badgesInner}</span>`;
+          }
+          // Mobile: badges instead render as a SEPARATE sibling of
+          // .catpinbtn/.catlocwrap (not nested inside .catlabelline) —
+          // see .catbadgerow in <style> for why: on mobile they need to
+          // drop to their own full-width row BELOW the pin/location
+          // buttons (per the explicit ask), which a flex "order" trick
+          // can only pull off from a shared parent with those buttons,
+          // not from one nested a level deeper inside the label's own
+          // box. Guarded so an empty span (no locations, no type badge)
+          // never renders at all.
+          return `
+            <span class="catlabelline">${input}</span>
+            ${hasBadges ? `<span class="catbadgerow">${badgesInner}</span>` : ''}
+          `;
+        })()}
         <!-- Only shown while the Stacked Tabs dev setting (01-categories-
              theme.js) is on — pinning has no effect at all otherwise, so
              surfacing the control the rest of the time would just be a
@@ -14991,7 +15077,7 @@ function stylePresetsSectionHtml(){
   // that's easy to miss/most worth surfacing, Browse is more of a
   // secondary "go discover something" action.
   return `
-    ${settingsSectionHtml('stylePresets', 'Style Presets', `<div class="stylepresetgrid">${tiles}</div>`)}
+    ${settingsSectionHtml('stylePresets', 'Style Presets', `<div class="stylepresetgrid">${tiles}${spDropEndHtml(state.stylePresets||[])}</div>`)}
     <div class="stylepresetactionsrow">
       <div class="stylepresetbrowsewrap">
         <button class="resetthemebtn" onclick="toggleSeasonalPresetsBrowser()">☆ Browse Seasonal Presets</button>
@@ -15037,7 +15123,8 @@ function stylePresetTileHtml(sp){
   const badge = sp.fromCatalogId ? `<span class="stylepreseticon" title="Started from a built-in Theme Preset" aria-hidden="true">★</span>` : '';
   const labelText = escapeHtml(sp.label) + (sp.fromCatalogId && sp.edited ? ' *' : '');
   return `
-    <span class="uipresettilewrap">
+    <span class="uipresettilewrap" data-sp-id="${sp.id}">
+      <span class="draghandle stylepresethandle" onpointerdown="styleHandlePointerDown(event,'${sp.id}')" onclick="event.stopPropagation()" title="Drag to reorder">⠿</span>
       <button class="uipresetbtn stylepresetbtn"
         onmouseenter="previewSavedStylePreset('${sp.id}', true)" onmouseleave="previewSavedStylePreset('${sp.id}', false)"
         onclick="applyStylePreset('${sp.id}')">
