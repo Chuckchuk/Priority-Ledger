@@ -690,20 +690,21 @@ function defaultTasks(){
 }
 
 // Seeds the Style Presets feature (see stylePresets' own comment in
-// defaultState() below) with one built-in look — a genuine demo of what
-// the feature actually captures, not a placeholder. Deep near-black
-// violet desk under a dark purple-black ledger (paper stays under the
-// 0.5 relLuminance line, same "real dark mode" mechanism every dark Desk
-// & Ledger preset in 01-categories-theme.js uses) with a custom pumpkin-
-// orange/witch-purple UI color pair and Text & Lines Match UI Color
-// turned on (Primary) — per the explicit "make sure the text is a cool
-// color" ask, this is what actually produces the glowing pumpkin-orange
-// ink against the dark purple paper, not a separate hardcoded text
-// color. Category colors are keyed by id (work/household/personal/
-// lists — defaultCategories()'s own ids), so this recolors a fresh
-// account's default four tabs out of the box; applyStylePreset() only
-// touches a category whose id is still present, so it's harmless
-// against an account that's renamed or removed any of them.
+// defaultState() below) with two built-in looks — genuine demos of what
+// the feature actually captures, not placeholders.
+//
+// `categories` is applied POSITIONALLY (see applyStylePreset() in
+// 09-settings.js), not by id: entry N recolors whichever category
+// currently sits at index N in state.categories, regardless of that
+// category's own id/label. That's what lets one preset safely cover
+// both a fresh 4-category account and an account with many more tabs —
+// a preset with fewer live categories than stored colors just leaves
+// the extra colors unused, and one with more categories than stored
+// colors leaves the extras untouched, neither is a bug. Every preset
+// seeded here stores a full 12 colors specifically so it still has
+// something to offer a heavily-customized account, not just the
+// default four — 12 isn't a hard cap on categories, just the amount
+// this seed data bothers to plan for.
 function defaultStylePresets(){
   return [{
     id: 'style-halloween',
@@ -715,14 +716,62 @@ function defaultStylePresets(){
       customUi: { label:'Halloween', primary:'#E07A1E', primaryLight:'#F0A050', secondary:'#7B3FA0', secondaryLight:'#9C6BC0' },
       inkFromUi: true, inkFromUiSource: 'primary'
     },
+    // Deep near-black violet desk under a dark purple-black ledger
+    // (paper stays under the 0.5 relLuminance line, same "real dark
+    // mode" mechanism every dark Desk & Ledger preset in
+    // 01-categories-theme.js uses) with Text & Lines Match UI Color on
+    // (Primary) — per the explicit "make sure the text is a cool color"
+    // ask, this is what actually produces the glowing pumpkin-orange ink
+    // against the dark purple paper, not a separate hardcoded text color.
     deskPaletteId: 'midnight',
     uiPaletteId: 'classic',
     categoryPaletteId: 'classic',
     categories: [
-      { id:'work',      hex:'#D9720E', icon:'dot' },
-      { id:'household', hex:'#6B3FA0', icon:'dot' },
-      { id:'personal',  hex:'#5A8F3C', icon:'dot' },
-      { id:'lists',     hex:'#8C2F2F', icon:'dot' }
+      { hex:'#D9720E', icon:'dot' }, // pumpkin orange
+      { hex:'#6B3FA0', icon:'dot' }, // witch purple
+      { hex:'#8C2331', icon:'dot' }, // blood red
+      { hex:'#4E8B4A', icon:'dot' }, // slime green
+      { hex:'#D9A017', icon:'dot' }, // candy corn yellow
+      { hex:'#2A3A6B', icon:'dot' }, // midnight blue
+      { hex:'#3A3A3E', icon:'dot' }, // bat charcoal
+      { hex:'#B85C1E', icon:'dot' }, // rust amber
+      { hex:'#4A8C86', icon:'dot' }, // ghostly teal
+      { hex:'#5C2140', icon:'dot' }, // plum wine
+      { hex:'#9C9284', icon:'dot' }, // bone ash
+      { hex:'#5E5468', icon:'dot' }  // spider grey-violet
+    ]
+  }, {
+    id: 'style-meadow',
+    label: 'Meadow',
+    theme: {
+      bg: '#4F6B4A', paper: '#F3ECD9',
+      gradient: true, grain: true, pages: true, leather: false,
+      uiPreset: 'custom',
+      customUi: { label:'Meadow', primary:'#5C8A52', primaryLight:'#7CBA6F', secondary:'#D98A73', secondaryLight:'#FFBA9B' },
+      inkFromUi: false, inkFromUiSource: 'primary'
+    },
+    // The light-mode counterpart to Halloween's dark one — a bright
+    // sage-green desk under a warm cream ledger, leaf-green/coral UI
+    // colors, and ordinary paper-derived ink (inkFromUi off) rather than
+    // a glowing tinted one, so the two seeded presets also demo the two
+    // different "Text & Lines Match UI Color" states, not just two color
+    // schemes.
+    deskPaletteId: 'classic',
+    uiPaletteId: 'classic',
+    categoryPaletteId: 'pastel',
+    categories: [
+      { hex:'#5C8A52', icon:'dot' }, // leaf green
+      { hex:'#D98A73', icon:'dot' }, // coral pink
+      { hex:'#6FA8C0', icon:'dot' }, // sky blue
+      { hex:'#D9B04C', icon:'dot' }, // buttercup yellow
+      { hex:'#9C86C0', icon:'dot' }, // lavender
+      { hex:'#D98CA0', icon:'dot' }, // blush rose
+      { hex:'#7A8C4E', icon:'dot' }, // moss
+      { hex:'#B8663E', icon:'dot' }, // terracotta
+      { hex:'#7A8AC0', icon:'dot' }, // periwinkle
+      { hex:'#D9A22E', icon:'dot' }, // sunflower
+      { hex:'#6FBFA0', icon:'dot' }, // mint
+      { hex:'#A0699C', icon:'dot' }  // plum blossom
     ]
   }];
 }

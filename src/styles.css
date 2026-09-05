@@ -3399,13 +3399,14 @@
   .uipresettilewrap{ display:flex; align-items:center; gap:4px; }
   .uipresettilewrap .uipresetbtn{ flex:1; min-width:0; }
   .uipresettileactions{ display:flex; gap:3px; flex-shrink:0; }
-  .uipresetedit, .uipresetremove{
+  .uipresetedit, .uipresetremove, .uipresetupdate{
     width:20px; height:20px; border-radius:50%; padding:0; flex-shrink:0;
     background: var(--card-bg-dim); border:1px solid var(--line); color: var(--ink-soft);
     font-size:0.58rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer;
   }
   .uipresetremove:hover{ border-color: var(--estate); color: var(--estate); }
   .uipresetedit:hover{ border-color: var(--primary); color: var(--primary); }
+  .uipresetupdate:hover{ border-color: var(--secondary); color: var(--secondary); }
   .uipresetswatches{ display:flex; flex-shrink:0; width:22px; height:22px; border-radius:50%; overflow:hidden; }
   .uipresetswatch{ width:50%; height:100%; }
   .uipresetlabel{
@@ -3432,6 +3433,27 @@
   .stylepresetgrid{ display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
   .stylepresetdots{ display:flex; gap:2px; flex-shrink:0; }
   .stylepresetdot{ width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  /* Wraps the bg/paper .uipresetswatches circle so .stylepresetuiswatch
+     (the smaller primary/secondary circle) has something to position
+     itself against without disturbing .uipresetswatches' own sizing,
+     which customPresetTileHtml()'s desk/ui tiles still rely on as-is. */
+  .stylepresetswatches{ position:relative; flex-shrink:0; display:flex; }
+  /* Style Preset tiles specifically get a border on the big bg/paper
+     circle (customPresetTileHtml()'s desk/ui tiles don't need one — a
+     Desk & Ledger preset is never shown against a card using its own
+     paper color as the surrounding chrome, but a Style Preset can be). */
+  .stylepresetbtn .uipresetswatches{ border:1px solid var(--line); }
+  /* The primary/secondary pair, layered over the bg/paper circle's
+     bottom-right corner rather than a third swatch in the row — a
+     "badge" reading as sitting on top of the desk/ledger colors, not a
+     third independent one. The var(--card-bg) ring is what actually
+     separates it from the larger circle behind it. */
+  .stylepresetuiswatch{
+    position:absolute; right:-3px; bottom:-3px; width:12px; height:12px;
+    border-radius:50%; overflow:hidden; display:flex;
+    border:2px solid var(--card-bg); box-shadow:0 0 0 1px var(--line);
+  }
+  .stylepresetuiswatchhalf{ width:50%; height:100%; }
   /* margin-top clears .catpickerclose ("×", position:absolute top:4px
      against .catpicker's own box) — .catpicker's own padding (12px) isn't
      enough on its own since the "×" sits a little into that padding, and

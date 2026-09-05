@@ -1742,19 +1742,20 @@ async function resetTheme(){
 function stylePresetsSectionHtml(){
   const tiles = (state.stylePresets||[]).map(sp => stylePresetTileHtml(sp)).join('');
   const editingPreset = editingStylePresetId ? (state.stylePresets||[]).find(s=>s.id===editingStylePresetId) : null;
-  // Same "reopen a saved thing, tweak it via the normal UI, save over the
-  // same id" idiom openDualColorTemplateEdit() already uses for a single
-  // color pair — there's no dedicated "whole theme" editor to open here,
-  // since Appearance and Manage Tabs (both already live, ordinary
-  // Settings UI) ARE that editor. editStylePreset()'s own ✎ applies the
-  // preset first, so "editing" starts from exactly what's saved rather
-  // than whatever the live look happened to be a moment ago.
+  // Unlike openDualColorTemplateEdit()'s single color pair, there's no
+  // dedicated "whole theme" editor to open here — Appearance and Manage
+  // Tabs (both already live, ordinary Settings UI) ARE that editor, so
+  // "editing" a Style Preset is two separate, deliberate actions instead
+  // of one: ✎ only renames it (editStylePreset() below never touches the
+  // live look), and a tile's own ↻ (updateStylePresetLook()) re-captures
+  // whatever the app currently looks like into that preset in place —
+  // apply the preset, tweak it via Appearance/Manage Tabs, then ↻.
   const saveForm = editingPreset
     ? `<div class="templatesaveform">
          <input type="text" id="stylePresetNameInput" placeholder="Name this preset" maxlength="40" value="${escapeHtml(editingPreset.label)}"
            onkeydown="if(event.key==='Enter'){ event.preventDefault(); confirmSaveStylePreset(); }">
          <div class="templatesaveformactions">
-           <button class="templatecreateconfirm" onclick="confirmSaveStylePreset()">Update Preset</button>
+           <button class="templatecreateconfirm" onclick="confirmSaveStylePreset()">Rename</button>
            <button class="templatecreatecancel" onclick="cancelSaveStylePreset()">Cancel</button>
          </div>
        </div>`
@@ -1775,40 +1776,74 @@ function stylePresetsSectionHtml(){
   `;
 }
 
-// Same shape as customPresetTileHtml() (a swatch + label + ✎/× pair,
-// click-to-apply) plus a row of small category-color dots — per the
-// explicit ask to work some of the actual category colors into a
+// Same shape as customPresetTileHtml() (a swatch + label + action
+// buttons, click-to-apply) plus a row of small category-color dots — per
+// the explicit ask to work some of the actual category colors into a
 // preset's own visual, not just its bg/paper pair, since those are as
-// much a part of "the look" this feature saves as the desk/ledger
-// colors are.
+// much a part of "the look" this feature saves as the desk/ledger colors
+// are. The bg/paper circle also carries its own small primary/secondary
+// UI-color circle layered over its bottom-right corner (.stylepresetuiswatch)
+// rather than a third swatch in a row, since a preset's "look" reads as
+// desk & ledger with the UI accent colors sitting on top of it, not three
+// independent, unrelated colors — and a border around the bg/paper circle
+// itself, since without one a preset whose ledger color happens to match
+// this very panel's own background would otherwise visually vanish into
+// it (the app's own current paper color IS one of the panel's own
+// background colors, so a preset built around a similar paper tone has
+// nothing else to visually separate it).
 function stylePresetTileHtml(sp){
   const dots = (sp.categories||[]).slice(0, 6).map(c=>
     `<span class="stylepresetdot" style="background:${c.hex}"></span>`
   ).join('');
+  const ui = stylePresetUiColors(sp);
   return `
     <span class="uipresettilewrap">
       <button class="uipresetbtn stylepresetbtn" onclick="applyStylePreset('${sp.id}')">
-        <span class="uipresetswatches">
-          <span class="uipresetswatch" style="background:${sp.theme.bg}"></span>
-          <span class="uipresetswatch" style="background:${sp.theme.paper}"></span>
+        <span class="stylepresetswatches">
+          <span class="uipresetswatches">
+            <span class="uipresetswatch" style="background:${sp.theme.bg}"></span>
+            <span class="uipresetswatch" style="background:${sp.theme.paper}"></span>
+          </span>
+          <span class="stylepresetuiswatch">
+            <span class="stylepresetuiswatchhalf" style="background:${ui.primary}"></span>
+            <span class="stylepresetuiswatchhalf" style="background:${ui.secondary}"></span>
+          </span>
         </span>
         <span class="stylepresetdots">${dots}</span>
         <span class="uipresetlabel">${escapeHtml(sp.label)}</span>
       </button>
       <span class="uipresettileactions">
-        <button class="uipresetedit" onclick="event.stopPropagation(); editStylePreset('${sp.id}')" title="Edit preset">✎</button>
+        <button class="uipresetupdate" onclick="event.stopPropagation(); updateStylePresetLook('${sp.id}')" title="Update preset to match current look">⟳</button>
+        <button class="uipresetedit" onclick="event.stopPropagation(); editStylePreset('${sp.id}')" title="Rename preset">✎</button>
         <button class="uipresetremove" onclick="event.stopPropagation(); deleteStylePreset('${sp.id}')" title="Remove preset">×</button>
       </span>
     </span>`;
+}
+
+// Resolves a style preset's own primary/secondary UI colors WITHOUT
+// touching live state — sp.uiPaletteId names which UI_COLOR_PRESET_SETS
+// entry its own uiPreset id has to be looked up in, since that set isn't
+// necessarily the one currently active (state.uiPaletteId /
+// UI_COLOR_PRESETS may point somewhere else entirely while just
+// rendering this tile). Used by stylePresetTileHtml() for the layered
+// swatch preview only.
+function stylePresetUiColors(sp){
+  if(sp.theme.uiPreset === 'custom' && sp.theme.customUi) return sp.theme.customUi;
+  const set = UI_COLOR_PRESET_SETS[sp.uiPaletteId] || UI_COLOR_PRESET_SETS.classic;
+  return set.presets.find(p=>p.id===sp.theme.uiPreset) || set.presets[0];
 }
 
 // Everything a Style Preset actually captures, read fresh off live state
 // — Appearance's own fields (theme, plus which named Desk & Ledger/UI
 // Colors/Category Colors SET was active, so a preset also restores which
 // picker tab shows as current) and each existing category's own color/
-// icon. Deliberately NOT categories' labels/types/locations/order — this
-// is a color/appearance snapshot, not a tab-structure one, so applying a
-// preset can never rename, retype, or reorder anyone's actual tabs.
+// icon, in display order. Deliberately NOT categories' labels/types/
+// locations/order/ids — this is a color/appearance snapshot, not a
+// tab-structure one, so applying a preset can never rename, retype, or
+// reorder anyone's actual tabs, and dropping id in favor of array
+// position is what lets applyStylePreset() below recolor "however many
+// categories this account actually has" instead of only ones matching a
+// fixed set of ids from whenever the preset was saved.
 function buildStylePresetSnapshot(name){
   return {
     label: name,
@@ -1822,18 +1857,22 @@ function buildStylePresetSnapshot(name){
     deskPaletteId: state.deskPaletteId,
     uiPaletteId: state.uiPaletteId,
     categoryPaletteId: state.categoryPaletteId,
-    categories: state.categories.map(c => ({ id: c.id, hex: c.hex, icon: c.icon || 'dot' }))
+    categories: state.categories.map(c => ({ hex: c.hex, icon: c.icon || 'dot' }))
   };
 }
 
 // Applies a saved preset's whole look — the theme fields wholesale, the
 // three palette-SET pointers (so the right tab shows active next time
-// each picker opens), then each category's own hex/icon matched back
-// onto today's live categories BY ID — a category the preset doesn't
-// mention (renamed since, or never existed in it) is left completely
-// untouched, same "safety net" reasoning CATEGORY_PALETTE deletion
-// already follows elsewhere (see CLAUDE.md's own note on
-// FALLBACK_CATEGORY).
+// each picker opens), then each stored category color/icon matched back
+// onto today's live categories BY POSITION (entry 0 → state.categories[0],
+// etc.), not by id — a preset can carry more stored colors than this
+// account has categories (the extras are simply unused) or fewer (the
+// categories past the end are left completely untouched), neither is a
+// bug, it's what lets one preset's color set usefully cover accounts
+// with very different numbers of tabs. This is the only place a Style
+// Preset is meant to touch the live look — editStylePreset()/
+// deleteStylePreset() deliberately do NOT call this, see their own
+// comments.
 async function applyStylePreset(id){
   const sp = (state.stylePresets||[]).find(s=>s.id===id);
   if(!sp) return;
@@ -1845,9 +1884,9 @@ async function applyStylePreset(id){
   rebuildDeskPaperPresets();
   rebuildUiColorPresets();
   rebuildCategoryPalette();
-  (sp.categories||[]).forEach(saved => {
-    const c = state.categories.find(x=>x.id===saved.id);
-    if(c){ c.hex = saved.hex; c.icon = saved.icon; }
+  (sp.categories||[]).forEach((saved, i) => {
+    const c = state.categories[i];
+    if(c){ c.hex = saved.hex; c.icon = saved.icon || 'dot'; }
   });
   rebuildCategoriesIndex();
   applyTheme();
@@ -1878,36 +1917,57 @@ function cancelSaveStylePreset(){
   render();
 }
 
-// The ✎ on a saved preset's own tile — applies it (so "editing" starts
-// from exactly what's saved, see stylePresetsSectionHtml()'s own
-// comment) and arms the same inline name form startSaveStylePreset()
-// uses, pre-filled with this preset's current name and wired to
-// overwrite it in place instead of creating a new entry.
-async function editStylePreset(id){
+// The ✎ on a saved preset's own tile — renaming ONLY. Deliberately does
+// NOT apply the preset first: an earlier version did (so "editing"
+// started from exactly what's saved), but that meant clicking ✎ silently
+// switched your whole live look just to open a name field, which read as
+// the button "doing something it shouldn't." Renaming a preset shouldn't
+// touch the live app at all, so this only arms the inline name form,
+// pre-filled with the current label. See updateStylePresetLook() below
+// for the actual "change what this preset looks like" action.
+function editStylePreset(id){
   const sp = (state.stylePresets||[]).find(s=>s.id===id);
   if(!sp) return;
   editingStylePresetId = id;
   stylePresetSaveOpen = false;
-  await applyStylePreset(id);
+  render();
   document.getElementById('stylePresetNameInput')?.focus();
 }
 
-// The one moment a Style Preset actually saves — builds a fresh snapshot
-// off whatever's live right now (which, reached via editStylePreset()'s
-// apply-first flow, may include further tweaks made after that apply)
-// and either pushes a new named entry or overwrites the one being
-// edited in place, same branch openDualColorTemplateEdit()'s own
-// "Update Template" follows.
+// The explicit "update a preset's look" action (the ↻ on its tile) —
+// re-snapshots whatever the live app looks like right now into this
+// preset in place, keeping its id and label. Separate from renaming on
+// purpose: apply the preset (click its tile), tweak Appearance/Manage
+// Tabs however you like via the normal Settings UI, then come back and
+// press ↻ to fold those tweaks back into the same saved preset — nothing
+// here runs implicitly just from opening the rename field.
+async function updateStylePresetLook(id){
+  const sp = (state.stylePresets||[]).find(s=>s.id===id);
+  if(!sp) return;
+  pushUndo(`Updated "${sp.label}" style preset`);
+  Object.assign(sp, buildStylePresetSnapshot(sp.label));
+  render();
+  queueSave();
+}
+
+// The one moment a Style Preset's NAME actually saves (a brand-new
+// preset instead goes through its `else` branch, capturing a fresh
+// snapshot since there's nothing saved yet to preserve) — editing an
+// existing one here only ever renames it in place, it never touches its
+// stored colors; see updateStylePresetLook() for that.
 async function confirmSaveStylePreset(){
   const nameInput = document.getElementById('stylePresetNameInput');
   const name = (nameInput ? nameInput.value.trim() : '') || 'Untitled';
-  pushUndo(editingStylePresetId ? `Updated "${name}" style preset` : `Saved "${name}" style preset`);
-  const snapshot = buildStylePresetSnapshot(name);
-  if(!Array.isArray(state.stylePresets)) state.stylePresets = [];
   if(editingStylePresetId){
-    const idx = state.stylePresets.findIndex(s=>s.id===editingStylePresetId);
-    if(idx !== -1) state.stylePresets[idx] = { ...snapshot, id: editingStylePresetId };
+    const existing = (state.stylePresets||[]).find(s=>s.id===editingStylePresetId);
+    if(existing){
+      pushUndo(`Renamed "${existing.label}" style preset to "${name}"`);
+      existing.label = name;
+    }
   } else {
+    pushUndo(`Saved "${name}" style preset`);
+    const snapshot = buildStylePresetSnapshot(name);
+    if(!Array.isArray(state.stylePresets)) state.stylePresets = [];
     state.stylePresets.push({ ...snapshot, id: newId('style') });
   }
   stylePresetSaveOpen = false;
