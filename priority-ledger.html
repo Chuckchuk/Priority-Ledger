@@ -19386,18 +19386,30 @@ function swipeTextWidth(text, font){
 // swipe competing with them.
 function classifySwipeZone(target){
   if(!target || !target.closest) return null;
-  // A touch that starts inside a text field is trying to position a
-  // cursor or extend a text selection, never to swipe the page away —
-  // per the explicit ask, this has to opt out of every swipe zone below
-  // (back, day-nav, month-nav), not just the ones that happen to overlap
-  // a text field in practice, since editing text should never fight a
-  // page gesture regardless of where on the page it happens. Mirrors the
-  // identical guard pullRefreshEligible() already has for the same
-  // reason. A plain vertical scroll starting here is untouched either
-  // way — returning null here means swipeGesture never gets set, so the
-  // touchmove listener below bails immediately and never calls
-  // preventDefault(), leaving native scroll/selection completely alone.
-  if(target.closest('input, textarea, select, [contenteditable="true"]')) return null;
+  // A touch that starts on a text field ALREADY being edited (it's the
+  // live document.activeElement) is trying to reposition the cursor or
+  // extend a selection, never to swipe the page away — per the explicit
+  // ask, this has to opt out of every swipe zone below (back, day-nav,
+  // month-nav), not just the ones that happen to overlap a text field in
+  // practice. Scoped to the FOCUSED field specifically, not "any field
+  // anywhere" (an earlier version of this guard) — that blocked swiping
+  // starting on a title/Notes/Add Step field any time it merely existed
+  // on the page, focused or not, which read as a dead zone covering most
+  // of a Task Detail page rather than the narrow "don't fight an active
+  // text edit" case this was actually meant for. A field that ISN'T
+  // focused yet has nothing to reposition — touching it starts a swipe
+  // like anywhere else, and only focuses on release; per the explicit
+  // ask, this also means a touch elsewhere on the page still swipes fine
+  // even while a DIFFERENT field is mid-edit, since only the specific
+  // touched element is checked against activeElement, not "is anything
+  // being edited at all." Mirrors the identical guard pullRefreshEligible()
+  // already has for the same reason. A plain vertical scroll starting
+  // here is untouched either way — returning null here means
+  // swipeGesture never gets set, so the touchmove listener below bails
+  // immediately and never calls preventDefault(), leaving native
+  // scroll/selection completely alone.
+  const editingField = target.closest('input, textarea, select, [contenteditable="true"]');
+  if(editingField && editingField === document.activeElement) return null;
   if(openCategoryPickerId || openCatLocPickerId || uiColorPickerOpen || deskPaperPickerOpen || seasonalPresetsBrowserOpen || locationEditorOpenId || customSelectOpenKey) return null;
   const daynav = document.querySelector('.daynavrow');
   if(daynav && daynav.contains(target)){
@@ -20007,13 +20019,18 @@ let pullRefreshGesture = null;
 
 function pullRefreshEligible(target){
   // Once actually signed in (nothing stale to refresh on the login
-  // screen), and never starting inside a text field — a drag meant to
-  // reposition a cursor or select text shouldn't also arm a page reload.
+  // screen), and never starting on a text field that's ALREADY focused —
+  // a drag meant to reposition a cursor or select text shouldn't also arm
+  // a page reload. Scoped to the focused field specifically, same fix and
+  // same reasoning as classifySwipeZone()'s identical guard above (see
+  // its own comment) — an unfocused field has nothing to reposition yet,
+  // so a touch starting there is free to arm a pull like anywhere else.
   // Deliberately NOT gated on scrollY here (unlike an earlier version) —
   // see touchmove below.
   const appShell = document.getElementById('appShell');
   if(!appShell || appShell.style.display === 'none') return false;
-  if(target.closest && target.closest('input, textarea, select')) return false;
+  const editingField = target.closest && target.closest('input, textarea, select');
+  if(editingField && editingField === document.activeElement) return false;
   // A touch that starts in one of classifySwipeZone()'s own zones (day-
   // nav, month-nav, or a drilldown's own back-swipe area) shouldn't also
   // be able to arm a pull-to-refresh — per the explicit ask, starting a
