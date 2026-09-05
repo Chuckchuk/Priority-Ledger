@@ -356,17 +356,13 @@ const UI_COLOR_PRESET_SETS = {
   },
   pastel: {
     id: 'pastel', label: 'Pastel',
-    // defaultId (see setUiPaletteSet(), 09-settings.js) is what a switch
-    // to this set falls back to when the outgoing UI preset doesn't map
-    // to any slot here (a custom pick, most commonly) — Mint & Coral per
-    // the project owner's own ask, rather than leaving a custom pair in
-    // place under a "Pastel" label that doesn't actually show anything
-    // pastel.
-    defaultId: 'mintcoral',
-    // Mint & Coral leads the array — same "default means top of the
-    // list" convention as Seafoam & Mist above (see
-    // DESK_PAPER_PRESET_SETS.pastel's own comment), a deliberate
-    // exception to the pure hue-sweep order otherwise used here.
+    // Mint & Coral leads the array — the project owner's own preferred
+    // "flagship" entry for this set, a deliberate exception to the pure
+    // hue-sweep order otherwise used here (same reasoning as Seafoam &
+    // Mist leading DESK_PAPER_PRESET_SETS.pastel below). Purely display
+    // order now — switching TO this set from a custom pick leaves the
+    // custom pair alone rather than snapping to any particular entry
+    // here, see setUiPaletteSet()'s own comment in 09-settings.js.
     presets: [
       { id:'mintcoral',       label:'Mint & Coral',       primary:'#5FAE9A', primaryLight:'#82C4B2', secondary:'#E58572', secondaryLight:'#EFA795' },
       { id:'rosesage',        label:'Rose & Sage',        primary:'#C97B84', primaryLight:'#DDA0A7', secondary:'#8FAE83', secondaryLight:'#AECB9F' },
@@ -446,20 +442,17 @@ const UI_COLOR_PRESET_SETS = {
   // and 'greyscale' (warmer near-black browns/taupes) sets — see
   // DESK_PAPER_PRESET_SETS.noir's own comment for why keeping two near-
   // monochrome sets split by an assumed light/dark card never actually
-  // matched how a UI Colors preset gets picked in practice. defaultId
-  // ('steel', i.e. Steel & Bone — one of the two the project owner
-  // explicitly asked to keep) is what a switch to this set falls back to
-  // when the outgoing preset doesn't map to any slot here, same idiom as
-  // Pastel's own defaultId. Mixes real entries from both predecessors
-  // (steel/espressotaupe/umber/onyx from the old greyscale, boneink/
-  // chromeslate from the old noir) with two brand-new pairs (Graphite &
-  // Bone, Ash & Ivory) built by crossing a cool grey primary from one
-  // predecessor with a warm secondary from the other — the actual "mix,
-  // don't just merge" the project owner asked for, not only a trimmed
-  // union of the original ten.
+  // matched how a UI Colors preset gets picked in practice. Mixes real
+  // entries from both predecessors (steel/espressotaupe/umber/onyx from
+  // the old greyscale, boneink/chromeslate from the old noir — 'steel',
+  // i.e. Steel & Bone, is one of the two the project owner explicitly
+  // asked to keep) with two brand-new pairs (Graphite & Bone, Ash &
+  // Ivory) built by crossing a cool grey primary from one predecessor
+  // with a warm secondary from the other — the actual "mix, don't just
+  // merge" the project owner asked for, not only a trimmed union of the
+  // original ten.
   noir: {
     id: 'noir', label: 'Noir',
-    defaultId: 'steel',
     presets: [
       { id:'onyx',          label:'Onyx & Ash',       primary:'#1C1C1C', primaryLight:'#333333', secondary:'#9C9992', secondaryLight:'#B8B4AC' },
       { id:'chromeslate',   label:'Chrome & Slate',   primary:'#6E747A', primaryLight:'#8C9298', secondary:'#5D6368', secondaryLight:'#7B8186' },
@@ -565,19 +558,15 @@ const DESK_PAPER_PRESET_SETS = {
   },
   pastel: {
     id: 'pastel', label: 'Pastel',
-    // defaultId (see setDeskPaletteSet(), 09-settings.js) is what a
-    // switch to this set falls back to when the outgoing bg/paper don't
-    // match any slot here (a custom pick, most commonly) — Seafoam &
-    // Mist per the project owner's own ask, rather than leaving a custom
-    // desk/paper in place under a "Pastel" label that doesn't actually
-    // show anything pastel.
-    defaultId: 'seafoam',
-    // Seafoam & Mist leads the array (per the project owner's own
-    // clarification: "default" means "top of the list," same convention
-    // UI_COLOR_PRESET_SETS.classic's own comment already uses for 'rust')
-    // rather than sitting mid-sweep where the hue-sort alone would put
-    // it — a deliberate exception to the pure hue-sweep ordering the rest
-    // of this array follows.
+    // Seafoam & Mist leads the array — the project owner's own preferred
+    // "flagship" entry for this set (same convention
+    // UI_COLOR_PRESET_SETS.classic's own comment uses for 'rust') rather
+    // than sitting mid-sweep where the hue-sort alone would put it, a
+    // deliberate exception to the pure hue-sweep ordering the rest of
+    // this array follows. Purely display order now — switching TO this
+    // set from a custom bg/paper leaves the custom pair alone rather
+    // than snapping to any particular entry here, see
+    // setDeskPaletteSet()'s own comment in 09-settings.js.
     presets: [
       { id:'seafoam',           label:'Seafoam & Mist',        bg:'#4F8177', paper:'#E2F0EA' },
       { id:'terracotta',        label:'Terracotta & Sand',     bg:'#A16A4C', paper:'#F6E4C9' },
@@ -673,12 +662,9 @@ const DESK_PAPER_PRESET_SETS = {
   // own mood) and mid-toned-outlier (Driftwood & Fog's own mood) ideas
   // into the dark register those two never had a dark counterpart for,
   // rather than just keeping the old noir set's five near-identical
-  // near-black neutrals. defaultId ('charcoal', one of the two required
-  // keeps) is what a switch to this set falls back to when the outgoing
-  // bg/paper don't match any slot here, same idiom as Pastel's own.
+  // near-black neutrals. 'charcoal' is one of the two required keeps.
   noir: {
     id: 'noir', label: 'Noir',
-    defaultId: 'charcoal',
     presets: [
       // A true cool near-neutral — barely a hint of blue-grey rather than
       // the warm browns everywhere else in this set — for a colder,

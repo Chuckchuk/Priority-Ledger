@@ -180,7 +180,14 @@ function renderSettings(){
     ` : ''}
   `;
 
-  const taskFieldsSection = `
+  // Named "Interface Options" (not "Task Fields") since what actually
+  // lives here is a general "how complex should the UI be" toggle, not
+  // anything about a task's own data model — the timeframe/priority
+  // fields still exist on a task either way, this only controls whether
+  // they're shown. Renamed (and moved below Appearance, see the section
+  // order below) so a future toggle of the same "simplify the UI" shape
+  // has an honest home instead of getting shoehorned into "Task Fields."
+  const interfaceOptionsSection = `
     <label class="catlocchk" style="margin-bottom:10px;">
       <input type="checkbox" ${state.advancedTaskFields?'checked':''} onchange="toggleAdvancedTaskFields(this.checked)">
       Show timeframe & priority (uncheck for the simpler flag-only view)
@@ -357,8 +364,8 @@ function renderSettings(){
       ${pageTagHtml('toggleSettings()', 'Done')}
       ${settingsSectionHtml('locations', 'Locations', locationSection)}
       ${settingsSectionHtml('tabs', 'Manage Tabs', tabsSection)}
-      ${settingsSectionHtml('taskFields', 'Task Fields', taskFieldsSection)}
       ${settingsSectionHtml('appearance', 'Appearance', appearanceSection)}
+      ${settingsSectionHtml('taskFields', 'Interface Options', interfaceOptionsSection)}
       ${settingsSectionHtml('trash', 'Recently Deleted', trashSection, (state.trash||[]).length ? 'trashhasitems' : '')}
       ${settingsSectionHtml('claude', 'Claude Access', claudeSection)}
       ${settingsSectionHtml('dev', 'Dev Settings', devSection)}
@@ -1064,10 +1071,22 @@ function paletteTabsHtml(sets, activeId, switchFn){
 // Unlike setCategoryPaletteSet(), there's only ever one "current" thing to
 // re-map (state.theme.bg/paper itself, not N categories) — if it currently
 // matches a preset in the outgoing set exactly, the matching same-index
-// preset in the new set is applied; otherwise (a custom bg/paper, or a
-// saved custom template — deskPaperPresetActive() can't match either
-// against the built-in array) it's left alone, same "custom stays fixed"
-// rule the category version follows.
+// preset in the new set is applied.
+//
+// idx === -1 means the outgoing bg/paper matched NOTHING in the old set
+// either — i.e. it was already Custom — and is left completely untouched:
+// Custom stays Custom no matter which palette SET is active, it was never
+// tied to any one set's own array. An earlier version instead snapped a
+// Custom pair to the new set's own designated "default" entry here,
+// which is exactly the unwanted behavior the project owner asked to
+// remove — Custom silently turning into a picked preset just from
+// switching tabs.
+//
+// If idx WAS valid in the old set, the new set gets the same POSITION —
+// unless the new set is shorter and doesn't have that index at all, in
+// which case this lands on the new set's own LAST entry (as far along
+// the new, shorter set as you can get) rather than jumping to some
+// unrelated "default" pick.
 async function setDeskPaletteSet(id){
   const newSet = DESK_PAPER_PRESET_SETS[id];
   if(!newSet || state.deskPaletteId === id) return;
@@ -1077,17 +1096,9 @@ async function setDeskPaletteSet(id){
   state.deskPaletteId = id;
   state.theme.deskLabel = null;
   rebuildDeskPaperPresets();
-  if(idx !== -1 && DESK_PAPER_PRESETS[idx]){
-    state.theme.bg = DESK_PAPER_PRESETS[idx].bg;
-    state.theme.paper = DESK_PAPER_PRESETS[idx].paper;
-  } else if(newSet.defaultId){
-    // No same-index preset to carry over (most commonly: bg/paper was a
-    // custom pick) — land on this set's own designated default (see the
-    // set's own defaultId comment in 01-categories-theme.js) instead of
-    // silently leaving the old custom colors in place under the new
-    // palette's label.
-    const def = DESK_PAPER_PRESETS.find(p=>p.id===newSet.defaultId);
-    if(def){ state.theme.bg = def.bg; state.theme.paper = def.paper; }
+  if(idx !== -1){
+    const target = DESK_PAPER_PRESETS[idx] || DESK_PAPER_PRESETS[DESK_PAPER_PRESETS.length - 1];
+    if(target){ state.theme.bg = target.bg; state.theme.paper = target.paper; }
   }
   applyTheme();
   render();
@@ -1097,8 +1108,10 @@ async function setDeskPaletteSet(id){
 // Same idea as setDeskPaletteSet(), for UI_COLOR_PRESET_SETS — except the
 // "currently active preset" is a stored id (state.theme.uiPreset), not a
 // value match, so the re-map looks up that id's index in the outgoing set
-// rather than comparing colors. 'custom' is never in the array, so it
-// naturally falls through to the defaultId branch below.
+// rather than comparing colors. 'custom' is never in the array, so
+// idx === -1 here means exactly "Custom was active," and is left
+// completely untouched for the same reason setDeskPaletteSet() leaves a
+// custom bg/paper alone — see that function's own comment.
 async function setUiPaletteSet(id){
   const newSet = UI_COLOR_PRESET_SETS[id];
   if(!newSet || state.uiPaletteId === id) return;
@@ -1107,11 +1120,9 @@ async function setUiPaletteSet(id){
   pushUndo(`Changed UI colors palette to "${newSet.label}"`);
   state.uiPaletteId = id;
   rebuildUiColorPresets();
-  if(idx !== -1 && UI_COLOR_PRESETS[idx]){
-    state.theme.uiPreset = UI_COLOR_PRESETS[idx].id;
-  } else if(newSet.defaultId && UI_COLOR_PRESETS.some(p=>p.id===newSet.defaultId)){
-    // Same reasoning as setDeskPaletteSet()'s own defaultId fallback above.
-    state.theme.uiPreset = newSet.defaultId;
+  if(idx !== -1){
+    const target = UI_COLOR_PRESETS[idx] || UI_COLOR_PRESETS[UI_COLOR_PRESETS.length - 1];
+    if(target) state.theme.uiPreset = target.id;
   }
   applyTheme();
   render();

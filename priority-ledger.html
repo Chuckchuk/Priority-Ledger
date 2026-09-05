@@ -6175,17 +6175,13 @@ const UI_COLOR_PRESET_SETS = {
   },
   pastel: {
     id: 'pastel', label: 'Pastel',
-    // defaultId (see setUiPaletteSet(), 09-settings.js) is what a switch
-    // to this set falls back to when the outgoing UI preset doesn't map
-    // to any slot here (a custom pick, most commonly) — Mint & Coral per
-    // the project owner's own ask, rather than leaving a custom pair in
-    // place under a "Pastel" label that doesn't actually show anything
-    // pastel.
-    defaultId: 'mintcoral',
-    // Mint & Coral leads the array — same "default means top of the
-    // list" convention as Seafoam & Mist above (see
-    // DESK_PAPER_PRESET_SETS.pastel's own comment), a deliberate
-    // exception to the pure hue-sweep order otherwise used here.
+    // Mint & Coral leads the array — the project owner's own preferred
+    // "flagship" entry for this set, a deliberate exception to the pure
+    // hue-sweep order otherwise used here (same reasoning as Seafoam &
+    // Mist leading DESK_PAPER_PRESET_SETS.pastel below). Purely display
+    // order now — switching TO this set from a custom pick leaves the
+    // custom pair alone rather than snapping to any particular entry
+    // here, see setUiPaletteSet()'s own comment in 09-settings.js.
     presets: [
       { id:'mintcoral',       label:'Mint & Coral',       primary:'#5FAE9A', primaryLight:'#82C4B2', secondary:'#E58572', secondaryLight:'#EFA795' },
       { id:'rosesage',        label:'Rose & Sage',        primary:'#C97B84', primaryLight:'#DDA0A7', secondary:'#8FAE83', secondaryLight:'#AECB9F' },
@@ -6265,20 +6261,17 @@ const UI_COLOR_PRESET_SETS = {
   // and 'greyscale' (warmer near-black browns/taupes) sets — see
   // DESK_PAPER_PRESET_SETS.noir's own comment for why keeping two near-
   // monochrome sets split by an assumed light/dark card never actually
-  // matched how a UI Colors preset gets picked in practice. defaultId
-  // ('steel', i.e. Steel & Bone — one of the two the project owner
-  // explicitly asked to keep) is what a switch to this set falls back to
-  // when the outgoing preset doesn't map to any slot here, same idiom as
-  // Pastel's own defaultId. Mixes real entries from both predecessors
-  // (steel/espressotaupe/umber/onyx from the old greyscale, boneink/
-  // chromeslate from the old noir) with two brand-new pairs (Graphite &
-  // Bone, Ash & Ivory) built by crossing a cool grey primary from one
-  // predecessor with a warm secondary from the other — the actual "mix,
-  // don't just merge" the project owner asked for, not only a trimmed
-  // union of the original ten.
+  // matched how a UI Colors preset gets picked in practice. Mixes real
+  // entries from both predecessors (steel/espressotaupe/umber/onyx from
+  // the old greyscale, boneink/chromeslate from the old noir — 'steel',
+  // i.e. Steel & Bone, is one of the two the project owner explicitly
+  // asked to keep) with two brand-new pairs (Graphite & Bone, Ash &
+  // Ivory) built by crossing a cool grey primary from one predecessor
+  // with a warm secondary from the other — the actual "mix, don't just
+  // merge" the project owner asked for, not only a trimmed union of the
+  // original ten.
   noir: {
     id: 'noir', label: 'Noir',
-    defaultId: 'steel',
     presets: [
       { id:'onyx',          label:'Onyx & Ash',       primary:'#1C1C1C', primaryLight:'#333333', secondary:'#9C9992', secondaryLight:'#B8B4AC' },
       { id:'chromeslate',   label:'Chrome & Slate',   primary:'#6E747A', primaryLight:'#8C9298', secondary:'#5D6368', secondaryLight:'#7B8186' },
@@ -6384,19 +6377,15 @@ const DESK_PAPER_PRESET_SETS = {
   },
   pastel: {
     id: 'pastel', label: 'Pastel',
-    // defaultId (see setDeskPaletteSet(), 09-settings.js) is what a
-    // switch to this set falls back to when the outgoing bg/paper don't
-    // match any slot here (a custom pick, most commonly) — Seafoam &
-    // Mist per the project owner's own ask, rather than leaving a custom
-    // desk/paper in place under a "Pastel" label that doesn't actually
-    // show anything pastel.
-    defaultId: 'seafoam',
-    // Seafoam & Mist leads the array (per the project owner's own
-    // clarification: "default" means "top of the list," same convention
-    // UI_COLOR_PRESET_SETS.classic's own comment already uses for 'rust')
-    // rather than sitting mid-sweep where the hue-sort alone would put
-    // it — a deliberate exception to the pure hue-sweep ordering the rest
-    // of this array follows.
+    // Seafoam & Mist leads the array — the project owner's own preferred
+    // "flagship" entry for this set (same convention
+    // UI_COLOR_PRESET_SETS.classic's own comment uses for 'rust') rather
+    // than sitting mid-sweep where the hue-sort alone would put it, a
+    // deliberate exception to the pure hue-sweep ordering the rest of
+    // this array follows. Purely display order now — switching TO this
+    // set from a custom bg/paper leaves the custom pair alone rather
+    // than snapping to any particular entry here, see
+    // setDeskPaletteSet()'s own comment in 09-settings.js.
     presets: [
       { id:'seafoam',           label:'Seafoam & Mist',        bg:'#4F8177', paper:'#E2F0EA' },
       { id:'terracotta',        label:'Terracotta & Sand',     bg:'#A16A4C', paper:'#F6E4C9' },
@@ -6492,12 +6481,9 @@ const DESK_PAPER_PRESET_SETS = {
   // own mood) and mid-toned-outlier (Driftwood & Fog's own mood) ideas
   // into the dark register those two never had a dark counterpart for,
   // rather than just keeping the old noir set's five near-identical
-  // near-black neutrals. defaultId ('charcoal', one of the two required
-  // keeps) is what a switch to this set falls back to when the outgoing
-  // bg/paper don't match any slot here, same idiom as Pastel's own.
+  // near-black neutrals. 'charcoal' is one of the two required keeps.
   noir: {
     id: 'noir', label: 'Noir',
-    defaultId: 'charcoal',
     presets: [
       // A true cool near-neutral — barely a hint of blue-grey rather than
       // the warm browns everywhere else in this set — for a colder,
@@ -8729,12 +8715,17 @@ const SEASONAL_STYLE_PRESETS = [{
     // (UI_COLOR_PRESET_SETS.pastel), per the project owner's own explicit
     // ask for those two specific named looks together. deskPaletteId/
     // uiPaletteId are 'pastel' accordingly, matching where those two
-    // presets actually live.
+    // presets actually live. UI Colors deliberately points AT that real
+    // preset (uiPreset:'mintcoral', no customUi at all) rather than
+    // baking a customUi copy of its colors — per the explicit ask, a
+    // Style Preset built from an existing named preset should keep
+    // pointing at it, not fork a frozen copy, so it stays in sync if
+    // Mint & Coral's own colors are ever retuned later.
     theme: {
       bg: '#4F8177', paper: '#E2F0EA',
       gradient: true, grain: false, pages: false, leather: false,
-      uiPreset: 'custom',
-      customUi: { label:'Seaglass', primary:'#5FAE9A', primaryLight:'#82C4B2', secondary:'#E58572', secondaryLight:'#EFA795' },
+      uiPreset: 'mintcoral',
+      customUi: null,
       inkFromUi: true, inkFromUiSource: 'primary'
     },
     deskPaletteId: 'pastel',
@@ -13479,7 +13470,14 @@ function renderSettings(){
     ` : ''}
   `;
 
-  const taskFieldsSection = `
+  // Named "Interface Options" (not "Task Fields") since what actually
+  // lives here is a general "how complex should the UI be" toggle, not
+  // anything about a task's own data model — the timeframe/priority
+  // fields still exist on a task either way, this only controls whether
+  // they're shown. Renamed (and moved below Appearance, see the section
+  // order below) so a future toggle of the same "simplify the UI" shape
+  // has an honest home instead of getting shoehorned into "Task Fields."
+  const interfaceOptionsSection = `
     <label class="catlocchk" style="margin-bottom:10px;">
       <input type="checkbox" ${state.advancedTaskFields?'checked':''} onchange="toggleAdvancedTaskFields(this.checked)">
       Show timeframe & priority (uncheck for the simpler flag-only view)
@@ -13656,8 +13654,8 @@ function renderSettings(){
       ${pageTagHtml('toggleSettings()', 'Done')}
       ${settingsSectionHtml('locations', 'Locations', locationSection)}
       ${settingsSectionHtml('tabs', 'Manage Tabs', tabsSection)}
-      ${settingsSectionHtml('taskFields', 'Task Fields', taskFieldsSection)}
       ${settingsSectionHtml('appearance', 'Appearance', appearanceSection)}
+      ${settingsSectionHtml('taskFields', 'Interface Options', interfaceOptionsSection)}
       ${settingsSectionHtml('trash', 'Recently Deleted', trashSection, (state.trash||[]).length ? 'trashhasitems' : '')}
       ${settingsSectionHtml('claude', 'Claude Access', claudeSection)}
       ${settingsSectionHtml('dev', 'Dev Settings', devSection)}
@@ -14363,10 +14361,22 @@ function paletteTabsHtml(sets, activeId, switchFn){
 // Unlike setCategoryPaletteSet(), there's only ever one "current" thing to
 // re-map (state.theme.bg/paper itself, not N categories) — if it currently
 // matches a preset in the outgoing set exactly, the matching same-index
-// preset in the new set is applied; otherwise (a custom bg/paper, or a
-// saved custom template — deskPaperPresetActive() can't match either
-// against the built-in array) it's left alone, same "custom stays fixed"
-// rule the category version follows.
+// preset in the new set is applied.
+//
+// idx === -1 means the outgoing bg/paper matched NOTHING in the old set
+// either — i.e. it was already Custom — and is left completely untouched:
+// Custom stays Custom no matter which palette SET is active, it was never
+// tied to any one set's own array. An earlier version instead snapped a
+// Custom pair to the new set's own designated "default" entry here,
+// which is exactly the unwanted behavior the project owner asked to
+// remove — Custom silently turning into a picked preset just from
+// switching tabs.
+//
+// If idx WAS valid in the old set, the new set gets the same POSITION —
+// unless the new set is shorter and doesn't have that index at all, in
+// which case this lands on the new set's own LAST entry (as far along
+// the new, shorter set as you can get) rather than jumping to some
+// unrelated "default" pick.
 async function setDeskPaletteSet(id){
   const newSet = DESK_PAPER_PRESET_SETS[id];
   if(!newSet || state.deskPaletteId === id) return;
@@ -14376,17 +14386,9 @@ async function setDeskPaletteSet(id){
   state.deskPaletteId = id;
   state.theme.deskLabel = null;
   rebuildDeskPaperPresets();
-  if(idx !== -1 && DESK_PAPER_PRESETS[idx]){
-    state.theme.bg = DESK_PAPER_PRESETS[idx].bg;
-    state.theme.paper = DESK_PAPER_PRESETS[idx].paper;
-  } else if(newSet.defaultId){
-    // No same-index preset to carry over (most commonly: bg/paper was a
-    // custom pick) — land on this set's own designated default (see the
-    // set's own defaultId comment in 01-categories-theme.js) instead of
-    // silently leaving the old custom colors in place under the new
-    // palette's label.
-    const def = DESK_PAPER_PRESETS.find(p=>p.id===newSet.defaultId);
-    if(def){ state.theme.bg = def.bg; state.theme.paper = def.paper; }
+  if(idx !== -1){
+    const target = DESK_PAPER_PRESETS[idx] || DESK_PAPER_PRESETS[DESK_PAPER_PRESETS.length - 1];
+    if(target){ state.theme.bg = target.bg; state.theme.paper = target.paper; }
   }
   applyTheme();
   render();
@@ -14396,8 +14398,10 @@ async function setDeskPaletteSet(id){
 // Same idea as setDeskPaletteSet(), for UI_COLOR_PRESET_SETS — except the
 // "currently active preset" is a stored id (state.theme.uiPreset), not a
 // value match, so the re-map looks up that id's index in the outgoing set
-// rather than comparing colors. 'custom' is never in the array, so it
-// naturally falls through to the defaultId branch below.
+// rather than comparing colors. 'custom' is never in the array, so
+// idx === -1 here means exactly "Custom was active," and is left
+// completely untouched for the same reason setDeskPaletteSet() leaves a
+// custom bg/paper alone — see that function's own comment.
 async function setUiPaletteSet(id){
   const newSet = UI_COLOR_PRESET_SETS[id];
   if(!newSet || state.uiPaletteId === id) return;
@@ -14406,11 +14410,9 @@ async function setUiPaletteSet(id){
   pushUndo(`Changed UI colors palette to "${newSet.label}"`);
   state.uiPaletteId = id;
   rebuildUiColorPresets();
-  if(idx !== -1 && UI_COLOR_PRESETS[idx]){
-    state.theme.uiPreset = UI_COLOR_PRESETS[idx].id;
-  } else if(newSet.defaultId && UI_COLOR_PRESETS.some(p=>p.id===newSet.defaultId)){
-    // Same reasoning as setDeskPaletteSet()'s own defaultId fallback above.
-    state.theme.uiPreset = newSet.defaultId;
+  if(idx !== -1){
+    const target = UI_COLOR_PRESETS[idx] || UI_COLOR_PRESETS[UI_COLOR_PRESETS.length - 1];
+    if(target) state.theme.uiPreset = target.id;
   }
   applyTheme();
   render();

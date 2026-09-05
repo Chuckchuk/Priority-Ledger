@@ -960,12 +960,17 @@ const SEASONAL_STYLE_PRESETS = [{
     // (UI_COLOR_PRESET_SETS.pastel), per the project owner's own explicit
     // ask for those two specific named looks together. deskPaletteId/
     // uiPaletteId are 'pastel' accordingly, matching where those two
-    // presets actually live.
+    // presets actually live. UI Colors deliberately points AT that real
+    // preset (uiPreset:'mintcoral', no customUi at all) rather than
+    // baking a customUi copy of its colors — per the explicit ask, a
+    // Style Preset built from an existing named preset should keep
+    // pointing at it, not fork a frozen copy, so it stays in sync if
+    // Mint & Coral's own colors are ever retuned later.
     theme: {
       bg: '#4F8177', paper: '#E2F0EA',
       gradient: true, grain: false, pages: false, leather: false,
-      uiPreset: 'custom',
-      customUi: { label:'Seaglass', primary:'#5FAE9A', primaryLight:'#82C4B2', secondary:'#E58572', secondaryLight:'#EFA795' },
+      uiPreset: 'mintcoral',
+      customUi: null,
       inkFromUi: true, inkFromUiSource: 'primary'
     },
     deskPaletteId: 'pastel',
