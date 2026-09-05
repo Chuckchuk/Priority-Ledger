@@ -184,6 +184,13 @@ let taskPressRow = null;
 // 01-categories-theme.js) is currently open, or null — only one open at a
 // time, same "single id, not a Set" pattern as pendingDeleteCategoryId.
 let openCategoryPickerId = null;
+// Same idea for a category's own Locations popover (catLocPickerHtml(),
+// 09-settings.js) — replaced the old always-visible row of location
+// checkboxes under every category row, which was the actual source of
+// Settings' "too vertical" complaint (a full extra row per category,
+// every time). Only one open at a time, same pattern as
+// openCategoryPickerId right above.
+let openCatLocPickerId = null;
 // Whether the Appearance section's UI Colors (Primary/Secondary preset
 // pairs) popover is open — a single boolean, not a per-id map like
 // openCategoryPickerId, since there's only ever one of these in Settings.

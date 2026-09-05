@@ -3020,19 +3020,48 @@
     background: var(--card-bg-dim); color: var(--ink-soft); font-size:0.55rem; line-height:1; cursor:pointer;
   }
   .catmovebtn:disabled{ opacity:0.3; cursor:not-allowed; }
-  /* Indented to line up with .catedit's own left edge (was flush left
-     under .catmove/the color dot, competing with the reorder arrows and
-     icon; a first pass tried flush-right instead, which the project
-     owner then found sat too far over) — 49px is a measured value (the
-     actual rendered gap between .catidentity's own left edge and
-     .catedit's, in the live app: .catmove's 20px + two 8px .catidentity
-     gaps + .catdotbtn's own rendered width), not eyeballed. */
-  .catlocs{ flex-basis:100%; display:flex; margin-left:49px; gap:16px; margin-top:2px; }
+  /* Small pill(s) next to a category's own label showing which locations
+     it's in — one per location, replacing the old always-visible
+     .catlocs row of checkboxes (a full extra line under EVERY category
+     row, whether or not anyone was about to touch it) with something
+     that costs no vertical space of its own; it just wraps inline with
+     the rest of .catidentity like the checklist/calendar type badge
+     already does. See catLocPickerHtml() in 09-settings.js for the
+     actual toggle control this now links to. */
+  .catlocbadge{
+    font-family:'IBM Plex Mono', monospace; font-size:0.56rem; text-transform:uppercase; letter-spacing:0.03em;
+    color: var(--ink-soft); background: var(--card-bg-dim); border:1px solid var(--line); border-radius:999px;
+    padding:2px 7px; white-space:nowrap;
+  }
+  /* The Locations popover's own trigger — same "padding+negative-margin
+     for a bigger click target without shifting flow" trick .catdotbtn/
+     .catpinbtn already use, and the same LOCATION_PIN_ICON_SVG glyph
+     everywhere else a location matters would recognize (masthead
+     .locbadge is a text badge instead, not this glyph, since it already
+     shows the actual location's own label). */
+  .catlocwrap{ position:relative; display:inline-flex; }
+  .catlocbtn{
+    background:none; border:none; padding:6px; margin:-6px; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; border-radius:50%;
+    font-size:0.85rem; color: var(--ink-soft);
+  }
+  .catlocbtn:hover{ background: var(--card-bg-dim); color: var(--ink); }
+  /* Narrower than the default 196px .catpicker (a plain vertical
+     checkbox list needs far less width than a swatch grid) — right-
+     anchored rather than .catpicker's default left:0, since this trigger
+     sits at the right-hand end of a long .catidentity row and a left-
+     anchored popover would routinely hang off the card's own right edge
+     there. Compound selector (not just .catlocpicker alone) so this
+     reliably beats .catpicker's own left:0 regardless of which rule
+     happens to come first in the stylesheet — both are one-class
+     selectors on their own, so source order alone would decide a tie. */
+  .catpicker.catlocpicker{ width:140px; left:auto; right:0; }
   .catlocchk{
     display:flex; align-items:center; gap:5px; cursor:pointer;
     font-family:'IBM Plex Mono', monospace; font-size:0.64rem; text-transform:uppercase;
-    letter-spacing:0.03em; color: var(--ink-soft);
+    letter-spacing:0.03em; color: var(--ink-soft); margin-bottom:8px;
   }
+  .catlocchk:last-child{ margin-bottom:0; }
   .catlocchk input{ cursor:pointer; }
   /* Locations as a horizontal row of small pills — echoes .locbadge (the
      round workspace-switcher badge in the masthead) rather than the old

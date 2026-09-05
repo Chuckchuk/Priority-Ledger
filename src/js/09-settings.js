@@ -20,6 +20,13 @@ const CHECK_GUIDE_STYLE_OPTIONS = [
   ].map(([v, label]) => [v, label, `<span class="check guide-check guide-${v} guide-preview" aria-hidden="true"></span>`])
 ];
 
+// A standard map-pin glyph (not DAYPIN_ICON_SVG — that's the "add to
+// today" pin used on task rows, a different concept entirely that just
+// happens to also be called a "pin") for the per-category Locations
+// popover trigger (catLocPickerHtml() below) — same hand-authored 24×24
+// viewBox/fill="currentColor" idiom as CATEGORY_ICON_SVG.
+const LOCATION_PIN_ICON_SVG = '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block"><path d="M12,2 C7.58,2 4,5.58 4,10 C4,16 12,22 12,22 C12,22 20,16 20,10 C20,5.58 16.42,2 12,2 Z M12,13 C10.34,13 9,11.66 9,10 C9,8.34 10.34,7 12,7 C13.66,7 15,8.34 15,10 C15,11.66 13.66,13 12,13 Z" fill="currentColor"/></svg>';
+
 // ---------- Manage tabs ----------
 
 function toggleSettings(){
@@ -52,14 +59,19 @@ function renderSettings(){
          <button class="catdeleteconfirm" onclick="deleteCategory('${c.id}')">Yes, delete</button>
          <button class="catcancel" onclick="cancelDeleteCategory()">Cancel</button>`
       : `<button class="catdelete" ${state.categories.length<=1?'disabled title="At least one tab must stay"':''} onclick="askDeleteCategory('${c.id}')">Delete</button>`;
-    const locChecks = state.locationEnabled ? `
-      <div class="catlocs">
-        ${state.locations.map(l=>`
-          <label class="catlocchk">
-            <input type="checkbox" ${c.locations.includes(l.id)?'checked':''} onchange="toggleCategoryLocation('${c.id}','${l.id}', this.checked)">
-            ${escapeHtml(l.label)}
-          </label>`).join('')}
-      </div>` : '';
+    // Which locations this category currently shows under, as small
+    // pills next to its label — replaces the old always-visible row of
+    // location checkboxes below every category row (see catLocPickerHtml()
+    // below for where that control moved to), which was a full extra
+    // line per category regardless of whether anyone was actually about
+    // to change it. Reads state.locations (not just the raw id) so a
+    // location the project owner has since deleted can't leave a
+    // dangling badge with no label to show.
+    const locBadges = state.locationEnabled ? c.locations
+      .map(locId => state.locations.find(l=>l.id===locId))
+      .filter(Boolean)
+      .map(l => `<span class="catlocbadge">${escapeHtml(l.label)}</span>`)
+      .join('') : '';
     return `
     <div class="catrow">
       <div class="catidentity">
@@ -76,6 +88,7 @@ function renderSettings(){
           onkeydown="if(event.key==='Enter'){ event.preventDefault(); this.blur(); }">
         ${c.type==='checklist' ? '<span class="badge timeframe">Checklist</span>' : ''}
         ${c.type==='calendar' ? '<span class="badge timeframe">Calendar</span>' : ''}
+        ${locBadges}
         <!-- Only shown while the Stacked Tabs dev setting (01-categories-
              theme.js) is on — pinning has no effect at all otherwise, so
              surfacing the control the rest of the time would just be a
@@ -85,9 +98,21 @@ function renderSettings(){
         ${(state.devSettings||{}).stackedTabsEnabled ? `
         <button class="catpinbtn ${c.pinned?'on':''}" onclick="togglePinCategory('${c.id}')" title="${c.pinned?'Unpin — fold back into its Stacked Tabs group':'Pin — always its own tab, never folded into a stack'}">${DAYPIN_ICON_SVG}</button>
         ` : ''}
+        <!-- Per the explicit ask: a single trigger (right of the label,
+             right of the pin button) opening a small popover to choose
+             this category's locations, rather than a full-width row of
+             checkboxes under every category regardless of whether anyone
+             was about to touch it. Only rendered while locations are on
+             at all — same "disabled IS the no-locations-configured path"
+             rule the rest of the location feature already follows (see
+             CLAUDE.md's own note on state.locationEnabled). -->
+        ${state.locationEnabled ? `
+        <span class="catlocwrap">
+          <button class="catlocbtn" onclick="toggleCatLocPicker('${c.id}')" title="Choose which locations show this tab">${LOCATION_PIN_ICON_SVG}</button>
+          ${openCatLocPickerId === c.id ? catLocPickerHtml(c) : ''}
+        </span>` : ''}
       </div>
       ${deleteControls}
-      ${locChecks}
     </div>`;
   }).join('');
 
@@ -481,6 +506,36 @@ async function toggleCategoryLocation(catId, locId, checked){
   queueSave();
 }
 
+// The whole popover this row's .catlocbtn opens — a small in-place card,
+// same reasoning/chrome as categoryPickerHtml() just below (reuses
+// .catpicker/.catpickerclose/.catpickerlabel directly rather than
+// duplicating that look) — just a plain checkbox list instead of a
+// swatch/icon grid. Replaces the old always-visible row of location
+// checkboxes under every category row.
+function catLocPickerHtml(c){
+  const rows = state.locations.map(l => `
+    <label class="catlocchk">
+      <input type="checkbox" ${c.locations.includes(l.id)?'checked':''} onchange="toggleCategoryLocation('${c.id}','${l.id}', this.checked)">
+      ${escapeHtml(l.label)}
+    </label>`
+  ).join('');
+  return `
+    <div class="catpicker catlocpicker">
+      <button class="catpickerclose" onclick="toggleCatLocPicker('${c.id}')" title="Close">×</button>
+      <div class="catpickerlabel">Locations</div>
+      ${rows}
+    </div>`;
+}
+
+// Pure UI navigation, same "close everything else first" reasoning as
+// toggleCategoryPicker() below.
+function toggleCatLocPicker(id){
+  const wasOpen = openCatLocPickerId === id;
+  closeAllSettingsPopovers();
+  if(!wasOpen) openCatLocPickerId = id;
+  render();
+}
+
 // The whole popover this row's .cdot button opens (see the catrow
 // template above) — a small in-place card, not a real page like
 // .stackedpage, since it belongs to one specific row and should feel
@@ -559,6 +614,7 @@ function toggleCategoryPicker(id){
 // call instead of listing each of these vars individually.
 function closeAllSettingsPopovers(){
   openCategoryPickerId = null;
+  openCatLocPickerId = null;
   customColorOpen = false;
   uiColorPickerOpen = false;
   deskPaperPickerOpen = false;
