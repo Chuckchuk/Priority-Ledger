@@ -2865,7 +2865,11 @@
      line inside .catidentity and makes that sibling taller; centering
      would otherwise drift Delete down toward that block's vertical
      middle instead of staying level with the label like every other row. */
-  .catrow{ display:flex; align-items:flex-start; gap:8px; padding:10px 2px; border-bottom:1px dashed var(--line); flex-wrap:wrap; }
+  /* padding:8px (was 10px) per the explicit ask for "a TINY bit" tighter
+     rows on desktop — mobile gets its own layout treatment below rather
+     than sharing this exact value, but nothing asked for a *different*
+     padding amount there specifically, so this applies to both. */
+  .catrow{ display:flex; align-items:flex-start; gap:8px; padding:8px 2px; border-bottom:1px dashed var(--line); flex-wrap:wrap; }
   /* Groups reorder+color/icon+label+type-badge into one flex:1 unit so
      Delete (a separate, fixed-width sibling below) always lands in the
      same place regardless of whether a row happens to have a type badge.
@@ -2902,6 +2906,16 @@
      (the "+ add a new tab" input, tabsSection() in 09-settings.js), which
      still wants the old flex:1 + its own underline. */
   .catlabelline .catedit{ flex:0 1 140px; min-width:70px; border-bottom:none; padding-bottom:0; }
+  /* Mobile-only: per the explicit ask, the dashed line sits directly
+     under the category name only, ending right where it does — badges
+     follow after a plain gap instead of appearing to share the label's
+     own underline the way the desktop layout above deliberately does.
+     Moves the border straight back onto .catedit (a short, fixed-ish
+     width) and clears it off the wrapper. */
+  body.mobileui-active .catlabelline{ border-bottom:none; padding-bottom:0; }
+  body.mobileui-active .catlabelline .catedit{
+    border-bottom:1px dashed var(--ink-soft); padding-bottom:3px; flex:0 1 110px; min-width:60px;
+  }
   .catwarn{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--estate); flex-basis:100%; }
   .catdelete, .catdeleteconfirm, .catcancel{
     font-family:'IBM Plex Mono', monospace; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.04em;
@@ -2909,6 +2923,23 @@
   }
   .catdeleteconfirm{ border-color: var(--estate); color: var(--estate); }
   .catdelete:disabled{ opacity:0.4; cursor:not-allowed; }
+  /* The category row's own Delete button specifically (not
+     locationEditorHtml()'s plain-text one, which keeps the full
+     .catdelete look everywhere) — .catdeletex is hidden by default and
+     only shown, in place of the text label, once body.mobileui-active
+     shrinks this down to a bare "×" matching .catpinbtn/.catlocbtn's own
+     icon-button weight and sizing. Kept as one shared markup (both spans
+     always rendered, see the .catrow template in 09-settings.js) rather
+     than two templates, so there's nothing to keep in sync between them. */
+  .catdeletex{ display:none; }
+  body.mobileui-active .cattabdelete{
+    background:none; border:none; padding:6px; margin:-6px; border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:0.9rem; line-height:1; color: var(--estate);
+  }
+  body.mobileui-active .cattabdelete:hover{ background: var(--card-bg-dim); }
+  body.mobileui-active .catdeletelabel{ display:none; }
+  body.mobileui-active .catdeletex{ display:inline; }
   /* ---- Recently Deleted (trashSectionHtml(), 09-settings.js) ---- */
   .trashempty{ font-family:'Fraunces', serif; font-style:italic; color: var(--ink-soft); text-align:center; padding: 14px 10px; font-size:0.92rem; }
   .trashnote{ font-family:'IBM Plex Mono', monospace; font-size:0.62rem; color: var(--ink-soft); padding:2px 2px 10px; }
@@ -3342,6 +3373,17 @@
      custom pair here always means setting two colors, not one. */
   .uipresetbtn.customtile{ border-style:dashed; }
   .uipresetbtn.customtile .uipresetswatches{ border:1px dashed var(--line); }
+  /* ---- Style Presets (Settings → Appearance, stylePresetsSectionHtml()
+     in 09-settings.js) ---- Same .uipresetgrid/.uipresetbtn/
+     .uipresettilewrap/.uipresettileactions shape every other saved-
+     template tile in this file already uses; .stylepresetdots is the one
+     addition — a small strip of each preset's own category colors,
+     between the bg/paper swatches and the name, so a preset's own visual
+     carries some of what it actually recolors beyond just the desk and
+     ledger. */
+  .stylepresetgrid{ display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+  .stylepresetdots{ display:flex; gap:2px; flex-shrink:0; }
+  .stylepresetdot{ width:7px; height:7px; border-radius:50%; flex-shrink:0; }
   /* margin-top clears .catpickerclose ("×", position:absolute top:4px
      against .catpicker's own box) — .catpicker's own padding (12px) isn't
      enough on its own since the "×" sits a little into that padding, and

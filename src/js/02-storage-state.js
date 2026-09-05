@@ -220,6 +220,15 @@ let editingDualColorPresetId = null;
 // startSaveDualColorTemplate() in 09-settings.js. Only meaningful while
 // dualColorCustomOpen is also true.
 let dualColorSaveTemplateOpen = false;
+// Same pair of ideas, for Style Presets (Settings → Appearance) — see
+// startSaveStylePreset()/editStylePreset() in 09-settings.js.
+// stylePresetSaveOpen is the plain "+ Save current look as a preset"
+// inline name form; editingStylePresetId (mutually exclusive with it,
+// same as editingDualColorPresetId/dualColorSaveTemplateOpen above) is
+// set instead when a saved preset's own ✎ was used, so confirming
+// overwrites that entry in place rather than creating a new one.
+let stylePresetSaveOpen = false;
+let editingStylePresetId = null;
 // The category color/icon popover's "Custom" sub-panel (a hue ring + a
 // saturation/value square, see catWheelPointerDown() in 09-settings.js) —
 // only meaningful while openCategoryPickerId names a category.
@@ -622,7 +631,13 @@ function defaultDevSettings(){
   // the setting off) sees. A type with no entry yet just falls back to its
   // first member in state.categories order — see stackGroupsForTabs() in
   // 06-tabs-render.js.
-  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddBarStyle:'top', tabBarMobileStyle:'default', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100', stackedTabsEnabled:false, stackedTabsTop:{}, swipeActionsEnabled:false, mobileColoredTabs:false };
+  // tabBarMobileStyle/mobileColoredTabs/stackedTabsEnabled default to
+  // 'scroll'/true/true (not 'default'/false/false like every other
+  // EXPERIMENTAL field here) per the project owner's own ask — these
+  // three graduated to being the actual default *behavior*, while
+  // staying real Dev Settings (not promoted to permanent, ungated
+  // features) so they can still be turned back off if that call changes.
+  return { tagSeam:false, pendingTagStyle:'default', sidePanelEnabled:false, leatherInsetPreset:'classic', stackedPageInsetPreset:'leftheavy', mobileUiPreviewOnDesktop:false, quickAddBarStyle:'top', tabBarMobileStyle:'scroll', tabBarDesktopStyle:'overlap', overlapSubtags:true, overlapStackMode:'hover', sidetabsAppearance:'color', sidetabsShape:'pagetab', fieldPickerStyle:'default', checkGuideAnimationStyle:'radialping', developmentMode:false, categoryLabelStyle:'tab', taskDetailActionsPosition:'side', desktopZoom:'100', stackedTabsEnabled:true, stackedTabsTop:{}, swipeActionsEnabled:false, mobileColoredTabs:true };
 }
 
 // A brand new account's task list starts with a few illustrative examples
@@ -674,6 +689,44 @@ function defaultTasks(){
   ];
 }
 
+// Seeds the Style Presets feature (see stylePresets' own comment in
+// defaultState() below) with one built-in look — a genuine demo of what
+// the feature actually captures, not a placeholder. Deep near-black
+// violet desk under a dark purple-black ledger (paper stays under the
+// 0.5 relLuminance line, same "real dark mode" mechanism every dark Desk
+// & Ledger preset in 01-categories-theme.js uses) with a custom pumpkin-
+// orange/witch-purple UI color pair and Text & Lines Match UI Color
+// turned on (Primary) — per the explicit "make sure the text is a cool
+// color" ask, this is what actually produces the glowing pumpkin-orange
+// ink against the dark purple paper, not a separate hardcoded text
+// color. Category colors are keyed by id (work/household/personal/
+// lists — defaultCategories()'s own ids), so this recolors a fresh
+// account's default four tabs out of the box; applyStylePreset() only
+// touches a category whose id is still present, so it's harmless
+// against an account that's renamed or removed any of them.
+function defaultStylePresets(){
+  return [{
+    id: 'style-halloween',
+    label: 'Halloween',
+    theme: {
+      bg: '#0D0710', paper: '#1C0F22',
+      gradient: true, grain: true, pages: false, leather: false,
+      uiPreset: 'custom',
+      customUi: { label:'Halloween', primary:'#E07A1E', primaryLight:'#F0A050', secondary:'#7B3FA0', secondaryLight:'#9C6BC0' },
+      inkFromUi: true, inkFromUiSource: 'primary'
+    },
+    deskPaletteId: 'midnight',
+    uiPaletteId: 'classic',
+    categoryPaletteId: 'classic',
+    categories: [
+      { id:'work',      hex:'#D9720E', icon:'dot' },
+      { id:'household', hex:'#6B3FA0', icon:'dot' },
+      { id:'personal',  hex:'#5A8F3C', icon:'dot' },
+      { id:'lists',     hex:'#8C2F2F', icon:'dot' }
+    ]
+  }];
+}
+
 function defaultState(){
   const tasks = defaultTasks();
   // The example "Packing list: Madrid Trip" list (defaultTasks() above)
@@ -710,6 +763,17 @@ function defaultState(){
     customDeskPresets: [],
     customUiPresets: [],
     customCategoryColors: [],
+    // Whole-look Style Presets (Settings → Appearance → Style Presets) —
+    // a step up from customDeskPresets/customUiPresets above: those each
+    // save one piece (a bg/paper pair, a primary/secondary pair), this
+    // saves the ENTIRE look at once — every Appearance field (including
+    // Background gradient/grain/pages/leather and Text & Lines Match UI
+    // Color + its Primary/Secondary choice) plus each existing category's
+    // own color/icon — see buildStylePresetSnapshot()/applyStylePreset()
+    // in 09-settings.js. Seeded with one built-in "Halloween" preset (see
+    // defaultStylePresets() below) so the feature isn't an empty list the
+    // first time anyone opens it.
+    stylePresets: defaultStylePresets(),
     // Which of CATEGORY_PALETTE_SETS (01-categories-theme.js) is active —
     // 'classic' is the original set, so that's the default for both a
     // brand-new account and rebuildCategoryPalette()'s own fallback.
@@ -752,6 +816,11 @@ function normalizeState(){
   if(!Array.isArray(state.customDeskPresets)) state.customDeskPresets = [];
   if(!Array.isArray(state.customUiPresets)) state.customUiPresets = [];
   if(!Array.isArray(state.customCategoryColors)) state.customCategoryColors = [];
+  // Same seed-once idea as defaultCategories()'s own migration below —
+  // an account saved before Style Presets existed gets the same built-in
+  // "Halloween" preset a brand-new account starts with, rather than an
+  // empty list.
+  if(!Array.isArray(state.stylePresets)) state.stylePresets = defaultStylePresets();
   // 'greyscale' was consolidated into 'noir' across all three palette
   // systems (see CATEGORY_PALETTE_SETS/UI_COLOR_PRESET_SETS/
   // DESK_PAPER_PRESET_SETS, 01-categories-theme.js) — an account that had

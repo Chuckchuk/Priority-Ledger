@@ -641,15 +641,23 @@ const DESK_PAPER_PRESET_SETS = {
   // golden-wheat paper, distinct in both hue and richness from Pumpkin's
   // orange/cream and Maple's red/parchment rather than a third variation
   // on the same "pale cream paper" look those two already cover.
+  // Ember & Ash and Harvest Moon (the two originally paired with Cider &
+  // Rust below) both read as close variations on the same rust-brown
+  // near-black — replaced with Fern & Umber (a genuinely different,
+  // cooler mossy-green ledger against a warm umber-black desk — fall
+  // foliage isn't only red/orange/gold) and Goldenrod & Coal (a rich,
+  // more saturated amber-gold ledger against a neutral coal-black desk,
+  // distinct from Cider's red-orange rust) for real variety across the
+  // three dark presets rather than three shades of the same mood.
   ember: {
     id: 'ember', label: 'Ember',
     presets: [
       { id:'pumpkincream',  label:'Pumpkin & Cream',   bg:'#6B3410', paper:'#F5E3C4' },
       { id:'mapleparchment', label:'Maple & Parchment', bg:'#4A1E17', paper:'#F2DAB0' },
       { id:'acornwheat',    label:'Acorn & Wheat',     bg:'#5C3A1E', paper:'#F2E0A8' },
-      { id:'emberash',      label:'Ember & Ash',       bg:'#170D0A', paper:'#2E1A0E' },
+      { id:'fernumber',     label:'Fern & Umber',      bg:'#150F09', paper:'#212B18' },
       { id:'ciderrust',     label:'Cider & Rust',      bg:'#160D08', paper:'#2C160E' },
-      { id:'harvestmoon',   label:'Harvest Moon',      bg:'#151109', paper:'#2A2412' }
+      { id:'goldenrodcoal', label:'Goldenrod & Coal',  bg:'#0F0F0F', paper:'#332508' }
     ]
   },
   // Consolidated from the old 'noir' (near-black neutrals, dark-only) and
@@ -1144,6 +1152,13 @@ async function setDevTabBarDesktopStyle(val){
   queueSave();
 }
 
+async function setDevStackedTabsStyle(val){
+  pushUndo(`Changed dev Stacked Tab style to "${val}"`);
+  state.devSettings.stackedTabsStyle = val;
+  render();
+  queueSave();
+}
+
 // Unlike most setDev* setters, this one used to skip applyDevSettings()
 // (calling only render()) — a real bug, not just an oversight: 'ranked'
 // mode's hover behavior is driven by the [data-overlap-stack-mode]
@@ -1511,6 +1526,15 @@ function devSettingsFieldsHtml(rowClass, fieldClass, captionClass, selectClass, 
       <input type="checkbox" ${dev.stackedTabsEnabled?'checked':''} onchange="toggleDevSetting('stackedTabsEnabled', this.checked)">
       ★ Stacked Tabs: collapse every unpinned category of the same type (standard/checklist/etc.) into one shared tab — tap goes to whichever is on top, long-press picks a different one. Pin a category in the list above to always give it its own tab instead. Works alongside the tab bar style above, not instead of it.
     </label>
+    <!-- Only shown once Stacked Tabs itself is on — per the explicit ask,
+         there's nothing to preview a "how the stack looks" choice against
+         otherwise. See tabStackPeekHtml() (06-tabs-render.js) for what each
+         option actually renders. -->
+    ${dev.stackedTabsEnabled ? devField('Stacked Tab style', dev.stackedTabsStyle||'cards', [
+      ['cards','Cards — other members peek out as solid card edges behind the top tab'],
+      ['dots','Dots — a small row of each member\'s own color, no card shape'],
+      ['wonky','Wonky — small offset icon chips fanned out behind the top tab']
+    ], 'setDevStackedTabsStyle') : ''}
 
     ${devSectionHeadHtml('Rows')}
     <label class="${rowClass}">
